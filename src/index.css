@@ -1,0 +1,581 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Quicksand:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Sementes da Fala Design System */
+
+@layer base {
+  :root {
+    /* Brand Colors - From Logo */
+    --brand-green: 142 71% 45%;
+    --brand-green-dark: 142 76% 36%;
+    --brand-green-light: 142 52% 72%;
+    --brand-orange: 36 100% 50%;
+    --brand-orange-dark: 28 100% 45%;
+    --brand-yellow: 45 100% 51%;
+    --brand-blue: 207 90% 54%;
+    --brand-purple: 270 67% 47%;
+    --brand-brown: 16 25% 38%;
+    --brand-mint: 150 30% 94%;
+    
+    /* Core tokens */
+    --background: 150 30% 96%;
+    --foreground: 16 25% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 16 25% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 16 25% 20%;
+
+    --primary: 142 71% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 36 100% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 150 20% 90%;
+    --muted-foreground: 16 15% 50%;
+
+    --accent: 207 90% 54%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 20% 85%;
+    --input: 150 20% 88%;
+    --ring: 142 71% 45%;
+
+    --radius: 0.75rem;
+
+    /* Gradients */
+    --gradient-brand: linear-gradient(135deg, hsl(var(--brand-green)) 0%, hsl(var(--brand-green-dark)) 100%);
+    --gradient-action: linear-gradient(135deg, hsl(var(--brand-orange)) 0%, hsl(var(--brand-orange-dark)) 100%);
+    --gradient-background: linear-gradient(180deg, hsl(150 35% 96%) 0%, hsl(150 25% 92%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(142 50% 88%) 0%, hsl(150 30% 94%) 50%, hsl(45 40% 92%) 100%);
+
+    /* Shadows */
+    --shadow-card: 0 10px 40px -10px hsl(142 30% 30% / 0.15);
+    --shadow-button: 0 4px 15px -3px hsl(142 71% 45% / 0.4);
+    --shadow-button-hover: 0 6px 20px -3px hsl(142 71% 45% / 0.5);
+    --shadow-input-focus: 0 0 0 3px hsl(142 71% 45% / 0.15);
+
+    /* Transitions */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .dark {
+    --background: 16 25% 10%;
+    --foreground: 150 30% 96%;
+
+    --card: 16 20% 15%;
+    --card-foreground: 150 30% 96%;
+
+    --popover: 16 20% 15%;
+    --popover-foreground: 150 30% 96%;
+
+    --primary: 142 71% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 36 100% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 16 15% 25%;
+    --muted-foreground: 150 20% 70%;
+
+    --accent: 207 90% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 16 15% 25%;
+    --input: 16 15% 25%;
+    --ring: 142 71% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold;
+  }
+}
+
+/* ---------------------------
+   Fullscreen (native) + pseudo fullscreen (fallback)
+   --------------------------- */
+
+/* Native fullscreen do elemento alvo */
+.fs-target:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0 !important;
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: hsl(var(--background));
+}
+
+/* Safari/webkit prefix */
+.fs-target:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  border-radius: 0 !important;
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: hsl(var(--background));
+}
+
+/* Fallback que funciona em qualquer device */
+.fs-target.is-pseudo-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: hsl(var(--background)) !important;
+}
+
+/* Em landscape (altura baixa), algumas Atividades não cabem sem scroll.
+   Permitimos scroll INTERNO apenas para targets marcados com .fs-allow-scroll. */
+@media (orientation: landscape) {
+  .fs-target.fs-allow-scroll:fullscreen {
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .fs-target.fs-allow-scroll:-webkit-full-screen {
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .fs-target.is-pseudo-fullscreen.fs-allow-scroll {
+    overflow: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Helpers para layouts "fit to screen" dentro do fullscreen */
+.fs-target:fullscreen .fs-fit,
+.fs-target:-webkit-full-screen .fs-fit,
+.fs-target.is-pseudo-fullscreen .fs-fit {
+  height: 100%;
+  max-height: 100%;
+}
+
+/* Esconde trechos não-essenciais durante fullscreen (ganhar espaço) */
+.fs-target:fullscreen .fs-hide-in-fs,
+.fs-target:-webkit-full-screen .fs-hide-in-fs,
+.fs-target.is-pseudo-fullscreen .fs-hide-in-fs {
+  display: none !important;
+}
+
+/* Ajustes do jogo da memória em fullscreen: menos padding, grid "fit" */
+.fs-target:fullscreen .mg-fs-body,
+.fs-target:-webkit-full-screen .mg-fs-body,
+.fs-target.is-pseudo-fullscreen .mg-fs-body {
+  padding: 0.75rem !important;
+}
+
+/* trava scroll do documento quando usamos pseudo fullscreen */
+.fs-lock,
+.fs-lock body {
+  overflow: hidden !important;
+}
+
+/* Opcional: esconder cabeçalhos/barras durante fullscreen (especialmente no pseudo-fullscreen) */
+.fs-mode .fs-hide-when-fullscreen {
+  display: none !important;
+}
+
+@layer components {
+  .login-card {
+    @apply bg-card rounded-2xl p-8 md:p-10;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* ---------------------------
+     Memory Game animations
+     --------------------------- */
+  @keyframes mg-shuffle {
+    0% { transform: translateY(0) scale(1); filter: blur(0); opacity: 1; }
+    35% { transform: translateY(-6px) scale(0.985); filter: blur(0.4px); opacity: 0.92; }
+    70% { transform: translateY(2px) scale(1.01); filter: blur(0); opacity: 1; }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  .mg-shuffle > * {
+    animation: mg-shuffle 520ms ease-in-out both;
+  }
+
+  @keyframes mg-shuffle-card {
+    0% { transform: translateY(0) rotate(0deg) scale(1); }
+    30% { transform: translateY(-10px) rotate(-2deg) scale(0.98); }
+    60% { transform: translateY(6px) rotate(2deg) scale(1.02); }
+    100% { transform: translateY(0) rotate(0deg) scale(1); }
+  }
+
+  .mg-shuffle-card {
+    animation: mg-shuffle-card 520ms cubic-bezier(.2,.9,.2,1) both;
+  }
+
+  @keyframes mg-win-pop {
+    0% { transform: translateY(10px) scale(0.98); opacity: 0; }
+    60% { transform: translateY(-2px) scale(1.02); opacity: 1; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  .mg-win {
+    animation: mg-win-pop 520ms cubic-bezier(.2,.9,.2,1) both;
+    box-shadow: 0 20px 60px -30px hsl(142 30% 30% / 0.35);
+  }
+
+  /* ---------------------------
+     Auditory Game animations
+     --------------------------- */
+  @keyframes mg-aud-pop {
+    0% { transform: translate(-50%, -50%) scale(0.7); opacity: 0; }
+    60% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  }
+
+  .mg-aud-correct, .mg-aud-wrong {
+    animation: mg-aud-pop 260ms ease-out both;
+  }
+
+  @keyframes mg-aud-shake {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    20% { transform: translate(-50%, -50%) rotate(-6deg); }
+    40% { transform: translate(-50%, -50%) rotate(6deg); }
+    60% { transform: translate(-50%, -50%) rotate(-4deg); }
+    80% { transform: translate(-50%, -50%) rotate(4deg); }
+    100% { transform: translate(-50%, -50%) rotate(0deg); }
+  }
+
+  .mg-aud-wrong {
+    animation: mg-aud-pop 220ms ease-out both, mg-aud-shake 520ms ease-in-out 60ms;
+  }
+
+  @keyframes mg-aud-fireworks {
+    0% { transform: translateZ(0) scale(0.2); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translateZ(0) scale(1.8); opacity: 0; }
+  }
+
+  .mg-aud-fireworks {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #fff;
+    opacity: 0.9;
+    animation: mg-aud-fireworks 900ms cubic-bezier(.2,.9,.2,1) forwards;
+  }
+
+  @keyframes mg-aud-burst {
+    0% { transform: scale(0.25); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: scale(1.45); opacity: 0; }
+  }
+
+  .mg-aud-fireworks::before,
+  .mg-aud-fireworks::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: 999px;
+    background: transparent;
+    animation: mg-aud-burst 900ms cubic-bezier(.2,.9,.2,1) forwards;
+  }
+
+  /* Partículas (box-shadows) - bem mais visível */
+  .mg-aud-fireworks::before {
+    box-shadow:
+      0 -18px 0 0 #ffd166,
+      0 18px 0 0 #06d6a0,
+      18px 0 0 0 #118ab2,
+      -18px 0 0 0 #ff006e,
+      13px -13px 0 0 #8338ec,
+      -13px -13px 0 0 #ffbe0b,
+      13px 13px 0 0 #06d6a0,
+      -13px 13px 0 0 #118ab2;
+    filter: drop-shadow(0 6px 10px rgba(0,0,0,0.18));
+  }
+
+  .mg-aud-fireworks::after {
+    animation-delay: 80ms;
+    box-shadow:
+      0 -26px 0 0 rgba(255, 209, 102, 0.9),
+      0 26px 0 0 rgba(6, 214, 160, 0.9),
+      26px 0 0 0 rgba(17, 138, 178, 0.9),
+      -26px 0 0 0 rgba(255, 0, 110, 0.9),
+      19px -19px 0 0 rgba(131, 56, 236, 0.85),
+      -19px -19px 0 0 rgba(255, 190, 11, 0.85),
+      19px 19px 0 0 rgba(6, 214, 160, 0.85),
+      -19px 19px 0 0 rgba(17, 138, 178, 0.85);
+    filter: drop-shadow(0 8px 14px rgba(0,0,0,0.16));
+  }
+
+  /* ---------------------------
+     Hangman (Jogo da Forca) animations
+     --------------------------- */
+
+  @keyframes hg-letter-pop {
+    0% { transform: translateY(6px) scale(0.85); opacity: 0.2; }
+    55% { transform: translateY(-2px) scale(1.08); opacity: 1; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  @keyframes hg-letter-glow {
+    0% { box-shadow: 0 0 0 0 hsl(var(--brand-green) / 0.0); }
+    40% { box-shadow: 0 0 0 6px hsl(var(--brand-green) / 0.18); }
+    100% { box-shadow: 0 0 0 0 hsl(var(--brand-green) / 0.0); }
+  }
+
+  .hg-letter-pop {
+    animation: hg-letter-pop 420ms var(--transition-bounce) both, hg-letter-glow 520ms ease-out both;
+  }
+
+  @keyframes hg-hit-badge {
+    0% { transform: translateY(10px) scale(0.92); opacity: 0; filter: blur(0.4px); }
+    60% { transform: translateY(-2px) scale(1.04); opacity: 1; filter: blur(0); }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  .hg-hit-badge {
+    animation: hg-hit-badge 520ms var(--transition-bounce) both;
+    box-shadow: 0 18px 50px -30px hsl(142 30% 30% / 0.55);
+  }
+
+  @keyframes hg-key-hit {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 hsl(var(--brand-green) / 0); }
+    50% { transform: scale(1.08); box-shadow: 0 0 0 8px hsl(var(--brand-green) / 0.18); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 hsl(var(--brand-green) / 0); }
+  }
+
+  .hg-key-hit {
+    animation: hg-key-hit 520ms var(--transition-bounce) both;
+  }
+
+  @keyframes hg-win-fade {
+    0% { opacity: 0; transform: scale(0.98); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .hg-win-overlay {
+    animation: hg-win-fade 260ms ease-out both;
+  }
+
+  /* ---------------------------
+     App loader (logo)
+     --------------------------- */
+
+  @keyframes app-logo-pop {
+    0% { transform: translateY(6px) scale(0.96); opacity: 0; }
+    60% { transform: translateY(-2px) scale(1.03); opacity: 1; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  .app-logo-pop {
+    animation: app-logo-pop 520ms var(--transition-bounce) both;
+  }
+
+  @keyframes app-dots {
+    0% { box-shadow: 0 0 0 0 hsl(var(--brand-green) / 0.0), 10px 0 0 0 hsl(var(--brand-orange) / 0.0), 20px 0 0 0 hsl(var(--brand-blue) / 0.0); }
+    30% { box-shadow: 0 0 0 4px hsl(var(--brand-green) / 0.18), 10px 0 0 0 hsl(var(--brand-orange) / 0.0), 20px 0 0 0 hsl(var(--brand-blue) / 0.0); }
+    60% { box-shadow: 0 0 0 0 hsl(var(--brand-green) / 0.0), 10px 0 0 4px hsl(var(--brand-orange) / 0.18), 20px 0 0 0 hsl(var(--brand-blue) / 0.0); }
+    90% { box-shadow: 0 0 0 0 hsl(var(--brand-green) / 0.0), 10px 0 0 0 hsl(var(--brand-orange) / 0.0), 20px 0 0 4px hsl(var(--brand-blue) / 0.18); }
+    100% { box-shadow: 0 0 0 0 hsl(var(--brand-green) / 0.0), 10px 0 0 0 hsl(var(--brand-orange) / 0.0), 20px 0 0 0 hsl(var(--brand-blue) / 0.0); }
+  }
+
+  .app-dots {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: hsl(var(--brand-green));
+    display: inline-block;
+    animation: app-dots 900ms ease-in-out infinite;
+  }
+
+  @keyframes mg-aud-confetti-fall {
+    0% { transform: translateY(-10%) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    100% { transform: translateY(110%) rotate(720deg); opacity: 0; }
+  }
+
+  .mg-aud-celebrate {
+    position: absolute;
+    inset: 0;
+  }
+
+  .mg-aud-confetti {
+    position: absolute;
+    top: 0;
+    width: 10px;
+    height: 18px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #ff006e, #ffd166);
+    animation: mg-aud-confetti-fall 1400ms ease-in forwards;
+  }
+
+  .mg-aud-confetti:nth-child(1) { left: 20%; animation-delay: 0ms; }
+  .mg-aud-confetti:nth-child(2) { left: 50%; background: linear-gradient(135deg, #06d6a0, #118ab2); animation-delay: 120ms; }
+  .mg-aud-confetti:nth-child(3) { left: 78%; background: linear-gradient(135deg, #8338ec, #ffbe0b); animation-delay: 240ms; }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl border-2 border-input bg-background/50 
+           text-foreground placeholder:text-muted-foreground
+           transition-all duration-200
+           focus:border-primary focus:outline-none;
+    box-shadow: inset 0 2px 4px hsl(0 0% 0% / 0.02);
+  }
+
+  .input-field:focus {
+    box-shadow: var(--shadow-input-focus), inset 0 2px 4px hsl(0 0% 0% / 0.02);
+  }
+
+  .input-field.error {
+    @apply border-destructive;
+    box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.15);
+  }
+
+  .input-field.success {
+    @apply border-primary;
+  }
+
+  .btn-primary {
+    @apply w-full py-3.5 px-6 rounded-xl font-semibold text-primary-foreground
+           transition-all duration-300 transform;
+    background: var(--gradient-brand);
+    box-shadow: var(--shadow-button);
+  }
+
+  .btn-primary:hover {
+    @apply scale-[1.02];
+    box-shadow: var(--shadow-button-hover);
+  }
+
+  .btn-primary:active {
+    @apply scale-[0.98];
+  }
+
+  .btn-primary.clicked {
+    background: var(--gradient-action);
+    box-shadow: 0 4px 15px -3px hsl(var(--brand-orange) / 0.4);
+  }
+
+  .link-styled {
+    @apply text-primary font-medium transition-colors duration-200 hover:text-brand-green-dark;
+  }
+}
+
+@layer utilities {
+  .gradient-background {
+    background: var(--gradient-background);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .text-brand-green {
+    color: hsl(var(--brand-green));
+  }
+
+  .text-brand-green-dark {
+    color: hsl(var(--brand-green-dark));
+  }
+
+  .text-brand-orange {
+    color: hsl(var(--brand-orange));
+  }
+
+  .bg-brand-mint {
+    background-color: hsl(var(--brand-mint));
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+
+  .animate-shake {
+    animation: shake 0.4s ease-in-out;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-in-out;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.5s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

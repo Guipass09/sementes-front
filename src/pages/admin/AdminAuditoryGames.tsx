@@ -8,6 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from "@/hooks/use-toast";
 import * as api from "@/lib/laravel-api";
 import type { AuditoryGameRow, AdminUserRow } from "@/lib/laravel-api";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 
 export default function AdminAuditoryGames() {
@@ -160,7 +161,7 @@ export default function AdminAuditoryGames() {
                           <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                             <div className="w-12 h-12 rounded-xl bg-brand-blue/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                               {g.background_url ? (
-                                <img src={g.background_url} alt="" className="w-full h-full object-cover" />
+                                <img src={normalizeMediaUrl(g.background_url)} alt="" className="w-full h-full object-cover" />
                               ) : (
                                 <Ear size={22} className="text-brand-blue" />
                               )}

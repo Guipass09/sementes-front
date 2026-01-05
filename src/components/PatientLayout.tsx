@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { Home, Activity, FileText, Calendar, Menu, X, LogOut, User, Grid3X3 } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { useAccessControl } from "@/hooks/use-access-control";
 import { useAuth } from "@/auth/AuthContext";
 import EditProfileModal from "@/components/EditProfileModal";
@@ -135,7 +136,7 @@ const PatientLayout = () => {
               </div>
               <div className="w-10 h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold flex-shrink-0">
                 {user.profile_photo_url ? (
-                  <img src={user.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                  <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                 ) : (
                   user.name.split(" ").map(n => n[0]).join("").slice(0, 2)
                 )}
@@ -180,7 +181,7 @@ const PatientLayout = () => {
             >
               <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold text-lg">
                 {user.profile_photo_url ? (
-                  <img src={user.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                  <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                 ) : (
                   user.name.split(" ").map(n => n[0]).join("").slice(0, 2)
                 )}

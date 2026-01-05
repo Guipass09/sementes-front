@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ActivityFormModal } from "@/features/activities/ActivityFormModal";
 import type { ActivityRow, AdminUserRow } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useNavigate } from "react-router-dom";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
@@ -197,7 +198,7 @@ const AdminActivities = () => {
                               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                 {activity.thumbnail?.media_type === "image" ? (
                                   <img
-                                    src={activity.thumbnail.url}
+                                    src={normalizeMediaUrl(activity.thumbnail.url)}
                                     alt=""
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
@@ -206,7 +207,7 @@ const AdminActivities = () => {
                                   />
                                 ) : activity.thumbnail?.media_type === "video" && activity.thumbnail.thumbnail_url ? (
                                   <img
-                                    src={activity.thumbnail.thumbnail_url}
+                                    src={normalizeMediaUrl(activity.thumbnail.thumbnail_url)}
                                     alt=""
                                     className="w-full h-full object-cover"
                                     onError={(e) => {

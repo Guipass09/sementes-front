@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import * as api from "@/lib/laravel-api";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import type { AdminUserRow, MemoryGameRow } from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 
@@ -147,7 +148,7 @@ export default function AdminMemoryGames() {
                               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                 {g.thumbnail ? (
                                   <img
-                                    src={g.thumbnail.url}
+                                    src={normalizeMediaUrl(g.thumbnail.url)}
                                     alt=""
                                     className="w-full h-full object-cover"
                                     onError={(e) => {

@@ -12,6 +12,7 @@ import * as api from "@/lib/laravel-api";
 import type { AdminUserRow, AuditoryGameRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
 import { isApiError } from "@/lib/laravel-api";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 type ItemInput = { file: File | null; previewUrl: string | null; existingUrl?: string | null };
 
@@ -314,8 +315,8 @@ export default function AdminAuditoryGameEdit() {
               />
               <div className="rounded-xl border border-border bg-background/50 p-3">
                 <div className="aspect-[16/9] rounded-lg bg-muted/30 overflow-hidden flex items-center justify-center">
-                  {bgPreview ? (
-                    <img src={bgPreview} alt="" className="w-full h-full object-cover" />
+                      {bgPreview ? (
+                    <img src={normalizeMediaUrl(bgPreview)} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="text-sm text-muted-foreground">Sem fundo</div>
                   )}
@@ -343,7 +344,7 @@ export default function AdminAuditoryGameEdit() {
                   <div key={idx} className="rounded-xl border border-border bg-background/50 p-3">
                     <div className="aspect-square rounded-lg bg-muted/30 overflow-hidden flex items-center justify-center">
                       {it.previewUrl ? (
-                        <img src={it.previewUrl} alt="" className="w-full h-full object-cover" />
+                        <img src={normalizeMediaUrl(it.previewUrl)} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="text-xs text-muted-foreground">Topo {idx + 1}</div>
                       )}

@@ -9,6 +9,7 @@ import type { AuthUser } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { Camera, Trash2, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 type Props = {
   open: boolean;
@@ -87,7 +88,7 @@ export default function EditProfileModal({ open, onOpenChange, user, onSaved }: 
               <div className="flex items-center justify-center">
                 <div className="relative h-24 w-24 rounded-full overflow-hidden border border-border bg-muted/30 flex items-center justify-center">
                   {previewUrl ? (
-                    <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={normalizeMediaUrl(previewUrl)} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="text-lg font-semibold text-muted-foreground">{initials}</div>
                   )}

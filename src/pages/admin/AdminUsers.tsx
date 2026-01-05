@@ -18,6 +18,7 @@ import {
 } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { emitAdminDataChanged, onAdminDataChanged } from "@/lib/admin-events";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { ReportFormModal } from "@/features/reports/ReportFormModal";
 import type { ReportType } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
@@ -381,7 +382,7 @@ const AdminUsers = () => {
                 <div className="flex items-center gap-4 flex-1">
                   <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold">
                     {user.profile_photo_url ? (
-                      <img src={user.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                      <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                     ) : (
                       user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
                     )}
@@ -509,7 +510,7 @@ const AdminUsers = () => {
                 <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
                   <div className="w-16 h-16 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold text-xl">
                     {selectedUser.profile_photo_url ? (
-                      <img src={selectedUser.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                      <img src={normalizeMediaUrl(selectedUser.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                     ) : (
                       selectedUser.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
                     )}

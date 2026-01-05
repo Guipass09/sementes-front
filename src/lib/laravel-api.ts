@@ -146,13 +146,34 @@ type ApiError = {
   data: any;
 };
 
-const API_BASE_URL =
-  // Preferência: variável de ambiente (build/deploy)
-  (import.meta as any).env?.VITE_API_URL?.toString?.() ||
-  // Padrão: mesma origem.
-  // No dev isso funciona via proxy do Vite (/api, /sanctum, /storage).
-  // Em produção, se o frontend for servido pelo Laravel/reverse-proxy, também funciona.
-  (typeof window !== "undefined" ? "" : "http://localhost:8000");
+const API_BASE_URL = (() => {
+  const raw =
+    // Preferência: variável de ambiente (build/deploy)
+    (import.meta as any).env?.VITE_API_URL?.toString?.() ||
+    // Padrão: mesma origem.
+    // No dev isso funciona via proxy do Vite (/api, /sanctum, /storage).
+    // Em produção, se o frontend for servido pelo Laravel/reverse-proxy, também funciona.
+    (typeof window !== "undefined" ? "" : "http://localhost:8000");
+
+  const trimmed = raw.endsWith("/") ? raw.slice(0, -1) : raw;
+
+  // Se o app está em HTTPS e a API foi configurada como HTTP, o browser vai bloquear (Mixed Content).
+  // Tenta "upgrade" para HTTPS para evitar erro de configuração comum em deploy.
+  if (
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    trimmed.startsWith("http://")
+  ) {
+    const upgraded = `https://${trimmed.slice("http://".length)}`;
+    console.warn(
+      "[API] VITE_API_URL está em HTTP num site HTTPS. Fazendo upgrade automático para:",
+      upgraded
+    );
+    return upgraded;
+  }
+
+  return trimmed;
+})();
 
 function getCookie(name: string): string | null {
   const parts = document.cookie.split(";").map((p) => p.trim());

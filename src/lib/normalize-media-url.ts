@@ -1,20 +1,22 @@
-export function normalizeMediaUrl(url: string | null | undefined): string {
+const API_URL = "https://api.sementesdafala.com.br";
+
+export function normalizeMediaUrl(
+  url: string | null | undefined
+): string {
   if (!url) return "";
-  if (typeof window === "undefined") return url;
 
-  try {
-    const u = new URL(url, window.location.origin);
-
-    // Para mídias do Laravel storage, sempre use o host atual.
-    // Isso evita "localhost" quebrando no celular e mantém o proxy do Vite (/storage) funcionando.
-    if (u.pathname.startsWith("/storage/")) {
-      return `${window.location.origin}${u.pathname}${u.search}${u.hash}`;
-    }
-
-    return url;
-  } catch {
+  // já é absoluta
+  if (url.startsWith("http")) {
     return url;
   }
+
+  // imagens do Laravel (storage)
+  if (url.startsWith("/storage/")) {
+    return `${API_URL}${url}`;
+  }
+
+  // fallback seguro
+  return url;
 }
 
 

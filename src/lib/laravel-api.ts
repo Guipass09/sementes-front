@@ -146,132 +146,60 @@ type ApiError = {
   data: any;
 };
 
-const API_BASE_URL = (() => {
-  const raw =
-    // Preferência: variável de ambiente (build/deploy)
-    (import.meta as any).env?.VITE_API_URL?.toString?.() ||
-    // Padrão: mesma origem.
-    // No dev isso funciona via proxy do Vite (/api, /sanctum, /storage).
-    // Em produção, se o frontend for servido pelo Laravel/reverse-proxy, também funciona.
-    (typeof window !== "undefined" ? "" : "http://localhost:8000");
-
-  const trimmed = raw.endsWith("/") ? raw.slice(0, -1) : raw;
-
-  // Se o app está em HTTPS e a API foi configurada como HTTP, o browser vai bloquear (Mixed Content).
-  // Tenta "upgrade" para HTTPS para evitar erro de configuração comum em deploy.
-  if (
-    typeof window !== "undefined" &&
-    window.location.protocol === "https:" &&
-    trimmed.startsWith("http://")
-  ) {
-    const upgraded = `https://${trimmed.slice("http://".length)}`;
-    console.warn(
-      "[API] VITE_API_URL está em HTTP num site HTTPS. Fazendo upgrade automático para:",
-      upgraded
-    );
-    return upgraded;
-  }
-
-  return trimmed;
-})();
-
-function getCookie(name: string): string | null {
-  const parts = document.cookie.split(";").map((p) => p.trim());
-  for (const p of parts) {
-    if (p.startsWith(`${name}=`)) {
-      return p.substring(name.length + 1);
-    }
-  }
-  return null;
-}
-
-function getXsrfToken(): string | null {
-  const raw = getCookie("XSRF-TOKEN");
-  if (!raw) return null;
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-}
+import api, { API_BASE_URL } from "../services/api";
 
 async function request<T>(
   path: string,
-  options: RequestInit & { json?: any; formData?: FormData; __csrfRetried?: boolean } = {}
+  options: { method?: string; json?: any; formData?: FormData; __csrfRetried?: boolean; headers?: Record<string,string>; keepalive?: boolean; body?: any } = {}
 ): Promise<T> {
-  const headers = new Headers(options.headers || {});
-  headers.set("Accept", "application/json");
-  headers.set("X-Requested-With", "XMLHttpRequest");
-
   const method = (options.method || "GET").toUpperCase();
   const hasJsonBody = options.json !== undefined;
   const hasFormData = options.formData !== undefined;
 
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "X-Requested-With": "XMLHttpRequest",
+    ...(options.headers || {}),
+  };
+
   if (hasJsonBody) {
-    headers.set("Content-Type", "application/json");
+    headers["Content-Type"] = "application/json";
   }
 
-  // Para POST/PUT/PATCH/DELETE, envia o token CSRF via header.
-  if (method !== "GET" && method !== "HEAD") {
-    const xsrf = getXsrfToken();
-    if (xsrf) {
-      headers.set("X-XSRF-TOKEN", xsrf);
-    }
-  }
-
-  const doFetch = async () =>
-    await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-    mode: "cors",
-      body: hasFormData
-        ? options.formData
-        : hasJsonBody
-          ? JSON.stringify(options.json)
-          : options.body,
+  try {
+    const res = await api.request({
+      url: path,
+      method,
+      data: hasFormData ? options.formData : hasJsonBody ? options.json : options.body,
+      headers,
+      // keepalive is used by fetch; axios does not support it directly — ignore safely
+      validateStatus: () => true,
     });
 
-  let res = await doFetch();
-
-  // Retry simples para CSRF mismatch (comum após regenerar sessão/token).
-  if (
-    res.status === 419 &&
-    !options.__csrfRetried &&
-    method !== "GET" &&
-    method !== "HEAD"
-  ) {
-    try {
-      await fetch(`${API_BASE_URL}/sanctum/csrf-cookie`, {
-        credentials: "include",
-        mode: "cors",
-        headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" },
-      });
-    } catch {
-      // ignora; vamos tentar mesmo assim
+    // Retry CSRF flow if backend asks for it
+    if (res.status === 419 && !options.__csrfRetried && method !== "GET" && method !== "HEAD") {
+      try {
+        await api.get("/sanctum/csrf-cookie");
+      } catch {
+        // ignore and retry anyway
+      }
+      return await request<T>(path, { ...options, __csrfRetried: true });
     }
 
-    // Re-executa a request, refazendo o header X-XSRF-TOKEN com o cookie atualizado.
-    return await request<T>(path, { ...options, __csrfRetried: true });
-  }
+    if (res.status === 204) return null as unknown as T;
 
-  if (res.status === 204) {
-    return null as unknown as T;
-  }
+    if (res.status >= 200 && res.status < 300) {
+      return res.data as T;
+    }
 
-  let data: any = null;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
-
-  if (!res.ok) {
-    const err: ApiError = { status: res.status, data };
+    const err: ApiError = { status: res.status, data: res.data };
     throw err;
+  } catch (e: any) {
+    if (e && e.response) {
+      throw { status: e.response.status, data: e.response.data } as ApiError;
+    }
+    throw e;
   }
-
-  return data as T;
 }
 
 export async function ensureCsrfCookie(): Promise<void> {

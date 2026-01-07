@@ -346,7 +346,7 @@ const AdminUsers = () => {
             Gerenciamento de Usuários
           </h1>
           <p className="text-muted-foreground">
-            Visualize, bloqueie ou libere usuários e seus acessos específicos
+            Visualize, bloqueie ou libere usuários e seus acessos específicos. Usuários são criados via cadastro público e aparecem automaticamente aqui.
           </p>
         </div>
 
@@ -629,7 +629,12 @@ const AdminUsers = () => {
 
                 {/* Access Controls */}
                 <div className="space-y-4">
-                  <h4 className="font-semibold text-foreground">Controle de Acessos</h4>
+                  <div>
+                    <h4 className="font-semibold text-foreground">Controle de Acessos</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Permissões padrão aplicadas no registro: Início, Atividades, Jogos e Relatórios habilitados. Sessões desabilitadas por padrão.
+                    </p>
+                  </div>
                   
                   <div className="space-y-3">
                     {/* Atividades Access */}

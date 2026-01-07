@@ -1,8 +1,20 @@
 export type AuthRole = "admin" | "user";
 
+/**
+ * Permissões de acesso do usuário.
+ * 
+ * PERMISSÕES PADRÃO (definidas no backend):
+ * Quando um usuário é criado via registro público (/api/register),
+ * o backend deve aplicar automaticamente:
+ * - inicio: true (sempre acessível)
+ * - atividades: true
+ * - jogos: true (sempre acessível)
+ * - relatorios: true
+ * - horarios/sessoes: false (admin controla via modal de perfil)
+ */
 export type UserAccess = {
   atividades: boolean;
-  horarios: boolean;
+  horarios: boolean; // Controla acesso a "Sessões" (/paciente/sessoes)
   relatorios: boolean;
 };
 

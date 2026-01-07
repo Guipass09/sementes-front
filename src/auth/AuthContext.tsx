@@ -21,11 +21,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const setAuthUser = useCallback((u: AuthUser | null) => {
-    setUser(u);
+    // normalize user before setting
     if (u) {
-      localStorage.setItem("user", JSON.stringify(u)); // compatibilidade com partes antigas do app
+      const norm = { ...(u as any) } as AuthUser & any;
+      if (norm.role && typeof norm.role === "string") norm.role = norm.role.toLowerCase();
+      norm.access = norm.access || { atividades: false, horarios: false, relatorios: false };
+      setUser(norm as AuthUser);
+      try {
+        localStorage.setItem("user", JSON.stringify(norm)); // compatibilidade com partes antigas do app
+      } catch {}
     } else {
-      localStorage.removeItem("user");
+      setUser(null);
+      try {
+        localStorage.removeItem("user");
+      } catch {}
     }
   }, []);
 
@@ -77,12 +86,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-      } catch {}
+        // normalize user shape: ensure role lowercase and access defaults
+        const user = { ...(data.user as any) } as AuthUser & any;
+        if (user.role && typeof user.role === "string") user.role = user.role.toLowerCase();
+        user.access = user.access || { atividades: false, horarios: false, relatorios: false };
+        localStorage.setItem("user", JSON.stringify(user));
 
-      setAuthUser(data.user);
+        setAuthUser(user as AuthUser);
 
-      return data.user as AuthUser;
+        return user as AuthUser;
+      } catch {
+        // fallback
+        setAuthUser(data.user);
+        return data.user as AuthUser;
+      }
     },
     [setAuthUser]
   );
@@ -94,7 +111,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       if ((res as any).token && (res as any).user) {
         localStorage.setItem("token", (res as any).token);
-        localStorage.setItem("user", JSON.stringify((res as any).user));
         setAuthUser((res as any).user);
         return (res as any).user as AuthUser;
       }

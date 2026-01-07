@@ -134,7 +134,8 @@ const LoginForm = () => {
             : "Bem-vindo ao Sementes da Fala",
       });
 
-      navigate(user.role === "admin" ? "/admin" : "/paciente");
+      const role = (user?.role || "").toString().toLowerCase();
+      navigate(role === "admin" ? "/admin" : "/paciente");
     } catch (e) {
       if (isApiError(e)) {
         if (e.status === 422) {

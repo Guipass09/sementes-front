@@ -24,7 +24,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // normalize user before setting
     if (u) {
       const norm = { ...(u as any) } as AuthUser & any;
-      if (norm.role && typeof norm.role === "string") norm.role = norm.role.toLowerCase();
+      if (norm.role && typeof norm.role === "string") {
+        const r = norm.role.toString().toLowerCase();
+        if (r.includes("admin") || r.includes("administrador") || r.includes("administrator")) norm.role = "admin";
+        else if (r.includes("user") || r.includes("pacient") || r.includes("paciente")) norm.role = "user";
+        else norm.role = r;
+      }
       norm.access = norm.access || { atividades: false, horarios: false, relatorios: false };
       setUser(norm as AuthUser);
       try {
@@ -93,6 +98,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("user", JSON.stringify(user));
 
         setAuthUser(user as AuthUser);
+
+        // Ensure immediate correct redirect for admin vs user (fallback safe-guard).
+        try {
+          const roleStr = (user.role || "").toString().toLowerCase();
+          if (roleStr === "admin") {
+            window.location.replace("/admin");
+          } else {
+            window.location.replace("/paciente");
+          }
+        } catch {}
 
         return user as AuthUser;
       } catch {

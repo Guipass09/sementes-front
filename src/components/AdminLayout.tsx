@@ -15,12 +15,12 @@ interface UserData {
 }
 
 const navItems = [
-  { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/admin/usuarios", label: "Usuários", icon: Users },
-  { path: "/admin/atividades", label: "Atividades", icon: Activity },
-  { path: "/admin/jogos", label: "Jogos", icon: Grid3X3 },
-  { path: "/admin/horarios", label: "Horários", icon: Calendar },
-  { path: "/admin/relatorios", label: "Relatórios", icon: FileText },
+  { path: "/admin", label: "Dashboard", icon: LayoutDashboard, previewPath: "/preview-admin" },
+  { path: "/admin/usuarios", label: "Usuários", icon: Users, previewPath: "/preview-admin/usuarios" },
+  { path: "/admin/atividades", label: "Atividades", icon: Activity, previewPath: "/preview-admin/atividades" },
+  { path: "/admin/jogos", label: "Jogos", icon: Grid3X3, previewPath: "/preview-admin/jogos" },
+  { path: "/admin/horarios", label: "Horários", icon: Calendar, previewPath: "/preview-admin/horarios" },
+  { path: "/admin/relatorios", label: "Relatórios", icon: FileText, previewPath: "/preview-admin/relatorios" },
 ];
 
 const AdminLayout = () => {
@@ -32,6 +32,17 @@ const AdminLayout = () => {
   const auth = useAuth();
 
   useEffect(() => {
+    // Se estiver na rota de preview, usar dados mock sem autenticação
+    if (location.pathname.startsWith("/preview-admin")) {
+      setUser({
+        name: "Admin Preview",
+        email: "admin@preview.com",
+        role: "admin",
+        profile_photo_url: null,
+      });
+      return;
+    }
+
     if (auth.loading) return;
 
     if (!auth.user) {
@@ -52,17 +63,27 @@ const AdminLayout = () => {
       role: auth.user.role,
       profile_photo_url: auth.user.profile_photo_url ?? null,
     });
-  }, [navigate, auth.loading, auth.user]);
+  }, [navigate, auth.loading, auth.user, location.pathname]);
 
   const handleLogout = () => {
-    void auth.logout().finally(() => navigate("/"));
+    if (location.pathname.startsWith("/preview-admin")) {
+      // Na preview, apenas voltar para home
+      navigate("/");
+    } else {
+      void auth.logout().finally(() => navigate("/"));
+    }
   };
 
   const isActivePath = (path: string) => {
+    const currentPath = location.pathname;
     if (path === "/admin") {
-      return location.pathname === path;
+      return currentPath === path || currentPath === "/preview-admin";
     }
-    return location.pathname.startsWith(path);
+    return currentPath.startsWith(path) || currentPath.startsWith(path.replace("/admin", "/preview-admin"));
+  };
+
+  const getNavPath = (item: typeof navItems[0]) => {
+    return location.pathname.startsWith("/preview-admin") ? item.previewPath : item.path;
   };
 
   if (!user) return <FullScreenLogoLoader label="Carregando..." />;
@@ -73,7 +94,7 @@ const AdminLayout = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-2">
           {/* Logo */}
-          <Link to="/admin" className="flex items-center gap-2 flex-shrink-0">
+          <Link to={location.pathname.startsWith("/preview-admin") ? "/preview-admin" : "/admin"} className="flex items-center gap-2 flex-shrink-0">
             <img
               src={logoImage}
               alt="Sementes da Fala"
@@ -94,7 +115,7 @@ const AdminLayout = () => {
               return (
                 <Link
                   key={item.path}
-                  to={item.path}
+                  to={getNavPath(item)}
                   className={`flex items-center gap-2 px-3 lg:px-4 py-2 rounded-lg font-medium transition-all duration-200 flex-shrink-0 ${
                     isActive
                       ? "bg-primary/10 text-primary"
@@ -187,7 +208,7 @@ const AdminLayout = () => {
                 return (
                   <Link
                     key={item.path}
-                    to={item.path}
+                    to={getNavPath(item)}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
                       isActive

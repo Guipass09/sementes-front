@@ -122,14 +122,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const user = { ...(data.user as any) } as AuthUser & any;
         
         // DEBUG: Log o que veio do backend
-        console.log("🔍 [LOGIN DEBUG] Role recebido do backend:", user.role, "tipo:", typeof user.role);
+        console.log("🔍 [LOGIN DEBUG] Dados completos recebidos:", {
+          token: data.token?.substring(0, 20) + "...",
+          user: user,
+          role_original: user.role,
+          role_tipo: typeof user.role
+        });
+        
+        // Tentar extrair role do token JWT também (fallback)
+        let roleFromToken: string | null = null;
+        try {
+          const tokenParts = data.token.split(".");
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            roleFromToken = payload.role || payload.user?.role || null;
+            console.log("🔍 [LOGIN DEBUG] Role extraído do token JWT:", roleFromToken);
+          }
+        } catch (e) {
+          console.log("🔍 [LOGIN DEBUG] Não foi possível extrair role do token");
+        }
+        
+        // Usar role do user primeiro, depois do token como fallback
+        const roleOriginal = user.role || roleFromToken || "user";
+        console.log("🔍 [LOGIN DEBUG] Role escolhido (user/token):", roleOriginal);
         
         // Normalize role using the same function
-        const roleAntes = user.role;
-        user.role = normalizeRole(user.role);
+        user.role = normalizeRole(roleOriginal);
         
         // DEBUG: Log após normalização
-        console.log("🔍 [LOGIN DEBUG] Role ANTES normalização:", roleAntes);
         console.log("🔍 [LOGIN DEBUG] Role DEPOIS normalização:", user.role);
         console.log("🔍 [LOGIN DEBUG] É admin?", user.role === "admin");
         
@@ -138,23 +158,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setAuthUser(user as AuthUser);
 
-        // Ensure immediate correct redirect for admin vs user
-        const finalRole = user.role;
-        console.log("🔍 [LOGIN DEBUG] Redirecionando para:", finalRole === "admin" ? "/admin" : "/paciente");
-        console.log("🔍 [LOGIN DEBUG] Comparação finalRole === 'admin':", finalRole === "admin");
-        console.log("🔍 [LOGIN DEBUG] Tipo de finalRole:", typeof finalRole);
-        console.log("🔍 [LOGIN DEBUG] Valor exato de finalRole:", JSON.stringify(finalRole));
+        // Verificação definitiva do role para redirecionamento
+        const finalRole = String(user.role || "").toLowerCase().trim();
+        const isAdmin = finalRole === "admin" || finalRole.includes("admin") || finalRole.includes("administrador");
         
-        // Verificação mais robusta
-        const isAdmin = String(finalRole).toLowerCase().trim() === "admin";
-        console.log("🔍 [LOGIN DEBUG] isAdmin (verificação robusta):", isAdmin);
+        console.log("🔍 [LOGIN DEBUG] Verificação final - finalRole:", finalRole, "isAdmin:", isAdmin);
         
+        // REDIRECIONAMENTO IMEDIATO E FORÇADO
+        // Não usar setTimeout - redirecionar imediatamente
         if (isAdmin) {
-          console.log("✅ [LOGIN] Redirecionando ADMIN para /admin");
-          window.location.href = "/admin"; // Usar href ao invés de replace para garantir
+          console.log("✅ [LOGIN] ADMIN detectado! Redirecionando para /admin");
+          // Usar replace para evitar que o usuário volte para a página de login
+          window.location.replace("/admin");
         } else {
-          console.log("✅ [LOGIN] Redirecionando USER para /paciente");
-          window.location.href = "/paciente";
+          console.log("✅ [LOGIN] USER detectado! Redirecionando para /paciente");
+          window.location.replace("/paciente");
         }
 
         return user as AuthUser;

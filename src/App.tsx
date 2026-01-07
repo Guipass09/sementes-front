@@ -110,6 +110,16 @@ const App = () => {
                 <Route path="relatorios" element={<AdminReports />} />
               </Route>
               
+              {/* Preview Admin (sem autenticação - apenas para visualização) */}
+              <Route path="/preview-admin" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="usuarios" element={<AdminUsers />} />
+                <Route path="atividades" element={<AdminActivities />} />
+                <Route path="jogos" element={<AdminGamesHub />} />
+                <Route path="horarios" element={<AdminSessions />} />
+                <Route path="relatorios" element={<AdminReports />} />
+              </Route>
+              
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="/atividades/:id" element={<ActivityView />} />
               <Route path="/jogos/:id" element={<MemoryGameView />} />

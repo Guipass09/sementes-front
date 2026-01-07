@@ -19,7 +19,17 @@ export const useAccessControl = () => {
   const { user: currentUser } = useAuth();
 
   const userAccess = useMemo(() => {
-    if (!currentUser || currentUser.role === "admin") {
+    if (!currentUser) {
+      // No user: no access
+      return {
+        atividades: false,
+        horarios: false,
+        relatorios: false,
+        blocked: false,
+      };
+    }
+
+    if (currentUser.role === "admin") {
       // Admin has full access
       return {
         atividades: true,
@@ -29,11 +39,14 @@ export const useAccessControl = () => {
       };
     }
 
+    // Be defensive: user.access may be undefined depending on backend
+    const access = (currentUser as any).access || { atividades: false, horarios: false, relatorios: false };
+
     return {
-      atividades: !currentUser.blocked && currentUser.access.atividades,
-      horarios: !currentUser.blocked && currentUser.access.horarios,
-      relatorios: !currentUser.blocked && currentUser.access.relatorios,
-      blocked: currentUser.blocked,
+      atividades: !currentUser.blocked && !!access.atividades,
+      horarios: !currentUser.blocked && !!access.horarios,
+      relatorios: !currentUser.blocked && !!access.relatorios,
+      blocked: !!currentUser.blocked,
     };
   }, [currentUser]);
 

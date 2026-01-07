@@ -21,9 +21,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const normalizeRole = useCallback((role: any): "admin" | "user" => {
-    if (!role) return "user";
+    if (!role) {
+      console.log("🔍 [normalizeRole] Role vazio/null, retornando 'user'");
+      return "user";
+    }
     const r = String(role).toLowerCase().trim();
-    if (r === "admin" || r.includes("admin") || r.includes("administrador") || r.includes("administrator")) {
+    console.log("🔍 [normalizeRole] Role recebido:", role, "-> normalizado para string:", r);
+    
+    const isAdmin = r === "admin" || r.includes("admin") || r.includes("administrador") || r.includes("administrator");
+    console.log("🔍 [normalizeRole] É admin?", isAdmin);
+    
+    if (isAdmin) {
       return "admin";
     }
     return "user";
@@ -112,18 +120,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem("token", data.token);
         // normalize user shape: ensure role is properly normalized and access defaults
         const user = { ...(data.user as any) } as AuthUser & any;
+        
+        // DEBUG: Log o que veio do backend
+        console.log("🔍 [LOGIN DEBUG] Role recebido do backend:", user.role, "tipo:", typeof user.role);
+        
         // Normalize role using the same function
+        const roleAntes = user.role;
         user.role = normalizeRole(user.role);
+        
+        // DEBUG: Log após normalização
+        console.log("🔍 [LOGIN DEBUG] Role ANTES normalização:", roleAntes);
+        console.log("🔍 [LOGIN DEBUG] Role DEPOIS normalização:", user.role);
+        console.log("🔍 [LOGIN DEBUG] É admin?", user.role === "admin");
+        
         user.access = user.access || { atividades: false, horarios: false, relatorios: false };
         localStorage.setItem("user", JSON.stringify(user));
 
         setAuthUser(user as AuthUser);
 
         // Ensure immediate correct redirect for admin vs user
-        if (user.role === "admin") {
-          window.location.replace("/admin");
+        const finalRole = user.role;
+        console.log("🔍 [LOGIN DEBUG] Redirecionando para:", finalRole === "admin" ? "/admin" : "/paciente");
+        console.log("🔍 [LOGIN DEBUG] Comparação finalRole === 'admin':", finalRole === "admin");
+        console.log("🔍 [LOGIN DEBUG] Tipo de finalRole:", typeof finalRole);
+        console.log("🔍 [LOGIN DEBUG] Valor exato de finalRole:", JSON.stringify(finalRole));
+        
+        // Verificação mais robusta
+        const isAdmin = String(finalRole).toLowerCase().trim() === "admin";
+        console.log("🔍 [LOGIN DEBUG] isAdmin (verificação robusta):", isAdmin);
+        
+        if (isAdmin) {
+          console.log("✅ [LOGIN] Redirecionando ADMIN para /admin");
+          window.location.href = "/admin"; // Usar href ao invés de replace para garantir
         } else {
-          window.location.replace("/paciente");
+          console.log("✅ [LOGIN] Redirecionando USER para /paciente");
+          window.location.href = "/paciente";
         }
 
         return user as AuthUser;

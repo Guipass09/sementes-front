@@ -134,8 +134,8 @@ const LoginForm = () => {
             : "Bem-vindo ao Sementes da Fala",
       });
 
-      const role = (user?.role || "").toString().toLowerCase();
-      navigate(role === "admin" ? "/admin" : "/paciente");
+      // O redirecionamento já é feito pelo AuthContext.login usando window.location.replace
+      // Não precisamos fazer navigate aqui para evitar conflito
     } catch (e) {
       if (isApiError(e)) {
         if (e.status === 422) {

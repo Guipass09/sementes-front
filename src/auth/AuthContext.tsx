@@ -20,16 +20,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const normalizeRole = useCallback((role: any): "admin" | "user" => {
+    if (!role) return "user";
+    const r = String(role).toLowerCase().trim();
+    if (r === "admin" || r.includes("admin") || r.includes("administrador") || r.includes("administrator")) {
+      return "admin";
+    }
+    return "user";
+  }, []);
+
   const setAuthUser = useCallback((u: AuthUser | null) => {
     // normalize user before setting
     if (u) {
       const norm = { ...(u as any) } as AuthUser & any;
-      if (norm.role && typeof norm.role === "string") {
-        const r = norm.role.toString().toLowerCase();
-        if (r.includes("admin") || r.includes("administrador") || r.includes("administrator")) norm.role = "admin";
-        else if (r.includes("user") || r.includes("pacient") || r.includes("paciente")) norm.role = "user";
-        else norm.role = r;
-      }
+      // Normalize role to ensure it's always "admin" or "user"
+      norm.role = normalizeRole(norm.role);
       norm.access = norm.access || { atividades: false, horarios: false, relatorios: false };
       setUser(norm as AuthUser);
       try {
@@ -41,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem("user");
       } catch {}
     }
-  }, []);
+  }, [normalizeRole]);
 
   const loadUser = useCallback(async (): Promise<AuthUser | null> => {
     setLoading(true);
@@ -91,23 +96,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       try {
         localStorage.setItem("token", data.token);
-        // normalize user shape: ensure role lowercase and access defaults
+        // normalize user shape: ensure role is properly normalized and access defaults
         const user = { ...(data.user as any) } as AuthUser & any;
-        if (user.role && typeof user.role === "string") user.role = user.role.toLowerCase();
+        // Normalize role using the same function
+        user.role = normalizeRole(user.role);
         user.access = user.access || { atividades: false, horarios: false, relatorios: false };
         localStorage.setItem("user", JSON.stringify(user));
 
         setAuthUser(user as AuthUser);
 
-        // Ensure immediate correct redirect for admin vs user (fallback safe-guard).
-        try {
-          const roleStr = (user.role || "").toString().toLowerCase();
-          if (roleStr === "admin") {
-            window.location.replace("/admin");
-          } else {
-            window.location.replace("/paciente");
-          }
-        } catch {}
+        // Ensure immediate correct redirect for admin vs user
+        if (user.role === "admin") {
+          window.location.replace("/admin");
+        } else {
+          window.location.replace("/paciente");
+        }
 
         return user as AuthUser;
       } catch {
@@ -116,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return data.user as AuthUser;
       }
     },
-    [setAuthUser]
+    [setAuthUser, normalizeRole]
   );
 
   const register = useCallback(async (params: { name: string; email: string; password: string; password_confirmation: string }) => {

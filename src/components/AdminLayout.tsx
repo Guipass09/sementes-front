@@ -39,7 +39,9 @@ const AdminLayout = () => {
       return;
     }
 
-    if (auth.user.role !== "admin") {
+    // Normalize role check to ensure admin detection works correctly
+    const role = String(auth.user.role || "").toLowerCase().trim();
+    if (role !== "admin") {
       navigate("/paciente");
       return;
     }

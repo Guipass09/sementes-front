@@ -176,15 +176,7 @@ async function request<T>(
       validateStatus: () => true,
     });
 
-    // Retry CSRF flow if backend asks for it
-    if (res.status === 419 && !options.__csrfRetried && method !== "GET" && method !== "HEAD") {
-      try {
-        await api.get("/sanctum/csrf-cookie");
-      } catch {
-        // ignore and retry anyway
-      }
-      return await request<T>(path, { ...options, __csrfRetried: true });
-    }
+    // Note: token-based auth (Bearer) in frontend; do not retry CSRF here.
 
     if (res.status === 204) return null as unknown as T;
 
@@ -203,9 +195,8 @@ async function request<T>(
 }
 
 export async function ensureCsrfCookie(): Promise<void> {
-  // Fluxo padrão SPA (Laravel/Sanctum):
-  // inicializa cookies de sessão + XSRF-TOKEN no backend.
-  await request<void>("/sanctum/csrf-cookie");
+  // No-op when using token-based auth in frontend.
+  return;
 }
 
 export async function me(): Promise<AuthUser> {
@@ -232,9 +223,9 @@ export async function login(params: {
   email: string;
   password: string;
   remember?: boolean;
-}): Promise<AuthUser> {
-  await ensureCsrfCookie();
-  return await request<AuthUser>("/api/login", {
+}): Promise<{ token: string; user: AuthUser }> {
+  // backend returns { token, user }
+  return await request<{ token: string; user: AuthUser }>("/api/login", {
     method: "POST",
     json: {
       email: params.email,

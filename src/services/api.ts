@@ -4,16 +4,27 @@ export const API_BASE_URL = "https://api.sementesdafala.com.br";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
-  xsrfCookieName: "XSRF-TOKEN",
-  xsrfHeaderName: "X-XSRF-TOKEN",
   headers: {
     Accept: "application/json",
     "X-Requested-With": "XMLHttpRequest",
   },
 });
 
-// Centralized error events without triggering CSRF refresh or login flows here.
+// Attach Bearer token from localStorage to every request
+api.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers = config.headers || {};
+      (config.headers as any)["Authorization"] = `Bearer ${token}`;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return config;
+});
+
+// On 401: clear token/user and redirect to login. Do NOT retry.
 api.interceptors.response.use(
   (res) => res,
   (error) => {
@@ -21,34 +32,21 @@ api.interceptors.response.use(
     const config = error?.config || {};
     if (!response) return Promise.reject(error);
 
-    // Normalize request url path for checks
     const url = (config.url || "").toString();
 
-    // Ignore events for the CSRF cookie endpoint and login endpoint
-    const isCsrfEndpoint = url.includes("/sanctum/csrf-cookie");
-    const isLoginEndpoint = url.includes("/api/login");
-
-    if (response.status === 419) {
-      // Do not handle CSRF endpoint itself
-      if (isCsrfEndpoint || isLoginEndpoint) return Promise.reject(error);
-
-      // Avoid double-handling the same request
-      if (config.__handled419) return Promise.reject(error);
-
-      try {
-        config.__handled419 = true;
-        window.dispatchEvent(new CustomEvent("api:csrf", { detail: { path: url } }));
-      } catch {}
-
-      return Promise.reject(error);
-    }
-
+    // Avoid interfering with login endpoint itself
     if (response.status === 401) {
-      // Do not dispatch for login or csrf endpoints
-      if (isCsrfEndpoint || isLoginEndpoint) return Promise.reject(error);
-
       try {
-        window.dispatchEvent(new CustomEvent("api:unauthorized", { detail: { path: url } }));
+        if (!url.includes("/api/login")) {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          // hard redirect to login
+          try {
+            window.location.replace("/entrar");
+          } catch (e) {
+            // no-op
+          }
+        }
       } catch {}
       return Promise.reject(error);
     }

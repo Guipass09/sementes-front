@@ -140,7 +140,7 @@ const LoginForm = () => {
         if (e.status === 422) {
           setLoginError("Email ou senha incorretos. Por favor, tente novamente.");
         } else if (e.status === 419) {
-          setLoginError("Sessão expirada/CSRF. Recarregue a página e tente novamente.");
+          setLoginError("Sessão expirada. Recarregue a página e tente novamente.");
         } else if (e.status === 401) {
           setLoginError("Não autenticado. Tente novamente.");
         } else if (e.status === 403) {

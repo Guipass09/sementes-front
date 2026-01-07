@@ -202,7 +202,7 @@ export function ActivityFormModal(props: {
       if (isApiError(e)) {
         const msg =
           e.status === 419
-            ? "Sessão/CSRF expirado. Recarregue a página e tente novamente."
+            ? "Sessão expirada. Recarregue a página e tente novamente."
             : e.data?.message || `Não foi possível salvar (erro ${e.status}).`;
         setFormError(msg);
         console.error("Activity API error:", e.status, e.data);

@@ -32,6 +32,19 @@ const PatientLayout = () => {
   const { checkAccess, isBlocked } = useAccessControl();
   const auth = useAuth();
 
+  // Early return if admin - redirect immediately before rendering anything
+  if (!auth.loading && auth.user) {
+    const role = String(auth.user.role || "").toLowerCase().trim();
+    const isAdmin = role === "admin" || role.includes("admin") || role.includes("administrador") || role.includes("administrator");
+    if (isAdmin) {
+      // Use window.location for immediate redirect
+      if (window.location.pathname.startsWith("/paciente")) {
+        window.location.replace("/admin");
+        return <FullScreenLogoLoader label="Redirecionando..." />;
+      }
+    }
+  }
+
   useEffect(() => {
     if (auth.loading) return;
 
@@ -42,8 +55,11 @@ const PatientLayout = () => {
 
     // Normalize role check to ensure admin detection works correctly
     const role = String(auth.user.role || "").toLowerCase().trim();
-    if (role === "admin") {
-      navigate("/admin");
+    // Check if role contains "admin" in any form
+    const isAdmin = role === "admin" || role.includes("admin") || role.includes("administrador") || role.includes("administrator");
+    if (isAdmin) {
+      // Immediately redirect admin to admin area
+      window.location.replace("/admin");
       return;
     }
 

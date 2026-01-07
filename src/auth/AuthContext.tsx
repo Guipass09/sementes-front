@@ -74,6 +74,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token) {
+      // Clear old user data from localStorage to ensure fresh data
+      try {
+        const oldUser = localStorage.getItem("user");
+        if (oldUser) {
+          const parsed = JSON.parse(oldUser);
+          // If old user has unnormalized role, clear it
+          if (parsed.role && typeof parsed.role === "string") {
+            const role = String(parsed.role).toLowerCase().trim();
+            if (role !== "admin" && role !== "user" && (role.includes("admin") || role.includes("administrador"))) {
+              localStorage.removeItem("user");
+            }
+          }
+        }
+      } catch {}
       void loadUser();
     } else {
       setLoading(false);

@@ -1,7 +1,7 @@
 import axios from "axios";
 
-// Base URL da API: backend na EC2 via IP direto
-export const API_BASE_URL = "http://54.94.33.173";
+// Base URL da API: backend via HTTPS
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "https://api.sementesdafala.com.br";
 
 const api = axios.create({
   baseURL: API_BASE_URL,

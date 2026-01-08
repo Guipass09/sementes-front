@@ -17,7 +17,35 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  // Função auxiliar para normalizar role (mesma lógica do normalizeRole mas sem callback)
+  const normalizeRoleSync = (role: any): "admin" | "user" => {
+    if (!role) return "user";
+    const r = String(role).toLowerCase().trim();
+    const isAdmin = r === "admin" || r.includes("admin") || r.includes("administrador") || r.includes("administrator");
+    return isAdmin ? "admin" : "user";
+  };
+
+  // Inicializar estado a partir do localStorage para evitar chamadas desnecessárias a /api/me
+  const [user, setUser] = useState<AuthUser | null>(() => {
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Normalizar role
+        parsed.role = normalizeRoleSync(parsed.role);
+        // Garantir que access nunca seja null
+        parsed.access = parsed.access ?? {
+          atividades: false,
+          horarios: false,
+          relatorios: false,
+        };
+        return parsed as AuthUser;
+      }
+    } catch {
+      // Ignora erros de parse
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
   const normalizeRole = useCallback((role: any): "admin" | "user" => {
@@ -43,10 +71,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const norm = { ...(u as any) } as AuthUser & any;
       // Normalize role to ensure it's always "admin" or "user"
       norm.role = normalizeRole(norm.role);
-      norm.access = norm.access || { atividades: false, horarios: false, relatorios: false };
+      // Garantir que access nunca seja null usando ??
+      norm.access = norm.access ?? {
+        atividades: false,
+        horarios: false,
+        relatorios: false,
+      };
       setUser(norm as AuthUser);
       try {
-        localStorage.setItem("user", JSON.stringify(norm)); // compatibilidade com partes antigas do app
+        localStorage.setItem("user", JSON.stringify(norm));
       } catch {}
     } else {
       setUser(null);
@@ -78,29 +111,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadUser();
   }, [loadUser]);
 
-  // On mount, if token exists, try to load user; otherwise don't call /api/me
+  // On mount: usar user do localStorage primeiro, NÃO chamar /api/me automaticamente
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token) {
-      // Clear old user data from localStorage to ensure fresh data
-      try {
-        const oldUser = localStorage.getItem("user");
-        if (oldUser) {
-          const parsed = JSON.parse(oldUser);
-          // If old user has unnormalized role, clear it
-          if (parsed.role && typeof parsed.role === "string") {
-            const role = String(parsed.role).toLowerCase().trim();
-            if (role !== "admin" && role !== "user" && (role.includes("admin") || role.includes("administrador"))) {
-              localStorage.removeItem("user");
-            }
-          }
-        }
-      } catch {}
+    const storedUser = localStorage.getItem("user");
+    
+    if (token && (user || storedUser)) {
+      // Se já temos user (estado ou localStorage), não precisa chamar /api/me
+      // O estado já foi inicializado com user do localStorage
+      setLoading(false);
+      return;
+    }
+    
+    if (token && !user && !storedUser) {
+      // Só chama /api/me se tiver token mas não tiver user em lugar nenhum (caso raro)
       void loadUser();
     } else {
+      // Sem token, não precisa fazer nada
       setLoading(false);
     }
-  }, [loadUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Executar apenas uma vez no mount
 
   const login = useCallback(
     async (params: { email: string; password: string; remember?: boolean }) => {
@@ -153,9 +184,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("🔍 [LOGIN DEBUG] Role DEPOIS normalização:", user.role);
         console.log("🔍 [LOGIN DEBUG] É admin?", user.role === "admin");
         
-        user.access = user.access || { atividades: false, horarios: false, relatorios: false };
+        // Garantir que access nunca seja null usando ??
+        user.access = user.access ?? {
+          atividades: false,
+          horarios: false,
+          relatorios: false,
+        };
+        
+        // Salvar token e user antes de redirecionar
         localStorage.setItem("user", JSON.stringify(user));
-
         setAuthUser(user as AuthUser);
 
         // Verificação definitiva do role para redirecionamento
@@ -164,15 +201,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         console.log("🔍 [LOGIN DEBUG] Verificação final - finalRole:", finalRole, "isAdmin:", isAdmin);
         
-        // REDIRECIONAMENTO IMEDIATO E FORÇADO
-        // Não usar setTimeout - redirecionar imediatamente
+        // Redirecionamento usando href (não replace)
         if (isAdmin) {
           console.log("✅ [LOGIN] ADMIN detectado! Redirecionando para /admin");
-          // Usar replace para evitar que o usuário volte para a página de login
-          window.location.replace("/admin");
+          window.location.href = "/admin";
         } else {
           console.log("✅ [LOGIN] USER detectado! Redirecionando para /paciente");
-          window.location.replace("/paciente");
+          window.location.href = "/paciente";
         }
 
         return user as AuthUser;
@@ -186,19 +221,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(async (params: { name: string; email: string; password: string; password_confirmation: string }) => {
-    // Depending on backend, register may return token+user or user only.
+    // Backend pode retornar token+user ou apenas user
     const res = await api.register(params as any);
-    // try to sync local state if register returned user
     try {
       if ((res as any).token && (res as any).user) {
         localStorage.setItem("token", (res as any).token);
-        setAuthUser((res as any).user);
-        return (res as any).user as AuthUser;
+        const userData = { ...(res as any).user } as AuthUser & any;
+        // Garantir que access nunca seja null usando ??
+        userData.access = userData.access ?? {
+          atividades: false,
+          horarios: false,
+          relatorios: false,
+        };
+        localStorage.setItem("user", JSON.stringify(userData));
+        setAuthUser(userData as AuthUser);
+        return userData as AuthUser;
       }
     } catch {}
-    // fallback: if register returned the user object
-    setAuthUser(res as AuthUser);
-    return res as AuthUser;
+    // Fallback: se register retornou apenas o user object
+    const userData = { ...res } as AuthUser & any;
+    userData.access = userData.access ?? {
+      atividades: false,
+      horarios: false,
+      relatorios: false,
+    };
+    localStorage.setItem("user", JSON.stringify(userData));
+    setAuthUser(userData as AuthUser);
+    return userData as AuthUser;
   }, [setAuthUser]);
 
   const logout = useCallback(async () => {

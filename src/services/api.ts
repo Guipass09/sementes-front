@@ -1,9 +1,7 @@
 import axios from "axios";
 
-// Em desenvolvimento, usar proxy do Vite. Em produção, usar URL completa.
-export const API_BASE_URL = import.meta.env.DEV 
-  ? "" // Usa proxy do Vite em desenvolvimento (vite.config.ts)
-  : "https://api.sementesdafala.com.br"; // URL de produção
+// Base URL da API: backend na EC2 via IP direto
+export const API_BASE_URL = "http://54.94.33.173";
 
 const api = axios.create({
   baseURL: API_BASE_URL,

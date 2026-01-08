@@ -1,7 +1,7 @@
 import axios from "axios";
 
-// Base URL da API: backend via HTTPS
-export const API_BASE_URL = import.meta.env.VITE_API_URL || "https://api.sementesdafala.com.br";
+// Base URL da API: backend Laravel na EC2 via HTTPS
+export const API_BASE_URL = "https://api.sementesdafala.com.br";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -9,6 +9,8 @@ const api = axios.create({
     Accept: "application/json",
     "X-Requested-With": "XMLHttpRequest",
   },
+  // NÃO usar withCredentials - usando Bearer token
+  withCredentials: false,
 });
 
 // Attach Bearer token from localStorage to every request

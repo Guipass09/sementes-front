@@ -174,9 +174,11 @@ async function request<T>(
     ...(options.headers || {}),
   };
 
+  // Content-Type apenas para JSON - FormData define automaticamente com boundary
   if (hasJsonBody) {
     headers["Content-Type"] = "application/json";
   }
+  // Para FormData, não definir Content-Type - deixar axios definir com boundary
 
   try {
     const res = await api.request({

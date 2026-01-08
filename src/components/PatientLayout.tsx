@@ -16,11 +16,11 @@ interface UserData {
 }
 
 const navItems = [
-  { path: "/paciente", label: "Início", icon: Home },
-  { path: "/paciente/atividades", label: "Atividades", icon: Activity },
-  { path: "/paciente/jogos", label: "Jogos", icon: Grid3X3 },
-  { path: "/paciente/sessoes", label: "Sessões", icon: Calendar },
-  { path: "/paciente/relatorios", label: "Relatórios", icon: FileText },
+  { path: "/paciente", label: "Início", icon: Home, previewPath: "/preview-paciente" },
+  { path: "/paciente/atividades", label: "Atividades", icon: Activity, previewPath: "/preview-paciente/atividades" },
+  { path: "/paciente/jogos", label: "Jogos", icon: Grid3X3, previewPath: "/preview-paciente/jogos" },
+  { path: "/paciente/sessoes", label: "Sessões", icon: Calendar, previewPath: "/preview-paciente/sessoes" },
+  { path: "/paciente/relatorios", label: "Relatórios", icon: FileText, previewPath: "/preview-paciente/relatorios" },
 ];
 
 const PatientLayout = () => {
@@ -33,7 +33,7 @@ const PatientLayout = () => {
   const auth = useAuth();
 
   // Early return if admin - redirect immediately before rendering anything
-  if (!auth.loading && auth.user) {
+  if (!auth.loading && auth.user && !location.pathname.startsWith("/preview-paciente")) {
     const role = String(auth.user.role || "").toLowerCase().trim();
     const isAdmin = role === "admin" || role.includes("admin") || role.includes("administrador") || role.includes("administrator");
     if (isAdmin) {
@@ -46,6 +46,17 @@ const PatientLayout = () => {
   }
 
   useEffect(() => {
+    // Se estiver na rota de preview, usar dados mock sem autenticação
+    if (location.pathname.startsWith("/preview-paciente")) {
+      setUser({
+        name: "Paciente Preview",
+        email: "paciente@preview.com",
+        role: "user",
+        profile_photo_url: null,
+      });
+      return;
+    }
+
     if (auth.loading) return;
 
     if (!auth.user) {
@@ -69,7 +80,7 @@ const PatientLayout = () => {
       role: auth.user.role,
       profile_photo_url: auth.user.profile_photo_url ?? null,
     });
-  }, [navigate, auth.loading, auth.user]);
+  }, [navigate, auth.loading, auth.user, location.pathname]);
 
   // Redirect if user is completely blocked
   useEffect(() => {
@@ -79,14 +90,24 @@ const PatientLayout = () => {
   }, [user, isBlocked, navigate]);
 
   const handleLogout = () => {
-    void auth.logout().finally(() => navigate("/"));
+    if (location.pathname.startsWith("/preview-paciente")) {
+      // Na preview, apenas voltar para home
+      navigate("/");
+    } else {
+      void auth.logout().finally(() => navigate("/"));
+    }
   };
 
   const isActivePath = (path: string) => {
+    const currentPath = location.pathname;
     if (path === "/paciente") {
-      return location.pathname === path;
+      return currentPath === path || currentPath === "/preview-paciente";
     }
-    return location.pathname.startsWith(path);
+    return currentPath.startsWith(path) || currentPath.startsWith(path.replace("/paciente", "/preview-paciente"));
+  };
+
+  const getNavPath = (item: typeof navItems[0]) => {
+    return location.pathname.startsWith("/preview-paciente") ? item.previewPath : item.path;
   };
 
   if (!user) return <FullScreenLogoLoader label="Carregando..." />;
@@ -97,7 +118,7 @@ const PatientLayout = () => {
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-2">
           {/* Logo */}
-          <Link to="/paciente" className="flex items-center gap-2 flex-shrink-0">
+          <Link to={location.pathname.startsWith("/preview-paciente") ? "/preview-paciente" : "/paciente"} className="flex items-center gap-2 flex-shrink-0">
             <img
               src={logoImage}
               alt="Sementes da Fala"
@@ -114,18 +135,19 @@ const PatientLayout = () => {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = isActivePath(item.path);
-              // Check access for specific pages
-              const isRestricted = 
-                (item.path === "/paciente/atividades" && !checkAccess("atividades")) ||
-                (item.path === "/paciente/sessoes" && !checkAccess("horarios")) ||
-                (item.path === "/paciente/relatorios" && !checkAccess("relatorios"));
+              // Na preview, mostrar todos os itens. Caso contrário, verificar apenas sessoes
+              const isPreview = location.pathname.startsWith("/preview-paciente");
+              // Apenas sessoes pode ser bloqueada. Atividades, jogos e relatórios sempre liberados
+              const isRestricted = !isPreview && (
+                item.path === "/paciente/sessoes" && !checkAccess("horarios")
+              );
               
               if (isRestricted) return null;
               
-              return (
+                return (
                 <Link
                   key={item.path}
-                  to={item.path}
+                  to={getNavPath(item)}
                   className={`flex items-center gap-2 px-3 lg:px-4 py-2 rounded-lg font-medium transition-all duration-200 flex-shrink-0 ${
                     isActive
                       ? "bg-primary/10 text-primary"
@@ -215,18 +237,19 @@ const PatientLayout = () => {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = isActivePath(item.path);
-                // Check access for specific pages
-                const isRestricted = 
-                  (item.path === "/paciente/atividades" && !checkAccess("atividades")) ||
-                  (item.path === "/paciente/sessoes" && !checkAccess("horarios")) ||
-                  (item.path === "/paciente/relatorios" && !checkAccess("relatorios"));
+                // Na preview, mostrar todos os itens. Caso contrário, verificar apenas sessoes
+                const isPreview = location.pathname.startsWith("/preview-paciente");
+                // Apenas sessoes pode ser bloqueada. Atividades, jogos e relatórios sempre liberados
+                const isRestricted = !isPreview && (
+                  item.path === "/paciente/sessoes" && !checkAccess("horarios")
+                );
                 
                 if (isRestricted) return null;
                 
                 return (
                   <Link
                     key={item.path}
-                    to={item.path}
+                    to={getNavPath(item)}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
                       isActive

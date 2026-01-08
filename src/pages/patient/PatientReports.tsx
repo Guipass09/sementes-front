@@ -1,7 +1,5 @@
 import { TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useAccessControl } from "@/hooks/use-access-control";
-import AccessBlocked from "@/components/AccessBlocked";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
 import { listReports } from "@/features/reports/data";
@@ -10,15 +8,10 @@ import { ReportCard } from "@/features/reports/ReportCard";
 import { ReportPreviewModal } from "@/features/reports/ReportPreviewModal";
 
 const PatientReports = () => {
-  const { checkAccess } = useAccessControl();
   const auth = useAuth();
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<ReportDetail[]>([]);
   const [selected, setSelected] = useState<ReportDetail | null>(null);
-
-  if (!checkAccess("relatorios")) {
-    return <AccessBlocked pageName="Relatórios" />;
-  }
 
   useEffect(() => {
     if (!auth.user) return;

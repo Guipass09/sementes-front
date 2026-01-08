@@ -119,6 +119,15 @@ const App = () => {
                 <Route path="horarios" element={<AdminSessions />} />
                 <Route path="relatorios" element={<AdminReports />} />
               </Route>
+
+              {/* Preview Paciente (sem autenticação - apenas para visualização) */}
+              <Route path="/preview-paciente" element={<PatientLayout />}>
+                <Route index element={<PatientHome />} />
+                <Route path="atividades" element={<PatientActivities />} />
+                <Route path="jogos" element={<PatientMemoryGames />} />
+                <Route path="sessoes" element={<PatientSessions />} />
+                <Route path="relatorios" element={<PatientReports />} />
+              </Route>
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="/atividades/:id" element={<ActivityView />} />

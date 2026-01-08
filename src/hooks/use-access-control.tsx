@@ -43,9 +43,12 @@ export const useAccessControl = () => {
     const access = (currentUser as any).access || { atividades: false, horarios: false, relatorios: false };
 
     return {
-      atividades: !currentUser.blocked && !!access.atividades,
+      // Atividades e relatórios sempre liberados para usuários não-bloqueados
+      atividades: !currentUser.blocked,
+      // Horários (sessões) só liberado se tiver permissão específica
       horarios: !currentUser.blocked && !!access.horarios,
-      relatorios: !currentUser.blocked && !!access.relatorios,
+      // Relatórios sempre liberados para usuários não-bloqueados
+      relatorios: !currentUser.blocked,
       blocked: !!currentUser.blocked,
     };
   }, [currentUser]);

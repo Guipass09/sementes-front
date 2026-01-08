@@ -220,35 +220,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [setAuthUser, normalizeRole]
   );
 
-  const register = useCallback(async (params: { name: string; email: string; password: string; password_confirmation: string }) => {
+  const register = useCallback(async (params: { name: string; email: string; phone?: string; password: string; password_confirmation: string }) => {
     // Backend pode retornar token+user ou apenas user
     const res = await api.register(params as any);
+    
     try {
       if ((res as any).token && (res as any).user) {
         localStorage.setItem("token", (res as any).token);
         const userData = { ...(res as any).user } as AuthUser & any;
+        
+        // Normalizar role: usuários novos sempre são "user" (não admin)
+        // Se o backend retornar algo diferente, normalizamos para "user"
+        const roleOriginal = userData.role || "user";
+        userData.role = normalizeRole(roleOriginal);
+        
+        // Garantir que usuários novos sempre sejam "user" (não admin)
+        // Mesmo se o backend retornar algo diferente, forçamos "user" para novos cadastros
+        if (userData.role === "admin") {
+          console.log("⚠️ [REGISTER] Role admin detectado em novo cadastro, corrigindo para 'user'");
+          userData.role = "user";
+        }
+        
         // Garantir que access nunca seja null usando ??
         userData.access = userData.access ?? {
           atividades: false,
           horarios: false,
           relatorios: false,
         };
+        
+        console.log("✅ [REGISTER] Usuário cadastrado:", {
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          access: userData.access
+        });
+        
         localStorage.setItem("user", JSON.stringify(userData));
         setAuthUser(userData as AuthUser);
+        
+        // Redirecionar para /paciente (usuários novos sempre vão para paciente, nunca admin)
+        console.log("✅ [REGISTER] Redirecionando novo usuário para /paciente");
+        window.location.href = "/paciente";
+        
         return userData as AuthUser;
       }
     } catch {}
+    
     // Fallback: se register retornou apenas o user object
     const userData = { ...res } as AuthUser & any;
+    
+    // Normalizar role: usuários novos sempre são "user"
+    const roleOriginal = userData.role || "user";
+    userData.role = normalizeRole(roleOriginal);
+    
+    // Garantir que usuários novos sempre sejam "user"
+    if (userData.role === "admin") {
+      console.log("⚠️ [REGISTER] Role admin detectado em novo cadastro, corrigindo para 'user'");
+      userData.role = "user";
+    }
+    
     userData.access = userData.access ?? {
       atividades: false,
       horarios: false,
       relatorios: false,
     };
+    
+    console.log("✅ [REGISTER] Usuário cadastrado (fallback):", {
+      name: userData.name,
+      email: userData.email,
+      role: userData.role,
+      access: userData.access
+    });
+    
     localStorage.setItem("user", JSON.stringify(userData));
     setAuthUser(userData as AuthUser);
+    
+    // Redirecionar para /paciente
+    console.log("✅ [REGISTER] Redirecionando novo usuário para /paciente (fallback)");
+    window.location.href = "/paciente";
+    
     return userData as AuthUser;
-  }, [setAuthUser]);
+  }, [setAuthUser, normalizeRole]);
 
   const logout = useCallback(async () => {
     try {

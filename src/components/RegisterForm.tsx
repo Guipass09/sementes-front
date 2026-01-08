@@ -209,7 +209,9 @@ const RegisterForm = () => {
         description: "Bem-vindo ao Sementes da Fala",
       });
 
-      navigate("/paciente");
+      // O redirecionamento é feito pelo AuthContext.register() usando window.location.href
+      // Não precisamos fazer navigate aqui, mas deixamos como fallback
+      // O AuthContext já redireciona para /paciente automaticamente
     } catch (e) {
       if (isApiError(e) && e.status === 422) {
         const msg =

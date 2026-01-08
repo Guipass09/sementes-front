@@ -1,8 +1,6 @@
 import { CheckCircle2, Clock, Play, FileText, Image as ImageIcon, Grid3X3 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAccessControl } from "@/hooks/use-access-control";
-import AccessBlocked from "@/components/AccessBlocked";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
 import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow } from "@/lib/laravel-api";
@@ -29,7 +27,6 @@ const statusConfig = {
 };
 
 const PatientActivities = () => {
-  const { checkAccess } = useAccessControl();
   const auth = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -110,10 +107,6 @@ const PatientActivities = () => {
       percent,
     };
   }, [activities, games, auditoryGames, hangmanGames]);
-
-  if (!checkAccess("atividades")) {
-    return <AccessBlocked pageName="Atividades" />;
-  }
 
   return (
     <div className="min-h-full py-8 lg:py-12">

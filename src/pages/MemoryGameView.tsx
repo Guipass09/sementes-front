@@ -141,19 +141,18 @@ export default function MemoryGameView() {
   }, [gameId, user, navigate]);
 
   const makeFreshDeck = (g: MemoryGameRow): DeckCard[] => {
+    // O backend já envia as cartas duplicadas (2 cartas por par),
+    // então NÃO devemos duplicar aqui novamente.
     const base = [...(g.cards ?? [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-    const doubled: DeckCard[] = base.flatMap((c) => {
-      const mk = (suffix: "a" | "b"): DeckCard => ({
-        // ID estável (sem Math.random) para permitir restaurar progresso após refresh.
-        instanceId: `${c.pair_key}-${c.id}-${suffix}`,
-        pairKey: c.pair_key,
-        imageUrl: c.url,
-        flipped: false,
-        matched: false,
-      });
-      return [mk("a"), mk("b")];
-    });
-    return shuffle(doubled);
+    const deckCards: DeckCard[] = base.map((c, idx) => ({
+      // ID estável (sem Math.random) para permitir restaurar progresso após refresh.
+      instanceId: `${c.pair_key}-${c.id}-${idx}`,
+      pairKey: c.pair_key,
+      imageUrl: c.url,
+      flipped: false,
+      matched: false,
+    }));
+    return shuffle(deckCards);
   };
 
   const resetGame = () => {

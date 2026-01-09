@@ -167,10 +167,16 @@ export default function AdminAuditoryStimulationCreate() {
         items: topFiles,
         items_sides: sides,
       });
-      toast({ title: "Jogo criado!", description: `“${created.title}” enviado para ${selectedUserIds.length} usuário(s).` });
+      toast({ title: "Jogo criado!", description: `"${created.title}" enviado para ${selectedUserIds.length} usuário(s).` });
       navigate(`/jogos/auditivo/${created.id}`);
-    } catch {
-      toast({ title: "Não foi possível criar", description: "Verifique os campos e tente novamente.", variant: "destructive" });
+    } catch (err: any) {
+      const apiMessage = err?.data?.message || err?.data?.error || err?.message;
+      console.error("Erro ao criar jogo auditivo:", err);
+      toast({ 
+        title: "Não foi possível criar", 
+        description: apiMessage || "Verifique os campos e tente novamente.", 
+        variant: "destructive" 
+      });
     } finally {
       setSaving(false);
     }

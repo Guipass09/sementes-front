@@ -228,7 +228,9 @@ export async function updateMe(payload: {
     fd.set("profile_description", payload.profile_description ?? "");
   if (payload.profile_photo) fd.set("profile_photo", payload.profile_photo);
   if (payload.remove_photo) fd.set("remove_photo", "1");
-  return await request<AuthUser>("/api/me", { method: "PATCH", formData: fd });
+  // Use POST with _method=PATCH for FormData to work properly with Laravel
+  fd.set("_method", "PATCH");
+  return await request<AuthUser>("/api/me", { method: "POST", formData: fd });
 }
 
 export async function login(params: {
@@ -518,7 +520,8 @@ export async function adminUpdateMemoryGame(
   if (payload.description !== undefined) fd.set("description", payload.description);
   if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
   if (payload.pair_images !== undefined) payload.pair_images.forEach((f) => fd.append("pair_images[]", f));
-  return await request<MemoryGameRow>(`/api/admin/memory-games/${id}`, { method: "PATCH", formData: fd });
+  fd.set("_method", "PATCH");
+  return await request<MemoryGameRow>(`/api/admin/memory-games/${id}`, { method: "POST", formData: fd });
 }
 
 export async function adminListAuditoryGames(): Promise<AuditoryGameRow[]> {
@@ -629,7 +632,8 @@ export async function adminUpdateHangmanGame(
   if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
   if (payload.clear_images !== undefined) fd.set("clear_images", payload.clear_images ? "1" : "0");
   if (payload.support_images !== undefined) payload.support_images.forEach((f) => fd.append("support_images[]", f));
-  return await request<HangmanGameRow>(`/api/admin/hangman-games/${id}`, { method: "PATCH", formData: fd });
+  fd.set("_method", "PATCH");
+  return await request<HangmanGameRow>(`/api/admin/hangman-games/${id}`, { method: "POST", formData: fd });
 }
 
 export async function adminCreateActivity(payload: {

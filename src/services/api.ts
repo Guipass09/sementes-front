@@ -42,17 +42,35 @@ api.interceptors.request.use((config) => {
 // On 401: clear token/user and redirect to login. Do NOT retry.
 api.interceptors.response.use(
   (res) => res,
-  (error) => {
+  async (error) => {
     const response = error?.response;
     const config = error?.config || {};
     if (!response) return Promise.reject(error);
 
     const url = (config.url || "").toString();
 
+    // Se o backend estiver sem o prefixo "/api" (deploy/roteamento),
+    // tentamos automaticamente a mesma rota sem "/api".
+    // Ex.: /api/login -> /login
+    if (
+      response.status === 404 &&
+      !(config as any).__apiPrefixRetried &&
+      typeof url === "string" &&
+      url.startsWith("/api/")
+    ) {
+      try {
+        (config as any).__apiPrefixRetried = true;
+        config.url = url.replace(/^\/api/, "");
+        return await api.request(config);
+      } catch (e) {
+        return Promise.reject(e);
+      }
+    }
+
     // Avoid interfering with login endpoint itself
     if (response.status === 401) {
       try {
-        if (!url.includes("/api/login")) {
+        if (!url.includes("/api/login") && !url.includes("/login")) {
           localStorage.removeItem("token");
           localStorage.removeItem("user");
           // hard redirect to login

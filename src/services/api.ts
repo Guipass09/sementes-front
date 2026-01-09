@@ -1,6 +1,6 @@
 import axios from "axios";
 
-// Base URL da API: backend Laravel na EC2 via HTTPS
+// Base URL fixa da API (backend roda exclusivamente aqui)
 export const API_BASE_URL = "https://api.sementesdafala.com.br";
 
 const api = axios.create({
@@ -9,8 +9,6 @@ const api = axios.create({
     Accept: "application/json",
     "X-Requested-With": "XMLHttpRequest",
   },
-  // NÃO usar withCredentials - usando Bearer token
-  withCredentials: false,
 });
 
 // Attach Bearer token from localStorage to every request

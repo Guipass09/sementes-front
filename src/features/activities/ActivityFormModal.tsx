@@ -12,6 +12,7 @@ import * as api from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { isApiError } from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 type MediaDraft = {
   id: string;
@@ -286,13 +287,20 @@ export function ActivityFormModal(props: {
               </div>
 
               {users.map((u) => (
-                <div key={u.id} className="flex items-center space-x-2">
+                <div key={u.id} className="flex items-center space-x-3">
                   <Checkbox
                     id={`activity-user-${u.id}`}
                     checked={assignedTo.includes(u.id)}
                     onCheckedChange={() => toggleUser(u.id)}
                     disabled={loadingUsers}
                   />
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white text-xs font-semibold overflow-hidden shrink-0">
+                    {u.profile_photo_url ? (
+                      <img src={normalizeMediaUrl(u.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                    )}
+                  </div>
                   <Label htmlFor={`activity-user-${u.id}`} className="cursor-pointer flex-1">
                     {u.name}
                   </Label>

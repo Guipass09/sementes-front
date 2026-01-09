@@ -11,6 +11,7 @@ import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
 import type { AdminUserRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 type SupportInput = { file: File | null; previewUrl: string | null };
 
@@ -295,8 +296,12 @@ export default function AdminHangmanGameCreate() {
                           checked ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40",
                         )}
                       >
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-semibold text-foreground">
-                          {u.name?.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-semibold text-foreground overflow-hidden">
+                          {u.profile_photo_url ? (
+                            <img src={normalizeMediaUrl(u.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            u.name?.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-foreground truncate">{u.name}</div>

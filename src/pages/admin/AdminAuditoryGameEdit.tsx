@@ -462,8 +462,12 @@ export default function AdminAuditoryGameEdit() {
                           checked ? "border-brand-blue bg-brand-blue/10" : "border-border hover:bg-muted/30",
                         )}
                       >
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-brand-blue to-brand-purple flex items-center justify-center text-white font-semibold">
-                          {u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-brand-blue to-brand-purple flex items-center justify-center text-white font-semibold overflow-hidden">
+                          {u.profile_photo_url ? (
+                            <img src={normalizeMediaUrl(u.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                          )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="font-semibold text-foreground truncate">{u.name}</div>

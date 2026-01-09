@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import * as api from "@/lib/laravel-api";
 import type { AdminUserRow, MemoryGameRow } from "@/lib/laravel-api";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 export default function AdminMemoryGameEdit() {
   const { id } = useParams();
@@ -186,8 +187,12 @@ export default function AdminMemoryGameEdit() {
                         checked ? "border-brand-green bg-brand-green/10" : "border-border hover:bg-muted/30",
                       )}
                     >
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold">
-                        {u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold overflow-hidden">
+                        {u.profile_photo_url ? (
+                          <img src={normalizeMediaUrl(u.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          u.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                        )}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-foreground truncate">{u.name}</div>

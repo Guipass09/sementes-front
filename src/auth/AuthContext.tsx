@@ -95,12 +95,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const me = await api.me();
       setAuthUser(me);
       return me;
-    } catch (e) {
-      setAuthUser(null);
-      // clear token if me fails
-      try {
-        localStorage.removeItem("token");
-      } catch {}
+    } catch (e: any) {
+      // Só limpa o token se for erro 401 (token realmente inválido)
+      // Para outros erros (rede, servidor offline), mantém o usuário logado
+      const status = e?.status || e?.response?.status;
+      if (status === 401) {
+        setAuthUser(null);
+        try {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+        } catch {}
+      }
+      // Se não for 401, mantém o user do localStorage
       return null;
     } finally {
       setLoading(false);

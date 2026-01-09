@@ -1,7 +1,19 @@
 import axios from "axios";
 
-// Base URL fixa da API (backend roda exclusivamente aqui)
-export const API_BASE_URL = "https://api.sementesdafala.com.br";
+function normalizeApiBaseUrl(raw: string): string {
+  const trimmed = (raw || "").trim().replace(/\/+$/, "");
+  // O frontend já chama endpoints como "/api/login".
+  // Se alguém configurar VITE_API_URL com "/api", evitamos ficar "/api/api/...".
+  if (trimmed.endsWith("/api")) return trimmed.slice(0, -4);
+  return trimmed;
+}
+
+// Base URL da API:
+// - Produção/Vercel: definir VITE_API_URL (sem "/api" e sem "/" no final)
+// - Fallback: domínio oficial
+export const API_BASE_URL = normalizeApiBaseUrl(
+  (import.meta as any)?.env?.VITE_API_URL || "https://api.sementesdafala.com.br"
+);
 
 const api = axios.create({
   baseURL: API_BASE_URL,

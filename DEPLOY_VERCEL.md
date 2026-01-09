@@ -7,11 +7,11 @@ Caso contrário, o navegador bloqueia as requests (erro **Mixed Content**) e o f
 
 Crie a variável de ambiente no Vercel:
 
-- **`VITE_API_URL`**: URL base do backend **em HTTPS** (sem barra no final)
+- **`VITE_API_URL`**: URL base do backend **em HTTPS** (**sem** `/api` e **sem** barra no final)
 
 Exemplos:
 
-- `VITE_API_URL=https://api.sementesdafala.com`
+- `VITE_API_URL=https://api.sementesdafala.com.br`
 - `VITE_API_URL=https://<seu-alb-ou-domínio>`
 
 Depois **redeploy** no Vercel.

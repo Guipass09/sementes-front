@@ -1,9 +1,9 @@
-import { CheckCircle2, Clock, Play, FileText, Image as ImageIcon, Grid3X3 } from "lucide-react";
+import { CheckCircle2, Clock, Play, FileText, Image as ImageIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
-import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow } from "@/lib/laravel-api";
+import type { ActivityRow } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { onUserProgressChanged } from "@/lib/user-events";
@@ -31,9 +31,6 @@ const PatientActivities = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
-  const [games, setGames] = useState<MemoryGameRow[]>([]);
-  const [auditoryGames, setAuditoryGames] = useState<AuditoryGameRow[]>([]);
-  const [hangmanGames, setHangmanGames] = useState<HangmanGameRow[]>([]);
 
   useEffect(() => {
     if (!auth.user) return;
@@ -41,17 +38,9 @@ const PatientActivities = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const [a, g, ag, hg] = await Promise.all([
-          api.userListActivities(),
-          api.userListMemoryGames(),
-          api.userListAuditoryGames(),
-          api.userListHangmanGames(),
-        ]);
+        const a = await api.userListActivities();
         if (!cancelled) {
           setActivities(a);
-          setGames(g);
-          setAuditoryGames(ag);
-          setHangmanGames(hg);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -68,45 +57,14 @@ const PatientActivities = () => {
   }, [auth.user]);
 
   const progressSummary = useMemo(() => {
-    const activitiesTotal = activities.length;
-    const gamesTotal = games.length;
-    const auditoryTotal = auditoryGames.length;
-    const hangmanTotal = hangmanGames.length;
-
-    const activitiesDone = activities.filter((a) => a.status === "concluida").length;
-    const activitiesInProgress = activities.filter((a) => a.status === "em_andamento").length;
-    const activitiesAvailable = activitiesTotal - activitiesDone - activitiesInProgress;
-
-    const gamesDone = games.filter((g) => g.status === "concluido").length;
-    const gamesAvailable = gamesTotal - gamesDone;
-
-    const auditoryDone = auditoryGames.filter((g) => g.status === "concluido").length;
-    const auditoryAvailable = auditoryTotal - auditoryDone;
-
-    const hangmanDone = hangmanGames.filter((g) => g.status === "concluido").length;
-    const hangmanAvailable = hangmanTotal - hangmanDone;
-
-    const total = activitiesTotal + gamesTotal + auditoryTotal + hangmanTotal;
-    const done = activitiesDone + gamesDone + auditoryDone + hangmanDone;
-    const inProgress = activitiesInProgress; // jogos não têm "em andamento" no modelo atual
+    const total = activities.length;
+    const done = activities.filter((a) => a.status === "concluida").length;
+    const inProgress = activities.filter((a) => a.status === "em_andamento").length;
     const available = Math.max(0, total - done - inProgress);
-
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
-    return {
-      total,
-      done,
-      inProgress,
-      available,
-      breakdown: {
-        activities: { total: activitiesTotal, done: activitiesDone, inProgress: activitiesInProgress, available: Math.max(0, activitiesAvailable) },
-        memoryGames: { total: gamesTotal, done: gamesDone, available: Math.max(0, gamesAvailable) },
-        auditoryGames: { total: auditoryTotal, done: auditoryDone, available: Math.max(0, auditoryAvailable) },
-        hangmanGames: { total: hangmanTotal, done: hangmanDone, available: Math.max(0, hangmanAvailable) },
-      },
-      percent,
-    };
-  }, [activities, games, auditoryGames, hangmanGames]);
+    return { total, done, inProgress, available, percent };
+  }, [activities]);
 
   return (
     <div className="min-h-full py-8 lg:py-12">
@@ -121,70 +79,6 @@ const PatientActivities = () => {
           </p>
         </div>
 
-        {/* Jogos da Memória (no mesmo lugar das atividades) */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg sm:text-xl font-display font-bold text-foreground inline-flex items-center gap-2">
-              <Grid3X3 className="h-5 w-5 text-brand-green" />
-              Jogos da Memória
-            </h2>
-            <div className="text-sm text-muted-foreground">{games.length} jogo(s)</div>
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="bg-card rounded-xl border border-border p-5 shadow-sm">
-                  <div className="flex gap-4">
-                    <Skeleton className="h-12 w-12 rounded-xl" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-2/3" />
-                      <Skeleton className="h-4 w-5/6" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : games.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-5 shadow-sm text-sm text-muted-foreground">
-              Ainda não há jogos disponíveis para você.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {games.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => navigate(`/jogos/${g.id}`)}
-                  className="text-left bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                      {g.thumbnail ? (
-                        <img
-                          src={normalizeMediaUrl(g.thumbnail.url)}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = "/placeholder.svg";
-                          }}
-                        />
-                      ) : (
-                        <ImageIcon size={22} className="text-primary" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-foreground">{g.title}</div>
-                      <div className="text-sm text-muted-foreground line-clamp-2">{g.description}</div>
-                      <div className="text-sm text-muted-foreground mt-2">{g.pairs_count} pares</div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Progress Summary */}
         <div className="bg-card rounded-xl border border-border p-6 mb-8 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -192,8 +86,8 @@ const PatientActivities = () => {
               <h3 className="font-semibold text-foreground mb-1">Progresso das Atividades</h3>
               <p className="text-sm text-muted-foreground">
                 {progressSummary.total === 0
-                  ? "Nenhuma atividade/jogo disponível ainda."
-                  : `${progressSummary.done} de ${progressSummary.total} itens concluídos`}
+                  ? "Nenhuma atividade disponível ainda."
+                  : `${progressSummary.done} de ${progressSummary.total} atividades concluídas`}
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -244,6 +138,11 @@ const PatientActivities = () => {
                 </div>
               ))}
             </div>
+          ) : activities.length === 0 ? (
+            <div className="bg-card rounded-xl border border-border p-8 shadow-sm text-center">
+              <ImageIcon size={48} className="mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">Nenhuma atividade disponível ainda.</p>
+            </div>
           ) : (
             activities.map((activity, index) => {
               const status = activity.status ?? "disponivel";
@@ -258,7 +157,7 @@ const PatientActivities = () => {
                   style={{ animationDelay: `${0.05 * index}s` }}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    {/* Thumbnail Premium */}
+                    {/* Thumbnail */}
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                       {thumb?.media_type === "image" ? (
                         <img
@@ -325,8 +224,6 @@ const PatientActivities = () => {
             })
           )}
         </div>
-
-        {/* Preview modal removed: activities open as dedicated page /atividades/:id */}
       </div>
     </div>
   );

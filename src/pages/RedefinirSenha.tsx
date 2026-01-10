@@ -17,7 +17,7 @@ const RedefinirSenha = () => {
   const { toast } = useToast();
 
   const [email, setEmail] = useState(query.get("email") ?? "");
-  const [token, setToken] = useState("");
+  const [token, setToken] = useState(query.get("token") ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);

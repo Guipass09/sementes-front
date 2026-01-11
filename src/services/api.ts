@@ -68,22 +68,13 @@ api.interceptors.response.use(
     }
 
     // Avoid interfering with login endpoint itself
-    // Só faz logout automático em 401 se NÃO for na página de login/registro
-    // E só redireciona se o usuário estiver tentando acessar uma página protegida
+    // NÃO fazer logout automático em 401 - deixar o AuthContext gerenciar isso
+    // O AuthContext só limpa o token se /api/me retornar 401 (token realmente inválido)
+    // Isso evita logout acidental por erros temporários de rede/servidor
     if (response.status === 401) {
-      try {
-        const isAuthEndpoint = url.includes("/login") || url.includes("/register") || url.includes("/me");
-        const isOnAuthPage = window.location.pathname.includes("/entrar") || 
-                            window.location.pathname.includes("/cadastro") ||
-                            window.location.pathname.includes("/esqueci-senha");
-        
-        // Só limpa e redireciona se não for endpoint de auth e não estiver em página de auth
-        if (!isAuthEndpoint && !isOnAuthPage) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.replace("/entrar");
-        }
-      } catch {}
+      // Não limpa mais automaticamente - deixa o usuário tentar novamente
+      // O logout só acontece se o usuário explicitamente sair
+      // ou se o AuthContext detectar token inválido via /api/me
       return Promise.reject(error);
     }
 

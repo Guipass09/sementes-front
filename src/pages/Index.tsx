@@ -1,8 +1,35 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import LoginForm from "@/components/LoginForm";
 import LoginHero from "@/components/LoginHero";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 
 const Index = () => {
+  const navigate = useNavigate();
+
+  // Redirecionar automaticamente se usuário já estiver logado
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
+      
+      if (token && storedUser) {
+        const user = JSON.parse(storedUser);
+        const role = String(user.role || "").toLowerCase().trim();
+        const isAdmin = role === "admin" || role.includes("admin") || role.includes("administrador");
+        
+        // Redirecionar para área apropriada
+        if (isAdmin) {
+          navigate("/admin", { replace: true });
+        } else {
+          navigate("/paciente", { replace: true });
+        }
+      }
+    } catch {
+      // Ignora erros de parse
+    }
+  }, [navigate]);
+
   return (
     <main className="min-h-screen gradient-hero">
       {import.meta.env.DEV && (

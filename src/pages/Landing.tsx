@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   ClipboardCheck,
@@ -100,6 +101,31 @@ function InfoCard({
 }
 
 export default function Landing() {
+  const navigate = useNavigate();
+
+  // Redirecionar automaticamente se usuário já estiver logado
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
+      
+      if (token && storedUser) {
+        const user = JSON.parse(storedUser);
+        const role = String(user.role || "").toLowerCase().trim();
+        const isAdmin = role === "admin" || role.includes("admin") || role.includes("administrador");
+        
+        // Redirecionar para área apropriada
+        if (isAdmin) {
+          navigate("/admin", { replace: true });
+        } else {
+          navigate("/paciente", { replace: true });
+        }
+      }
+    } catch {
+      // Ignora erros de parse
+    }
+  }, [navigate]);
+
   const whatsappCtaHref = "https://wa.me/message/GKL4EEB2NSI4A1";
   const instagramHref = "https://www.instagram.com/sementes_dafalaoficial/";
   const contactEmail = "sementesdafala@gmail.com";

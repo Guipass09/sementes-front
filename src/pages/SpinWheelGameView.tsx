@@ -343,7 +343,7 @@ export default function SpinWheelGameView() {
                                 const imgY = 100 + imgDistance * Math.sin(midRad);
 
                                 // Texto mais pra dentro para não invadir a imagem
-                                const textDistance = 36;
+                                const textDistance = 34;
                                 const textX = 100 + textDistance * Math.cos(midRad);
                                 const textY = 100 + textDistance * Math.sin(midRad);
 
@@ -352,7 +352,30 @@ export default function SpinWheelGameView() {
                                 const contentRotate = midAngle - 180;
 
                                 const rawLabel = (item.label ?? "").trim().toUpperCase();
-                                const label = rawLabel.length > 12 ? `${rawLabel.slice(0, 12)}…` : rawLabel;
+
+                                // Quebra em até 2 linhas para não cortar nomes grandes.
+                                // Prioriza quebrar em espaço; se não tiver, quebra no meio.
+                                const mkLines = (s: string): [string] | [string, string] => {
+                                  const clean = s.replace(/\s+/g, " ").trim();
+                                  if (!clean) return [""];
+                                  if (clean.length <= 12) return [clean];
+                                  const max1 = 12;
+                                  const max2 = 12;
+                                  const cutAtSpace = clean.lastIndexOf(" ", max1);
+                                  const cut = cutAtSpace >= 6 ? cutAtSpace : max1;
+                                  const l1 = clean.slice(0, cut).trim();
+                                  const rest = clean.slice(cut).trim();
+                                  if (!rest) return [l1];
+                                  const l2 = rest.length > max2 ? rest.slice(0, max2) : rest;
+                                  return [l1, l2];
+                                };
+
+                                const lines = mkLines(rawLabel);
+                                const longest = Math.max(...lines.map((x) => x.length));
+                                // Fonte adaptativa: quanto maior, menor — sem cortar.
+                                const fontSize = longest <= 8 ? 7.5 : longest <= 12 ? 7 : 6.2;
+                                // Largura máxima do "campo" de texto (em unidades do SVG) — evita invadir a imagem.
+                                const maxTextLen = 44;
 
                                 return (
                                   <g key={idx}>
@@ -381,12 +404,39 @@ export default function SpinWheelGameView() {
                                       textAnchor="middle"
                                       dominantBaseline="middle"
                                       fill="#1f2937"
-                                      fontSize="7"
+                                      fontSize={fontSize}
                                       fontWeight="bold"
                                       transform={`rotate(${contentRotate}, ${textX}, ${textY})`}
                                       style={{ textTransform: "uppercase" }}
                                     >
-                                      {label}
+                                      {lines.length === 1 ? (
+                                        <tspan
+                                          x={textX}
+                                          textLength={maxTextLen}
+                                          lengthAdjust="spacingAndGlyphs"
+                                        >
+                                          {lines[0]}
+                                        </tspan>
+                                      ) : (
+                                        <>
+                                          <tspan
+                                            x={textX}
+                                            dy={-fontSize * 0.55}
+                                            textLength={maxTextLen}
+                                            lengthAdjust="spacingAndGlyphs"
+                                          >
+                                            {lines[0]}
+                                          </tspan>
+                                          <tspan
+                                            x={textX}
+                                            dy={fontSize * 1.15}
+                                            textLength={maxTextLen}
+                                            lengthAdjust="spacingAndGlyphs"
+                                          >
+                                            {lines[1]}
+                                          </tspan>
+                                        </>
+                                      )}
                                     </text>
                                   </g>
                                 );

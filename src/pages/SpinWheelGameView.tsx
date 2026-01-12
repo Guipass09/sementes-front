@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Volume2, VolumeX, CircleDot } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
@@ -27,6 +27,10 @@ export default function SpinWheelGameView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Importante: não usar hooks (useMemo) após retornos condicionais (loading/notFound),
+  // senão quebra a ordem dos hooks e gera "Minified React error #310" em produção.
+  const gameBgUrl = game?.background_url ? normalizeMediaUrl(game.background_url) : null;
 
   const normalizeDeg = useCallback((deg: number) => {
     const v = deg % 360;
@@ -207,10 +211,6 @@ export default function SpinWheelGameView() {
   ];
 
   const wheelSize = "min(78vw, 560px)";
-
-  const gameBgUrl = useMemo(() => {
-    return game.background_url ? normalizeMediaUrl(game.background_url) : null;
-  }, [game.background_url]);
 
   return (
     <div ref={containerRef} className="min-h-[100svh] bg-transparent">

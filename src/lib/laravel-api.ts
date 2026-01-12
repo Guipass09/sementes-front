@@ -132,6 +132,36 @@ export type AuditoryGameRow = {
 
 export type HangmanGameStatus = "disponivel" | "concluido";
 
+// ---------------------------
+// JOGO DA ROLETA
+// ---------------------------
+
+export type SpinWheelGameStatus = "disponivel" | "concluido";
+
+export type SpinWheelGameItemRow = {
+  id: number;
+  position: number;
+  image_url: string;
+  label: string;
+  color?: string | null;
+};
+
+export type SpinWheelGameRow = {
+  id: number;
+  title: string;
+  center_title?: string | null;
+  background_url?: string | null;
+  items_count: number;
+  status?: SpinWheelGameStatus; // user
+  progress?: any | null;
+  created_by: { id?: number; name: string; role: AuthRole };
+  assigned_count?: number; // admin
+  assigned_to?: Array<{ id: number; name: string }>; // admin
+  items: SpinWheelGameItemRow[];
+  thumbnail?: { url: string } | null;
+  created_at?: string | null;
+};
+
 export type HangmanSupportImageRow = {
   position: number;
   url: string;
@@ -826,6 +856,89 @@ export function isApiError(e: unknown): e is ApiError {
     "status" in e &&
     typeof (e as any).status === "number"
   );
+}
+
+// ---------------------------
+// ROLETA (admin)
+// ---------------------------
+
+export async function adminListSpinWheelGames(): Promise<SpinWheelGameRow[]> {
+  const res = await request<{ data: SpinWheelGameRow[] }>("/api/admin/spin-wheel-games");
+  return res.data;
+}
+
+export async function adminGetSpinWheelGame(id: number): Promise<SpinWheelGameRow> {
+  return await request<SpinWheelGameRow>(`/api/admin/spin-wheel-games/${id}`);
+}
+
+export async function adminCreateSpinWheelGame(payload: {
+  title: string;
+  center_title?: string;
+  items_count: number;
+  assigned_to: number[];
+  background?: File;
+  item_images: File[];
+  item_labels: string[];
+}): Promise<SpinWheelGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  if (payload.center_title) fd.set("center_title", payload.center_title);
+  fd.set("items_count", String(payload.items_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background) fd.set("background", payload.background);
+  payload.item_images.forEach((f) => fd.append("item_images[]", f));
+  payload.item_labels.forEach((l) => fd.append("item_labels[]", l));
+  return await request<SpinWheelGameRow>("/api/admin/spin-wheel-games", { method: "POST", formData: fd });
+}
+
+export async function adminUpdateSpinWheelGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    center_title: string;
+    assigned_to: number[];
+    background: File;
+    item_images: File[];
+    item_labels: string[];
+  }>
+): Promise<SpinWheelGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.center_title !== undefined) fd.set("center_title", payload.center_title);
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background !== undefined && payload.background) fd.set("background", payload.background);
+  if (payload.item_images !== undefined) payload.item_images.forEach((f) => fd.append("item_images[]", f));
+  if (payload.item_labels !== undefined) payload.item_labels.forEach((l) => fd.append("item_labels[]", l));
+  fd.set("_method", "PATCH");
+  return await request<SpinWheelGameRow>(`/api/admin/spin-wheel-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function adminDeleteSpinWheelGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/admin/spin-wheel-games/${id}`, { method: "DELETE" });
+}
+
+// ---------------------------
+// ROLETA (user)
+// ---------------------------
+
+export async function userListSpinWheelGames(): Promise<SpinWheelGameRow[]> {
+  const res = await request<{ data: SpinWheelGameRow[] }>("/api/spin-wheel-games");
+  return res.data;
+}
+
+export async function userGetSpinWheelGame(id: number): Promise<SpinWheelGameRow> {
+  return await request<SpinWheelGameRow>(`/api/spin-wheel-games/${id}`);
+}
+
+export async function userUpdateSpinWheelGameProgress(
+  id: number,
+  payload: { progress?: any; status?: SpinWheelGameStatus }
+): Promise<SpinWheelGameRow> {
+  await ensureCsrfCookie();
+  return await request<SpinWheelGameRow>(`/api/spin-wheel-games/${id}/progress`, { method: "PATCH", json: payload });
 }
 
 

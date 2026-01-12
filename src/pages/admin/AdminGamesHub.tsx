@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Gamepad2, Ear, ArrowRight, Type } from "lucide-react";
+import { Gamepad2, Ear, ArrowRight, Type, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AdminGamesHub() {
@@ -73,6 +73,28 @@ export default function AdminGamesHub() {
                     Gerenciar <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                   <Button onClick={() => navigate("/admin/jogos/forca/novo")} variant="secondary">
+                    Novo jogo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm h-full">
+            <div className="flex items-start gap-4 h-full">
+              <div className="h-12 w-12 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+                <CircleDot className="h-6 w-6 text-amber-500" />
+              </div>
+              <div className="flex-1 flex flex-col h-full">
+                <h2 className="font-display font-bold text-foreground text-xl">Roleta Musical</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Crie roletas interativas com imagens e nomes para cantar músicas.
+                </p>
+                <div className="mt-auto pt-4 flex flex-wrap gap-2 items-center">
+                  <Button onClick={() => navigate("/admin/jogos/roleta")} variant="default" className="bg-amber-500 hover:bg-amber-600">
+                    Gerenciar <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                  <Button onClick={() => navigate("/admin/jogos/roleta/novo")} variant="secondary">
                     Novo jogo
                   </Button>
                 </div>

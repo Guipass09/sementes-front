@@ -479,6 +479,7 @@ export default function SpinWheelGameView() {
             </div>
           </div>
         </div>
+      </div>
       </main>
     </div>
   );

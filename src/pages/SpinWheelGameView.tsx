@@ -104,8 +104,9 @@ export default function SpinWheelGameView() {
     const segmentAngle = 360 / itemsCount;
     const winnerIndex = Math.floor(Math.random() * itemsCount);
     const spins = 4 + Math.random() * 2;
+    // Pointer is at 180deg (left), winner segment center should align there
     const winnerAngle = winnerIndex * segmentAngle + segmentAngle / 2;
-    const targetRotation = rotation + spins * 360 + (270 - winnerAngle);
+    const targetRotation = rotation + spins * 360 + (180 - winnerAngle);
 
     setRotation(targetRotation);
 
@@ -150,7 +151,7 @@ export default function SpinWheelGameView() {
 
   return (
     <div ref={containerRef} className="min-h-screen flex flex-col bg-background">
-      {/* Header - igual às atividades */}
+      {/* Header */}
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/60">
         <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3 min-w-0">
@@ -177,7 +178,7 @@ export default function SpinWheelGameView() {
         </div>
       </header>
 
-      {/* Info do jogo - igual às atividades */}
+      {/* Info do jogo */}
       <div className="px-4 sm:px-6 lg:px-10 py-4 sm:py-6 border-b border-border/40 bg-gradient-to-b from-muted/30 to-transparent">
         <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">
           {game.title}
@@ -197,128 +198,116 @@ export default function SpinWheelGameView() {
         </div>
       </div>
 
-      {/* Área do jogo - com imagem de fundo */}
+      {/* Área do jogo */}
       <div className="flex-1 px-4 sm:px-6 lg:px-10 py-6 sm:py-8">
         <div 
-          className="relative rounded-3xl border border-border bg-gradient-to-b from-background to-muted/30 shadow-sm overflow-hidden"
-          style={{
-            minHeight: "60vh",
-          }}
+          className="relative rounded-3xl border border-border shadow-sm overflow-hidden"
+          style={{ minHeight: "55vh" }}
         >
-          {/* Imagem de fundo do jogo */}
-          {game.background_url && (
+          {/* Fundo do jogo */}
+          {game.background_url ? (
             <img
               src={normalizeMediaUrl(game.background_url)}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
             />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-b from-gray-50 to-gray-100" />
           )}
-          
-          {/* Overlay para legibilidade */}
-          <div className="absolute inset-0 bg-white/60" />
 
-          {/* Conteúdo centralizado */}
-          <div className="relative z-10 flex flex-col items-center justify-center min-h-[60vh] p-4">
-            {/* Container da roleta com seta */}
+          {/* Conteúdo */}
+          <div className="relative z-10 flex flex-col items-center justify-center min-h-[55vh] p-4">
+            {/* Roleta com seta */}
             <div className="relative flex items-center">
-              {/* Seta indicadora (esquerda) */}
-              <div className="absolute -left-6 sm:-left-8 z-20">
-                <div 
-                  className="w-0 h-0 border-t-[12px] border-t-transparent border-b-[12px] border-b-transparent border-l-[24px] border-l-gray-700 sm:border-t-[16px] sm:border-b-[16px] sm:border-l-[32px]"
-                  style={{ filter: "drop-shadow(2px 0 3px rgba(0,0,0,0.2))" }} 
-                />
+              {/* Seta (esquerda, apontando para direita) */}
+              <div className="absolute -left-8 sm:-left-10 z-20 flex items-center">
+                <svg width="40" height="40" viewBox="0 0 40 40" className="drop-shadow-lg">
+                  <polygon points="0,20 40,5 40,35" fill="#374151" />
+                </svg>
               </div>
 
-              {/* Roleta */}
-              <div className="w-[280px] h-[280px] sm:w-[380px] sm:h-[380px] md:w-[450px] md:h-[450px] rounded-full bg-white shadow-2xl p-2 sm:p-3">
+              {/* Container da roleta */}
+              <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] md:w-[480px] md:h-[480px] rounded-full bg-white shadow-2xl p-3 sm:p-4">
+                {/* Roleta que gira */}
                 <div
-                  className="w-full h-full rounded-full relative overflow-hidden"
+                  className="w-full h-full rounded-full relative"
                   style={{
                     transform: `rotate(${rotation}deg)`,
                     transition: spinning ? "transform 6s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
                   }}
                 >
-                  {/* SVG com segmentos, imagens e textos */}
-                  <svg viewBox="0 0 200 200" className="w-full h-full">
-                    {game.items.map((item, idx) => {
-                      const startAngle = idx * segmentAngle - 90;
-                      const endAngle = startAngle + segmentAngle;
-                      const startRad = (startAngle * Math.PI) / 180;
-                      const endRad = (endAngle * Math.PI) / 180;
-                      
-                      const x1 = 100 + 100 * Math.cos(startRad);
-                      const y1 = 100 + 100 * Math.sin(startRad);
-                      const x2 = 100 + 100 * Math.cos(endRad);
-                      const y2 = 100 + 100 * Math.sin(endRad);
-                      
-                      const largeArc = segmentAngle > 180 ? 1 : 0;
-                      const pathD = `M 100 100 L ${x1} ${y1} A 100 100 0 ${largeArc} 1 ${x2} ${y2} Z`;
-                      const color = item.color || defaultColors[idx % defaultColors.length];
-                      
-                      // Posição no meio do segmento
-                      const midAngle = startAngle + segmentAngle / 2;
-                      const midRad = (midAngle * Math.PI) / 180;
-                      
-                      // Imagem perto da borda (distância 75 do centro)
-                      const imgDist = 75;
-                      const imgX = 100 + imgDist * Math.cos(midRad);
-                      const imgY = 100 + imgDist * Math.sin(midRad);
-                      
-                      // Texto mais para dentro (distância 50 do centro)
-                      const textDist = 50;
-                      const textX = 100 + textDist * Math.cos(midRad);
-                      const textY = 100 + textDist * Math.sin(midRad);
-                      
-                      return (
-                        <g key={idx}>
-                          {/* Segmento colorido */}
-                          <path d={pathD} fill={color} stroke="white" strokeWidth="1" />
-                          
-                          {/* Imagem - perto da borda */}
-                          <foreignObject
-                            x={imgX - 15}
-                            y={imgY - 15}
-                            width="30"
-                            height="30"
-                            transform={`rotate(${midAngle + 90}, ${imgX}, ${imgY})`}
-                          >
-                            <div className="w-full h-full rounded bg-white shadow-sm overflow-hidden">
-                              <img
-                                src={normalizeMediaUrl(item.image_url)}
-                                alt={item.label}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            </div>
-                          </foreignObject>
-                          
-                          {/* Texto - em direção ao centro */}
-                          <text
-                            x={textX}
-                            y={textY}
-                            fill="#222"
-                            fontSize="8"
-                            fontWeight="bold"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            transform={`rotate(${midAngle + 90}, ${textX}, ${textY})`}
-                            style={{ textTransform: "uppercase", fontFamily: "system-ui, sans-serif" }}
-                          >
-                            {item.label}
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </svg>
+                  {/* Segmentos */}
+                  {game.items.map((item, idx) => {
+                    const color = item.color || defaultColors[idx % defaultColors.length];
+                    const startAngle = idx * segmentAngle;
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className="absolute inset-0"
+                        style={{
+                          clipPath: `polygon(50% 50%, ${50 + 50 * Math.cos((startAngle - 90) * Math.PI / 180)}% ${50 + 50 * Math.sin((startAngle - 90) * Math.PI / 180)}%, ${50 + 50 * Math.cos((startAngle + segmentAngle - 90) * Math.PI / 180)}% ${50 + 50 * Math.sin((startAngle + segmentAngle - 90) * Math.PI / 180)}%)`,
+                          backgroundColor: color,
+                        }}
+                      />
+                    );
+                  })}
+                  
+                  {/* Linhas divisórias */}
+                  {game.items.map((_, idx) => (
+                    <div
+                      key={`line-${idx}`}
+                      className="absolute top-0 left-1/2 w-[2px] h-1/2 bg-white origin-bottom"
+                      style={{
+                        transform: `rotate(${idx * segmentAngle}deg) translateX(-50%)`,
+                      }}
+                    />
+                  ))}
 
-                  {/* Centro da roleta */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28%] h-[28%] rounded-full bg-white shadow-lg flex items-center justify-center p-2 sm:p-3">
-                    <p className="text-center text-[9px] sm:text-xs font-semibold text-gray-700 leading-tight">
-                      {game.center_title || "Gire a roleta!"}
-                    </p>
-                  </div>
+                  {/* Imagens e textos - CONTRA-ROTACIONAM para ficarem horizontais */}
+                  {game.items.map((item, idx) => {
+                    const midAngle = idx * segmentAngle + segmentAngle / 2;
+                    const distance = 38; // % do centro
+                    const rad = (midAngle - 90) * Math.PI / 180;
+                    const x = 50 + distance * Math.cos(rad);
+                    const y = 50 + distance * Math.sin(rad);
+                    
+                    return (
+                      <div
+                        key={`item-${idx}`}
+                        className="absolute flex items-center gap-1"
+                        style={{
+                          left: `${x}%`,
+                          top: `${y}%`,
+                          transform: `translate(-50%, -50%) rotate(${-rotation}deg)`,
+                          transition: spinning ? "transform 6s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
+                        }}
+                      >
+                        {/* Imagem */}
+                        <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-md overflow-hidden bg-white shadow-md flex-shrink-0">
+                          <img
+                            src={normalizeMediaUrl(item.image_url)}
+                            alt={item.label}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        {/* Texto */}
+                        <span className="text-sm sm:text-base font-bold text-gray-800 uppercase whitespace-nowrap">
+                          {item.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Centro fixo */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[26%] h-[26%] rounded-full bg-white shadow-lg flex items-center justify-center p-2 sm:p-3 z-10">
+                  <p className="text-center text-[9px] sm:text-xs font-semibold text-gray-700 leading-tight">
+                    {game.center_title || "Gire a roleta!"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -333,7 +322,7 @@ export default function SpinWheelGameView() {
                       alt={game.items[selectedIndex].label}
                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shadow-md"
                       onError={(e) => {
-                        e.currentTarget.src = "/placeholder.svg";
+                        e.currentTarget.style.display = 'none';
                       }}
                     />
                     <div>
@@ -358,7 +347,7 @@ export default function SpinWheelGameView() {
         </div>
       </div>
 
-      {/* Footer - igual às atividades */}
+      {/* Footer */}
       <footer className="sticky bottom-0 z-20 bg-background/95 backdrop-blur border-t border-border/60 px-4 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-center gap-4">
           <Button

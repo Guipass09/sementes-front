@@ -22,7 +22,8 @@ export default function SpinWheelGameView() {
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [eliminatedIndices, setEliminatedIndices] = useState<number[]>([]);
+  // Índices (do array original game.items) que ainda estão na roleta (a roleta “diminui” a cada giro)
+  const [activeOrder, setActiveOrder] = useState<number[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,7 +51,13 @@ export default function SpinWheelGameView() {
         const data = isAdmin
           ? await api.adminGetSpinWheelGame(Number(id))
           : await api.userGetSpinWheelGame(Number(id));
-        if (!cancelled) setGame(data);
+        if (!cancelled) {
+          setGame(data);
+          setActiveOrder(Array.from({ length: data.items.length }, (_, i) => i));
+          setRotation(0);
+          setSpinning(false);
+          setSelectedIndex(null);
+        }
       } catch {
         if (!cancelled) navigate("/paciente/jogos");
       } finally {
@@ -69,7 +76,7 @@ export default function SpinWheelGameView() {
     setRotation(0);
     setSpinning(false);
     setSelectedIndex(null);
-    setEliminatedIndices([]);
+    setActiveOrder(Array.from({ length: game.items.length }, (_, i) => i));
   }, [game?.id]);
 
   // Sound effects
@@ -123,7 +130,13 @@ export default function SpinWheelGameView() {
     setSpinning(true);
     setSelectedIndex(null);
 
-    const itemsCount = game.items.length;
+    const order = activeOrder.slice();
+    if (order.length === 0) {
+      setSpinning(false);
+      return;
+    }
+
+    const itemsCount = order.length;
     const segmentAngle = 360 / itemsCount;
 
     // Convenção do SVG/CSS: 0° = direita, 90° = baixo, 180° = esquerda, 270° = cima
@@ -133,19 +146,12 @@ export default function SpinWheelGameView() {
     // Isso garante que a palavra/imagem do ponteiro fique HORIZONTAL como no print.
     const baseStartAngle = 180 - segmentAngle / 2;
 
-    // Escolhe um item aleatório APENAS entre os que ainda não foram sorteados
-    const available: number[] = [];
-    for (let i = 0; i < itemsCount; i++) {
-      if (!eliminatedIndices.includes(i)) available.push(i);
-    }
-    if (available.length === 0) {
-      setSpinning(false);
-      return;
-    }
-    const winnerIndex = available[Math.floor(Math.random() * available.length)];
+    // Escolhe uma POSIÇÃO aleatória dentro da roleta atual (que já está reduzida)
+    const winnerPos = Math.floor(Math.random() * itemsCount);
+    const winnerIndex = order[winnerPos];
 
     // Centro do segmento vencedor no mesmo referencial do SVG
-    const winnerCenterAngle = baseStartAngle + winnerIndex * segmentAngle + segmentAngle / 2;
+    const winnerCenterAngle = baseStartAngle + winnerPos * segmentAngle + segmentAngle / 2;
 
     // Giro "divertido", mas garantindo alinhamento perfeito no fim
     const spins = 5 + Math.random() * 3; // 5-8 voltas completas
@@ -171,21 +177,22 @@ export default function SpinWheelGameView() {
       // Assim o resultado SEMPRE condiz com a seta (mesmo com arredondamentos).
       const finalRotation = normalizeDeg(targetRotation);
       const t = normalizeDeg(pointerAngle - finalRotation - baseStartAngle);
-      const resolvedIndex = Math.floor(t / segmentAngle) % itemsCount;
-
-      const finalIndex = eliminatedIndices.includes(resolvedIndex) ? winnerIndex : resolvedIndex;
+      const resolvedPos = Math.floor(t / segmentAngle) % itemsCount;
+      const finalIndex = order[resolvedPos] ?? winnerIndex;
       setSelectedIndex(finalIndex);
-      setEliminatedIndices((prev) => (prev.includes(finalIndex) ? prev : [...prev, finalIndex]));
+
+      // Remove a opção escolhida e “diminui” a roleta
+      setActiveOrder((prev) => prev.filter((x) => x !== finalIndex));
       playWinSound();
     }, 6500);
-  }, [spinning, game, rotation, playTickSound, playWinSound, normalizeDeg, eliminatedIndices]);
+  }, [spinning, game, rotation, playTickSound, playWinSound, normalizeDeg, activeOrder]);
 
   const handleRestart = useCallback(() => {
     setRotation(0);
     setSpinning(false);
     setSelectedIndex(null);
-    setEliminatedIndices([]);
-  }, []);
+    if (game) setActiveOrder(Array.from({ length: game.items.length }, (_, i) => i));
+  }, [game]);
 
   if (loading) {
     return (
@@ -230,9 +237,10 @@ export default function SpinWheelGameView() {
     );
   }
 
-  const itemsCount = game.items.length;
-  const segmentAngle = 360 / itemsCount;
-  const remainingCount = Math.max(0, itemsCount - eliminatedIndices.length);
+  const totalCount = game.items.length;
+  const remainingCount = activeOrder.length;
+  const renderCount = remainingCount > 0 ? remainingCount : 1;
+  const segmentAngle = 360 / renderCount;
   const finished = remainingCount <= 0;
   const defaultColors = [
     "#FFD54F", "#FF7043", "#4DD0E1", "#81C784", "#CE93D8", "#64B5F6",
@@ -291,7 +299,7 @@ export default function SpinWheelGameView() {
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <Badge className="bg-brand-orange/90 text-white shadow-sm">Jogo</Badge>
                     <Badge variant="outline" className="bg-background/60">
-                      {game.items.length} item(ns)
+                      {totalCount} item(ns)
                     </Badge>
                     <Badge variant="secondary" className="bg-muted/60">
                       Restantes: {remainingCount}
@@ -350,9 +358,10 @@ export default function SpinWheelGameView() {
                               </defs>
 
                               {/* Segmentos da roleta */}
-                              {game.items.map((item, idx) => {
+                              {activeOrder.map((originalIndex, pos) => {
+                                const item = game.items[originalIndex];
                                 const baseStartAngle = 180 - segmentAngle / 2;
-                                const startAngle = baseStartAngle + idx * segmentAngle;
+                                const startAngle = baseStartAngle + pos * segmentAngle;
                                 const endAngle = startAngle + segmentAngle;
                                 const startRad = (startAngle * Math.PI) / 180;
                                 const endRad = (endAngle * Math.PI) / 180;
@@ -363,17 +372,16 @@ export default function SpinWheelGameView() {
                                 const y2 = 100 + 95 * Math.sin(endRad);
 
                                 const largeArc = segmentAngle > 180 ? 1 : 0;
-                                const color = item.color || defaultColors[idx % defaultColors.length];
-                                const eliminated = eliminatedIndices.includes(idx);
-                                const segmentFill = eliminated ? "#E5E7EB" : color;
-                                const segmentStroke = eliminated ? "rgba(255,255,255,0.6)" : "white";
-                                const contentOpacity = eliminated ? 0.22 : 1;
+                                const color = item?.color || defaultColors[pos % defaultColors.length];
+                                const segmentFill = color;
+                                const segmentStroke = "white";
+                                const contentOpacity = 1;
 
                                 // Ângulo do meio do segmento para posicionar imagem e texto
                                 const midAngle = startAngle + segmentAngle / 2;
                                 const midRad = (midAngle * Math.PI) / 180;
 
-                                const rawLabel = (item.label ?? "").replace(/\s+/g, " ").trim().toUpperCase();
+                                const rawLabel = (item?.label ?? "").replace(/\s+/g, " ").trim().toUpperCase();
 
                                 // Quebra em até 3 linhas, SEM truncar (mantém 100% do texto).
                                 // - Se tiver espaços: quebra por palavras (greedy).
@@ -461,7 +469,7 @@ export default function SpinWheelGameView() {
                                 const contentRotate = midAngle - 180;
 
                                 return (
-                                  <g key={idx}>
+                                  <g key={originalIndex}>
                                     <path
                                       d={`M 100 100 L ${x1} ${y1} A 95 95 0 ${largeArc} 1 ${x2} ${y2} Z`}
                                       fill={segmentFill}
@@ -471,7 +479,7 @@ export default function SpinWheelGameView() {
 
                                     <g transform={`translate(${imgX}, ${imgY}) rotate(${contentRotate})`}>
                                       <image
-                                        href={normalizeMediaUrl(item.image_url)}
+                                        href={item?.image_url ? normalizeMediaUrl(item.image_url) : ""}
                                         x="-16"
                                         y="-16"
                                         width="32"
@@ -487,7 +495,7 @@ export default function SpinWheelGameView() {
                                       y={textY}
                                       textAnchor="middle"
                                       dominantBaseline="middle"
-                                      fill={eliminated ? "#9CA3AF" : "#1f2937"}
+                                      fill="#1f2937"
                                       fontSize={fontSize}
                                       fontWeight="bold"
                                       transform={`rotate(${contentRotate}, ${textX}, ${textY})`}
@@ -589,7 +597,7 @@ export default function SpinWheelGameView() {
                         type="button"
                         variant="secondary"
                         onClick={handleRestart}
-                        disabled={spinning || eliminatedIndices.length === 0}
+                        disabled={spinning || remainingCount === totalCount}
                         className="w-full max-w-xs"
                       >
                         Reiniciar

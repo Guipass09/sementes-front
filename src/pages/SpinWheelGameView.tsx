@@ -294,146 +294,135 @@ export default function SpinWheelGameView() {
                   {/* Área da roleta centralizada */}
                   <div className="relative z-10 flex flex-col items-center justify-center py-8 sm:py-10">
                     <div className="relative flex items-center justify-center">
-          {/* Roleta principal */}
-          <div 
-            className="relative rounded-full bg-gradient-to-br from-gray-100 to-white shadow-2xl p-2 sm:p-3"
-            style={{ width: wheelSize, height: wheelSize }}
-          >
-            {/* Anel decorativo externo */}
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-amber-400 to-orange-500 p-1.5">
-              <div className="w-full h-full rounded-full bg-white p-1">
-                {/* A roleta que gira */}
-                <svg
-                  viewBox="0 0 200 200"
-                  className="w-full h-full"
-                  style={{
-                    transform: `rotate(${rotation}deg)`,
-                    transition: spinning ? "transform 6.5s cubic-bezier(0.15, 0.6, 0.2, 1)" : "none",
-                  }}
-                >
-                  <defs>
-                    <clipPath id="wheelImageClip" clipPathUnits="userSpaceOnUse">
-                      <rect x="-14" y="-14" width="28" height="28" rx="4" />
-                    </clipPath>
-                  </defs>
-                  {/* Segmentos da roleta */}
-                  {game.items.map((item, idx) => {
-                    // Base para o layout bater com o print:
-                    // centro da fatia 0 alinhado com o ponteiro na ESQUERDA.
-                    const baseStartAngle = 180 - segmentAngle / 2;
-                    const startAngle = baseStartAngle + idx * segmentAngle;
-                    const endAngle = startAngle + segmentAngle;
-                    const startRad = (startAngle * Math.PI) / 180;
-                    const endRad = (endAngle * Math.PI) / 180;
-                    
-                    const x1 = 100 + 95 * Math.cos(startRad);
-                    const y1 = 100 + 95 * Math.sin(startRad);
-                    const x2 = 100 + 95 * Math.cos(endRad);
-                    const y2 = 100 + 95 * Math.sin(endRad);
-                    
-                    const largeArc = segmentAngle > 180 ? 1 : 0;
-                    const color = item.color || defaultColors[idx % defaultColors.length];
-                    
-                    // Ângulo do meio do segmento para posicionar imagem e texto
-                    const midAngle = startAngle + segmentAngle / 2;
-                    const midRad = (midAngle * Math.PI) / 180;
-                    
-                    // Posição da imagem (mais perto da borda)
-                    const imgDistance = 76;
-                    const imgX = 100 + imgDistance * Math.cos(midRad);
-                    const imgY = 100 + imgDistance * Math.sin(midRad);
-                    
-                    // Posição do texto (entre centro e imagem)
-                    // texto mais pra dentro para não invadir a imagem
-                    const textDistance = 36;
-                    const textX = 100 + textDistance * Math.cos(midRad);
-                    const textY = 100 + textDistance * Math.sin(midRad);
+                      {/* Roleta principal */}
+                      <div
+                        className="relative rounded-full bg-gradient-to-br from-gray-100 to-white shadow-2xl p-2 sm:p-3"
+                        style={{ width: wheelSize, height: wheelSize }}
+                      >
+                        {/* Anel decorativo externo */}
+                        <div className="w-full h-full rounded-full bg-gradient-to-br from-amber-400 to-orange-500 p-1.5">
+                          <div className="w-full h-full rounded-full bg-white p-1">
+                            {/* A roleta que gira */}
+                            <svg
+                              viewBox="0 0 200 200"
+                              className="w-full h-full"
+                              style={{
+                                transform: `rotate(${rotation}deg)`,
+                                transition: spinning ? "transform 6.5s cubic-bezier(0.15, 0.6, 0.2, 1)" : "none",
+                              }}
+                            >
+                              <defs>
+                                <clipPath id="wheelImageClip" clipPathUnits="userSpaceOnUse">
+                                  <rect x="-16" y="-16" width="32" height="32" rx="4" />
+                                </clipPath>
+                              </defs>
 
-                    // Rotação do conteúdo:
-                    // quando a fatia está no ponteiro (180°), fica horizontal;
-                    // as demais ficam diagonais, igual ao print.
-                    const contentRotate = midAngle - 180;
+                              {/* Segmentos da roleta */}
+                              {game.items.map((item, idx) => {
+                                const baseStartAngle = 180 - segmentAngle / 2;
+                                const startAngle = baseStartAngle + idx * segmentAngle;
+                                const endAngle = startAngle + segmentAngle;
+                                const startRad = (startAngle * Math.PI) / 180;
+                                const endRad = (endAngle * Math.PI) / 180;
 
-                    const rawLabel = (item.label ?? "").trim().toUpperCase();
-                    const label = rawLabel.length > 12 ? `${rawLabel.slice(0, 12)}…` : rawLabel;
-                    
-                    return (
-                      <g key={idx}>
-                        {/* Segmento colorido */}
-                        <path
-                          d={`M 100 100 L ${x1} ${y1} A 95 95 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                          fill={color}
-                          stroke="white"
-                          strokeWidth="1"
-                        />
-                        
-                        {/* Imagem - padrão do print */}
-                        <g transform={`translate(${imgX}, ${imgY}) rotate(${contentRotate})`}>
-                          <image
-                            href={normalizeMediaUrl(item.image_url)}
-                            x="-16"
-                            y="-16"
-                            width="32"
-                            height="32"
-                            clipPath="url(#wheelImageClip)"
-                            preserveAspectRatio="xMidYMid slice"
+                                const x1 = 100 + 95 * Math.cos(startRad);
+                                const y1 = 100 + 95 * Math.sin(startRad);
+                                const x2 = 100 + 95 * Math.cos(endRad);
+                                const y2 = 100 + 95 * Math.sin(endRad);
+
+                                const largeArc = segmentAngle > 180 ? 1 : 0;
+                                const color = item.color || defaultColors[idx % defaultColors.length];
+
+                                // Ângulo do meio do segmento para posicionar imagem e texto
+                                const midAngle = startAngle + segmentAngle / 2;
+                                const midRad = (midAngle * Math.PI) / 180;
+
+                                // Posição da imagem (mais perto da borda)
+                                const imgDistance = 76;
+                                const imgX = 100 + imgDistance * Math.cos(midRad);
+                                const imgY = 100 + imgDistance * Math.sin(midRad);
+
+                                // Texto mais pra dentro para não invadir a imagem
+                                const textDistance = 36;
+                                const textX = 100 + textDistance * Math.cos(midRad);
+                                const textY = 100 + textDistance * Math.sin(midRad);
+
+                                // Quando a fatia está no ponteiro (180°), fica horizontal;
+                                // as demais ficam diagonais, igual ao print.
+                                const contentRotate = midAngle - 180;
+
+                                const rawLabel = (item.label ?? "").trim().toUpperCase();
+                                const label = rawLabel.length > 12 ? `${rawLabel.slice(0, 12)}…` : rawLabel;
+
+                                return (
+                                  <g key={idx}>
+                                    <path
+                                      d={`M 100 100 L ${x1} ${y1} A 95 95 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                                      fill={color}
+                                      stroke="white"
+                                      strokeWidth="1"
+                                    />
+
+                                    <g transform={`translate(${imgX}, ${imgY}) rotate(${contentRotate})`}>
+                                      <image
+                                        href={normalizeMediaUrl(item.image_url)}
+                                        x="-16"
+                                        y="-16"
+                                        width="32"
+                                        height="32"
+                                        clipPath="url(#wheelImageClip)"
+                                        preserveAspectRatio="xMidYMid slice"
+                                      />
+                                    </g>
+
+                                    <text
+                                      x={textX}
+                                      y={textY}
+                                      textAnchor="middle"
+                                      dominantBaseline="middle"
+                                      fill="#1f2937"
+                                      fontSize="7"
+                                      fontWeight="bold"
+                                      transform={`rotate(${contentRotate}, ${textX}, ${textY})`}
+                                      style={{ textTransform: "uppercase" }}
+                                    >
+                                      {label}
+                                    </text>
+                                  </g>
+                                );
+                              })}
+
+                              {/* Centro branco */}
+                              <circle cx="100" cy="100" r="28" fill="white" stroke="#f59e0b" strokeWidth="3" />
+                            </svg>
+
+                            {/* Texto central (não gira) */}
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[22%] h-[22%] flex items-center justify-center z-10">
+                              <p className="text-center text-[9px] sm:text-[11px] font-bold text-gray-700 leading-tight px-1">
+                                {game.center_title || "Gire!"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Seta indicadora à ESQUERDA (apontando para a roleta) */}
+                      <div className="absolute -left-4 sm:-left-6 z-20">
+                        <svg width="50" height="50" viewBox="0 0 50 50" className="drop-shadow-xl">
+                          <polygon
+                            points="50,25 0,0 10,25 0,50"
+                            fill="url(#arrowGradToWheel)"
+                            stroke="#374151"
+                            strokeWidth="2"
                           />
-                        </g>
-                        
-                        {/* Texto - rotacionado para seguir o segmento */}
-                        <text
-                          x={textX}
-                          y={textY}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fill="#1f2937"
-                          fontSize="7"
-                          fontWeight="bold"
-                          transform={`rotate(${contentRotate}, ${textX}, ${textY})`}
-                          style={{ textTransform: "uppercase" }}
-                        >
-                          {label}
-                        </text>
-                      </g>
-                    );
-                  })}
-                  
-                  {/* Centro branco */}
-                  <circle cx="100" cy="100" r="28" fill="white" stroke="#f59e0b" strokeWidth="3" />
-                </svg>
-
-                {/* Texto central (não gira) */}
-                <div 
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[22%] h-[22%] flex items-center justify-center z-10"
-                >
-                  <p className="text-center text-[9px] sm:text-[11px] font-bold text-gray-700 leading-tight px-1">
-                    {game.center_title || "Gire!"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Seta indicadora à ESQUERDA */}
-          <div className="absolute -left-4 sm:-left-6 z-20">
-            <svg width="50" height="50" viewBox="0 0 50 50" className="drop-shadow-xl">
-              <polygon 
-                // seta na ESQUERDA, mas apontando para a DIREITA (em direção à roleta)
-                points="50,25 0,0 10,25 0,50"
-                fill="url(#arrowGradToWheel)"
-                stroke="#374151"
-                strokeWidth="2"
-              />
-              <defs>
-                <linearGradient id="arrowGradToWheel" x1="0%" y1="50%" x2="100%" y2="50%">
-                  <stop offset="0%" stopColor="#374151" />
-                  <stop offset="100%" stopColor="#6B7280" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-        </div>
-
+                          <defs>
+                            <linearGradient id="arrowGradToWheel" x1="0%" y1="50%" x2="100%" y2="50%">
+                              <stop offset="0%" stopColor="#374151" />
+                              <stop offset="100%" stopColor="#6B7280" />
+                            </linearGradient>
+                          </defs>
+                        </svg>
+                      </div>
                     </div>
 
                     {/* Resultado + CTA */}
@@ -482,7 +471,6 @@ export default function SpinWheelGameView() {
                   Dica: fale uma frase/música usando a palavra sorteada.
                 </div>
               </div>
-    </div>
 
             {/* Rodapé interno (padrão) */}
             <div className="px-6 sm:px-10 py-4 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">

@@ -351,31 +351,67 @@ export default function SpinWheelGameView() {
                                 // as demais ficam diagonais, igual ao print.
                                 const contentRotate = midAngle - 180;
 
-                                const rawLabel = (item.label ?? "").trim().toUpperCase();
+                                const rawLabel = (item.label ?? "").replace(/\s+/g, " ").trim().toUpperCase();
 
-                                // Quebra em até 2 linhas para não cortar nomes grandes.
-                                // Prioriza quebrar em espaço; se não tiver, quebra no meio.
-                                const mkLines = (s: string): [string] | [string, string] => {
-                                  const clean = s.replace(/\s+/g, " ").trim();
-                                  if (!clean) return [""];
-                                  if (clean.length <= 12) return [clean];
-                                  const max1 = 12;
-                                  const max2 = 12;
-                                  const cutAtSpace = clean.lastIndexOf(" ", max1);
-                                  const cut = cutAtSpace >= 6 ? cutAtSpace : max1;
-                                  const l1 = clean.slice(0, cut).trim();
-                                  const rest = clean.slice(cut).trim();
-                                  if (!rest) return [l1];
-                                  const l2 = rest.length > max2 ? rest.slice(0, max2) : rest;
-                                  return [l1, l2];
+                                // Quebra em até 3 linhas, SEM truncar (mantém 100% do texto).
+                                // - Se tiver espaços: quebra por palavras (greedy).
+                                // - Se não tiver: quebra em blocos iguais.
+                                const wrapLines = (s: string): string[] => {
+                                  if (!s) return [""];
+
+                                  const len = s.length;
+                                  const targetLines = len <= 12 ? 1 : len <= 22 ? 2 : 3;
+                                  const maxPerLine = targetLines === 1 ? 12 : targetLines === 2 ? 11 : 9;
+
+                                  if (!s.includes(" ")) {
+                                    const chunk = Math.ceil(len / targetLines);
+                                    const parts: string[] = [];
+                                    for (let i = 0; i < len; i += chunk) parts.push(s.slice(i, i + chunk));
+                                    return parts.slice(0, 3);
+                                  }
+
+                                  const words = s.split(" ").filter(Boolean);
+                                  const lines: string[] = [];
+                                  let current = "";
+                                  for (const w of words) {
+                                    // palavra muito grande: quebra no meio
+                                    const pieces: string[] = [];
+                                    if (w.length > maxPerLine) {
+                                      for (let i = 0; i < w.length; i += maxPerLine) pieces.push(w.slice(i, i + maxPerLine));
+                                    } else {
+                                      pieces.push(w);
+                                    }
+
+                                    for (const p of pieces) {
+                                      const next = current ? `${current} ${p}` : p;
+                                      if (next.length <= maxPerLine || !current) {
+                                        current = next;
+                                      } else {
+                                        lines.push(current);
+                                        current = p;
+                                      }
+                                    }
+                                  }
+                                  if (current) lines.push(current);
+
+                                  // Se estourou 3 linhas, refaz como “sem espaço” para garantir tudo visível.
+                                  if (lines.length > 3) {
+                                    const compact = s.replace(/ /g, "");
+                                    const chunk = Math.ceil(compact.length / 3);
+                                    return [compact.slice(0, chunk), compact.slice(chunk, chunk * 2), compact.slice(chunk * 2)].filter(Boolean);
+                                  }
+
+                                  return lines;
                                 };
 
-                                const lines = mkLines(rawLabel);
-                                const longest = Math.max(...lines.map((x) => x.length));
-                                // Fonte adaptativa: quanto maior, menor — sem cortar.
-                                const fontSize = longest <= 8 ? 7.5 : longest <= 12 ? 7 : 6.2;
-                                // Largura máxima do "campo" de texto (em unidades do SVG) — evita invadir a imagem.
-                                const maxTextLen = 44;
+                                const lines = wrapLines(rawLabel);
+                                const longest = Math.max(1, ...lines.map((x) => x.length));
+                                // Fonte adaptativa por comprimento da maior linha (sem “apertar” demais as letras)
+                                const fontSize = Math.max(5.2, Math.min(7.4, 8.4 - longest * 0.22));
+                                // Campo máximo de texto (em unidades SVG). Aumentei para reduzir compressão.
+                                const maxTextLen = 52;
+                                const lineStep = fontSize * 1.05;
+                                const startDy = -(lineStep * (lines.length - 1)) / 2;
 
                                 return (
                                   <g key={idx}>
@@ -409,34 +445,17 @@ export default function SpinWheelGameView() {
                                       transform={`rotate(${contentRotate}, ${textX}, ${textY})`}
                                       style={{ textTransform: "uppercase" }}
                                     >
-                                      {lines.length === 1 ? (
+                                      {lines.map((ln, i) => (
                                         <tspan
+                                          key={i}
                                           x={textX}
+                                          dy={i === 0 ? startDy : lineStep}
                                           textLength={maxTextLen}
-                                          lengthAdjust="spacingAndGlyphs"
+                                          lengthAdjust="spacing"
                                         >
-                                          {lines[0]}
+                                          {ln}
                                         </tspan>
-                                      ) : (
-                                        <>
-                                          <tspan
-                                            x={textX}
-                                            dy={-fontSize * 0.55}
-                                            textLength={maxTextLen}
-                                            lengthAdjust="spacingAndGlyphs"
-                                          >
-                                            {lines[0]}
-                                          </tspan>
-                                          <tspan
-                                            x={textX}
-                                            dy={fontSize * 1.15}
-                                            textLength={maxTextLen}
-                                            lengthAdjust="spacingAndGlyphs"
-                                          >
-                                            {lines[1]}
-                                          </tspan>
-                                        </>
-                                      )}
+                                      ))}
                                     </text>
                                   </g>
                                 );

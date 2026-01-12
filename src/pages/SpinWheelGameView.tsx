@@ -22,6 +22,7 @@ export default function SpinWheelGameView() {
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [eliminatedIndices, setEliminatedIndices] = useState<number[]>([]);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,6 +62,15 @@ export default function SpinWheelGameView() {
       cancelled = true;
     };
   }, [id, auth.user]);
+
+  // Reset do jogo ao trocar de roleta
+  useEffect(() => {
+    if (!game) return;
+    setRotation(0);
+    setSpinning(false);
+    setSelectedIndex(null);
+    setEliminatedIndices([]);
+  }, [game?.id]);
 
   // Sound effects
   const playTickSound = useCallback(() => {
@@ -123,8 +133,16 @@ export default function SpinWheelGameView() {
     // Isso garante que a palavra/imagem do ponteiro fique HORIZONTAL como no print.
     const baseStartAngle = 180 - segmentAngle / 2;
 
-    // Escolhe um item aleatório
-    const winnerIndex = Math.floor(Math.random() * itemsCount);
+    // Escolhe um item aleatório APENAS entre os que ainda não foram sorteados
+    const available: number[] = [];
+    for (let i = 0; i < itemsCount; i++) {
+      if (!eliminatedIndices.includes(i)) available.push(i);
+    }
+    if (available.length === 0) {
+      setSpinning(false);
+      return;
+    }
+    const winnerIndex = available[Math.floor(Math.random() * available.length)];
 
     // Centro do segmento vencedor no mesmo referencial do SVG
     const winnerCenterAngle = baseStartAngle + winnerIndex * segmentAngle + segmentAngle / 2;
@@ -155,10 +173,19 @@ export default function SpinWheelGameView() {
       const t = normalizeDeg(pointerAngle - finalRotation - baseStartAngle);
       const resolvedIndex = Math.floor(t / segmentAngle) % itemsCount;
 
-      setSelectedIndex(resolvedIndex);
+      const finalIndex = eliminatedIndices.includes(resolvedIndex) ? winnerIndex : resolvedIndex;
+      setSelectedIndex(finalIndex);
+      setEliminatedIndices((prev) => (prev.includes(finalIndex) ? prev : [...prev, finalIndex]));
       playWinSound();
     }, 6500);
-  }, [spinning, game, rotation, playTickSound, playWinSound, normalizeDeg]);
+  }, [spinning, game, rotation, playTickSound, playWinSound, normalizeDeg, eliminatedIndices]);
+
+  const handleRestart = useCallback(() => {
+    setRotation(0);
+    setSpinning(false);
+    setSelectedIndex(null);
+    setEliminatedIndices([]);
+  }, []);
 
   if (loading) {
     return (
@@ -205,6 +232,8 @@ export default function SpinWheelGameView() {
 
   const itemsCount = game.items.length;
   const segmentAngle = 360 / itemsCount;
+  const remainingCount = Math.max(0, itemsCount - eliminatedIndices.length);
+  const finished = remainingCount <= 0;
   const defaultColors = [
     "#FFD54F", "#FF7043", "#4DD0E1", "#81C784", "#CE93D8", "#64B5F6",
     "#FFB74D", "#4DB6AC", "#FFF176", "#BA68C8", "#4FC3F7", "#AED581",
@@ -263,6 +292,9 @@ export default function SpinWheelGameView() {
                     <Badge className="bg-brand-orange/90 text-white shadow-sm">Jogo</Badge>
                     <Badge variant="outline" className="bg-background/60">
                       {game.items.length} item(ns)
+                    </Badge>
+                    <Badge variant="secondary" className="bg-muted/60">
+                      Restantes: {remainingCount}
                     </Badge>
                     {game.center_title ? (
                       <Badge variant="secondary" className="bg-muted/60">
@@ -332,6 +364,10 @@ export default function SpinWheelGameView() {
 
                                 const largeArc = segmentAngle > 180 ? 1 : 0;
                                 const color = item.color || defaultColors[idx % defaultColors.length];
+                                const eliminated = eliminatedIndices.includes(idx);
+                                const segmentFill = eliminated ? "#E5E7EB" : color;
+                                const segmentStroke = eliminated ? "rgba(255,255,255,0.6)" : "white";
+                                const contentOpacity = eliminated ? 0.22 : 1;
 
                                 // Ângulo do meio do segmento para posicionar imagem e texto
                                 const midAngle = startAngle + segmentAngle / 2;
@@ -428,8 +464,8 @@ export default function SpinWheelGameView() {
                                   <g key={idx}>
                                     <path
                                       d={`M 100 100 L ${x1} ${y1} A 95 95 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                                      fill={color}
-                                      stroke="white"
+                                      fill={segmentFill}
+                                      stroke={segmentStroke}
                                       strokeWidth="1"
                                     />
 
@@ -442,6 +478,7 @@ export default function SpinWheelGameView() {
                                         height="32"
                                         clipPath="url(#wheelImageClip)"
                                         preserveAspectRatio="xMidYMid slice"
+                                        opacity={contentOpacity}
                                       />
                                     </g>
 
@@ -450,11 +487,12 @@ export default function SpinWheelGameView() {
                                       y={textY}
                                       textAnchor="middle"
                                       dominantBaseline="middle"
-                                      fill="#1f2937"
+                                      fill={eliminated ? "#9CA3AF" : "#1f2937"}
                                       fontSize={fontSize}
                                       fontWeight="bold"
                                       transform={`rotate(${contentRotate}, ${textX}, ${textY})`}
                                       style={{ textTransform: "uppercase" }}
+                                      opacity={contentOpacity}
                                     >
                                       {lines.map((ln, i) => {
                                         const shouldCompress = ln.length >= 10; // só comprime quando realmente precisa
@@ -535,7 +573,7 @@ export default function SpinWheelGameView() {
 
                       <Button
                         onClick={spinWheel}
-                        disabled={spinning}
+                        disabled={spinning || finished}
                         size="lg"
                         className={cn(
                           "px-12 sm:px-16 py-6 sm:py-7 text-xl sm:text-2xl font-black rounded-full shadow-xl transition-all",
@@ -544,14 +582,26 @@ export default function SpinWheelGameView() {
                             : "bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 hover:scale-110 hover:shadow-2xl",
                         )}
                       >
-                        {spinning ? "🎰 Girando..." : "🎯 GIRAR!"}
+                        {finished ? "✅ Finalizado" : spinning ? "🎰 Girando..." : "🎯 GIRAR!"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleRestart}
+                        disabled={spinning || eliminatedIndices.length === 0}
+                        className="w-full max-w-xs"
+                      >
+                        Reiniciar
                       </Button>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-4 text-center text-sm text-muted-foreground">
-                  Dica: fale uma frase/música usando a palavra sorteada.
+                  {finished
+                    ? "Todas as opções já foram sorteadas. Clique em Reiniciar para começar de novo."
+                    : "Dica: fale uma frase/música usando a palavra sorteada."}
                 </div>
               </div>
 

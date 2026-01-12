@@ -337,21 +337,6 @@ export default function SpinWheelGameView() {
                                 const midAngle = startAngle + segmentAngle / 2;
                                 const midRad = (midAngle * Math.PI) / 180;
 
-                                // Posição da imagem (mais perto da borda, mas com folga para o texto)
-                                const imgDistance = 74;
-                                const imgX = 100 + imgDistance * Math.cos(midRad);
-                                const imgY = 100 + imgDistance * Math.sin(midRad);
-
-                                // Texto mais pra dentro para não invadir a imagem
-                                // Empurra o texto para fora para não “entrar” no círculo central
-                                const textDistance = 44;
-                                const textX = 100 + textDistance * Math.cos(midRad);
-                                const textY = 100 + textDistance * Math.sin(midRad);
-
-                                // Quando a fatia está no ponteiro (180°), fica horizontal;
-                                // as demais ficam diagonais, igual ao print.
-                                const contentRotate = midAngle - 180;
-
                                 const rawLabel = (item.label ?? "").replace(/\s+/g, " ").trim().toUpperCase();
 
                                 // Quebra em até 3 linhas, SEM truncar (mantém 100% do texto).
@@ -410,10 +395,26 @@ export default function SpinWheelGameView() {
                                 // Fonte adaptativa por comprimento da maior linha (sem “apertar” demais as letras)
                                 const fontSize = Math.max(5.2, Math.min(7.4, 8.4 - longest * 0.22));
                                 // Campo máximo de texto (em unidades SVG) usado APENAS para comprimir nomes longos.
-                                // Importante: não usar textLength em palavras curtas, senão o SVG “estica” as letras.
-                                const maxTextLen = 44;
+                                // Se for grande demais, o texto “invade” a imagem; então mantemos menor.
+                                const maxTextLen = 40;
                                 const lineStep = fontSize * 1.05;
                                 const startDy = -(lineStep * (lines.length - 1)) / 2;
+
+                                // Distâncias dinâmicas:
+                                // - imagem um pouco mais na borda para liberar espaço
+                                // - texto mais perto do centro quando o nome é grande, para não encostar na imagem
+                                const imgDistance = 78;
+                                const isLong = longest >= 10 || lines.length >= 2;
+                                const textDistance = isLong ? 34 : 40;
+
+                                const imgX = 100 + imgDistance * Math.cos(midRad);
+                                const imgY = 100 + imgDistance * Math.sin(midRad);
+                                const textX = 100 + textDistance * Math.cos(midRad);
+                                const textY = 100 + textDistance * Math.sin(midRad);
+
+                                // Quando a fatia está no ponteiro (180°), fica horizontal;
+                                // as demais ficam diagonais, igual ao print.
+                                const contentRotate = midAngle - 180;
 
                                 return (
                                   <g key={idx}>

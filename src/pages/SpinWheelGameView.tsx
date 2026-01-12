@@ -215,15 +215,25 @@ export default function SpinWheelGameView() {
   return (
     <div
       ref={containerRef}
-      className="min-h-screen flex flex-col"
-      style={{
-        background: game.background_url
-          ? `url(${normalizeMediaUrl(game.background_url)}) center/cover`
-          : "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 50%, #FCD34D 100%)",
-      }}
+      className="min-h-screen flex flex-col relative overflow-hidden"
     >
+      {/* Background image */}
+      {game.background_url ? (
+        <img
+          src={normalizeMediaUrl(game.background_url)}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover z-0"
+        />
+      ) : (
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            background: "linear-gradient(135deg, #FEF3C7 0%, #FDE68A 50%, #FCD34D 100%)",
+          }}
+        />
+      )}
       {/* Header */}
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between p-4 relative z-10">
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
@@ -259,7 +269,7 @@ export default function SpinWheelGameView() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 relative">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 relative z-10">
         {/* Pointer (left side) */}
         <div className="absolute left-[calc(50%-220px)] sm:left-[calc(50%-260px)] md:left-[calc(50%-300px)] z-20">
           <div className="w-0 h-0 border-t-[20px] border-t-transparent border-b-[20px] border-b-transparent border-l-[40px] border-l-white drop-shadow-lg" 
@@ -299,35 +309,39 @@ export default function SpinWheelGameView() {
                   // Position for image and text (middle of segment)
                   const midAngle = startAngle + segmentAngle / 2;
                   const midRad = (midAngle * Math.PI) / 180;
-                  const imgDist = 32; // Distance from center for image
-                  const textDist = 38; // Distance from center for text
+                  
+                  // Image closer to center, text further out
+                  const imgDist = 28;
+                  const textDist = 42;
                   const imgX = 50 + imgDist * Math.cos(midRad);
                   const imgY = 50 + imgDist * Math.sin(midRad);
+                  const textX = 50 + textDist * Math.cos(midRad);
+                  const textY = 50 + textDist * Math.sin(midRad);
 
                   return (
                     <g key={idx}>
                       <path d={pathD} fill={color} stroke="white" strokeWidth="0.5" />
-                      {/* Image */}
+                      {/* Image - closer to center */}
                       <image
                         href={normalizeMediaUrl(item.image_url)}
-                        x={imgX - 8}
-                        y={imgY - 8}
-                        width="16"
-                        height="16"
+                        x={imgX - 6}
+                        y={imgY - 6}
+                        width="12"
+                        height="12"
                         preserveAspectRatio="xMidYMid slice"
-                        clipPath={`inset(0 round 2)`}
+                        style={{ borderRadius: "2px" }}
                         transform={`rotate(${midAngle + 90}, ${imgX}, ${imgY})`}
                       />
-                      {/* Text along the segment */}
+                      {/* Text - further from center */}
                       <text
-                        x={50 + textDist * Math.cos(midRad)}
-                        y={50 + textDist * Math.sin(midRad)}
+                        x={textX}
+                        y={textY}
                         fill="#333"
-                        fontSize="3.5"
+                        fontSize="3"
                         fontWeight="bold"
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        transform={`rotate(${midAngle + 90}, ${50 + textDist * Math.cos(midRad)}, ${50 + textDist * Math.sin(midRad)})`}
+                        transform={`rotate(${midAngle + 90}, ${textX}, ${textY})`}
                         style={{ textTransform: "uppercase" }}
                       >
                         {item.label}
@@ -384,7 +398,7 @@ export default function SpinWheelGameView() {
       </div>
 
       {/* Footer with logo */}
-      <div className="p-4 flex justify-center">
+      <div className="p-4 flex justify-center relative z-10">
         <img
           src={logoSementes}
           alt="Sementes da Fala"

@@ -337,13 +337,14 @@ export default function SpinWheelGameView() {
                                 const midAngle = startAngle + segmentAngle / 2;
                                 const midRad = (midAngle * Math.PI) / 180;
 
-                                // Posição da imagem (mais perto da borda)
-                                const imgDistance = 76;
+                                // Posição da imagem (mais perto da borda, mas com folga para o texto)
+                                const imgDistance = 74;
                                 const imgX = 100 + imgDistance * Math.cos(midRad);
                                 const imgY = 100 + imgDistance * Math.sin(midRad);
 
                                 // Texto mais pra dentro para não invadir a imagem
-                                const textDistance = 34;
+                                // Empurra o texto para fora para não “entrar” no círculo central
+                                const textDistance = 44;
                                 const textX = 100 + textDistance * Math.cos(midRad);
                                 const textY = 100 + textDistance * Math.sin(midRad);
 
@@ -465,12 +466,12 @@ export default function SpinWheelGameView() {
                                 );
                               })}
 
-                              {/* Centro branco */}
-                              <circle cx="100" cy="100" r="28" fill="white" stroke="#f59e0b" strokeWidth="3" />
+                              {/* Centro branco (menor para não cortar texto) */}
+                              <circle cx="100" cy="100" r="24" fill="white" stroke="#f59e0b" strokeWidth="3" />
                             </svg>
 
                             {/* Texto central (não gira) */}
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[22%] h-[22%] flex items-center justify-center z-10">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[20%] h-[20%] flex items-center justify-center z-10">
                               <p className="text-center text-[9px] sm:text-[11px] font-bold text-gray-700 leading-tight px-1">
                                 {game.center_title || "Gire!"}
                               </p>

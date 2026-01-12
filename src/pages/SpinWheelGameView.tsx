@@ -400,12 +400,20 @@ export default function SpinWheelGameView() {
                                 const lineStep = fontSize * 1.05;
                                 const startDy = -(lineStep * (lines.length - 1)) / 2;
 
-                                // Distâncias dinâmicas:
-                                // - imagem um pouco mais na borda para liberar espaço
-                                // - texto mais perto do centro quando o nome é grande, para não encostar na imagem
-                                const imgDistance = 78;
-                                const isLong = longest >= 10 || lines.length >= 2;
-                                const textDistance = isLong ? 34 : 40;
+                                // “Zona segura” para o texto:
+                                // Queremos garantir que NUNCA encoste nem no círculo branco do meio,
+                                // nem na imagem do segmento — independentemente do tamanho do nome.
+                                const centerCircleR = 24; // precisa bater com o <circle r="24" ... />
+                                const centerSafePad = 14; // folga extra para não encostar no branco/stroke
+                                const imageHalf = 16; // imagem 32x32 => metade
+                                const imageTextGap = 12; // espaço mínimo entre texto e imagem
+
+                                const imgDistance = 78; // posição radial da imagem (fixa)
+                                const safeMin = centerCircleR + centerSafePad;
+                                const safeMax = imgDistance - imageHalf - imageTextGap;
+
+                                // Coloca o texto no MEIO da faixa segura (distante dos dois lados)
+                                const textDistance = (safeMin + Math.max(safeMin + 1, safeMax)) / 2;
 
                                 const imgX = 100 + imgDistance * Math.cos(midRad);
                                 const imgY = 100 + imgDistance * Math.sin(midRad);

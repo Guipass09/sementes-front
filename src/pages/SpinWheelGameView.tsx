@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Volume2, VolumeX, CircleDot } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
 import type { SpinWheelGameRow } from "@/lib/laravel-api";
@@ -24,6 +25,7 @@ export default function SpinWheelGameView() {
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const fsRef = useRef<HTMLDivElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const normalizeDeg = useCallback((deg: number) => {
@@ -156,8 +158,35 @@ export default function SpinWheelGameView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
-        <div className="animate-spin h-16 w-16 border-4 border-amber-500 border-t-transparent rounded-full" />
+      <div className="min-h-[100svh] bg-transparent">
+        <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
+          <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-8 w-28 rounded-full" />
+            </div>
+          </div>
+        </header>
+        <main className="container mx-auto px-4 py-8 lg:py-10">
+          <div className="max-w-5xl mx-auto">
+            <div className="rounded-3xl bg-card border border-border shadow-sm overflow-hidden">
+              <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-6 border-b border-border/60 space-y-3">
+                <Skeleton className="h-7 w-2/3" />
+                <Skeleton className="h-4 w-5/6" />
+                <div className="flex gap-2 pt-1">
+                  <Skeleton className="h-6 w-24 rounded-full" />
+                  <Skeleton className="h-6 w-28 rounded-full" />
+                </div>
+              </div>
+              <div className="px-6 sm:px-10 py-8">
+                <Skeleton className="h-[52vh] w-full rounded-2xl" />
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -177,45 +206,94 @@ export default function SpinWheelGameView() {
     "#FFB74D", "#4DB6AC", "#FFF176", "#BA68C8", "#4FC3F7", "#AED581",
   ];
 
-  // Tamanho da roleta
-  const wheelSize = "min(80vw, 520px)";
+  const wheelSize = "min(78vw, 560px)";
+
+  const gameBgUrl = useMemo(() => {
+    return game.background_url ? normalizeMediaUrl(game.background_url) : null;
+  }, [game.background_url]);
 
   return (
-    <div ref={containerRef} className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
-      {/* Header compacto */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-amber-200/50 shadow-sm">
-        <div className="flex items-center justify-between gap-4 px-4 py-2 sm:px-6">
+    <div ref={containerRef} className="min-h-[100svh] bg-transparent">
+      <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0 hover:bg-amber-100">
-              <ArrowLeft className="h-4 w-4 mr-1" />
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar
             </Button>
-            <img src={logoImage} alt="Sementes da Fala" className="h-8 rounded-lg hidden sm:block" />
-            <span className="text-base sm:text-lg font-display font-bold text-amber-600 truncate">
-              {game.title}
-            </span>
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div className="flex items-center gap-3 min-w-0">
+              <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
+              <span className="hidden sm:block font-display font-bold text-base truncate">
+                <span className="text-brand-green">Sementes</span>{" "}
+                <span className="text-brand-brown">da Fala</span>
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-amber-500 text-white shadow-sm hidden sm:flex">
-              <CircleDot className="h-3 w-3 mr-1" /> Roleta
+            <Badge className="bg-brand-orange text-white shadow-sm hidden sm:flex">
+              <CircleDot className="h-3 w-3 mr-1" /> Roleta Musical
             </Badge>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              className="h-8 w-8 hover:bg-amber-100"
-            >
+            <Button variant="ghost" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} className="h-9 w-9">
               {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
-            <FullscreenToggle targetRef={containerRef} />
           </div>
         </div>
       </header>
 
-      {/* Área principal - roleta centralizada */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
-        {/* Container da roleta com seta à ESQUERDA (igual ao print) */}
-        <div className="relative flex items-center justify-center">
+      <main className="relative">
+        <div className="container mx-auto px-4 py-8 lg:py-10">
+          <div className="max-w-5xl mx-auto">
+            <div
+              ref={fsRef}
+              className="fs-target fs-allow-scroll relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col"
+            >
+              <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" />
+
+              {/* Cabeçalho interno (padrão das atividades) */}
+              <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-6 border-b border-border/60">
+                <div className="flex flex-col gap-3">
+                  <div className="min-w-0">
+                    <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">{game.title}</h1>
+                    <p className="text-muted-foreground mt-2 leading-relaxed">
+                      Clique em <span className="font-semibold text-foreground">GIRAR</span> e faça uma frase/música com a palavra sorteada.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <Badge className="bg-brand-orange/90 text-white shadow-sm">Jogo</Badge>
+                    <Badge variant="outline" className="bg-background/60">
+                      {game.items.length} item(ns)
+                    </Badge>
+                    {game.center_title ? (
+                      <Badge variant="secondary" className="bg-muted/60">
+                        Centro: {game.center_title}
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {/* Conteúdo (com fundo da atividade) */}
+              <div className="relative px-4 sm:px-6 lg:px-10 py-6 sm:py-8">
+                <div className="relative rounded-3xl border border-border bg-muted/20 overflow-hidden">
+                  {/* Fundo específico do jogo (não interfere no fundo global do gameplay) */}
+                  <div
+                    className="absolute inset-0 bg-center bg-no-repeat bg-cover"
+                    style={
+                      gameBgUrl
+                        ? { backgroundImage: `url(${gameBgUrl})`, opacity: 0.9 }
+                        : { opacity: 0 }
+                    }
+                    aria-hidden="true"
+                  />
+                  <div
+                    className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/40 to-background/55"
+                    aria-hidden="true"
+                  />
+
+                  {/* Área da roleta centralizada */}
+                  <div className="relative z-10 flex flex-col items-center justify-center py-8 sm:py-10">
+                    <div className="relative flex items-center justify-center">
           {/* Roleta principal */}
           <div 
             className="relative rounded-full bg-gradient-to-br from-gray-100 to-white shadow-2xl p-2 sm:p-3"
@@ -261,12 +339,13 @@ export default function SpinWheelGameView() {
                     const midRad = (midAngle * Math.PI) / 180;
                     
                     // Posição da imagem (mais perto da borda)
-                    const imgDistance = 70;
+                    const imgDistance = 76;
                     const imgX = 100 + imgDistance * Math.cos(midRad);
                     const imgY = 100 + imgDistance * Math.sin(midRad);
                     
                     // Posição do texto (entre centro e imagem)
-                    const textDistance = 43;
+                    // texto mais pra dentro para não invadir a imagem
+                    const textDistance = 36;
                     const textX = 100 + textDistance * Math.cos(midRad);
                     const textY = 100 + textDistance * Math.sin(midRad);
 
@@ -274,6 +353,9 @@ export default function SpinWheelGameView() {
                     // quando a fatia está no ponteiro (180°), fica horizontal;
                     // as demais ficam diagonais, igual ao print.
                     const contentRotate = midAngle - 180;
+
+                    const rawLabel = (item.label ?? "").trim().toUpperCase();
+                    const label = rawLabel.length > 12 ? `${rawLabel.slice(0, 12)}…` : rawLabel;
                     
                     return (
                       <g key={idx}>
@@ -289,10 +371,10 @@ export default function SpinWheelGameView() {
                         <g transform={`translate(${imgX}, ${imgY}) rotate(${contentRotate})`}>
                           <image
                             href={normalizeMediaUrl(item.image_url)}
-                            x="-14"
-                            y="-14"
-                            width="28"
-                            height="28"
+                            x="-16"
+                            y="-16"
+                            width="32"
+                            height="32"
                             clipPath="url(#wheelImageClip)"
                             preserveAspectRatio="xMidYMid slice"
                           />
@@ -305,12 +387,12 @@ export default function SpinWheelGameView() {
                           textAnchor="middle"
                           dominantBaseline="middle"
                           fill="#1f2937"
-                          fontSize="8"
+                          fontSize="7"
                           fontWeight="bold"
                           transform={`rotate(${contentRotate}, ${textX}, ${textY})`}
                           style={{ textTransform: "uppercase" }}
                         >
-                          {item.label}
+                          {label}
                         </text>
                       </g>
                     );
@@ -333,68 +415,83 @@ export default function SpinWheelGameView() {
           </div>
 
           {/* Seta indicadora à ESQUERDA */}
-          <div className="absolute -left-3 sm:-left-5 z-20">
+          <div className="absolute -left-4 sm:-left-6 z-20">
             <svg width="50" height="50" viewBox="0 0 50 50" className="drop-shadow-xl">
               <polygon 
-                points="0,25 50,0 40,25 50,50"
-                fill="url(#arrowGradLeft)"
+                // seta na ESQUERDA, mas apontando para a DIREITA (em direção à roleta)
+                points="50,25 0,0 10,25 0,50"
+                fill="url(#arrowGradToWheel)"
                 stroke="#374151"
                 strokeWidth="2"
               />
               <defs>
-                <linearGradient id="arrowGradLeft" x1="0%" y1="50%" x2="100%" y2="50%">
-                  <stop offset="0%" stopColor="#6B7280" />
-                  <stop offset="100%" stopColor="#374151" />
+                <linearGradient id="arrowGradToWheel" x1="0%" y1="50%" x2="100%" y2="50%">
+                  <stop offset="0%" stopColor="#374151" />
+                  <stop offset="100%" stopColor="#6B7280" />
                 </linearGradient>
               </defs>
             </svg>
           </div>
         </div>
 
-        {/* Resultado */}
-        {selectedIndex !== null && game.items[selectedIndex] && (
-          <div className="mt-8 animate-bounce">
-            <div className="bg-white rounded-3xl px-8 py-5 shadow-2xl border-4 border-amber-400">
-              <div className="flex items-center gap-5">
-                <img
-                  src={normalizeMediaUrl(game.items[selectedIndex].image_url)}
-                  alt={game.items[selectedIndex].label}
-                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover shadow-lg"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-                <div>
-                  <p className="text-sm text-gray-500 font-medium">Você tirou:</p>
-                  <p className="text-3xl sm:text-4xl font-black text-amber-600 uppercase">
-                    {game.items[selectedIndex].label}
-                  </p>
+                    </div>
+
+                    {/* Resultado + CTA */}
+                    <div className="mt-6 sm:mt-8 w-full flex flex-col items-center gap-4">
+                      {selectedIndex !== null && game.items[selectedIndex] ? (
+                        <div className="w-full max-w-xl">
+                          <div className="bg-background/90 backdrop-blur-sm rounded-2xl border border-border shadow-sm px-5 py-4">
+                            <div className="flex items-center gap-4">
+                              <img
+                                src={normalizeMediaUrl(game.items[selectedIndex].image_url)}
+                                alt={game.items[selectedIndex].label}
+                                className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shadow-sm"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                              <div className="min-w-0">
+                                <div className="text-xs uppercase tracking-wide text-muted-foreground">Palavra sorteada</div>
+                                <div className="text-2xl sm:text-3xl font-black text-brand-orange uppercase truncate">
+                                  {game.items[selectedIndex].label}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <Button
+                        onClick={spinWheel}
+                        disabled={spinning}
+                        size="lg"
+                        className={cn(
+                          "px-12 sm:px-16 py-6 sm:py-7 text-xl sm:text-2xl font-black rounded-full shadow-xl transition-all",
+                          spinning
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 hover:scale-110 hover:shadow-2xl",
+                        )}
+                      >
+                        {spinning ? "🎰 Girando..." : "🎯 GIRAR!"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  Dica: fale uma frase/música usando a palavra sorteada.
                 </div>
               </div>
+    </div>
+
+            {/* Rodapé interno (padrão) */}
+            <div className="px-6 sm:px-10 py-4 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
+              <span>Sementes da Fala • Conteúdo para acompanhamento terapêutico</span>
+              <span>Confidencial</span>
             </div>
           </div>
-        )}
-
-        {/* Botão girar */}
-        <Button
-          onClick={spinWheel}
-          disabled={spinning}
-          size="lg"
-          className={cn(
-            "mt-8 px-12 sm:px-16 py-6 sm:py-7 text-xl sm:text-2xl font-black rounded-full shadow-xl transition-all",
-            spinning
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 hover:scale-110 hover:shadow-2xl"
-          )}
-        >
-          {spinning ? "🎰 Girando..." : "🎯 GIRAR!"}
-        </Button>
-      </div>
-
-      {/* Footer com logo */}
-      <footer className="py-3 flex justify-center">
-        <img src={logoImage} alt="Sementes da Fala" className="h-10 rounded-lg opacity-60" />
-      </footer>
+        </div>
+      </main>
     </div>
   );
 }

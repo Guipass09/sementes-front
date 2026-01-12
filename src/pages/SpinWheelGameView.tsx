@@ -94,7 +94,7 @@ export default function SpinWheelGameView() {
     } catch {}
   }, [soundEnabled]);
 
-  // Spin the wheel
+  // Spin the wheel - seta aponta para a DIREITA (0 graus)
   const spinWheel = useCallback(() => {
     if (spinning || !game) return;
     setSpinning(true);
@@ -102,27 +102,41 @@ export default function SpinWheelGameView() {
 
     const itemsCount = game.items.length;
     const segmentAngle = 360 / itemsCount;
+    
+    // Escolhe um item aleatório
     const winnerIndex = Math.floor(Math.random() * itemsCount);
-    const spins = 4 + Math.random() * 2;
-    const winnerAngle = winnerIndex * segmentAngle + segmentAngle / 2;
-    const targetRotation = rotation + spins * 360 + (180 - winnerAngle);
+    
+    // A seta está à direita (0 graus)
+    // O item 0 começa no topo (270 graus ou -90)
+    // Preciso calcular quanto girar para que o item vencedor fique alinhado com a seta (à direita)
+    const spins = 5 + Math.random() * 3; // 5-8 voltas completas
+    
+    // Centro do segmento vencedor em relação ao topo
+    const winnerCenterAngle = winnerIndex * segmentAngle + segmentAngle / 2;
+    
+    // Para alinhar com a seta à direita (90 graus do topo), precisamos:
+    // A roleta gira no sentido horário, então precisamos girar até que
+    // o centro do segmento vencedor esteja a 90 graus (direita)
+    const angleToRight = 90 - winnerCenterAngle;
+    const targetRotation = rotation + spins * 360 + angleToRight;
 
     setRotation(targetRotation);
 
+    // Sons de tick durante o giro
     let tickCount = 0;
-    const maxTicks = 35;
+    const maxTicks = 40;
     const tickInterval = setInterval(() => {
       tickCount++;
       playTickSound();
       if (tickCount >= maxTicks) clearInterval(tickInterval);
-    }, 100 + tickCount * 5);
+    }, 80 + tickCount * 8);
 
     setTimeout(() => {
       clearInterval(tickInterval);
       setSpinning(false);
       setSelectedIndex(winnerIndex);
       playWinSound();
-    }, 6000);
+    }, 6500);
   }, [spinning, game, rotation, playTickSound, playWinSound]);
 
   if (loading) {
@@ -147,6 +161,9 @@ export default function SpinWheelGameView() {
     "#FFD54F", "#FF7043", "#4DD0E1", "#81C784", "#CE93D8", "#64B5F6",
     "#FFB74D", "#4DB6AC", "#FFF176", "#BA68C8", "#4FC3F7", "#AED581",
   ];
+
+  // Tamanho da roleta
+  const wheelSize = "min(80vw, 520px)";
 
   return (
     <div ref={containerRef} className="min-h-screen flex flex-col bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
@@ -182,120 +199,130 @@ export default function SpinWheelGameView() {
 
       {/* Área principal - roleta centralizada */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
-        {/* Container da roleta com seta */}
+        {/* Container da roleta com seta à DIREITA */}
         <div className="relative flex items-center justify-center">
-          {/* Seta indicadora (esquerda) */}
-          <div className="absolute -left-2 sm:-left-4 z-20">
-            <svg width="50" height="60" viewBox="0 0 50 60" className="drop-shadow-xl">
-              <polygon 
-                points="0,30 50,5 50,55" 
-                fill="url(#arrowGradient)"
-                stroke="#374151"
-                strokeWidth="2"
-              />
-              <defs>
-                <linearGradient id="arrowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#6B7280" />
-                  <stop offset="100%" stopColor="#374151" />
-                </linearGradient>
-              </defs>
-            </svg>
-          </div>
-
-          {/* Roleta */}
+          {/* Roleta principal */}
           <div 
-            className="rounded-full bg-gradient-to-br from-white to-gray-100 shadow-[0_20px_60px_rgba(0,0,0,0.15)] p-2 sm:p-3"
-            style={{
-              width: "min(85vw, 550px)",
-              height: "min(85vw, 550px)",
-            }}
+            className="relative rounded-full bg-gradient-to-br from-gray-100 to-white shadow-2xl p-2 sm:p-3"
+            style={{ width: wheelSize, height: wheelSize }}
           >
-            {/* Anel externo decorativo */}
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-amber-400 to-orange-500 p-1">
+            {/* Anel decorativo externo */}
+            <div className="w-full h-full rounded-full bg-gradient-to-br from-amber-400 to-orange-500 p-1.5">
               <div className="w-full h-full rounded-full bg-white p-1">
-                {/* Roleta que gira */}
-                <div
-                  className="w-full h-full rounded-full relative overflow-hidden shadow-inner"
+                {/* A roleta que gira */}
+                <svg
+                  viewBox="0 0 200 200"
+                  className="w-full h-full"
                   style={{
                     transform: `rotate(${rotation}deg)`,
-                    transition: spinning ? "transform 6s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
+                    transition: spinning ? "transform 6.5s cubic-bezier(0.15, 0.6, 0.2, 1)" : "none",
                   }}
                 >
-                  {/* Segmentos */}
+                  {/* Segmentos da roleta */}
                   {game.items.map((item, idx) => {
+                    const startAngle = idx * segmentAngle - 90; // Começar do topo
+                    const endAngle = startAngle + segmentAngle;
+                    const startRad = (startAngle * Math.PI) / 180;
+                    const endRad = (endAngle * Math.PI) / 180;
+                    
+                    const x1 = 100 + 95 * Math.cos(startRad);
+                    const y1 = 100 + 95 * Math.sin(startRad);
+                    const x2 = 100 + 95 * Math.cos(endRad);
+                    const y2 = 100 + 95 * Math.sin(endRad);
+                    
+                    const largeArc = segmentAngle > 180 ? 1 : 0;
                     const color = item.color || defaultColors[idx % defaultColors.length];
-                    const startAngle = idx * segmentAngle;
+                    
+                    // Ângulo do meio do segmento para posicionar imagem e texto
+                    const midAngle = startAngle + segmentAngle / 2;
+                    const midRad = (midAngle * Math.PI) / 180;
+                    
+                    // Posição da imagem (mais perto da borda)
+                    const imgDistance = 68;
+                    const imgX = 100 + imgDistance * Math.cos(midRad);
+                    const imgY = 100 + imgDistance * Math.sin(midRad);
+                    
+                    // Posição do texto (entre centro e imagem)
+                    const textDistance = 42;
+                    const textX = 100 + textDistance * Math.cos(midRad);
+                    const textY = 100 + textDistance * Math.sin(midRad);
                     
                     return (
-                      <div
-                        key={idx}
-                        className="absolute inset-0"
-                        style={{
-                          clipPath: `polygon(50% 50%, ${50 + 50 * Math.cos((startAngle - 90) * Math.PI / 180)}% ${50 + 50 * Math.sin((startAngle - 90) * Math.PI / 180)}%, ${50 + 50 * Math.cos((startAngle + segmentAngle - 90) * Math.PI / 180)}% ${50 + 50 * Math.sin((startAngle + segmentAngle - 90) * Math.PI / 180)}%)`,
-                          backgroundColor: color,
-                        }}
-                      />
+                      <g key={idx}>
+                        {/* Segmento colorido */}
+                        <path
+                          d={`M 100 100 L ${x1} ${y1} A 95 95 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                          fill={color}
+                          stroke="white"
+                          strokeWidth="1"
+                        />
+                        
+                        {/* Imagem - rotacionada para seguir o segmento */}
+                        <g transform={`translate(${imgX}, ${imgY}) rotate(${midAngle + 90})`}>
+                          <clipPath id={`clip-${idx}`}>
+                            <rect x="-12" y="-12" width="24" height="24" rx="3" />
+                          </clipPath>
+                          <image
+                            href={normalizeMediaUrl(item.image_url)}
+                            x="-12"
+                            y="-12"
+                            width="24"
+                            height="24"
+                            clipPath={`url(#clip-${idx})`}
+                            preserveAspectRatio="xMidYMid slice"
+                          />
+                        </g>
+                        
+                        {/* Texto - rotacionado para seguir o segmento */}
+                        <text
+                          x={textX}
+                          y={textY}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fill="#1f2937"
+                          fontSize="7"
+                          fontWeight="bold"
+                          transform={`rotate(${midAngle + 90}, ${textX}, ${textY})`}
+                          style={{ textTransform: "uppercase" }}
+                        >
+                          {item.label}
+                        </text>
+                      </g>
                     );
                   })}
                   
-                  {/* Linhas divisórias */}
-                  {game.items.map((_, idx) => (
-                    <div
-                      key={`line-${idx}`}
-                      className="absolute top-0 left-1/2 w-[1px] h-1/2 bg-white/50 origin-bottom"
-                      style={{
-                        transform: `rotate(${idx * segmentAngle}deg) translateX(-50%)`,
-                      }}
-                    />
-                  ))}
+                  {/* Centro branco */}
+                  <circle cx="100" cy="100" r="28" fill="white" stroke="#f59e0b" strokeWidth="3" />
+                </svg>
 
-                  {/* Imagens e textos */}
-                  {game.items.map((item, idx) => {
-                    const midAngle = idx * segmentAngle + segmentAngle / 2;
-                    const distance = 36;
-                    const rad = (midAngle - 90) * Math.PI / 180;
-                    const x = 50 + distance * Math.cos(rad);
-                    const y = 50 + distance * Math.sin(rad);
-                    
-                    return (
-                      <div
-                        key={`item-${idx}`}
-                        className="absolute flex items-center gap-2"
-                        style={{
-                          left: `${x}%`,
-                          top: `${y}%`,
-                          transform: `translate(-50%, -50%) rotate(${-rotation}deg)`,
-                          transition: spinning ? "transform 6s cubic-bezier(0.17, 0.67, 0.12, 0.99)" : "none",
-                        }}
-                      >
-                        {/* Imagem maior, sem borda branca */}
-                        <div className="w-14 h-14 sm:w-[72px] sm:h-[72px] rounded-lg overflow-hidden shadow-lg flex-shrink-0">
-                          <img
-                            src={normalizeMediaUrl(item.image_url)}
-                            alt={item.label}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
-                        </div>
-                        {/* Texto */}
-                        <span className="text-base sm:text-xl font-black text-gray-800 uppercase whitespace-nowrap drop-shadow-sm">
-                          {item.label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Centro com texto */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[28%] h-[28%] rounded-full bg-gradient-to-br from-white to-gray-50 shadow-xl flex items-center justify-center p-3 sm:p-4 z-10 border-4 border-amber-400">
-                  <p className="text-center text-[11px] sm:text-sm font-bold text-gray-700 leading-tight">
-                    {game.center_title || "Gire a roleta!"}
+                {/* Texto central (não gira) */}
+                <div 
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[22%] h-[22%] flex items-center justify-center z-10"
+                >
+                  <p className="text-center text-[9px] sm:text-[11px] font-bold text-gray-700 leading-tight px-1">
+                    {game.center_title || "Gire!"}
                   </p>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Seta indicadora à DIREITA */}
+          <div className="absolute -right-3 sm:-right-5 z-20">
+            <svg width="50" height="50" viewBox="0 0 50 50" className="drop-shadow-xl">
+              <polygon 
+                points="50,25 0,0 10,25 0,50" 
+                fill="url(#arrowGradRight)"
+                stroke="#374151"
+                strokeWidth="2"
+              />
+              <defs>
+                <linearGradient id="arrowGradRight" x1="100%" y1="50%" x2="0%" y2="50%">
+                  <stop offset="0%" stopColor="#374151" />
+                  <stop offset="100%" stopColor="#6B7280" />
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
         </div>
 

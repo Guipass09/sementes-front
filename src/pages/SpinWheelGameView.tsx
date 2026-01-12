@@ -26,6 +26,11 @@ export default function SpinWheelGameView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
+  const normalizeDeg = useCallback((deg: number) => {
+    const v = deg % 360;
+    return v < 0 ? v + 360 : v;
+  }, []);
+
   // Load game data
   useEffect(() => {
     if (!id) return;
@@ -94,7 +99,9 @@ export default function SpinWheelGameView() {
     } catch {}
   }, [soundEnabled]);
 
-  // Spin the wheel - seta aponta para a DIREITA (0 graus)
+  // Spin - padrão do print:
+  // - seta na ESQUERDA apontando para a roleta
+  // - ao parar, o item vencedor fica CENTRALIZADO na direção da seta
   const spinWheel = useCallback(() => {
     if (spinning || !game) return;
     setSpinning(true);
@@ -102,23 +109,24 @@ export default function SpinWheelGameView() {
 
     const itemsCount = game.items.length;
     const segmentAngle = 360 / itemsCount;
-    
+
+    // Convenção do SVG/CSS: 0° = direita, 90° = baixo, 180° = esquerda, 270° = cima
+    const pointerAngle = 180; // seta na esquerda
+
+    // Base para distribuir segmentos: o centro do segmento 0 fica alinhado ao ponteiro (esquerda)
+    // Isso garante que a palavra/imagem do ponteiro fique HORIZONTAL como no print.
+    const baseStartAngle = 180 - segmentAngle / 2;
+
     // Escolhe um item aleatório
     const winnerIndex = Math.floor(Math.random() * itemsCount);
-    
-    // A seta está à direita (0 graus)
-    // O item 0 começa no topo (270 graus ou -90)
-    // Preciso calcular quanto girar para que o item vencedor fique alinhado com a seta (à direita)
+
+    // Centro do segmento vencedor no mesmo referencial do SVG
+    const winnerCenterAngle = baseStartAngle + winnerIndex * segmentAngle + segmentAngle / 2;
+
+    // Giro "divertido", mas garantindo alinhamento perfeito no fim
     const spins = 5 + Math.random() * 3; // 5-8 voltas completas
-    
-    // Centro do segmento vencedor em relação ao topo
-    const winnerCenterAngle = winnerIndex * segmentAngle + segmentAngle / 2;
-    
-    // Para alinhar com a seta à direita (90 graus do topo), precisamos:
-    // A roleta gira no sentido horário, então precisamos girar até que
-    // o centro do segmento vencedor esteja a 90 graus (direita)
-    const angleToRight = 90 - winnerCenterAngle;
-    const targetRotation = rotation + spins * 360 + angleToRight;
+    const angleToPointer = pointerAngle - winnerCenterAngle;
+    const targetRotation = rotation + spins * 360 + angleToPointer;
 
     setRotation(targetRotation);
 
@@ -134,10 +142,17 @@ export default function SpinWheelGameView() {
     setTimeout(() => {
       clearInterval(tickInterval);
       setSpinning(false);
-      setSelectedIndex(winnerIndex);
+
+      // Segurança: índice real apontado pelo ponteiro a partir do ângulo final.
+      // Assim o resultado SEMPRE condiz com a seta (mesmo com arredondamentos).
+      const finalRotation = normalizeDeg(targetRotation);
+      const t = normalizeDeg(pointerAngle - finalRotation - baseStartAngle);
+      const resolvedIndex = Math.floor(t / segmentAngle) % itemsCount;
+
+      setSelectedIndex(resolvedIndex);
       playWinSound();
     }, 6500);
-  }, [spinning, game, rotation, playTickSound, playWinSound]);
+  }, [spinning, game, rotation, playTickSound, playWinSound, normalizeDeg]);
 
   if (loading) {
     return (
@@ -199,7 +214,7 @@ export default function SpinWheelGameView() {
 
       {/* Área principal - roleta centralizada */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6">
-        {/* Container da roleta com seta à DIREITA */}
+        {/* Container da roleta com seta à ESQUERDA (igual ao print) */}
         <div className="relative flex items-center justify-center">
           {/* Roleta principal */}
           <div 
@@ -218,9 +233,17 @@ export default function SpinWheelGameView() {
                     transition: spinning ? "transform 6.5s cubic-bezier(0.15, 0.6, 0.2, 1)" : "none",
                   }}
                 >
+                  <defs>
+                    <clipPath id="wheelImageClip" clipPathUnits="userSpaceOnUse">
+                      <rect x="-14" y="-14" width="28" height="28" rx="4" />
+                    </clipPath>
+                  </defs>
                   {/* Segmentos da roleta */}
                   {game.items.map((item, idx) => {
-                    const startAngle = idx * segmentAngle - 90; // Começar do topo
+                    // Base para o layout bater com o print:
+                    // centro da fatia 0 alinhado com o ponteiro na ESQUERDA.
+                    const baseStartAngle = 180 - segmentAngle / 2;
+                    const startAngle = baseStartAngle + idx * segmentAngle;
                     const endAngle = startAngle + segmentAngle;
                     const startRad = (startAngle * Math.PI) / 180;
                     const endRad = (endAngle * Math.PI) / 180;
@@ -238,14 +261,19 @@ export default function SpinWheelGameView() {
                     const midRad = (midAngle * Math.PI) / 180;
                     
                     // Posição da imagem (mais perto da borda)
-                    const imgDistance = 68;
+                    const imgDistance = 70;
                     const imgX = 100 + imgDistance * Math.cos(midRad);
                     const imgY = 100 + imgDistance * Math.sin(midRad);
                     
                     // Posição do texto (entre centro e imagem)
-                    const textDistance = 42;
+                    const textDistance = 43;
                     const textX = 100 + textDistance * Math.cos(midRad);
                     const textY = 100 + textDistance * Math.sin(midRad);
+
+                    // Rotação do conteúdo:
+                    // quando a fatia está no ponteiro (180°), fica horizontal;
+                    // as demais ficam diagonais, igual ao print.
+                    const contentRotate = midAngle - 180;
                     
                     return (
                       <g key={idx}>
@@ -257,18 +285,15 @@ export default function SpinWheelGameView() {
                           strokeWidth="1"
                         />
                         
-                        {/* Imagem - rotacionada para seguir o segmento */}
-                        <g transform={`translate(${imgX}, ${imgY}) rotate(${midAngle + 90})`}>
-                          <clipPath id={`clip-${idx}`}>
-                            <rect x="-12" y="-12" width="24" height="24" rx="3" />
-                          </clipPath>
+                        {/* Imagem - padrão do print */}
+                        <g transform={`translate(${imgX}, ${imgY}) rotate(${contentRotate})`}>
                           <image
                             href={normalizeMediaUrl(item.image_url)}
-                            x="-12"
-                            y="-12"
-                            width="24"
-                            height="24"
-                            clipPath={`url(#clip-${idx})`}
+                            x="-14"
+                            y="-14"
+                            width="28"
+                            height="28"
+                            clipPath="url(#wheelImageClip)"
                             preserveAspectRatio="xMidYMid slice"
                           />
                         </g>
@@ -280,9 +305,9 @@ export default function SpinWheelGameView() {
                           textAnchor="middle"
                           dominantBaseline="middle"
                           fill="#1f2937"
-                          fontSize="7"
+                          fontSize="8"
                           fontWeight="bold"
-                          transform={`rotate(${midAngle + 90}, ${textX}, ${textY})`}
+                          transform={`rotate(${contentRotate}, ${textX}, ${textY})`}
                           style={{ textTransform: "uppercase" }}
                         >
                           {item.label}
@@ -307,19 +332,19 @@ export default function SpinWheelGameView() {
             </div>
           </div>
 
-          {/* Seta indicadora à DIREITA */}
-          <div className="absolute -right-3 sm:-right-5 z-20">
+          {/* Seta indicadora à ESQUERDA */}
+          <div className="absolute -left-3 sm:-left-5 z-20">
             <svg width="50" height="50" viewBox="0 0 50 50" className="drop-shadow-xl">
               <polygon 
-                points="50,25 0,0 10,25 0,50" 
-                fill="url(#arrowGradRight)"
+                points="0,25 50,0 40,25 50,50"
+                fill="url(#arrowGradLeft)"
                 stroke="#374151"
                 strokeWidth="2"
               />
               <defs>
-                <linearGradient id="arrowGradRight" x1="100%" y1="50%" x2="0%" y2="50%">
-                  <stop offset="0%" stopColor="#374151" />
-                  <stop offset="100%" stopColor="#6B7280" />
+                <linearGradient id="arrowGradLeft" x1="0%" y1="50%" x2="100%" y2="50%">
+                  <stop offset="0%" stopColor="#6B7280" />
+                  <stop offset="100%" stopColor="#374151" />
                 </linearGradient>
               </defs>
             </svg>

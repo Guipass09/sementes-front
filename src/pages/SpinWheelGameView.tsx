@@ -408,8 +408,9 @@ export default function SpinWheelGameView() {
                                 const longest = Math.max(1, ...lines.map((x) => x.length));
                                 // Fonte adaptativa por comprimento da maior linha (sem “apertar” demais as letras)
                                 const fontSize = Math.max(5.2, Math.min(7.4, 8.4 - longest * 0.22));
-                                // Campo máximo de texto (em unidades SVG). Aumentei para reduzir compressão.
-                                const maxTextLen = 52;
+                                // Campo máximo de texto (em unidades SVG) usado APENAS para comprimir nomes longos.
+                                // Importante: não usar textLength em palavras curtas, senão o SVG “estica” as letras.
+                                const maxTextLen = 44;
                                 const lineStep = fontSize * 1.05;
                                 const startDy = -(lineStep * (lines.length - 1)) / 2;
 
@@ -445,17 +446,20 @@ export default function SpinWheelGameView() {
                                       transform={`rotate(${contentRotate}, ${textX}, ${textY})`}
                                       style={{ textTransform: "uppercase" }}
                                     >
-                                      {lines.map((ln, i) => (
+                                      {lines.map((ln, i) => {
+                                        const shouldCompress = ln.length >= 10; // só comprime quando realmente precisa
+                                        return (
                                         <tspan
                                           key={i}
                                           x={textX}
                                           dy={i === 0 ? startDy : lineStep}
-                                          textLength={maxTextLen}
-                                          lengthAdjust="spacing"
+                                          textLength={shouldCompress ? maxTextLen : undefined}
+                                          lengthAdjust={shouldCompress ? "spacingAndGlyphs" : undefined}
                                         >
                                           {ln}
                                         </tspan>
-                                      ))}
+                                        );
+                                      })}
                                     </text>
                                   </g>
                                 );

@@ -183,12 +183,12 @@ export default function NotificationsBell() {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="relative inline-flex items-center justify-center w-10 h-10 rounded-lg hover:bg-muted/50 transition-colors"
+          className="relative inline-flex items-center justify-center w-9 h-9 rounded-lg hover:bg-muted/50 transition-colors flex-shrink-0"
           aria-label="Notificações"
         >
-          <Bell size={20} />
+          <Bell size={18} />
           {unread > 0 ? (
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-brand-orange text-white text-[11px] flex items-center justify-center shadow">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] px-0.5 rounded-full bg-brand-orange text-white text-[10px] flex items-center justify-center shadow">
               {unread > 99 ? "99+" : unread}
             </span>
           ) : null}

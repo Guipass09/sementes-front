@@ -20,50 +20,98 @@ export function useOneSignal() {
     initializedRef.current = true;
 
     const setup = async () => {
+      console.log("[OneSignal] Iniciando setup...");
+      
       // Carregar OneSignal SDK
       if (!window.OneSignal) {
+        console.log("[OneSignal] Carregando SDK...");
         const script = document.createElement("script");
         script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
         script.async = true;
         document.head.appendChild(script);
 
         await new Promise((resolve) => {
-          script.onload = resolve;
+          script.onload = () => {
+            console.log("[OneSignal] SDK carregado");
+            resolve(undefined);
+          };
+          script.onerror = () => {
+            console.error("[OneSignal] Erro ao carregar SDK");
+            resolve(undefined);
+          };
         });
       }
 
       const OneSignal = window.OneSignal;
       if (!OneSignal) {
-        console.warn("OneSignal SDK não carregou");
+        console.error("[OneSignal] SDK não carregou");
         return;
       }
 
       // Inicializar OneSignal
       const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
+      console.log("[OneSignal] App ID:", appId ? "Configurado" : "NÃO CONFIGURADO");
       if (!appId) {
-        console.warn("ONESIGNAL_APP_ID não configurado");
+        console.error("[OneSignal] ONESIGNAL_APP_ID não configurado");
         return;
       }
 
-      await OneSignal.init({
-        appId: appId,
-        notifyButton: {
-          enable: false, // Não mostrar botão padrão
-        },
-        allowLocalhostAsSecureOrigin: true, // Para desenvolvimento
-      });
+      try {
+        console.log("[OneSignal] Inicializando OneSignal...");
+        await OneSignal.init({
+          appId: appId,
+          notifyButton: {
+            enable: false, // Não mostrar botão padrão
+          },
+          allowLocalhostAsSecureOrigin: true, // Para desenvolvimento
+        });
+        console.log("[OneSignal] OneSignal inicializado com sucesso");
+      } catch (error) {
+        console.error("[OneSignal] Erro ao inicializar:", error);
+        return;
+      }
+
+      // Verificar permissão atual
+      const currentPermission = await OneSignal.Notifications.permissionNative;
+      console.log("[OneSignal] Permissão atual:", currentPermission);
 
       // Solicitar permissão
+      console.log("[OneSignal] Solicitando permissão...");
       const permission = await OneSignal.Notifications.requestPermission();
+      console.log("[OneSignal] Permissão retornada:", permission);
+      
       if (permission !== "granted") {
-        console.log("Permissão de notificações negada");
+        console.warn("[OneSignal] Permissão de notificações negada ou não concedida:", permission);
+        console.warn("[OneSignal] Para receber push notifications, você precisa permitir notificações no navegador");
         return;
       }
 
+      // Aguardar um pouco para garantir que o player ID está disponível
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       // Obter player ID
-      const playerId = await OneSignal.User.PushSubscription.id;
+      console.log("[OneSignal] Obtendo player ID...");
+      let playerId: string | null = null;
+      try {
+        playerId = await OneSignal.User.PushSubscription.id;
+        console.log("[OneSignal] Player ID obtido:", playerId);
+      } catch (error) {
+        console.error("[OneSignal] Erro ao obter player ID:", error);
+        // Tentar método alternativo
+        try {
+          const subscription = await OneSignal.User.PushSubscription.optedIn;
+          console.log("[OneSignal] Subscription opted in:", subscription);
+          if (subscription) {
+            playerId = await OneSignal.User.PushSubscription.id;
+            console.log("[OneSignal] Player ID (tentativa 2):", playerId);
+          }
+        } catch (e) {
+          console.error("[OneSignal] Erro na tentativa alternativa:", e);
+        }
+      }
+
       if (!playerId) {
-        console.warn("Não foi possível obter player ID");
+        console.error("[OneSignal] Não foi possível obter player ID após múltiplas tentativas");
         return;
       }
 
@@ -71,12 +119,14 @@ export function useOneSignal() {
 
       // Registrar no backend
       try {
+        console.log("[OneSignal] Registrando player ID no backend...");
         const deviceInfo = navigator.userAgent;
         const deviceType = /Mobile|Android|iPhone|iPad/.test(deviceInfo) ? "mobile" : "web";
+        console.log("[OneSignal] Device type:", deviceType);
         await registerPushToken(playerId, deviceType, deviceInfo);
-        console.log("OneSignal player ID registrado:", playerId);
+        console.log("[OneSignal] ✅ Player ID registrado com sucesso:", playerId);
       } catch (error) {
-        console.error("Erro ao registrar player ID:", error);
+        console.error("[OneSignal] ❌ Erro ao registrar player ID:", error);
       }
 
       // Escutar cliques em notificações

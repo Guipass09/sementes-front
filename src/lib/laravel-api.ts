@@ -183,6 +183,23 @@ export type HangmanGameRow = {
   created_at?: string | null;
 };
 
+// ---------------------------
+// NOTIFICAÇÕES (IN-APP)
+// ---------------------------
+
+export type AppNotificationRow = {
+  id: string;
+  type: string;
+  data: any;
+  read_at?: string | null;
+  created_at?: string | null;
+};
+
+export type NotificationsListResponse = {
+  data: AppNotificationRow[];
+  unread_count: number;
+};
+
 type ApiError = {
   status: number;
   data: any;
@@ -243,6 +260,22 @@ export async function ensureCsrfCookie(): Promise<void> {
 
 export async function me(): Promise<AuthUser> {
   return await request<AuthUser>("/api/me");
+}
+
+export async function notificationsList(limit = 50): Promise<NotificationsListResponse> {
+  return await request<NotificationsListResponse>(`/api/notifications?limit=${encodeURIComponent(String(limit))}`);
+}
+
+export async function notificationsUnreadCount(): Promise<{ unread_count: number }> {
+  return await request<{ unread_count: number }>("/api/notifications/unread-count");
+}
+
+export async function notificationMarkRead(id: string): Promise<{ success: true }> {
+  return await request<{ success: true }>(`/api/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" });
+}
+
+export async function notificationsMarkAllRead(): Promise<{ success: true }> {
+  return await request<{ success: true }>("/api/notifications/read-all", { method: "POST" });
 }
 
 export async function updateMe(payload: {

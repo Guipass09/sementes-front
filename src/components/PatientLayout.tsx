@@ -7,6 +7,7 @@ import { useAccessControl } from "@/hooks/use-access-control";
 import { useAuth } from "@/auth/AuthContext";
 import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
+import NotificationsBell from "@/components/NotificationsBell";
 
 interface UserData {
   name: string;
@@ -163,6 +164,7 @@ const PatientLayout = () => {
 
           {/* User Profile & Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            <NotificationsBell />
             {/* User Info - Desktop */}
             <button
               type="button"

@@ -64,6 +64,10 @@ export function useOneSignal() {
             enable: false, // Não mostrar botão padrão
           },
           allowLocalhostAsSecureOrigin: true, // Para desenvolvimento
+          serviceWorkerParam: {
+            scope: "/",
+          },
+          serviceWorkerPath: "OneSignalSDKWorker.js",
         });
         console.log("[OneSignal] OneSignal inicializado com sucesso");
       } catch (error) {
@@ -86,28 +90,48 @@ export function useOneSignal() {
         return;
       }
 
+      // Verificar se o service worker está ativo
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration();
+          console.log("[OneSignal] Service Worker registrado:", registration ? "Sim" : "Não");
+          if (registration) {
+            console.log("[OneSignal] Service Worker scope:", registration.scope);
+            console.log("[OneSignal] Service Worker active:", registration.active ? "Sim" : "Não");
+          }
+        } catch (e) {
+          console.error("[OneSignal] Erro ao verificar service worker:", e);
+        }
+      }
+
       // Aguardar um pouco para garantir que o player ID está disponível
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Obter player ID
       console.log("[OneSignal] Obtendo player ID...");
       let playerId: string | null = null;
       try {
-        playerId = await OneSignal.User.PushSubscription.id;
-        console.log("[OneSignal] Player ID obtido:", playerId);
+        // Verificar se está inscrito
+        const isSubscribed = await OneSignal.User.PushSubscription.optedIn;
+        console.log("[OneSignal] Push subscription opted in:", isSubscribed);
+        
+        if (isSubscribed) {
+          playerId = await OneSignal.User.PushSubscription.id;
+          console.log("[OneSignal] Player ID obtido:", playerId);
+        } else {
+          console.warn("[OneSignal] Usuário não está inscrito para push notifications");
+          // Tentar inscrever novamente
+          try {
+            await OneSignal.User.PushSubscription.optIn();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            playerId = await OneSignal.User.PushSubscription.id;
+            console.log("[OneSignal] Player ID obtido após opt-in:", playerId);
+          } catch (optInError) {
+            console.error("[OneSignal] Erro ao fazer opt-in:", optInError);
+          }
+        }
       } catch (error) {
         console.error("[OneSignal] Erro ao obter player ID:", error);
-        // Tentar método alternativo
-        try {
-          const subscription = await OneSignal.User.PushSubscription.optedIn;
-          console.log("[OneSignal] Subscription opted in:", subscription);
-          if (subscription) {
-            playerId = await OneSignal.User.PushSubscription.id;
-            console.log("[OneSignal] Player ID (tentativa 2):", playerId);
-          }
-        } catch (e) {
-          console.error("[OneSignal] Erro na tentativa alternativa:", e);
-        }
       }
 
       if (!playerId) {

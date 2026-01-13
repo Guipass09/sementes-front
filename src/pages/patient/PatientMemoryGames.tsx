@@ -29,16 +29,37 @@ export default function PatientMemoryGames() {
       setLoading(true);
       try {
         const [mem, aud, hang, spin] = await Promise.all([
-          api.userListMemoryGames(),
-          api.userListAuditoryGames(),
-          api.userListHangmanGames(),
-          api.userListSpinWheelGames(),
+          api.userListMemoryGames().catch(err => {
+            console.error("[Jogos] Erro ao buscar memory games:", err);
+            return [];
+          }),
+          api.userListAuditoryGames().catch(err => {
+            console.error("[Jogos] Erro ao buscar auditory games:", err);
+            return [];
+          }),
+          api.userListHangmanGames().catch(err => {
+            console.error("[Jogos] Erro ao buscar hangman games:", err);
+            return [];
+          }),
+          api.userListSpinWheelGames().catch(err => {
+            console.error("[Jogos] Erro ao buscar spin wheel games:", err);
+            return [];
+          }),
         ]);
         if (!cancelled) {
+          console.log("[Jogos] Resultados:", { mem: mem.length, aud: aud.length, hang: hang.length, spin: spin.length });
           setGames(mem);
           setAuditoryGames(aud);
           setHangmanGames(hang);
           setSpinWheelGames(spin);
+        }
+      } catch (error) {
+        console.error("[Jogos] Erro geral ao buscar jogos:", error);
+        if (!cancelled) {
+          setGames([]);
+          setAuditoryGames([]);
+          setHangmanGames([]);
+          setSpinWheelGames([]);
         }
       } finally {
         if (!cancelled) setLoading(false);

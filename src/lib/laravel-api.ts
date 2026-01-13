@@ -278,17 +278,17 @@ export async function notificationsMarkAllRead(): Promise<{ success: true }> {
   return await request<{ success: true }>("/api/notifications/read-all", { method: "POST" });
 }
 
-export async function registerPushToken(token: string, deviceType?: string, deviceInfo?: string): Promise<{ success: boolean }> {
+export async function registerPushToken(playerId: string, deviceType?: string, deviceInfo?: string): Promise<{ success: boolean }> {
   return await request<{ success: boolean }>("/api/notifications/push/register", {
     method: "POST",
-    json: { token, device_type: deviceType, device_info: deviceInfo },
+    json: { player_id: playerId, device_type: deviceType, device_info: deviceInfo },
   });
 }
 
-export async function unregisterPushToken(token: string): Promise<{ success: boolean }> {
+export async function unregisterPushToken(playerId: string): Promise<{ success: boolean }> {
   return await request<{ success: boolean }>("/api/notifications/push/unregister", {
     method: "POST",
-    json: { token },
+    json: { player_id: playerId },
   });
 }
 

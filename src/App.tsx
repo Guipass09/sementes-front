@@ -46,8 +46,15 @@ import SpinWheelGameView from "./pages/SpinWheelGameView";
 import RouteChangeLoader from "./components/RouteChangeLoader";
 import GameplayBackground from "./components/GameplayBackground";
 import { installSfxUnlock } from "@/lib/sfx";
+import { useOneSignal } from "@/hooks/use-onesignal";
 
 const queryClient = new QueryClient();
+
+// Componente interno para inicializar OneSignal
+function OneSignalInit() {
+  useOneSignal();
+  return null;
+}
 
 const App = () => {
   // garante que no mobile o áudio é desbloqueado no primeiro toque/tecla
@@ -59,7 +66,7 @@ const App = () => {
         <Toaster />
         <Sonner />
         <AuthProvider>
-          <PushNotificationsInit />
+          <OneSignalInit />
           <BrowserRouter>
             <ErrorBoundary>
               <GameplayBackground />

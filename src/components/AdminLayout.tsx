@@ -137,14 +137,14 @@ const AdminLayout = () => {
             <button
               type="button"
               onClick={() => setProfileOpen(true)}
-              className="hidden md:flex items-center gap-1.5 rounded-xl px-1.5 py-1 hover:bg-muted/50 transition-colors"
+              className="hidden md:flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-muted/50 transition-colors"
               aria-label="Perfil"
             >
               <div className="text-right hidden xl:block">
-                <p className="text-xs font-semibold text-foreground leading-tight">{user.name}</p>
-                <p className="text-[10px] text-muted-foreground leading-tight">Administrador</p>
+                <p className="text-sm font-semibold text-foreground leading-tight">{user.name}</p>
+                <p className="text-xs text-muted-foreground leading-tight">Administrador</p>
               </div>
-              <div className="w-9 h-9 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-orange to-brand-orange-dark flex items-center justify-center text-white font-semibold text-xs flex-shrink-0">
+              <div className="w-10 h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-orange to-brand-orange-dark flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                 {user.profile_photo_url ? (
                   <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                 ) : (

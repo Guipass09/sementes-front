@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
 import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow } from "@/lib/laravel-api";
 import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinResponse, type VideoPollMessage } from "@/lib/laravel-api";
@@ -46,8 +47,11 @@ export default function SessionCall() {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  const [remoteMuted, setRemoteMuted] = useState(true);
   const [statusLabel, setStatusLabel] = useState<string>("Conectando...");
   const [contentPath, setContentPath] = useState<string | null>(null);
+  const [contentTitle, setContentTitle] = useState<string | null>(null);
+  const [contentLoading, setContentLoading] = useState(false);
   const [controlGranted, setControlGranted] = useState<boolean>(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(false);
@@ -56,6 +60,8 @@ export default function SessionCall() {
   const [audGames, setAudGames] = useState<AuditoryGameRow[]>([]);
   const [hangGames, setHangGames] = useState<HangmanGameRow[]>([]);
   const [spinGames, setSpinGames] = useState<SpinWheelGameRow[]>([]);
+  const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
+  const [pendingShare, setPendingShare] = useState<null | { path: string; title: string; kind: string }>(null);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -89,6 +95,8 @@ export default function SessionCall() {
         setRole(res.role);
         const initialPath = res.room?.content?.path || null;
         setContentPath(typeof initialPath === "string" && initialPath ? initialPath : null);
+        setContentTitle(null);
+        setContentLoading(false);
         setControlGranted(!!res.room?.control_granted_to_user);
         setStatusLabel("Preparando câmera e microfone...");
       } catch (e) {
@@ -144,11 +152,13 @@ export default function SessionCall() {
     });
   };
 
-  const selectContent = async (path: string) => {
+  const selectContent = async (path: string, title: string, kind: string) => {
     if (!path) return;
     setContentPath(path);
+    setContentTitle(title || null);
+    setContentLoading(true);
     try {
-      await send("content_select", { path });
+      await send("content_select", { path, title, kind });
     } catch {
       // se falhar, mantém estado local (admin ainda vê)
     }
@@ -209,7 +219,22 @@ export default function SessionCall() {
         };
 
         pc.onconnectionstatechange = () => {
-          setStatusLabel(pc.connectionState === "connected" ? "Conectado" : "Conectando...");
+          setStatusLabel(
+            pc.connectionState === "connected"
+              ? "Conectado"
+              : pc.connectionState === "connecting"
+              ? "Conectando..."
+              : pc.connectionState === "failed"
+              ? "Falha na conexão"
+              : "Conectando..."
+          );
+        };
+
+        pc.oniceconnectionstatechange = () => {
+          // Ajuda a diagnosticar se falta TURN/NAT (ex.: "failed")
+          if (pc.iceConnectionState === "failed") {
+            setStatusLabel("Falha ICE (rede restrita)");
+          }
         };
 
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -282,6 +307,16 @@ export default function SessionCall() {
       const p = m.payload?.path;
       if (typeof p === "string" && p) {
         setContentPath(p);
+        const t = m.payload?.title;
+        setContentTitle(typeof t === "string" && t ? t : null);
+        setContentLoading(true);
+        // feedback para o paciente: "admin confirmou e compartilhou"
+        if (role === "user") {
+          toast({
+            title: "Atividade compartilhada",
+            description: typeof t === "string" && t ? t : "A fonoaudióloga compartilhou uma atividade.",
+          });
+        }
       }
     }
 
@@ -325,6 +360,7 @@ export default function SessionCall() {
     if (!joinInfo || !role) return;
     let cancelled = false;
     let inFlight = false;
+    let delayMs = 600; // rápido no começo para handshake
     const tick = async () => {
       if (cancelled) return;
       if (inFlight) return;
@@ -350,22 +386,32 @@ export default function SessionCall() {
             }
             await handleMessage(m);
           }
+          // Se teve mensagem, mantém poll rápido
+          delayMs = 600;
+        } else {
+          // Sem mensagens: reduz spam de rede
+          delayMs = Math.min(2500, delayMs + 250);
         }
         const next = Number.isFinite(res.next_cursor as any) ? (res.next_cursor as any as number) : cursorRef.current;
         cursorRef.current = next;
         setCursor(next);
       } catch {
         // silencioso: rede intermitente
+        delayMs = Math.min(3500, delayMs + 500);
       } finally {
         inFlight = false;
       }
     };
 
-    const id = window.setInterval(() => void tick(), 800);
-    void tick();
+    const loop = async () => {
+      while (!cancelled) {
+        await tick();
+        await new Promise((r) => window.setTimeout(r, delayMs));
+      }
+    };
+    void loop();
     return () => {
       cancelled = true;
-      window.clearInterval(id);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinInfo?.token, role]);
@@ -377,6 +423,7 @@ export default function SessionCall() {
     pcRef.current = null;
     peerReadyRef.current = false;
     pendingWebrtcRef.current = [];
+    setRemoteMuted(true);
     safeStopStream(localStream);
     safeStopStream(remoteStream);
     setLocalStream(null);
@@ -475,7 +522,13 @@ export default function SessionCall() {
                   src={iframeSrc}
                   className="absolute inset-0 h-full w-full rounded-xl bg-background"
                   title="Conteúdo da sessão"
+                  onLoad={() => setContentLoading(false)}
                 />
+                {contentLoading && (
+                  <div className="absolute inset-0 rounded-xl bg-background/60 backdrop-blur-[1px] flex items-center justify-center">
+                    <div className="text-sm font-semibold text-foreground">Carregando…</div>
+                  </div>
+                )}
                 {role === "user" && !controlGranted && (
                   <div
                     className="absolute inset-0 rounded-xl bg-background/40 backdrop-blur-[1px] flex items-center justify-center"
@@ -520,7 +573,13 @@ export default function SessionCall() {
                 {role === "admin" ? "Paciente" : "Fonoaudióloga"}
               </div>
               <div className="relative aspect-[4/3] bg-black">
-                <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  muted={remoteMuted}
+                  className="h-full w-full object-cover"
+                />
               </div>
             </div>
 
@@ -536,33 +595,52 @@ export default function SessionCall() {
         </div>
 
         {/* Controles */}
-        {role === "admin" && (
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            <Button variant="outline" onClick={() => setCatalogOpen(true)} className="rounded-xl">
-              Catálogo
-            </Button>
-            <Button variant="outline" onClick={() => void toggleControl()} className="rounded-xl">
-              {controlGranted ? "Retirar controle do paciente" : "Dar controle ao paciente"}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={toggleMic}
-              className={cn("rounded-xl", !micOn ? "border-destructive text-destructive" : "")}
-            >
-              {micOn ? <Mic /> : <MicOff />}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={toggleCam}
-              className={cn("rounded-xl", !camOn ? "border-destructive text-destructive" : "")}
-            >
-              {camOn ? <Video /> : <VideoOff />}
-            </Button>
-            <Button variant="destructive" onClick={() => void hangup()} className="rounded-xl">
-              <PhoneOff />
-            </Button>
-          </div>
-        )}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          {role === "admin" && (
+            <>
+              <Button variant="outline" onClick={() => setCatalogOpen(true)} className="rounded-xl">
+                Catálogo
+              </Button>
+              <Button variant="outline" onClick={() => void toggleControl()} className="rounded-xl">
+                {controlGranted ? "Retirar controle do paciente" : "Dar controle ao paciente"}
+              </Button>
+            </>
+          )}
+
+          {/* Áudio remoto (ajuda iOS/Safari a liberar autoplay ao usuário tocar) */}
+          <Button
+            variant="outline"
+            onClick={() => {
+              const next = !remoteMuted;
+              setRemoteMuted(next);
+              // tentar play após interação
+              const el = remoteVideoRef.current;
+              if (el) void el.play().catch(() => {});
+            }}
+            className={cn("rounded-xl", remoteMuted ? "" : "border-brand-green text-brand-green")}
+          >
+            {remoteMuted ? "Ativar áudio" : "Silenciar áudio"}
+          </Button>
+
+          {/* Controles locais: também para usuário */}
+          <Button
+            variant="outline"
+            onClick={toggleMic}
+            className={cn("rounded-xl", !micOn ? "border-destructive text-destructive" : "")}
+          >
+            {micOn ? <Mic /> : <MicOff />}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={toggleCam}
+            className={cn("rounded-xl", !camOn ? "border-destructive text-destructive" : "")}
+          >
+            {camOn ? <Video /> : <VideoOff />}
+          </Button>
+          <Button variant="destructive" onClick={() => void hangup()} className="rounded-xl">
+            <PhoneOff />
+          </Button>
+        </div>
       </div>
 
       {/* Catálogo (admin) */}
@@ -582,7 +660,10 @@ export default function SessionCall() {
                   {activities.map((a) => (
                     <button
                       key={`act-${a.id}`}
-                      onClick={() => void selectContent(`/atividades/${a.id}`)}
+                      onClick={() => {
+                        setPendingShare({ path: `/atividades/${a.id}`, title: a.title, kind: "activity" });
+                        setShareConfirmOpen(true);
+                      }}
                       className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
                     >
                       <div className="text-sm font-semibold text-foreground line-clamp-1">{a.title}</div>
@@ -598,7 +679,10 @@ export default function SessionCall() {
                   {memGames.map((g) => (
                     <button
                       key={`mem-${g.id}`}
-                      onClick={() => void selectContent(`/jogos/${g.id}`)}
+                      onClick={() => {
+                        setPendingShare({ path: `/jogos/${g.id}`, title: g.title, kind: "memory_game" });
+                        setShareConfirmOpen(true);
+                      }}
                       className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
                     >
                       <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
@@ -608,7 +692,10 @@ export default function SessionCall() {
                   {audGames.map((g) => (
                     <button
                       key={`aud-${g.id}`}
-                      onClick={() => void selectContent(`/jogos/auditivo/${g.id}`)}
+                      onClick={() => {
+                        setPendingShare({ path: `/jogos/auditivo/${g.id}`, title: g.title, kind: "auditory_game" });
+                        setShareConfirmOpen(true);
+                      }}
                       className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
                     >
                       <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
@@ -618,7 +705,10 @@ export default function SessionCall() {
                   {hangGames.map((g) => (
                     <button
                       key={`hang-${g.id}`}
-                      onClick={() => void selectContent(`/jogos/forca/${g.id}`)}
+                      onClick={() => {
+                        setPendingShare({ path: `/jogos/forca/${g.id}`, title: g.title, kind: "hangman_game" });
+                        setShareConfirmOpen(true);
+                      }}
                       className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
                     >
                       <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
@@ -628,7 +718,10 @@ export default function SessionCall() {
                   {spinGames.map((g) => (
                     <button
                       key={`spin-${g.id}`}
-                      onClick={() => void selectContent(`/jogos/roleta/${g.id}`)}
+                      onClick={() => {
+                        setPendingShare({ path: `/jogos/roleta/${g.id}`, title: g.title, kind: "spin_wheel_game" });
+                        setShareConfirmOpen(true);
+                      }}
                       className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
                     >
                       <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
@@ -652,7 +745,10 @@ export default function SessionCall() {
                   ].map((p) => (
                     <button
                       key={`pkg-${p.sessions}`}
-                      onClick={() => void selectContent(p.url)}
+                      onClick={() => {
+                        setPendingShare({ path: p.url, title: `${p.sessions} sessões (link)`, kind: "package_link" });
+                        setShareConfirmOpen(true);
+                      }}
                       className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
                     >
                       <div className="text-sm font-semibold text-foreground">{p.sessions} sessões</div>
@@ -668,6 +764,23 @@ export default function SessionCall() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirmação de compartilhamento (admin) */}
+      {role === "admin" && pendingShare ? (
+        <BrandedConfirmDialog
+          open={shareConfirmOpen}
+          onOpenChange={(open) => {
+            setShareConfirmOpen(open);
+            if (!open) setPendingShare(null);
+          }}
+          title="Compartilhar agora?"
+          description={`Você quer compartilhar "${pendingShare.title}" com o paciente agora?`}
+          confirmLabel="Compartilhar"
+          cancelLabel="Cancelar"
+          variant="success"
+          onConfirm={() => void selectContent(pendingShare.path, pendingShare.title, pendingShare.kind)}
+        />
+      ) : null}
     </div>
   );
 }

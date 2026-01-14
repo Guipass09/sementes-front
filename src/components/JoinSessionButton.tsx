@@ -2,18 +2,47 @@ import { Button } from "@/components/ui/button";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { cn } from "@/lib/utils";
 import type { JoinSessionMeta } from "@/lib/laravel-api";
+import { getTodayYMD, parseLocalDateTime } from "@/lib/session-alert";
 
 export function JoinSessionButton(props: {
   meta?: JoinSessionMeta | null;
+  date?: string; // YYYY-MM-DD
+  time?: string; // HH:mm
+  nowMs?: number;
   className?: string;
   onClick?: () => void;
 }) {
   const meta = props.meta;
-  if (!meta?.visible) return null;
+  const hasLocalClock =
+    typeof props.nowMs === "number" && !!props.date && !!props.time;
+
+  // Regras do botão (UI):
+  // - aparece apenas no dia da sessão
+  // - pisca 10 min antes até o horário
+  // - fica clicável de 10 min antes até 20 min após
+  // Obs: quando `date/time/nowMs` forem fornecidos, usamos o relógio local (mesma lógica do pontinho laranja).
+  const local = (() => {
+    if (!hasLocalClock) return null;
+    const today = getTodayYMD(props.nowMs!);
+    const visible = props.date === today;
+    const startMs = parseLocalDateTime(props.date!, props.time!);
+    if (startMs === null) return { visible, enabled: false, blink: false, reason: "invalid_time" as const };
+
+    const enabledFrom = startMs - 10 * 60_000;
+    const enabledUntil = startMs + 20 * 60_000;
+    const enabled = props.nowMs! >= enabledFrom && props.nowMs! <= enabledUntil;
+    const blink = props.nowMs! >= enabledFrom && props.nowMs! <= startMs;
+    const reason = enabled ? null : props.nowMs! < enabledFrom ? "too_early" : "expired";
+    return { visible, enabled, blink, reason };
+  })();
+
+  const visible = local ? local.visible : !!meta?.visible;
+  if (!visible) return null;
 
   const label = (meta.label || "Entrar na sessão").trim();
-  const enabled = !!meta.enabled;
-  const blink = !!meta.blink;
+  const enabled = local ? local.enabled : !!meta?.enabled;
+  const blink = local ? local.blink : !!meta?.blink;
+  const reason = local ? local.reason : meta?.reason;
 
   return (
     <Button
@@ -22,17 +51,23 @@ export function JoinSessionButton(props: {
       disabled={!enabled}
       onClick={props.onClick}
       className={cn(
-        "h-auto px-3 py-2 rounded-xl",
+        "relative h-auto px-3 py-2 rounded-xl",
         "flex flex-col items-center justify-center gap-1",
         "min-w-[112px]",
-        blink ? "animate-pulse" : "",
+        blink ? "animate-pulse ring-2 ring-brand-orange/60" : "",
         !enabled ? "opacity-60" : "",
         props.className
       )}
-      title={!enabled && meta.reason ? meta.reason : undefined}
+      title={!enabled && reason ? String(reason) : undefined}
     >
+      {blink && (
+        <span
+          className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-brand-orange animate-pulse shadow-sm"
+          aria-hidden="true"
+        />
+      )}
       <img
-        src={(meta.logo_url || logoImage) as string}
+        src={(meta?.logo_url || logoImage) as string}
         alt="Logo"
         className="h-6 w-6 object-contain"
         loading="lazy"

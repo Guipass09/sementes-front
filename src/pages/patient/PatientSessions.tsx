@@ -213,7 +213,13 @@ const PatientSessions = () => {
                           <StatusIcon size={14} />
                           {statusConfig[session.status].label}
                         </div>
-                        <JoinSessionButton meta={session.join_session} onClick={() => goToCall(session.id)} />
+                        <JoinSessionButton
+                          meta={session.join_session}
+                          date={session.date}
+                          time={session.time}
+                          nowMs={nowMs}
+                          onClick={() => goToCall(session.id)}
+                        />
                       </div>
                     </div>
                   </div>
@@ -280,7 +286,13 @@ const PatientSessions = () => {
                         <StatusIcon size={14} />
                         {statusConfig[session.status].label}
                       </div>
-                      <JoinSessionButton meta={session.join_session} onClick={() => goToCall(session.id)} />
+                      <JoinSessionButton
+                        meta={session.join_session}
+                        date={session.date}
+                        time={session.time}
+                        nowMs={nowMs}
+                        onClick={() => goToCall(session.id)}
+                      />
                     </div>
                   </div>
                 </div>

@@ -447,7 +447,13 @@ const AdminSessions = () => {
                               >
                                 {statusConfig[session.status].label}
                               </div>
-                              <JoinSessionButton meta={session.join_session} onClick={() => goToCall(session.id)} />
+                              <JoinSessionButton
+                                meta={session.join_session}
+                                date={session.date}
+                                time={session.time}
+                                nowMs={nowMs}
+                                onClick={() => goToCall(session.id)}
+                              />
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, RotateCcw, Type, XCircle, Sparkles, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,8 +28,28 @@ function normalizeWordClient(raw: string) {
 export default function HangmanGameView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = useAuth();
   const { toast } = useToast();
+
+  const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const inSession = sessionParams.get("session") === "1";
+  const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const applyingRemoteRef = useRef(false);
+
+  const emitSessionEvent = useCallback(
+    (event: any) => {
+      if (!inSession) return;
+      if (applyingRemoteRef.current) return;
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: "SESSION_GAME_EVENT", event }, window.location.origin);
+        }
+      } catch {}
+    },
+    [inSession],
+  );
 
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<HangmanGameRow | null>(null);
@@ -51,6 +71,50 @@ export default function HangmanGameView() {
   const hitTimerRef = useRef<number | null>(null);
   const winTimerRef = useRef<number | null>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
+
+  // Sessão ao vivo: recebe controle + estado do outro lado
+  useEffect(() => {
+    if (!inSession) return;
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      const data: any = ev.data;
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "SESSION_CONTROL") {
+        const granted = !!data.granted;
+        controlAllowedRef.current = sessionRole === "admin" ? true : granted;
+        return;
+      }
+
+      if (data.type !== "SESSION_GAME_EVENT") return;
+      const evt = data.event;
+      if (!evt || typeof evt !== "object") return;
+      if (evt.game !== "hangman") return;
+      if (evt.kind !== "state") return;
+
+      const st = evt.state || {};
+      applyingRemoteRef.current = true;
+      try {
+        if (Array.isArray(st.guessed)) setGuessed(st.guessed.map((x: any) => String(x).toUpperCase()).filter((x: string) => /^[A-Z]$/.test(x)));
+        if (Array.isArray(st.wrong)) setWrong(st.wrong.map((x: any) => String(x).toUpperCase()).filter((x: string) => /^[A-Z]$/.test(x)));
+        if (Number.isFinite(Number(st.selectedImage))) setSelectedImage(Math.max(0, Number(st.selectedImage)));
+      } finally {
+        window.setTimeout(() => {
+          applyingRemoteRef.current = false;
+        }, 0);
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [inSession, sessionRole]);
+
+  // Emite snapshot do estado (admin sempre; user só quando controle está liberado)
+  useEffect(() => {
+    if (!inSession) return;
+    if (applyingRemoteRef.current) return;
+    if (sessionRole === "user" && !controlAllowedRef.current) return;
+    emitSessionEvent({ game: "hangman", kind: "state", state: { guessed, wrong, selectedImage } });
+  }, [inSession, sessionRole, guessed, wrong, selectedImage, emitSessionEvent]);
 
   const gameId = useMemo(() => {
     const n = Number(id);
@@ -306,38 +370,40 @@ export default function HangmanGameView() {
 
   return (
     <div className="min-h-[100svh] bg-transparent">
-      <div className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <Button variant="ghost" onClick={() => navigate(-1)} className="shrink-0">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <Button variant="secondary" onClick={restart} className="shrink-0 sm:hidden">
+      {!inSession && (
+        <div className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur border-b border-border">
+          <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <Button variant="ghost" onClick={() => navigate(-1)} className="shrink-0">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              <Button variant="secondary" onClick={restart} className="shrink-0 sm:hidden">
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Recomeçar
+              </Button>
+            </div>
+
+            <div className="flex-1 min-w-0 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
+                <Type className="h-4 w-4" />
+                Jogo da Forca
+              </div>
+              <div className="font-display font-bold text-foreground truncate">{game.title}</div>
+            </div>
+
+            <Button variant="secondary" onClick={restart} className="hidden sm:inline-flex">
               <RotateCcw className="h-4 w-4 mr-2" />
               Recomeçar
             </Button>
           </div>
-
-          <div className="flex-1 min-w-0 text-center sm:text-left">
-            <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
-              <Type className="h-4 w-4" />
-              Jogo da Forca
-            </div>
-            <div className="font-display font-bold text-foreground truncate">{game.title}</div>
-          </div>
-
-          <Button variant="secondary" onClick={restart} className="hidden sm:inline-flex">
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Recomeçar
-          </Button>
         </div>
-      </div>
+      )}
 
-      <div className="container mx-auto px-4 py-6">
+      <div className={cn("container mx-auto px-4 py-6", inSession && "px-0 py-0")}>
         <div ref={fsRef} className="fs-target relative">
           {/* Botão pequeno no canto do conteúdo */}
-          <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" />
+          {!inSession && <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" />}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: imagem + palavra */}

@@ -55,6 +55,8 @@ export default function SessionCall() {
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [contentPath, setContentPath] = useState<string | null>(null);
   const [contentTitle, setContentTitle] = useState<string | null>(null);
+  const [contentKind, setContentKind] = useState<string | null>(null);
+  const [contentSeed, setContentSeed] = useState<number | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [controlGranted, setControlGranted] = useState<boolean>(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -69,6 +71,7 @@ export default function SessionCall() {
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const contentFrameRef = useRef<HTMLIFrameElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const joiningRef = useRef(false);
 
@@ -100,6 +103,10 @@ export default function SessionCall() {
         const initialPath = res.room?.content?.path || null;
         setContentPath(typeof initialPath === "string" && initialPath ? initialPath : null);
         setContentTitle(null);
+        setContentKind((res as any)?.room?.content?.kind ?? null);
+        setContentSeed(
+          typeof (res as any)?.room?.content?.seed === "number" ? (res as any).room.content.seed : null
+        );
         setContentLoading(false);
         setControlGranted(!!res.room?.control_granted_to_user);
         setStatusLabel("Toque em “Iniciar câmera e microfone”");
@@ -158,13 +165,28 @@ export default function SessionCall() {
     });
   };
 
+  const computeSeed = (path: string) => {
+    // Seed simples e estável para sincronizar embaralhamento (ex.: memória) entre admin e usuário.
+    // Não precisa ser criptográfico, só determinístico.
+    const base = `${joinInfo?.sessionId ?? 0}:${path}`;
+    let h = 2166136261;
+    for (let i = 0; i < base.length; i++) {
+      h ^= base.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0) % 1_000_000_000;
+  };
+
   const selectContent = async (path: string, title: string, kind: string) => {
     if (!path) return;
     setContentPath(path);
     setContentTitle(title || null);
+    setContentKind(kind || null);
+    const seed = path.startsWith("/jogos/") ? computeSeed(path) : null;
+    setContentSeed(seed);
     setContentLoading(true);
     try {
-      await send("content_select", { path, title, kind });
+      await send("content_select", { path, title, kind, seed });
     } catch {
       // se falhar, mantém estado local (admin ainda vê)
     }
@@ -175,6 +197,12 @@ export default function SessionCall() {
     if (role !== "admin") return;
     const next = !controlGranted;
     setControlGranted(next);
+    try {
+      contentFrameRef.current?.contentWindow?.postMessage(
+        { type: "SESSION_CONTROL", granted: next },
+        window.location.origin
+      );
+    } catch {}
     try {
       await send("control_set", { granted: next });
     } catch {
@@ -289,6 +317,7 @@ export default function SessionCall() {
       if (!pc) return;
       const sdp = m.payload?.sdp;
       if (!sdp) return;
+      if (!sdp?.type || !sdp?.sdp) return;
       // Guardar o offer até o usuário iniciar câmera/microfone (garante 2-way)
       if (mediaState !== "ready") {
         pendingOfferRef.current = sdp;
@@ -298,13 +327,14 @@ export default function SessionCall() {
       await flushPendingIce();
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      await send("webrtc_answer", { sdp: pc.localDescription });
+      await send("webrtc_answer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
     }
 
     if (m.kind === "webrtc_answer" && role === "admin") {
       if (!pc) return;
       const sdp = m.payload?.sdp;
       if (!sdp) return;
+      if (!sdp?.type || !sdp?.sdp) return;
       if (pc.currentRemoteDescription) return;
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       await flushPendingIce();
@@ -336,6 +366,10 @@ export default function SessionCall() {
         setContentPath(p);
         const t = m.payload?.title;
         setContentTitle(typeof t === "string" && t ? t : null);
+        const k = m.payload?.kind;
+        setContentKind(typeof k === "string" && k ? k : null);
+        const s = m.payload?.seed;
+        setContentSeed(typeof s === "number" ? s : null);
         setContentLoading(true);
       }
     }
@@ -343,6 +377,25 @@ export default function SessionCall() {
     if (m.kind === "control_set") {
       const granted = !!m.payload?.granted;
       setControlGranted(granted);
+      try {
+        contentFrameRef.current?.contentWindow?.postMessage(
+          { type: "SESSION_CONTROL", granted },
+          window.location.origin
+        );
+      } catch {}
+    }
+
+    if (m.kind === "game_event") {
+      const evt = m.payload?.event;
+      if (!evt) return;
+      try {
+        contentFrameRef.current?.contentWindow?.postMessage(
+          { type: "SESSION_GAME_EVENT", event: evt },
+          window.location.origin
+        );
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -446,6 +499,22 @@ export default function SessionCall() {
     setMediaError(null);
   };
 
+  // Bridge: recebe eventos do jogo (iframe) e envia para o outro participante
+  useEffect(() => {
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      const data: any = ev.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type !== "SESSION_GAME_EVENT") return;
+      if (!contentPath) return;
+      // Admin sempre envia; user só envia quando controle está liberado
+      if (role === "user" && !controlGranted) return;
+      void send("game_event", { path: contentPath, event: data.event });
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [contentPath, role, controlGranted, joinInfo?.token]);
+
   useEffect(() => {
     return () => cleanup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -519,7 +588,7 @@ export default function SessionCall() {
         if (pc2) {
           const offer = await pc2.createOffer();
           await pc2.setLocalDescription(offer);
-          await send("webrtc_offer", { sdp: pc2.localDescription });
+        await send("webrtc_offer", { sdp: { type: pc2.localDescription?.type, sdp: pc2.localDescription?.sdp } });
         }
       }
 
@@ -531,7 +600,9 @@ export default function SessionCall() {
         await flushPendingIce();
         const answer = await pcRef.current.createAnswer();
         await pcRef.current.setLocalDescription(answer);
-        await send("webrtc_answer", { sdp: pcRef.current.localDescription });
+        await send("webrtc_answer", {
+          sdp: { type: pcRef.current.localDescription?.type, sdp: pcRef.current.localDescription?.sdp },
+        });
       }
     } catch (e: any) {
       console.error("[WebRTC] getUserMedia falhou", e);
@@ -592,7 +663,21 @@ export default function SessionCall() {
     return <FullScreenLogoLoader label={statusLabel} />;
   }
 
-  const iframeSrc = contentPath ? (contentPath.startsWith("http") ? contentPath : contentPath) : null;
+  const iframeSrc = (() => {
+    if (!contentPath) return null;
+    if (contentPath.startsWith("http")) return contentPath;
+    try {
+      const base = new URL(window.location.origin + contentPath);
+      // habilita modo sessão dentro das páginas de jogos/atividades (apenas comportamento adicional)
+      base.searchParams.set("session", "1");
+      if (joinInfo?.sessionId) base.searchParams.set("session_id", String(joinInfo.sessionId));
+      if (role) base.searchParams.set("session_role", role);
+      if (typeof contentSeed === "number") base.searchParams.set("session_seed", String(contentSeed));
+      return base.pathname + (base.search ? base.search : "");
+    } catch {
+      return contentPath;
+    }
+  })();
 
   return (
     <div className="min-h-[100svh] bg-background">
@@ -619,21 +704,19 @@ export default function SessionCall() {
                 <iframe
                   key={iframeSrc}
                   src={iframeSrc}
+                  ref={contentFrameRef}
                   className="absolute inset-0 h-full w-full rounded-xl bg-background"
                   title="Conteúdo da sessão"
                   onLoad={() => setContentLoading(false)}
+                  style={{
+                    // Sem reação visual: apenas bloqueia interação quando não liberado
+                    pointerEvents: role === "user" && !controlGranted ? "none" : "auto",
+                  }}
                 />
                 {contentLoading && (
                   <div className="absolute inset-0 rounded-xl bg-background/60 backdrop-blur-[1px] flex items-center justify-center">
                     <div className="text-sm font-semibold text-foreground">Carregando…</div>
                   </div>
-                )}
-                {role === "user" && !controlGranted && (
-                  <div
-                    className="absolute inset-0 rounded-xl"
-                    style={{ pointerEvents: "auto" }}
-                    aria-hidden="true"
-                  />
                 )}
               </div>
             ) : role === "user" ? (

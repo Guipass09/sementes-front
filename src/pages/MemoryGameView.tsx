@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Grid3X3, Shuffle, RotateCcw, Sparkles, Trophy } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
@@ -62,10 +62,43 @@ function bestGridCols(params: { totalCards: number; w: number; h: number; gap: n
   return best;
 }
 
+function mulberry32(seed: number) {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6D2B79F5;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleSeeded<T>(arr: T[], seed: number): T[] {
+  const rnd = mulberry32(seed);
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export default function MemoryGameView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
+
+  const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const inSession = sessionParams.get("session") === "1";
+  const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const initialSeed = (() => {
+    const s = Number(sessionParams.get("session_seed"));
+    return Number.isFinite(s) ? s : null;
+  })();
+  const [sessionSeed, setSessionSeed] = useState<number | null>(initialSeed);
+  const sessionSeedRef = useRef<number | null>(initialSeed);
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const applyingRemoteRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<MemoryGameRow | null>(null);
@@ -152,11 +185,90 @@ export default function MemoryGameView() {
       flipped: false,
       matched: false,
     }));
+    const seed = sessionSeedRef.current;
+    if (inSession && typeof seed === "number") {
+      return shuffleSeeded(deckCards, seed);
+    }
     return shuffle(deckCards);
   };
 
+  useEffect(() => {
+    sessionSeedRef.current = sessionSeed;
+  }, [sessionSeed]);
+
+  const emitSessionEvent = (event: any) => {
+    if (!inSession) return;
+    if (applyingRemoteRef.current) return;
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "SESSION_GAME_EVENT", event }, window.location.origin);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // Sessão ao vivo: recebe seed/controle e eventos do outro lado via postMessage (vindo do SessionCall)
+  useEffect(() => {
+    if (!inSession) return;
+
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      const data: any = ev.data;
+      if (!data || typeof data !== "object") return;
+
+      // controle (sem UI): apenas habilita/desabilita clique local
+      if (data.type === "SESSION_CONTROL") {
+        const granted = !!data.granted;
+        controlAllowedRef.current = sessionRole === "admin" ? true : granted;
+        return;
+      }
+
+      if (data.type !== "SESSION_GAME_EVENT") return;
+      const evt = data.event;
+      if (!evt || typeof evt !== "object") return;
+
+      // seed pode chegar via evento inicial do admin
+      if (evt.kind === "seed" && typeof evt.seed === "number") {
+        sessionSeedRef.current = evt.seed;
+        setSessionSeed(evt.seed);
+        return;
+      }
+
+      // aplica eventos do jogo (não re-emite)
+      applyingRemoteRef.current = true;
+      try {
+        if (evt.kind === "reset") {
+          resetGame();
+          return;
+        }
+        if (evt.kind === "shuffle") {
+          doShuffle();
+          return;
+        }
+        if (evt.kind === "flip" && typeof evt.instanceId === "string") {
+          onCardClick(evt.instanceId);
+          return;
+        }
+      } finally {
+        // solta no próximo tick pra não capturar efeitos síncronos
+        window.setTimeout(() => {
+          applyingRemoteRef.current = false;
+        }, 0);
+      }
+    };
+
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inSession, sessionRole]);
+
   const resetGame = () => {
     if (!game) return;
+    // apenas admin sincroniza ações globais
+    if (inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+      emitSessionEvent({ kind: "reset" });
+    }
     if (timeoutRef.current) {
       window.clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -171,6 +283,14 @@ export default function MemoryGameView() {
   const doShuffle = () => {
     // Embaralha (posições + números, porque número é o índice no deck)
     setShuffleAnim(true);
+    // apenas admin pode embaralhar sincronizado: gera novo seed e manda para o usuário
+    if (inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+      const seed = ((Date.now() % 1_000_000_000) ^ Math.floor(Math.random() * 1_000_000_000)) >>> 0;
+      sessionSeedRef.current = seed;
+      setSessionSeed(seed);
+      emitSessionEvent({ kind: "seed", seed });
+      emitSessionEvent({ kind: "shuffle" });
+    }
     resetGame();
     window.setTimeout(() => setShuffleAnim(false), 520);
   };
@@ -235,6 +355,11 @@ export default function MemoryGameView() {
 
   const onCardClick = (instanceId: string) => {
     if (lock) return;
+    if (inSession && !applyingRemoteRef.current) {
+      // user só pode emitir clique quando controle estiver liberado; admin sempre pode
+      if (sessionRole === "user" && !controlAllowedRef.current) return;
+      emitSessionEvent({ kind: "flip", instanceId });
+    }
 
     // Primeiro clique
     if (!firstPickRef.current) {
@@ -437,40 +562,42 @@ export default function MemoryGameView() {
   return (
     <div className="min-h-[100svh] bg-transparent">
 
-      <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-
-            <div className="h-6 w-px bg-border hidden sm:block" />
-
+      {!inSession && (
+        <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
+          <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
-              <span className="hidden sm:block font-display font-bold text-base truncate">
-                <span className="text-brand-green">Sementes</span>{" "}
-                <span className="text-brand-brown">da Fala</span>
-              </span>
-            </div>
-          </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
 
-          {!loading && game && (
-            <div className="text-sm text-muted-foreground whitespace-nowrap inline-flex items-center gap-3">
-              <span className="inline-flex items-center gap-2">
-                <Grid3X3 className="h-4 w-4 text-brand-green" />
-                {matchedCount}/{totalPairs} pares
-              </span>
-              <span className="hidden sm:inline">•</span>
-              <span className="hidden sm:inline">Tentativas: {moves}</span>
+              <div className="h-6 w-px bg-border hidden sm:block" />
+
+              <div className="flex items-center gap-3 min-w-0">
+                <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
+                <span className="hidden sm:block font-display font-bold text-base truncate">
+                  <span className="text-brand-green">Sementes</span>{" "}
+                  <span className="text-brand-brown">da Fala</span>
+                </span>
+              </div>
             </div>
-          )}
-        </div>
-      </header>
+
+            {!loading && game && (
+              <div className="text-sm text-muted-foreground whitespace-nowrap inline-flex items-center gap-3">
+                <span className="inline-flex items-center gap-2">
+                  <Grid3X3 className="h-4 w-4 text-brand-green" />
+                  {matchedCount}/{totalPairs} pares
+                </span>
+                <span className="hidden sm:inline">•</span>
+                <span className="hidden sm:inline">Tentativas: {moves}</span>
+              </div>
+            )}
+          </div>
+        </header>
+      )}
 
       <main className="relative">
-        <div className="container mx-auto px-4 py-6 lg:py-8">
+        <div className={cn("container mx-auto px-4 py-6 lg:py-8", inSession && "px-0 py-0")}>
           <div className="max-w-6xl mx-auto">
             <div ref={fsRef} className="fs-target rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col">
               <div ref={headerRef} className="px-6 sm:px-10 pt-7 sm:pt-9 pb-5 border-b border-border/60">
@@ -488,16 +615,20 @@ export default function MemoryGameView() {
                       <div className="fs-hide-in-fs text-sm px-3 py-1.5 rounded-full bg-brand-purple/10 text-brand-purple border border-brand-purple/20">
                         {game.pairs_count} pares • {game.pairs_count * 2} cartas
                       </div>
-                      <Button variant="secondary" onClick={doShuffle}>
-                        <Shuffle className="h-4 w-4 mr-2" />
-                        Embaralhar
-                      </Button>
-                      <Button variant="secondary" onClick={resetGame}>
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Reiniciar
-                      </Button>
-                      {/* Botão pequeno, no header do conteúdo (não cobre o grid) */}
-                      <FullscreenToggle targetRef={fsRef} className="ml-auto" />
+                      {( !inSession || sessionRole === "admin") && (
+                        <>
+                          <Button variant="secondary" onClick={doShuffle}>
+                            <Shuffle className="h-4 w-4 mr-2" />
+                            Embaralhar
+                          </Button>
+                          <Button variant="secondary" onClick={resetGame}>
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Reiniciar
+                          </Button>
+                        </>
+                      )}
+                      {/* Em sessão ao vivo dentro de iframe, evitamos fullscreen nativo (cobrindo os vídeos). */}
+                      {!inSession && <FullscreenToggle targetRef={fsRef} className="ml-auto" />}
                       {finished && (
                         <div className="text-sm px-3 py-1.5 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20 inline-flex items-center gap-2">
                           <Trophy className="h-4 w-4" />

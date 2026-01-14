@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Volume2, VolumeX, CircleDot } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,24 @@ import FullscreenToggle from "@/components/FullscreenToggle";
 export default function SpinWheelGameView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = useAuth();
+
+  const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const inSession = sessionParams.get("session") === "1";
+  const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const applyingRemoteRef = useRef(false);
+
+  const emitSessionEvent = useCallback((event: any) => {
+    if (!inSession) return;
+    if (applyingRemoteRef.current) return;
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "SESSION_GAME_EVENT", event }, window.location.origin);
+      }
+    } catch {}
+  }, [inSession]);
 
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<SpinWheelGameRow | null>(null);
@@ -29,6 +46,76 @@ export default function SpinWheelGameView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const spinTimeoutRef = useRef<number | null>(null);
+
+  // Sessão ao vivo: recebe controle + eventos do outro lado
+  useEffect(() => {
+    if (!inSession) return;
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      const data: any = ev.data;
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "SESSION_CONTROL") {
+        const granted = !!data.granted;
+        controlAllowedRef.current = sessionRole === "admin" ? true : granted;
+        return;
+      }
+
+      if (data.type !== "SESSION_GAME_EVENT") return;
+      const evt = data.event;
+      if (!evt || typeof evt !== "object") return;
+      if (evt.game !== "spin_wheel") return;
+
+      if (evt.kind === "restart") {
+        applyingRemoteRef.current = true;
+        try {
+          if (spinTimeoutRef.current) window.clearTimeout(spinTimeoutRef.current);
+          spinTimeoutRef.current = null;
+          setRotation(0);
+          setSpinning(false);
+          setSelectedIndex(null);
+          setActiveOrder(Array.isArray(evt.order) ? evt.order.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n)) : []);
+        } finally {
+          window.setTimeout(() => (applyingRemoteRef.current = false), 0);
+        }
+        return;
+      }
+
+      if (evt.kind === "spin") {
+        const targetRotation = Number(evt.targetRotation);
+        const finalIndex = Number(evt.finalIndex);
+        const order = Array.isArray(evt.order) ? evt.order.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n)) : null;
+        if (!Number.isFinite(targetRotation) || !Number.isFinite(finalIndex)) return;
+
+        applyingRemoteRef.current = true;
+        try {
+          if (order) setActiveOrder(order);
+          setSpinning(true);
+          setSelectedIndex(null);
+          setRotation(targetRotation);
+        } finally {
+          window.setTimeout(() => (applyingRemoteRef.current = false), 0);
+        }
+
+        if (spinTimeoutRef.current) window.clearTimeout(spinTimeoutRef.current);
+        spinTimeoutRef.current = window.setTimeout(() => {
+          setSpinning(false);
+          setSelectedIndex(finalIndex);
+          setActiveOrder((prev) => prev.filter((x) => x !== finalIndex));
+        }, 6500);
+      }
+    };
+
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [inSession, sessionRole]);
+
+  useEffect(() => {
+    return () => {
+      if (spinTimeoutRef.current) window.clearTimeout(spinTimeoutRef.current);
+    };
+  }, []);
 
   // Importante: não usar hooks (useMemo) após retornos condicionais (loading/notFound),
   // senão quebra a ordem dos hooks e gera "Minified React error #310" em produção.
@@ -158,6 +245,16 @@ export default function SpinWheelGameView() {
     const angleToPointer = pointerAngle - winnerCenterAngle;
     const targetRotation = rotation + spins * 360 + angleToPointer;
 
+    // Já dá pra resolver o vencedor imediatamente (sem depender do timeout)
+    const finalRotation = normalizeDeg(targetRotation);
+    const t = normalizeDeg(pointerAngle - finalRotation - baseStartAngle);
+    const resolvedPos = Math.floor(t / segmentAngle) % itemsCount;
+    const finalIndex = order[resolvedPos] ?? winnerIndex;
+
+    if (inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+      emitSessionEvent({ game: "spin_wheel", kind: "spin", order, targetRotation, finalIndex });
+    }
+
     setRotation(targetRotation);
 
     // Sons de tick durante o giro
@@ -192,7 +289,14 @@ export default function SpinWheelGameView() {
     setSpinning(false);
     setSelectedIndex(null);
     if (game) setActiveOrder(Array.from({ length: game.items.length }, (_, i) => i));
-  }, [game]);
+    if (inSession && sessionRole === "admin" && !applyingRemoteRef.current && game) {
+      emitSessionEvent({
+        game: "spin_wheel",
+        kind: "restart",
+        order: Array.from({ length: game.items.length }, (_, i) => i),
+      });
+    }
+  }, [game, inSession, sessionRole, emitSessionEvent]);
 
   if (loading) {
     return (
@@ -251,41 +355,43 @@ export default function SpinWheelGameView() {
 
   return (
     <div ref={containerRef} className="min-h-[100svh] bg-transparent">
-      <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <div className="h-6 w-px bg-border hidden sm:block" />
+      {!inSession && (
+        <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
+          <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
-              <span className="hidden sm:block font-display font-bold text-base truncate">
-                <span className="text-brand-green">Sementes</span>{" "}
-                <span className="text-brand-brown">da Fala</span>
-              </span>
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              <div className="h-6 w-px bg-border hidden sm:block" />
+              <div className="flex items-center gap-3 min-w-0">
+                <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
+                <span className="hidden sm:block font-display font-bold text-base truncate">
+                  <span className="text-brand-green">Sementes</span>{" "}
+                  <span className="text-brand-brown">da Fala</span>
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="bg-brand-orange text-white shadow-sm hidden sm:flex">
+                <CircleDot className="h-3 w-3 mr-1" /> Roleta Musical
+              </Badge>
+              <Button variant="ghost" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} className="h-9 w-9">
+                {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-brand-orange text-white shadow-sm hidden sm:flex">
-              <CircleDot className="h-3 w-3 mr-1" /> Roleta Musical
-            </Badge>
-            <Button variant="ghost" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} className="h-9 w-9">
-              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="relative">
-        <div className="container mx-auto px-4 py-8 lg:py-10">
+        <div className={cn("container mx-auto px-4 py-8 lg:py-10", inSession && "px-0 py-0")}>
           <div className="max-w-5xl mx-auto">
             <div
               ref={fsRef}
               className="fs-target fs-allow-scroll relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col"
             >
-              <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" />
+              {!inSession && <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" />}
 
               {/* Cabeçalho interno (padrão das atividades) */}
               <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-6 border-b border-border/60">
@@ -579,29 +685,33 @@ export default function SpinWheelGameView() {
                         </div>
                       ) : null}
 
-                      <Button
-                        onClick={spinWheel}
-                        disabled={spinning || finished}
-                        size="lg"
-                        className={cn(
-                          "px-12 sm:px-16 py-6 sm:py-7 text-xl sm:text-2xl font-black rounded-full shadow-xl transition-all",
-                          spinning
-                            ? "bg-gray-400 cursor-not-allowed"
-                            : "bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 hover:scale-110 hover:shadow-2xl",
-                        )}
-                      >
-                        {finished ? "✅ Finalizado" : spinning ? "🎰 Girando..." : "🎯 GIRAR!"}
-                      </Button>
+                      {(!inSession || sessionRole === "admin") && (
+                        <>
+                          <Button
+                            onClick={spinWheel}
+                            disabled={spinning || finished}
+                            size="lg"
+                            className={cn(
+                              "px-12 sm:px-16 py-6 sm:py-7 text-xl sm:text-2xl font-black rounded-full shadow-xl transition-all",
+                              spinning
+                                ? "bg-gray-400 cursor-not-allowed"
+                                : "bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 hover:scale-110 hover:shadow-2xl",
+                            )}
+                          >
+                            {finished ? "✅ Finalizado" : spinning ? "🎰 Girando..." : "🎯 GIRAR!"}
+                          </Button>
 
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={handleRestart}
-                        disabled={spinning || remainingCount === totalCount}
-                        className="w-full max-w-xs"
-                      >
-                        Reiniciar
-                      </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleRestart}
+                            disabled={spinning || remainingCount === totalCount}
+                            className="w-full max-w-xs"
+                          >
+                            Reiniciar
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

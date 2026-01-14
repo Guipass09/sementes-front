@@ -13,6 +13,8 @@ export function JoinSessionButton(props: {
   onClick?: () => void;
 }) {
   const meta = props.meta;
+  // Se o backend marcou como não-agendada, nunca mostra (evita aparecer em "cancelada/realizada").
+  if (meta?.reason === "not_active") return null;
   const hasLocalClock =
     typeof props.nowMs === "number" && !!props.date && !!props.time;
 
@@ -36,10 +38,13 @@ export function JoinSessionButton(props: {
     return { visible, enabled, blink, reason };
   })();
 
+  // Visibilidade: usa relógio local para o "dia de hoje",
+  // mas respeita casos onde o backend explicitamente não tem datetime.
+  if (meta?.reason === "missing_datetime") return null;
   const visible = local ? local.visible : !!meta?.visible;
   if (!visible) return null;
 
-  const label = (meta.label || "Entrar na sessão").trim();
+  const label = (meta?.label || "Entrar na sessão").trim();
   const enabled = local ? local.enabled : !!meta?.enabled;
   const blink = local ? local.blink : !!meta?.blink;
   const reason = local ? local.reason : meta?.reason;

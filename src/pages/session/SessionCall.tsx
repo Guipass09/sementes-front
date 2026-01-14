@@ -479,19 +479,38 @@ export default function SessionCall() {
       setMediaError(null);
       await ensurePeer();
 
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      setLocalStream(stream);
+      // Idempotente: se já temos stream, reaproveita.
+      const stream =
+        localStream ??
+        (await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        }));
+
+      if (!localStream) {
+        setLocalStream(stream);
+      }
+
       setMicOn(stream.getAudioTracks().every((t) => t.enabled));
       setCamOn(stream.getVideoTracks().every((t) => t.enabled));
 
+      // Evita addTrack duplicado (pode disparar exceções e "quebrar" a sessão em iOS)
       const pc = pcRef.current;
       if (pc) {
-        for (const track of stream.getTracks()) {
-          pc.addTrack(track, stream);
+        const hasSenders = pc.getSenders().some((s) => !!s.track);
+        if (!hasSenders) {
+          for (const track of stream.getTracks()) {
+            try {
+              pc.addTrack(track, stream);
+            } catch (e) {
+              console.warn("[WebRTC] addTrack falhou (ignorado)", e);
+            }
+          }
         }
       }
 
       setMediaState("ready");
+      setMediaError(null);
       setStatusLabel("Aguardando o outro participante…");
 
       // Admin inicia offer ao ficar pronto
@@ -517,14 +536,19 @@ export default function SessionCall() {
     } catch (e: any) {
       console.error("[WebRTC] getUserMedia falhou", e);
       const name = String(e?.name || "");
+      const details = String(e?.message || "");
       const msg =
         name.includes("NotAllowed")
           ? "Permissão negada. Autorize câmera e microfone."
           : name.includes("NotFound")
           ? "Não encontrei câmera/microfone neste dispositivo."
+          : name.includes("NotReadable")
+          ? "Não foi possível iniciar a câmera (ela pode estar em uso por outro app/aba)."
           : "Falha ao iniciar câmera/microfone.";
+
+      const full = details ? `${msg} (${name}: ${details})` : `${msg} (${name})`;
       setMediaState("failed");
-      setMediaError(msg);
+      setMediaError(full);
       toast({ title: "WebRTC", description: msg, variant: "destructive" });
     }
   };

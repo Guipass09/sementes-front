@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { computeTodaySessionAlert, getTodayYMD } from "@/lib/session-alert";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import { JoinSessionButton } from "@/components/JoinSessionButton";
 import {
   adminCreateRecurringAppointments,
   adminDeleteAppointment,
@@ -17,6 +18,7 @@ import {
   adminUpdateAppointmentStatus,
   isApiError,
 } from "@/lib/laravel-api";
+import type { JoinSessionMeta } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { emitAdminDataChanged } from "@/lib/admin-events";
 
@@ -31,6 +33,7 @@ interface SessionData {
   totalSessions: number;
   status: "realizada" | "agendada" | "cancelada" | "bloqueada";
   notes?: string;
+  join_session?: JoinSessionMeta | null;
 }
 
 const statusConfig = {
@@ -128,6 +131,7 @@ const AdminSessions = () => {
       professional: r.professional_name,
       totalSessions: r.total_sessions,
       status: r.status === "completed" ? "realizada" : r.status === "canceled" ? "cancelada" : "agendada",
+      join_session: r.join_session ?? null,
     }));
     setSessions(mapped);
   };
@@ -439,6 +443,7 @@ const AdminSessions = () => {
                               >
                                 {statusConfig[session.status].label}
                               </div>
+                              <JoinSessionButton meta={session.join_session} />
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2">

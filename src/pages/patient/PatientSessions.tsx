@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 import { isApiError, userListAppointments } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { BLINK_AFTER_MINUTES, BLINK_BEFORE_MINUTES, getTodayYMD, parseLocalDateTime } from "@/lib/session-alert";
+import type { JoinSessionMeta } from "@/lib/laravel-api";
+import { JoinSessionButton } from "@/components/JoinSessionButton";
 
 interface Session {
   id: number;
@@ -16,6 +18,7 @@ interface Session {
   professional: string;
   status: "realizada" | "agendada" | "cancelada";
   notes?: string;
+  join_session?: JoinSessionMeta | null;
 }
 
 const statusConfig = {
@@ -72,6 +75,7 @@ const PatientSessions = () => {
           type: "Sessão",
           professional: s.professional_name,
           status: s.status === "completed" ? "realizada" : s.status === "canceled" ? "cancelada" : "agendada",
+          join_session: s.join_session ?? null,
         }));
         if (mounted) {
           setSessions(mapped);
@@ -200,9 +204,14 @@ const PatientSessions = () => {
                       </div>
 
                       {/* Status */}
-                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${statusConfig[session.status].color}`}>
-                        <StatusIcon size={14} />
-                        {statusConfig[session.status].label}
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${statusConfig[session.status].color}`}
+                        >
+                          <StatusIcon size={14} />
+                          {statusConfig[session.status].label}
+                        </div>
+                        <JoinSessionButton meta={session.join_session} />
                       </div>
                     </div>
                   </div>
@@ -262,9 +271,14 @@ const PatientSessions = () => {
                     </div>
 
                     {/* Status */}
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${statusConfig[session.status].color}`}>
-                      <StatusIcon size={14} />
-                      {statusConfig[session.status].label}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${statusConfig[session.status].color}`}
+                      >
+                        <StatusIcon size={14} />
+                        {statusConfig[session.status].label}
+                      </div>
+                      <JoinSessionButton meta={session.join_session} />
                     </div>
                   </div>
                 </div>

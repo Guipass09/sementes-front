@@ -438,6 +438,18 @@ export async function adminDashboardMetrics(): Promise<AdminDashboardMetrics> {
   return await request<AdminDashboardMetrics>("/api/admin/dashboard-metrics");
 }
 
+export type JoinSessionMeta = {
+  visible: boolean;
+  enabled: boolean;
+  blink: boolean;
+  reason?: string | null;
+  label?: string | null;
+  logo_url?: string | null;
+  available_from?: string | null;
+  available_until?: string | null;
+  server_now?: string | null;
+};
+
 export type AdminAppointmentRow = {
   id: number;
   user_id: number;
@@ -449,6 +461,7 @@ export type AdminAppointmentRow = {
   created_at: string;
   updated_at: string;
   user?: { id: number; name: string; email: string };
+  join_session?: JoinSessionMeta;
 };
 
 export async function adminListAppointments(): Promise<AdminAppointmentRow[]> {
@@ -886,12 +899,13 @@ export type UserAppointmentRow = {
   time: string; // HH:mm
   status: "active" | "completed" | "canceled";
   total_sessions: number;
+  join_session?: JoinSessionMeta;
 };
 
 export async function userListAppointments(): Promise<{
   data: UserAppointmentRow[];
   summary: { total_contracted: number; used_sessions: number; remaining_sessions: number };
-  upcoming: Array<Pick<UserAppointmentRow, "id" | "professional_name" | "date" | "time" | "status">>;
+  upcoming: Array<Pick<UserAppointmentRow, "id" | "professional_name" | "date" | "time" | "status" | "join_session">>;
 }> {
   return await request("/api/user/appointments");
 }

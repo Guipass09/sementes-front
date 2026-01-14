@@ -41,6 +41,8 @@ export default function SessionCall() {
   const [cursor, setCursor] = useState(0);
   const cursorRef = useRef(0);
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
+  const pendingIceRef = useRef<any[]>([]);
+  const pendingOfferRef = useRef<any | null>(null);
   const peerReadyRef = useRef(false);
   const ensurePeerRef = useRef<Promise<void> | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -49,6 +51,8 @@ export default function SessionCall() {
   const [camOn, setCamOn] = useState(true);
   const [remoteMuted, setRemoteMuted] = useState(true);
   const [statusLabel, setStatusLabel] = useState<string>("Conectando...");
+  const [mediaState, setMediaState] = useState<"idle" | "requesting" | "ready" | "failed">("idle");
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [contentPath, setContentPath] = useState<string | null>(null);
   const [contentTitle, setContentTitle] = useState<string | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
@@ -98,7 +102,9 @@ export default function SessionCall() {
         setContentTitle(null);
         setContentLoading(false);
         setControlGranted(!!res.room?.control_granted_to_user);
-        setStatusLabel("Preparando câmera e microfone...");
+        setStatusLabel("Toque em “Iniciar câmera e microfone”");
+        setMediaState("idle");
+        setMediaError(null);
       } catch (e) {
         if (cancelled) return;
         const msg =
@@ -185,6 +191,20 @@ export default function SessionCall() {
     }
   };
 
+  const flushPendingIce = async () => {
+    const pc = pcRef.current;
+    if (!pc) return;
+    if (!pc.remoteDescription) return;
+    const batch = pendingIceRef.current.splice(0);
+    for (const c of batch) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(c));
+      } catch {
+        // ignore
+      }
+    }
+  };
+
   const ensurePeer = async () => {
     if (!joinInfo) return;
     if (peerReadyRef.current) return;
@@ -237,12 +257,8 @@ export default function SessionCall() {
           }
         };
 
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setLocalStream(stream);
-
-        for (const track of stream.getTracks()) {
-          pcRef.current?.addTrack(track, stream);
-        }
+        // Não chamamos getUserMedia automaticamente:
+        // iOS/Safari (PWA) costuma exigir gesto do usuário.
       }
 
       peerReadyRef.current = true;
@@ -273,7 +289,13 @@ export default function SessionCall() {
       if (!pc) return;
       const sdp = m.payload?.sdp;
       if (!sdp) return;
+      // Guardar o offer até o usuário iniciar câmera/microfone (garante 2-way)
+      if (mediaState !== "ready") {
+        pendingOfferRef.current = sdp;
+        return;
+      }
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      await flushPendingIce();
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await send("webrtc_answer", { sdp: pc.localDescription });
@@ -285,12 +307,17 @@ export default function SessionCall() {
       if (!sdp) return;
       if (pc.currentRemoteDescription) return;
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      await flushPendingIce();
     }
 
     if (m.kind === "webrtc_ice") {
       if (!pc) return;
       const c = m.payload?.candidate;
       if (!c) return;
+      if (!pc.remoteDescription) {
+        pendingIceRef.current.push(c);
+        return;
+      }
       try {
         await pc.addIceCandidate(new RTCIceCandidate(c));
       } catch {
@@ -310,13 +337,6 @@ export default function SessionCall() {
         const t = m.payload?.title;
         setContentTitle(typeof t === "string" && t ? t : null);
         setContentLoading(true);
-        // feedback para o paciente: "admin confirmou e compartilhou"
-        if (role === "user") {
-          toast({
-            title: "Atividade compartilhada",
-            description: typeof t === "string" && t ? t : "A fonoaudióloga compartilhou uma atividade.",
-          });
-        }
       }
     }
 
@@ -334,18 +354,10 @@ export default function SessionCall() {
       try {
         await ensurePeer();
         if (cancelled) return;
-
-        // Admin inicia (determinístico)
-        if (role === "admin") {
-          const pc = pcRef.current;
-          if (!pc) return;
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          await send("webrtc_offer", { sdp: pc.localDescription });
-        }
       } catch (e) {
         if (cancelled) return;
-        toast({ title: "WebRTC", description: "Falha ao iniciar câmera/microfone.", variant: "destructive" });
+        console.error("[WebRTC] erro ao preparar peer", e);
+        toast({ title: "WebRTC", description: "Falha ao preparar conexão.", variant: "destructive" });
       }
     })();
 
@@ -423,11 +435,15 @@ export default function SessionCall() {
     pcRef.current = null;
     peerReadyRef.current = false;
     pendingWebrtcRef.current = [];
+    pendingIceRef.current = [];
+    pendingOfferRef.current = null;
     setRemoteMuted(true);
     safeStopStream(localStream);
     safeStopStream(remoteStream);
     setLocalStream(null);
     setRemoteStream(null);
+    setMediaState("idle");
+    setMediaError(null);
   };
 
   useEffect(() => {
@@ -455,6 +471,62 @@ export default function SessionCall() {
     } catch {}
     cleanup();
     goBack(role);
+  };
+
+  const startMedia = async () => {
+    try {
+      setMediaState("requesting");
+      setMediaError(null);
+      await ensurePeer();
+
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      setLocalStream(stream);
+      setMicOn(stream.getAudioTracks().every((t) => t.enabled));
+      setCamOn(stream.getVideoTracks().every((t) => t.enabled));
+
+      const pc = pcRef.current;
+      if (pc) {
+        for (const track of stream.getTracks()) {
+          pc.addTrack(track, stream);
+        }
+      }
+
+      setMediaState("ready");
+      setStatusLabel("Aguardando o outro participante…");
+
+      // Admin inicia offer ao ficar pronto
+      if (role === "admin") {
+        const pc2 = pcRef.current;
+        if (pc2) {
+          const offer = await pc2.createOffer();
+          await pc2.setLocalDescription(offer);
+          await send("webrtc_offer", { sdp: pc2.localDescription });
+        }
+      }
+
+      // Se o usuário já recebeu offer antes, responde agora
+      if (role === "user" && pendingOfferRef.current && pcRef.current) {
+        const sdp = pendingOfferRef.current;
+        pendingOfferRef.current = null;
+        await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+        await flushPendingIce();
+        const answer = await pcRef.current.createAnswer();
+        await pcRef.current.setLocalDescription(answer);
+        await send("webrtc_answer", { sdp: pcRef.current.localDescription });
+      }
+    } catch (e: any) {
+      console.error("[WebRTC] getUserMedia falhou", e);
+      const name = String(e?.name || "");
+      const msg =
+        name.includes("NotAllowed")
+          ? "Permissão negada. Autorize câmera e microfone."
+          : name.includes("NotFound")
+          ? "Não encontrei câmera/microfone neste dispositivo."
+          : "Falha ao iniciar câmera/microfone.";
+      setMediaState("failed");
+      setMediaError(msg);
+      toast({ title: "WebRTC", description: msg, variant: "destructive" });
+    }
   };
 
   // Carregar catálogo apenas quando admin abrir (lazy)
@@ -507,6 +579,9 @@ export default function SessionCall() {
             <div className="leading-tight">
               <div className="text-sm font-semibold text-foreground">Sessão ao vivo</div>
               <div className="text-xs text-muted-foreground">{statusLabel}</div>
+              {mediaState === "failed" && mediaError ? (
+                <div className="text-[11px] text-destructive mt-0.5">{mediaError}</div>
+              ) : null}
             </div>
           </div>
           <div className="text-xs text-muted-foreground">ID {appointmentId}</div>
@@ -531,16 +606,10 @@ export default function SessionCall() {
                 )}
                 {role === "user" && !controlGranted && (
                   <div
-                    className="absolute inset-0 rounded-xl bg-background/40 backdrop-blur-[1px] flex items-center justify-center"
+                    className="absolute inset-0 rounded-xl"
                     style={{ pointerEvents: "auto" }}
-                  >
-                    <div className="text-center max-w-sm px-4">
-                      <div className="text-lg font-semibold text-foreground mb-1">Aguarde o controle</div>
-                      <div className="text-sm text-muted-foreground">
-                        Você poderá interagir quando a fonoaudióloga liberar.
-                      </div>
-                    </div>
-                  </div>
+                    aria-hidden="true"
+                  />
                 )}
               </div>
             ) : role === "user" ? (
@@ -596,6 +665,15 @@ export default function SessionCall() {
 
         {/* Controles */}
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          {mediaState !== "ready" && (
+            <Button
+              onClick={() => void startMedia()}
+              disabled={mediaState === "requesting"}
+              className="rounded-xl bg-brand-green text-white hover:bg-brand-green/90"
+            >
+              {mediaState === "requesting" ? "Iniciando…" : "Iniciar câmera e microfone"}
+            </Button>
+          )}
           {role === "admin" && (
             <>
               <Button variant="outline" onClick={() => setCatalogOpen(true)} className="rounded-xl">
@@ -623,20 +701,24 @@ export default function SessionCall() {
           </Button>
 
           {/* Controles locais: também para usuário */}
-          <Button
-            variant="outline"
-            onClick={toggleMic}
-            className={cn("rounded-xl", !micOn ? "border-destructive text-destructive" : "")}
-          >
-            {micOn ? <Mic /> : <MicOff />}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={toggleCam}
-            className={cn("rounded-xl", !camOn ? "border-destructive text-destructive" : "")}
-          >
-            {camOn ? <Video /> : <VideoOff />}
-          </Button>
+          {mediaState === "ready" && (
+            <>
+              <Button
+                variant="outline"
+                onClick={toggleMic}
+                className={cn("rounded-xl", !micOn ? "border-destructive text-destructive" : "")}
+              >
+                {micOn ? <Mic /> : <MicOff />}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={toggleCam}
+                className={cn("rounded-xl", !camOn ? "border-destructive text-destructive" : "")}
+              >
+                {camOn ? <Video /> : <VideoOff />}
+              </Button>
+            </>
+          )}
           <Button variant="destructive" onClick={() => void hangup()} className="rounded-xl">
             <PhoneOff />
           </Button>

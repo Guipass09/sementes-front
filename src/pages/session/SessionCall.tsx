@@ -39,6 +39,9 @@ export default function SessionCall() {
   const [role, setRole] = useState<Role | null>(null);
   const [cursor, setCursor] = useState(0);
   const cursorRef = useRef(0);
+  const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
+  const peerReadyRef = useRef(false);
+  const ensurePeerRef = useRef<Promise<void> | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [micOn, setMicOn] = useState(true);
@@ -117,6 +120,8 @@ export default function SessionCall() {
     if (!el) return;
     if (localStream) {
       el.srcObject = localStream;
+      // Safari/iOS: pode exigir play() explícito mesmo com autoPlay
+      void el.play().catch(() => {});
     }
   }, [localStream]);
 
@@ -125,6 +130,7 @@ export default function SessionCall() {
     if (!el) return;
     if (remoteStream) {
       el.srcObject = remoteStream;
+      void el.play().catch(() => {});
     }
   }, [remoteStream]);
 
@@ -161,44 +167,85 @@ export default function SessionCall() {
     }
   };
 
-  const ensurePeer = async () => {
-    if (!joinInfo) return;
-    if (pcRef.current) return;
-
-    const pc = new RTCPeerConnection({ iceServers: joinInfo.iceServers || [] });
-    pcRef.current = pc;
-
-    const inbound = new MediaStream();
-    setRemoteStream(inbound);
-
-    pc.ontrack = (ev) => {
-      for (const t of ev.streams?.[0]?.getTracks?.() ?? []) {
-        inbound.addTrack(t);
-      }
-    };
-
-    pc.onicecandidate = (ev) => {
-      if (!ev.candidate) return;
-      void send("webrtc_ice", { candidate: ev.candidate });
-    };
-
-    pc.onconnectionstatechange = () => {
-      setStatusLabel(pc.connectionState === "connected" ? "Conectado" : "Conectando...");
-    };
-
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    setLocalStream(stream);
-
-    for (const track of stream.getTracks()) {
-      pc.addTrack(track, stream);
+  const flushPendingWebrtc = async () => {
+    if (!peerReadyRef.current) return;
+    const batch = pendingWebrtcRef.current.splice(0);
+    for (const m of batch) {
+      await handleMessage(m);
     }
   };
 
+  const ensurePeer = async () => {
+    if (!joinInfo) return;
+    if (peerReadyRef.current) return;
+    if (ensurePeerRef.current) return await ensurePeerRef.current;
+
+    ensurePeerRef.current = (async () => {
+      if (pcRef.current) {
+        // pode existir mas ainda não estar "ready"
+      } else {
+        const pc = new RTCPeerConnection({ iceServers: joinInfo.iceServers || [] });
+        pcRef.current = pc;
+
+        const inbound = new MediaStream();
+        setRemoteStream(inbound);
+
+        pc.ontrack = (ev) => {
+          try {
+            // preferir track direto (mais robusto)
+            inbound.addTrack(ev.track);
+          } catch {}
+          // Em alguns browsers, é mais confiável usar o stream completo
+          const s0 = ev.streams?.[0];
+          if (s0 && remoteVideoRef.current && remoteVideoRef.current.srcObject !== s0) {
+            remoteVideoRef.current.srcObject = s0;
+            void remoteVideoRef.current.play().catch(() => {});
+          }
+        };
+
+        pc.onicecandidate = (ev) => {
+          if (!ev.candidate) return;
+          void send("webrtc_ice", { candidate: ev.candidate });
+        };
+
+        pc.onconnectionstatechange = () => {
+          setStatusLabel(pc.connectionState === "connected" ? "Conectado" : "Conectando...");
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setLocalStream(stream);
+
+        for (const track of stream.getTracks()) {
+          pcRef.current?.addTrack(track, stream);
+        }
+      }
+
+      peerReadyRef.current = true;
+      await flushPendingWebrtc();
+    })()
+      .finally(() => {
+        ensurePeerRef.current = null;
+      });
+
+    return await ensurePeerRef.current;
+  };
+
   const handleMessage = async (m: VideoPollMessage) => {
+    // WebRTC (sdp/ice) precisa esperar o peer/local tracks estarem prontos
+    if (
+      (m.kind === "webrtc_offer" ||
+        m.kind === "webrtc_answer" ||
+        m.kind === "webrtc_ice") &&
+      !peerReadyRef.current
+    ) {
+      pendingWebrtcRef.current.push(m);
+      return;
+    }
+
     const pc = pcRef.current;
-    if (!pc) return;
 
     if (m.kind === "webrtc_offer" && role === "user") {
+      if (!pc) return;
       const sdp = m.payload?.sdp;
       if (!sdp) return;
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -208,6 +255,7 @@ export default function SessionCall() {
     }
 
     if (m.kind === "webrtc_answer" && role === "admin") {
+      if (!pc) return;
       const sdp = m.payload?.sdp;
       if (!sdp) return;
       if (pc.currentRemoteDescription) return;
@@ -215,6 +263,7 @@ export default function SessionCall() {
     }
 
     if (m.kind === "webrtc_ice") {
+      if (!pc) return;
       const c = m.payload?.candidate;
       if (!c) return;
       try {
@@ -289,6 +338,16 @@ export default function SessionCall() {
         if (cancelled) return;
         if (Array.isArray(res.messages) && res.messages.length) {
           for (const m of res.messages) {
+            // Garante que mensagens WebRTC não se percam por "peer ainda não pronto"
+            if (
+              (m.kind === "webrtc_offer" ||
+                m.kind === "webrtc_answer" ||
+                m.kind === "webrtc_ice") &&
+              !peerReadyRef.current
+            ) {
+              pendingWebrtcRef.current.push(m);
+              continue;
+            }
             await handleMessage(m);
           }
         }
@@ -316,6 +375,8 @@ export default function SessionCall() {
       pcRef.current?.close();
     } catch {}
     pcRef.current = null;
+    peerReadyRef.current = false;
+    pendingWebrtcRef.current = [];
     safeStopStream(localStream);
     safeStopStream(remoteStream);
     setLocalStream(null);

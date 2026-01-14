@@ -100,6 +100,9 @@ export default function SessionCall() {
         if (cancelled) return;
         setJoinInfo(res);
         setRole(res.role);
+        const initialCursor = Number.isFinite((res as any)?.cursor) ? ((res as any).cursor as number) : 0;
+        cursorRef.current = initialCursor;
+        setCursor(initialCursor);
         const initialPath = res.room?.content?.path || null;
         setContentPath(typeof initialPath === "string" && initialPath ? initialPath : null);
         setContentTitle(null);
@@ -175,6 +178,22 @@ export default function SessionCall() {
       h = Math.imul(h, 16777619);
     }
     return (h >>> 0) % 1_000_000_000;
+  };
+
+  const normalizeSdpInit = (raw: any): RTCSessionDescriptionInit | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const type = String((raw as any).type || "");
+    const sdpRaw = (raw as any).sdp;
+    if (type !== "offer" && type !== "answer") return null;
+    if (typeof sdpRaw !== "string" || !sdpRaw.trim()) return null;
+    // iOS/Safari é mais sensível: garantir CRLF e remover linhas vazias
+    const sdp =
+      sdpRaw
+        .replace(/\r?\n/g, "\r\n")
+        .split("\r\n")
+        .filter((l) => l.trim() !== "")
+        .join("\r\n") + "\r\n";
+    return { type: type as any, sdp };
   };
 
   const selectContent = async (path: string, title: string, kind: string) => {
@@ -315,9 +334,8 @@ export default function SessionCall() {
 
     if (m.kind === "webrtc_offer" && role === "user") {
       if (!pc) return;
-      const sdp = m.payload?.sdp;
+      const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
-      if (!sdp?.type || !sdp?.sdp) return;
       // Guardar o offer até o usuário iniciar câmera/microfone (garante 2-way)
       if (mediaState !== "ready") {
         pendingOfferRef.current = sdp;
@@ -332,9 +350,8 @@ export default function SessionCall() {
 
     if (m.kind === "webrtc_answer" && role === "admin") {
       if (!pc) return;
-      const sdp = m.payload?.sdp;
+      const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
-      if (!sdp?.type || !sdp?.sdp) return;
       if (pc.currentRemoteDescription) return;
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       await flushPendingIce();
@@ -594,8 +611,9 @@ export default function SessionCall() {
 
       // Se o usuário já recebeu offer antes, responde agora
       if (role === "user" && pendingOfferRef.current && pcRef.current) {
-        const sdp = pendingOfferRef.current;
+        const sdp = normalizeSdpInit(pendingOfferRef.current);
         pendingOfferRef.current = null;
+        if (!sdp) throw new Error("SDP inválido (offer pendente).");
         await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
         await flushPendingIce();
         const answer = await pcRef.current.createAnswer();
@@ -605,11 +623,14 @@ export default function SessionCall() {
         });
       }
     } catch (e: any) {
-      console.error("[WebRTC] getUserMedia falhou", e);
+      console.error("[WebRTC] falha ao iniciar sessão (mídia/webrtc)", e);
       const name = String(e?.name || "");
       const details = String(e?.message || "");
+      const isSdp = details.includes("Invalid SDP") || details.includes("SDP inválido") || details.includes("Invalid SDP line");
       const msg =
-        name.includes("NotAllowed")
+        isSdp
+          ? "Falha WebRTC (SDP inválido). Saia e entre novamente."
+          : name.includes("NotAllowed")
           ? "Permissão negada. Autorize câmera e microfone."
           : name.includes("NotFound")
           ? "Não encontrei câmera/microfone neste dispositivo."

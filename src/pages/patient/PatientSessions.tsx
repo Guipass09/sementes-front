@@ -1,5 +1,5 @@
 import { Calendar, Clock, CheckCircle2, CalendarClock, User, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAccessControl } from "@/hooks/use-access-control";
 import AccessBlocked from "@/components/AccessBlocked";
@@ -52,6 +52,7 @@ const formatDate = (dateStr: string) => {
 const PatientSessions = () => {
   const { checkAccess } = useAccessControl();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({ total: 0, used: 0, remaining: 0 });
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -103,6 +104,7 @@ const PatientSessions = () => {
   const upcomingSessions = useMemo(() => sessions.filter((s) => s.status === "agendada"), [sessions]);
   const pastSessions = useMemo(() => sessions.filter((s) => s.status !== "agendada"), [sessions]);
   const todayYMD = useMemo(() => getTodayYMD(nowMs), [nowMs]);
+  const goToCall = (appointmentId: number) => navigate(`/sessao/${appointmentId}/chamada`);
 
   if (!checkAccess("horarios")) {
     return <AccessBlocked pageName="Horários" />;
@@ -211,7 +213,7 @@ const PatientSessions = () => {
                           <StatusIcon size={14} />
                           {statusConfig[session.status].label}
                         </div>
-                        <JoinSessionButton meta={session.join_session} />
+                        <JoinSessionButton meta={session.join_session} onClick={() => goToCall(session.id)} />
                       </div>
                     </div>
                   </div>
@@ -278,7 +280,7 @@ const PatientSessions = () => {
                         <StatusIcon size={14} />
                         {statusConfig[session.status].label}
                       </div>
-                      <JoinSessionButton meta={session.join_session} />
+                      <JoinSessionButton meta={session.join_session} onClick={() => goToCall(session.id)} />
                     </div>
                   </div>
                 </div>

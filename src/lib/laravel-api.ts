@@ -910,6 +910,71 @@ export async function userListAppointments(): Promise<{
   return await request("/api/user/appointments");
 }
 
+// ---------------------------
+// VIDEO (WebRTC signaling)
+// ---------------------------
+
+export type VideoJoinResponse = {
+  role: "admin" | "user";
+  token: string;
+  sessionId: number;
+  iceServers: Array<{ urls: string[]; username?: string; credential?: string }>;
+  room?: {
+    appointment_id: number;
+    created_at?: string;
+    content?: { path?: string } | null;
+    content_updated_at?: string | null;
+    control_granted_to_user?: boolean;
+    control_updated_at?: string | null;
+  } | null;
+  server_now: string;
+};
+
+export async function videoJoin(appointment_id: number): Promise<VideoJoinResponse> {
+  return await request<VideoJoinResponse>("/api/video/join", {
+    method: "POST",
+    json: { appointment_id },
+  });
+}
+
+export async function videoSendCommand(params: {
+  appointment_id: number;
+  token: string;
+  kind: string;
+  payload?: any;
+}): Promise<{ ok: true; id: number }> {
+  return await request<{ ok: true; id: number }>("/api/video/command", {
+    method: "POST",
+    json: {
+      appointment_id: params.appointment_id,
+      token: params.token,
+      kind: params.kind,
+      payload: params.payload ?? null,
+    },
+  });
+}
+
+export type VideoPollMessage = {
+  id: number;
+  kind: string;
+  payload: any;
+  from: "admin" | "user";
+  at: string;
+};
+
+export async function videoPoll(params: {
+  appointment_id: number;
+  token: string;
+  after_id: number;
+}): Promise<{ messages: VideoPollMessage[]; next_cursor: number }> {
+  const q = new URLSearchParams({
+    appointment_id: String(params.appointment_id),
+    token: params.token,
+    after_id: String(params.after_id || 0),
+  }).toString();
+  return await request<{ messages: VideoPollMessage[]; next_cursor: number }>(`/api/video/command?${q}`);
+}
+
 export function isApiError(e: unknown): e is ApiError {
   return (
     typeof e === "object" &&

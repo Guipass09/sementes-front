@@ -3,9 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { AuthProvider } from "@/auth/AuthContext";
 import { RequireAdmin, RequireUser } from "@/auth/RequireRole";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import Cadastro from "./pages/Cadastro";
@@ -49,6 +51,8 @@ import { installSfxUnlock } from "@/lib/sfx";
 import { useOneSignal } from "@/hooks/use-onesignal";
 
 const queryClient = new QueryClient();
+
+const SessionCall = lazy(() => import("./pages/session/SessionCall"));
 
 // Componente interno para inicializar OneSignal
 function OneSignalInit() {
@@ -145,6 +149,14 @@ const App = () => {
               </Route>
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route
+                path="/sessao/:id/chamada"
+                element={
+                  <Suspense fallback={<FullScreenLogoLoader label="Carregando chamada..." />}>
+                    <SessionCall />
+                  </Suspense>
+                }
+              />
               <Route path="/atividades/:id" element={<ActivityView />} />
               <Route path="/jogos/:id" element={<MemoryGameView />} />
               <Route path="/jogos/auditivo/:id" element={<AuditoryGameView />} />

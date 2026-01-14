@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Calendar, Plus, Edit, Trash2, Search, Clock, User, Lock, Unlock, CheckCircle2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,6 +68,7 @@ const formatDate = (dateStr: string) => {
 
 const AdminSessions = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -332,6 +334,8 @@ const AdminSessions = () => {
     );
   };
 
+  const goToCall = (appointmentId: number) => navigate(`/sessao/${appointmentId}/chamada`);
+
   return (
     <div className="min-h-full py-8 lg:py-12">
       <div className="container mx-auto px-4">
@@ -443,7 +447,7 @@ const AdminSessions = () => {
                               >
                                 {statusConfig[session.status].label}
                               </div>
-                              <JoinSessionButton meta={session.join_session} />
+                              <JoinSessionButton meta={session.join_session} onClick={() => goToCall(session.id)} />
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2">

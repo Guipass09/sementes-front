@@ -50,7 +50,9 @@ export default function SpinWheelGameView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
   const autoPseudoFullscreen = inSession && sessionRole === "user";
-  const compactForUser = inSession && sessionRole === "user";
+  // Em sessão ao vivo, queremos um layout “compacto” em ambos os lados (admin + paciente)
+  // para caber sem scroll em telas de notebook (ex.: 1366x768).
+  const compactInSession = inSession;
 
   // Sessão ao vivo (usuário): abre automaticamente em pseudo fullscreen
   useEffect(() => {
@@ -407,7 +409,7 @@ export default function SpinWheelGameView() {
     "#FFB74D", "#4DB6AC", "#FFF176", "#BA68C8", "#4FC3F7", "#AED581",
   ];
 
-  const wheelSize = compactForUser ? "min(68svh, 78vw, 520px)" : "min(78vw, 560px)";
+  const wheelSize = compactInSession ? "min(68svh, 78vw, 520px)" : "min(78vw, 560px)";
 
   return (
     <div ref={containerRef} className="min-h-[100svh] bg-transparent">
@@ -448,13 +450,25 @@ export default function SpinWheelGameView() {
               className={cn(
                 "fs-target relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col",
                 // No modo sessão, queremos evitar scroll dentro do iframe.
-                compactForUser ? "fs-no-scroll" : "fs-allow-scroll",
+                compactInSession ? "fs-no-scroll" : "fs-allow-scroll",
               )}
             >
               <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" mode={inSession ? "pseudo" : "auto"} />
 
+              {compactInSession ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className="absolute top-3 left-3 z-30 h-9 w-9 bg-background/75 backdrop-blur border border-border"
+                  title={soundEnabled ? "Desativar som" : "Ativar som"}
+                >
+                  {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                </Button>
+              ) : null}
+
               {/* Cabeçalho interno (padrão das atividades) */}
-              {!compactForUser ? (
+              {!compactInSession ? (
                 <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-6 border-b border-border/60">
                 <div className="flex flex-col gap-3">
                   <div className="min-w-0">
@@ -482,7 +496,7 @@ export default function SpinWheelGameView() {
               ) : null}
 
               {/* Conteúdo (com fundo da atividade) */}
-              <div className={cn("relative px-4 sm:px-6 lg:px-10 py-6 sm:py-8", compactForUser && "px-2 sm:px-3 lg:px-3 py-3 sm:py-4")}>
+              <div className={cn("relative px-4 sm:px-6 lg:px-10 py-6 sm:py-8", compactInSession && "px-2 sm:px-3 lg:px-3 py-3 sm:py-4")}>
                 <div className="relative rounded-3xl border border-border bg-muted/20 overflow-hidden">
                   {/* Fundo específico do jogo (não interfere no fundo global do gameplay) */}
                   <div
@@ -500,7 +514,7 @@ export default function SpinWheelGameView() {
                   />
 
                   {/* Área da roleta centralizada */}
-                  <div className={cn("relative z-10 flex flex-col items-center justify-center py-8 sm:py-10", compactForUser && "py-4 sm:py-5")}>
+                  <div className={cn("relative z-10 flex flex-col items-center justify-center py-8 sm:py-10", compactInSession && "py-4 sm:py-5")}>
                     <div className="relative flex items-center justify-center">
                       {/* Roleta principal */}
                       <div
@@ -723,7 +737,7 @@ export default function SpinWheelGameView() {
                     </div>
 
                     {/* Resultado + CTA */}
-                    <div className={cn("mt-6 sm:mt-8 w-full flex flex-col items-center gap-4", compactForUser && "mt-3 sm:mt-4")}>
+                    <div className={cn("mt-6 sm:mt-8 w-full flex flex-col items-center gap-4", compactInSession && "mt-3 sm:mt-4")}>
                       {selectedIndex !== null && game.items[selectedIndex] ? (
                         <div className="w-full max-w-xl">
                           <div className="bg-background/90 backdrop-blur-sm rounded-2xl border border-border shadow-sm px-5 py-4">
@@ -778,7 +792,7 @@ export default function SpinWheelGameView() {
                   </div>
                 </div>
 
-                {!compactForUser ? (
+                {!compactInSession ? (
                   <div className="mt-4 text-center text-sm text-muted-foreground">
                     {finished
                       ? "Todas as opções já foram sorteadas. Clique em Reiniciar para começar de novo."
@@ -788,7 +802,7 @@ export default function SpinWheelGameView() {
               </div>
 
             {/* Rodapé interno (padrão) */}
-            {!compactForUser ? (
+            {!compactInSession ? (
               <div className="px-6 sm:px-10 py-4 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
                 <span>Sementes da Fala • Conteúdo para acompanhamento terapêutico</span>
                 <span>Confidencial</span>

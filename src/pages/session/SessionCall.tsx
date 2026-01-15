@@ -1,5 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Clock3,
@@ -10,6 +10,7 @@ import {
   Package,
   Pencil,
   PhoneOff,
+  RefreshCw,
   Trash2,
   Video,
   VideoOff,
@@ -155,6 +156,31 @@ export default function SessionCall() {
     if (!authLoading && !user) navigate("/entrar");
   }, [authLoading, user, navigate]);
 
+  const tryClearCaches = useCallback(async () => {
+    // Melhor esforço: em PWA/cache agressivo, limpar caches ajuda em atualizações.
+    try {
+      const W: any = window as any;
+      if (!W?.caches?.keys || !W?.caches?.delete) return;
+      const keys: string[] = await W.caches.keys();
+      await Promise.all(keys.map((k) => W.caches.delete(k)));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const refreshPage = useCallback(() => {
+    // Mantém timer via sessionStorage (call_started_at:*).
+    // Tenta “furar cache” adicionando query param.
+    void tryClearCaches();
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("__reload", String(Date.now()));
+      window.location.replace(url.toString());
+    } catch {
+      window.location.reload();
+    }
+  }, [tryClearCaches]);
+
   // Re-join robusto:
   // - mantém o temporizador salvo
   // - ao voltar para a chamada depois de sair, força 1 reload para limpar o estado do WebRTC
@@ -177,6 +203,84 @@ export default function SessionCall() {
       window.location.replace(url.toString());
     }
   }, [appointmentId, callStartedAtMs]);
+
+  // PWA/mobile: "pull to refresh" (puxar além do topo/rodapé recarrega a página)
+  useEffect(() => {
+    const se = () => (document.scrollingElement || document.documentElement) as any;
+    const stateRef = {
+      armed: false,
+      fired: false,
+      startY: 0,
+      mode: "" as "" | "top" | "bottom",
+    };
+
+    const atTop = () => {
+      const el = se();
+      const top = Number(el?.scrollTop || 0);
+      return top <= 0;
+    };
+    const atBottom = () => {
+      const el = se();
+      const top = Number(el?.scrollTop || 0);
+      const max = Math.max(0, Number(el?.scrollHeight || 0) - window.innerHeight);
+      return top >= max - 1;
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (!e.touches?.length) return;
+      if (drawOn) return;
+      stateRef.armed = false;
+      stateRef.fired = false;
+      stateRef.mode = "";
+      stateRef.startY = e.touches[0].clientY;
+      if (atTop()) {
+        stateRef.armed = true;
+        stateRef.mode = "top";
+      } else if (atBottom()) {
+        stateRef.armed = true;
+        stateRef.mode = "bottom";
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!stateRef.armed || stateRef.fired) return;
+      if (!e.touches?.length) return;
+      if (drawOn) return;
+      const y = e.touches[0].clientY;
+      const dy = y - stateRef.startY;
+      const threshold = 90; // px
+
+      if (stateRef.mode === "top") {
+        if (dy > threshold) {
+          stateRef.fired = true;
+          refreshPage();
+        }
+      } else if (stateRef.mode === "bottom") {
+        if (dy < -threshold) {
+          stateRef.fired = true;
+          refreshPage();
+        }
+      }
+    };
+
+    const onTouchEnd = () => {
+      stateRef.armed = false;
+      stateRef.fired = false;
+      stateRef.mode = "";
+      stateRef.startY = 0;
+    };
+
+    window.addEventListener("touchstart", onTouchStart, { passive: true } as any);
+    window.addEventListener("touchmove", onTouchMove, { passive: true } as any);
+    window.addEventListener("touchend", onTouchEnd, { passive: true } as any);
+    window.addEventListener("touchcancel", onTouchEnd, { passive: true } as any);
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart as any);
+      window.removeEventListener("touchmove", onTouchMove as any);
+      window.removeEventListener("touchend", onTouchEnd as any);
+      window.removeEventListener("touchcancel", onTouchEnd as any);
+    };
+  }, [drawOn, refreshPage]);
 
   // Quando screen share estiver ativo:
   // - admin mostra o próprio display stream no painel grande
@@ -1306,13 +1410,38 @@ export default function SessionCall() {
         <div className="sc-session-grid grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           {/* Área principal (conteúdo da sessão) */}
           <div className="sc-session-content order-2 lg:order-1 rounded-2xl border border-border bg-card p-3 sm:p-4">
-            <div ref={contentAreaRef} className="relative w-full h-[60vh] lg:h-[70vh]">
+            <div
+              ref={contentAreaRef}
+              className={cn(
+                "sc-content-area relative w-full",
+                // Mobile: mantém mais compacto para caber controles e vídeos
+                "h-[55vh] sm:h-[58vh]",
+                // Desktop/notebooks: mais alto para não “achatar” e evitar corte em telas 768px de altura
+                "lg:h-[76svh] lg:max-h-[860px] lg:min-h-[560px]",
+              )}
+            >
               {/* Temporizador estilo "pílula" (layout do print) */}
               <div className="absolute left-3 top-3 z-40">
                 <div className="inline-flex items-center gap-2 rounded-full bg-black/55 text-white px-3 py-1.5 shadow-sm">
                   <Clock3 className="h-4 w-4 opacity-90" />
                   <span className="tabular-nums text-sm font-semibold">{callElapsedLabel}</span>
                 </div>
+              </div>
+
+              {/* Botão de atualizar (útil no PWA) - overlay para não afetar responsividade */}
+              <div className="absolute right-3 top-3 z-40">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full bg-background/80 backdrop-blur border-border shadow-sm"
+                  onClick={refreshPage}
+                  title="Atualizar página"
+                  aria-label="Atualizar página"
+                >
+                  <RefreshCw className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Atualizar página</span>
+                </Button>
               </div>
 
               {screenShareActive ? (

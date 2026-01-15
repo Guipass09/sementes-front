@@ -28,6 +28,12 @@ export class ErrorBoundary extends React.Component<
         (this.state.message.includes("dynamically imported module") ||
           this.state.message.includes("Failed to fetch dynamically imported module"));
 
+      const isLikelyCacheMismatch =
+        typeof this.state.message === "string" &&
+        (this.state.message.includes("Cannot access") && this.state.message.includes("before initialization"));
+
+      const showCacheHelp = isChunkFail || isLikelyCacheMismatch;
+
       return (
         <div className="min-h-screen bg-background flex items-center justify-center p-6">
           <div className="max-w-lg w-full rounded-2xl border border-border bg-card p-6 shadow-sm">
@@ -37,7 +43,7 @@ export class ErrorBoundary extends React.Component<
             <div className="text-sm text-muted-foreground mb-4">
               A página encontrou um erro e não conseguiu carregar.
             </div>
-            {isChunkFail ? (
+            {showCacheHelp ? (
               <div className="text-sm text-muted-foreground mb-4">
                 Parece que você está com uma versão antiga do app em cache (após atualização). Clique em{" "}
                 <strong>Recarregar</strong>. Se estiver no iPad (PWA), pode ser necessário fechar o app e abrir de
@@ -53,6 +59,15 @@ export class ErrorBoundary extends React.Component<
               <Button
                 onClick={() => {
                   try {
+                    // Para PWA/cache agressivo: tente limpar caches do Service Worker
+                    try {
+                      const W: any = window as any;
+                      if (showCacheHelp && W.caches?.keys && W.caches?.delete) {
+                        void W.caches.keys().then((keys: string[]) => Promise.all(keys.map((k) => W.caches.delete(k))));
+                      }
+                    } catch {
+                      // ignore
+                    }
                     const url = new URL(window.location.href);
                     url.searchParams.set("__reload", String(Date.now()));
                     window.location.replace(url.toString());

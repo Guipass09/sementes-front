@@ -14,8 +14,6 @@ import {
   Trash2,
   Video,
   VideoOff,
-  Volume2,
-  VolumeX,
 } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
@@ -74,7 +72,6 @@ export default function SessionCall() {
   const [remoteScreenStream, setRemoteScreenStream] = useState<MediaStream | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
-  const [remoteMuted, setRemoteMuted] = useState(true);
   const [statusLabel, setStatusLabel] = useState<string>("Conectando...");
   const [remotePresent, setRemotePresent] = useState(false);
   const [mediaState, setMediaState] = useState<"idle" | "requesting" | "ready" | "failed">("idle");
@@ -126,7 +123,6 @@ export default function SessionCall() {
   const screenStreamRef = useRef<MediaStream | null>(null);
   const [screenSharing, setScreenSharing] = useState(false);
   const [screenShareActive, setScreenShareActive] = useState(false);
-  const [screenShareWithAudio, setScreenShareWithAudio] = useState(false);
   const contentScreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const lastContentRef = useRef<{ path: string | null; title: string | null; kind: string | null; seed: number | null } | null>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
@@ -418,9 +414,29 @@ export default function SessionCall() {
     const s = remoteCamStream || remoteStream;
     if (s) {
       el.srcObject = s;
+      // Não mutar: o áudio remoto deve passar sempre.
+      el.muted = false;
       void el.play().catch(() => {});
     }
   }, [remoteCamStream, remoteStream]);
+
+  // iOS/Safari (PWA) pode bloquear autoplay com áudio; tenta destravar no primeiro toque.
+  useEffect(() => {
+    const handler = () => {
+      const el = remoteVideoRef.current;
+      if (!el) return;
+      el.muted = false;
+      void el.play().catch(() => {});
+    };
+    window.addEventListener("pointerdown", handler, { passive: true } as any);
+    window.addEventListener("touchstart", handler, { passive: true } as any);
+    window.addEventListener("keydown", handler);
+    return () => {
+      window.removeEventListener("pointerdown", handler as any);
+      window.removeEventListener("touchstart", handler as any);
+      window.removeEventListener("keydown", handler as any);
+    };
+  }, []);
 
   const send = async (kind: string, payload?: any) => {
     if (!joinInfo) return;
@@ -970,7 +986,6 @@ export default function SessionCall() {
     pendingWebrtcRef.current = [];
     pendingIceRef.current = [];
     pendingOfferRef.current = null;
-    setRemoteMuted(true);
     setRemotePresent(false);
     safeStopStream(localStream);
     safeStopStream(remoteStream);
@@ -1042,8 +1057,9 @@ export default function SessionCall() {
     try {
       const display = await (navigator.mediaDevices as any).getDisplayMedia?.({
         video: true,
-        // Quando disponível (principalmente no Chrome), permite compartilhar áudio da aba/página.
-        audio: !!screenShareWithAudio,
+        // Tenta capturar áudio da aba/página quando o navegador suportar.
+        // No Chrome, o usuário escolhe "Compartilhar áudio" no prompt.
+        audio: true,
       });
       if (!display) throw new Error("getDisplayMedia não disponível");
       const track: MediaStreamTrack | undefined = display.getVideoTracks?.()?.[0];
@@ -1100,43 +1116,36 @@ export default function SessionCall() {
           }
         }
 
-        // Áudio da tela (opcional): envia sem substituir o microfone.
-        if (screenShareWithAudio) {
-          if (!audioTrack) {
-            toast({
-              title: "Áudio da tela",
-              description: "Seu navegador não forneceu áudio do compartilhamento. Tente compartilhar uma aba no Chrome e marcar 'Compartilhar áudio'.",
-            });
-          } else {
-            let aSender = screenAudioSenderRef.current;
-            if (!aSender) {
+        // Áudio da tela (quando o navegador fornecer): envia sem substituir o microfone.
+        if (audioTrack) {
+          let aSender = screenAudioSenderRef.current;
+          if (!aSender) {
+            try {
+              // cria sender dedicado para áudio da tela
+              const trA = pc.addTransceiver("audio", { direction: "sendonly" });
+              screenAudioTransceiverRef.current = trA;
+              aSender = trA.sender;
+              screenAudioSenderRef.current = aSender;
+            } catch {
+              // fallback: addTrack (pode exigir renegociação em alguns browsers)
               try {
-                // cria sender dedicado para áudio da tela
-                const trA = pc.addTransceiver("audio", { direction: "sendonly" });
-                screenAudioTransceiverRef.current = trA;
-                aSender = trA.sender;
-                screenAudioSenderRef.current = aSender;
-              } catch {
-                // fallback: addTrack (pode exigir renegociação em alguns browsers)
-                try {
-                  const sA = pc.addTrack(audioTrack, display as MediaStream);
-                  aSender = sA;
-                  screenAudioSenderRef.current = sA;
-                } catch {}
-              }
+                const sA = pc.addTrack(audioTrack, display as MediaStream);
+                aSender = sA;
+                screenAudioSenderRef.current = sA;
+              } catch {}
             }
+          }
 
-            if (aSender?.replaceTrack) {
+          if (aSender?.replaceTrack) {
+            try {
+              await aSender.replaceTrack(audioTrack);
+            } catch {
+              // fallback: renegociação (se necessário)
               try {
-                await aSender.replaceTrack(audioTrack);
-              } catch {
-                // fallback: renegociação (se necessário)
-                try {
-                  const offer = await pc.createOffer();
-                  await pc.setLocalDescription(offer);
-                  await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
-                } catch {}
-              }
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+              } catch {}
             }
           }
         }
@@ -1717,7 +1726,6 @@ export default function SessionCall() {
                     ref={remoteVideoRef}
                     autoPlay
                     playsInline
-                    muted={remoteMuted}
                     className="h-full w-full object-cover"
                   />
                   {!remotePresent && (
@@ -1801,34 +1809,8 @@ export default function SessionCall() {
                 <MonitorUp className="h-4 w-4 mr-2" />
                 {screenSharing ? "Parar tela" : "Compartilhar tela"}
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setScreenShareWithAudio((v) => !v)}
-                className={cn("rounded-xl", screenShareWithAudio ? "border-brand-green text-brand-green" : "")}
-                disabled={mediaState !== "ready" || screenSharing}
-                title={screenSharing ? "Pare a tela para alterar áudio" : screenShareWithAudio ? "Áudio da tela: ligado" : "Áudio da tela: desligado"}
-              >
-                {screenShareWithAudio ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-              </Button>
             </>
           )}
-
-          {/* Áudio remoto (ajuda iOS/Safari a liberar autoplay ao usuário tocar) */}
-          <Button
-            variant="outline"
-            onClick={() => {
-              unlockContentSfx();
-              const next = !remoteMuted;
-              setRemoteMuted(next);
-              // tentar play após interação
-              const el = remoteVideoRef.current;
-              if (el) void el.play().catch(() => {});
-            }}
-            className={cn("rounded-xl", remoteMuted ? "" : "border-brand-green text-brand-green")}
-          >
-            {remoteMuted ? "Ativar áudio" : "Silenciar áudio"}
-          </Button>
 
           {/* Controles locais: também para usuário */}
           {mediaState === "ready" && (

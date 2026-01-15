@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Ear, Sparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,11 +36,57 @@ function shuffle<T>(arr: T[]) {
   return a;
 }
 
+function mulberry32(seed: number) {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6D2B79F5;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleSeeded<T>(arr: T[], seed: number) {
+  const rnd = mulberry32(seed);
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export default function AuditoryGameView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const auth = useAuth();
   const { toast } = useToast();
+
+  const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const inSession = sessionParams.get("session") === "1";
+  const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const initialSeed = (() => {
+    const s = Number(sessionParams.get("session_seed"));
+    return Number.isFinite(s) ? s : 0;
+  })();
+  const sessionSeedRef = useRef<number>(initialSeed);
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const applyingRemoteRef = useRef(false);
+
+  const emitSessionEvent = useCallback(
+    (event: any) => {
+      if (!inSession) return;
+      if (applyingRemoteRef.current) return;
+      if (sessionRole === "user" && !controlAllowedRef.current) return;
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: "SESSION_GAME_EVENT", event }, window.location.origin);
+        }
+      } catch {}
+    },
+    [inSession, sessionRole],
+  );
 
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<AuditoryGameRow | null>(null);
@@ -101,6 +147,12 @@ export default function AuditoryGameView() {
             status: "idle" as const,
           }));
 
+          if (inSession) {
+            const seed = sessionSeedRef.current ?? 0;
+            const ordered = shuffleSeeded(base, seed);
+            return ordered.map((x) => ({ ...x, status: "idle" as const }));
+          }
+
           const orderIds: number[] | null = Array.isArray(progress?.order)
             ? progress.order.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n))
             : null;
@@ -153,6 +205,106 @@ export default function AuditoryGameView() {
 
   const allDone = useMemo(() => items.every((it) => it.status === "done"), [items]);
 
+  // Sessão ao vivo: envia/recebe estado para manter as mesmas cartas "done" e a mesma ordem
+  useEffect(() => {
+    if (!inSession) return;
+    if (applyingRemoteRef.current) return;
+    if (sessionRole === "user" && !controlAllowedRef.current) return;
+    emitSessionEvent({
+      game: "auditory",
+      kind: "state",
+      order: items.map((i) => i.id),
+      doneIds: items.filter((i) => i.status === "done").map((i) => i.id),
+    });
+  }, [items, inSession, sessionRole, emitSessionEvent]);
+
+  useEffect(() => {
+    if (!inSession) return;
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      const data: any = ev.data;
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "SESSION_CONTROL") {
+        const granted = !!data.granted;
+        controlAllowedRef.current = sessionRole === "admin" ? true : granted;
+        return;
+      }
+
+      if (data.type !== "SESSION_GAME_EVENT") return;
+      const evt = data.event;
+      if (!evt || typeof evt !== "object") return;
+      if (evt.game !== "auditory") return;
+
+      if (evt.kind === "restart") {
+        applyingRemoteRef.current = true;
+        try {
+          if (!game) return;
+          setItems(
+            shuffleSeeded(game.items, sessionSeedRef.current ?? 0).map((it) => ({
+              id: it.id,
+              url: it.url,
+              position: it.position,
+              expected_side: it.expected_side ?? "right",
+              status: "idle" as const,
+            })),
+          );
+          setFeedback(null);
+          setActiveDragId(null);
+          setPointerDrag(null);
+        } finally {
+          window.setTimeout(() => (applyingRemoteRef.current = false), 0);
+        }
+        return;
+      }
+
+      if (evt.kind === "state") {
+        const orderIds: number[] = Array.isArray(evt.order) ? evt.order.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n)) : [];
+        const doneIds: number[] = Array.isArray(evt.doneIds) ? evt.doneIds.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n)) : [];
+        if (!orderIds.length) return;
+        applyingRemoteRef.current = true;
+        try {
+          setItems((prev) => {
+            const byId = new Map(prev.map((x) => [x.id, x]));
+            // Se ainda não temos prev (ex.: loading), monta a partir do game quando possível
+            const base: ItemState[] = (() => {
+              if (byId.size) {
+                return orderIds.map((id) => byId.get(id)).filter(Boolean) as ItemState[];
+              }
+              const gItems = game?.items || [];
+              const byGameId = new Map(
+                gItems.map((it) => [
+                  it.id,
+                  {
+                    id: it.id,
+                    url: it.url,
+                    position: it.position,
+                    expected_side: it.expected_side ?? "right",
+                    status: "idle" as const,
+                  },
+                ]),
+              );
+              return orderIds.map((id) => byGameId.get(id)).filter(Boolean) as ItemState[];
+            })();
+
+            return base.map((x) => ({
+              ...x,
+              status: doneIds.includes(x.id) ? ("done" as const) : ("idle" as const),
+            }));
+          });
+          setFeedback(null);
+          setActiveDragId(null);
+          setPointerDrag(null);
+        } finally {
+          window.setTimeout(() => (applyingRemoteRef.current = false), 0);
+        }
+      }
+    };
+
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [inSession, sessionRole, game?.id]);
+
   useEffect(() => {
     if (!allDone) return;
     setCelebrate(true);
@@ -169,6 +321,7 @@ export default function AuditoryGameView() {
 
   // Persistência do progresso (localStorage + backend) para não perder no refresh
   useEffect(() => {
+    if (inSession) return;
     if (!game || !auth.user || auth.user.role !== "user") return;
     const key = `aud-progress:${auth.user.id}:${game.id}`;
     const payload = {
@@ -205,12 +358,14 @@ export default function AuditoryGameView() {
   }, []);
 
   const onDragStart = useCallback((itemId: number) => {
+    if (inSession && sessionRole === "user" && !controlAllowedRef.current) return;
     setActiveDragId(itemId);
     setFeedback(null);
-  }, []);
+  }, [inSession, sessionRole]);
 
   const onDrop = useCallback(
     (itemId: number, clientX: number, clientY: number) => {
+      if (inSession && sessionRole === "user" && !controlAllowedRef.current) return;
       if (!boardRef.current) return;
 
       const rect = boardRef.current.getBoundingClientRect();
@@ -253,7 +408,7 @@ export default function AuditoryGameView() {
 
       setActiveDragId(null);
     },
-    [clearFeedbackSoon, items],
+    [clearFeedbackSoon, items, inSession, sessionRole],
   );
 
   const endPointerDrag = useCallback(
@@ -333,8 +488,11 @@ export default function AuditoryGameView() {
 
   const restart = useCallback(() => {
     if (!game) return;
+    if (inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+      emitSessionEvent({ game: "auditory", kind: "restart" });
+    }
     setItems(
-      shuffle(game.items).map((it) => ({
+      (inSession ? shuffleSeeded(game.items, sessionSeedRef.current ?? 0) : shuffle(game.items)).map((it) => ({
         id: it.id,
         url: it.url,
         position: it.position,
@@ -344,7 +502,7 @@ export default function AuditoryGameView() {
     );
     setFeedback(null);
     setCelebrate(false);
-  }, [game]);
+  }, [game, inSession, sessionRole, emitSessionEvent]);
 
   if (loading) {
     return (
@@ -385,38 +543,40 @@ export default function AuditoryGameView() {
 
   return (
     <div className="min-h-[100svh] bg-transparent">
-      <div className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center justify-between gap-3">
-          <Button variant="ghost" onClick={() => navigate(-1)} className="shrink-0">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-            <Button variant="secondary" onClick={restart} className="shrink-0 sm:hidden">
+      {!inSession && (
+        <div className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur border-b border-border">
+          <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <Button variant="ghost" onClick={() => navigate(-1)} className="shrink-0">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              <Button variant="secondary" onClick={restart} className="shrink-0 sm:hidden">
+                Recomeçar
+              </Button>
+            </div>
+
+            <div className="flex-1 min-w-0 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
+                <Ear className="h-4 w-4" />
+                Estimulação Auditiva
+              </div>
+              <div className="font-display font-bold text-foreground truncate">{game.title}</div>
+            </div>
+
+            <Button variant="secondary" onClick={restart} className="hidden sm:inline-flex">
               Recomeçar
             </Button>
           </div>
-
-          <div className="flex-1 min-w-0 text-center sm:text-left">
-            <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
-              <Ear className="h-4 w-4" />
-              Estimulação Auditiva
-            </div>
-            <div className="font-display font-bold text-foreground truncate">{game.title}</div>
-          </div>
-
-          <Button variant="secondary" onClick={restart} className="hidden sm:inline-flex">
-            Recomeçar
-          </Button>
         </div>
-      </div>
+      )}
 
-      <div className="container mx-auto px-4 py-6">
+      <div className={cn("container mx-auto px-4 py-6", inSession && "px-0 py-0")}>
         <div ref={fsRef} className="fs-target relative">
           {/* Botão pequeno no canto do conteúdo (estilo vídeo) */}
-          <FullscreenToggle targetRef={fsRef} className="absolute bottom-3 right-3 z-30" />
+          <FullscreenToggle targetRef={fsRef} className="absolute bottom-3 right-3 z-30" mode={inSession ? "pseudo" : "auto"} />
 
-          <div className="mb-4 text-sm text-muted-foreground">
+          <div className={cn("mb-4 text-sm text-muted-foreground", inSession && "px-4 pt-4")}>
             Arraste a figura <span className="font-semibold text-foreground">para baixo</span> e solte à{" "}
             <span className="font-semibold text-foreground">direita</span> para confirmar. Solte à{" "}
             <span className="font-semibold text-foreground">esquerda</span> para marcar como errado.

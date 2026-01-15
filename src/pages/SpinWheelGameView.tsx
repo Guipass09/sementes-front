@@ -391,7 +391,7 @@ export default function SpinWheelGameView() {
               ref={fsRef}
               className="fs-target fs-allow-scroll relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col"
             >
-              {!inSession && <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" />}
+              <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" mode={inSession ? "pseudo" : "auto"} />
 
               {/* Cabeçalho interno (padrão das atividades) */}
               <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-6 border-b border-border/60">

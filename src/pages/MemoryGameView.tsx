@@ -299,6 +299,16 @@ export default function MemoryGameView() {
     if (!game) return;
     // Se houver progresso salvo, restaura; senão inicia novo.
     const restore = () => {
+      // Em sessão ao vivo, não usamos progresso local/API (evita ordem diferente entre admin/paciente)
+      if (inSession) {
+        setDeck(makeFreshDeck(game));
+        setFirstPick(null);
+        setMoves(0);
+        setWinAnim(false);
+        setLock(false);
+        return;
+      }
+
       const g = game;
       const total = (g.pairs_count ?? 0) * 2;
       const key = user?.role === "user" && user?.id ? `mg-progress:${user.id}:${g.id}` : null;
@@ -528,6 +538,7 @@ export default function MemoryGameView() {
 
   // Persistência do progresso (localStorage + backend) para não perder em refresh
   useEffect(() => {
+    if (inSession) return;
     if (!game || !user || user.role !== "user") return;
     const key = `mg-progress:${user.id}:${game.id}`;
     const payload = {
@@ -627,8 +638,8 @@ export default function MemoryGameView() {
                           </Button>
                         </>
                       )}
-                      {/* Em sessão ao vivo dentro de iframe, evitamos fullscreen nativo (cobrindo os vídeos). */}
-                      {!inSession && <FullscreenToggle targetRef={fsRef} className="ml-auto" />}
+                      {/* Em sessão ao vivo dentro de iframe, usamos apenas pseudo fullscreen (não cobre os vídeos). */}
+                      <FullscreenToggle targetRef={fsRef} className="ml-auto" mode={inSession ? "pseudo" : "auto"} />
                       {finished && (
                         <div className="text-sm px-3 py-1.5 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20 inline-flex items-center gap-2">
                           <Trophy className="h-4 w-4" />

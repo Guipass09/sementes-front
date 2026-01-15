@@ -402,8 +402,8 @@ export default function HangmanGameView() {
 
       <div className={cn("container mx-auto px-4 py-6", inSession && "px-0 py-0")}>
         <div ref={fsRef} className="fs-target relative">
-          {/* Botão pequeno no canto do conteúdo */}
-          {!inSession && <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" />}
+          {/* Botão pequeno no canto do conteúdo (em sessão: pseudo-only) */}
+          <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" mode={inSession ? "pseudo" : "auto"} />
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: imagem + palavra */}

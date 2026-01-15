@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Mic, MicOff, Video, VideoOff, PhoneOff } from "lucide-react";
+import { FileText, Mic, MicOff, Package, Pencil, PhoneOff, Trash2, Video, VideoOff } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,11 @@ import * as api from "@/lib/laravel-api";
 import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow } from "@/lib/laravel-api";
 import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinResponse, type VideoPollMessage } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
+
+const ReportFormModalLazy = lazy(async () => {
+  const mod = await import("@/features/reports/ReportFormModal");
+  return { default: mod.ReportFormModal };
+});
 
 type Role = "admin" | "user";
 
@@ -62,6 +68,7 @@ export default function SessionCall() {
   const [contentLoading, setContentLoading] = useState(false);
   const [controlGranted, setControlGranted] = useState<boolean>(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [packagesOpen, setPackagesOpen] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [memGames, setMemGames] = useState<MemoryGameRow[]>([]);
@@ -70,6 +77,23 @@ export default function SessionCall() {
   const [spinGames, setSpinGames] = useState<SpinWheelGameRow[]>([]);
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [pendingShare, setPendingShare] = useState<null | { path: string; title: string; kind: string }>(null);
+  const [pendingPayment, setPendingPayment] = useState<null | { sessions: number; url: string }>(null);
+  const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [paymentSessions, setPaymentSessions] = useState<number | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+
+  const [reportOpen, setReportOpen] = useState(false);
+  const [fixedUser, setFixedUser] = useState<null | { id: number; name: string }>(null);
+
+  const [drawOn, setDrawOn] = useState(false);
+  const drawCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const contentAreaRef = useRef<HTMLDivElement | null>(null);
+  const drawCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const drawActiveRef = useRef(false);
+  const drawLastRef = useRef<{ x: number; y: number } | null>(null);
+  const drawRemoteLastRef = useRef<Record<string, { x: number; y: number } | null>>({});
+  const drawSendTsRef = useRef(0);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -81,6 +105,21 @@ export default function SessionCall() {
     if (r === "admin") navigate("/admin/horarios");
     else navigate("/paciente/sessoes");
   };
+
+  const packageCatalog = useMemo(() => {
+    // Mesmo catálogo do PatientPackages (valores fixos do negócio)
+    const list = [
+      { sessions: 3, price: 280, url: "https://mpago.li/2nyHQAi" },
+      { sessions: 6, price: 480, url: "https://mpago.li/1j7Xk5U" },
+      { sessions: 9, price: 560, url: "https://mpago.li/2Fof5SU" },
+      { sessions: 15, price: 880, url: "https://mpago.li/32tdG89" },
+      { sessions: 20, price: 1100, url: "https://mpago.li/1as3z5h" },
+      { sessions: 35, price: 1750, url: "https://mpago.la/143JtGF" },
+      { sessions: 45, price: 2115, url: "https://mpago.la/31AJ9th" },
+    ];
+    const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    return list.map((p) => ({ ...p, priceLabel: fmt(p.price), perSessionLabel: fmt(p.price / p.sessions) }));
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/entrar");
@@ -174,6 +213,16 @@ export default function SessionCall() {
     });
   };
 
+  const clearDoodleLocal = () => {
+    try {
+      const c = drawCanvasRef.current;
+      const ctx = drawCtxRef.current;
+      if (c && ctx) ctx.clearRect(0, 0, c.width, c.height);
+    } catch {}
+    drawLastRef.current = null;
+    drawRemoteLastRef.current = {};
+  };
+
   const computeSeed = (path: string) => {
     // Seed simples e estável para sincronizar embaralhamento (ex.: memória) entre admin e usuário.
     // Não precisa ser criptográfico, só determinístico.
@@ -204,10 +253,14 @@ export default function SessionCall() {
 
   const selectContent = async (path: string, title: string, kind: string) => {
     if (!path) return;
+    // Ao trocar conteúdo, limpa rabiscos (efeito "compartilhamento de tela" por atividade)
+    clearDoodleLocal();
+    void send("draw_event", { t: "clear" }).catch(() => {});
     setContentPath(path);
     setContentTitle(title || null);
     setContentKind(kind || null);
-    const seed = path.startsWith("/jogos/") ? computeSeed(path) : null;
+    // Seed sempre que for conteúdo interno (evita "ordem diferente" entre admin/paciente)
+    const seed = path.startsWith("http") ? null : computeSeed(path);
     setContentSeed(seed);
     setContentLoading(true);
     try {
@@ -217,6 +270,34 @@ export default function SessionCall() {
     }
     setCatalogOpen(false);
   };
+
+  const sendPayment = async (sessions: number, url: string) => {
+    if (role !== "admin") return;
+    await send("payment_link", { sessions, url });
+  };
+
+  // Carrega dados mínimos do paciente para pré-preencher relatório (admin)
+  useEffect(() => {
+    if (role !== "admin") return;
+    if (!joinInfo?.token) return;
+    if (!appointmentId) return;
+    if (fixedUser) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await api.adminListAppointments();
+        if (cancelled) return;
+        const appt = list.find((a) => a.id === appointmentId);
+        const u = appt?.user;
+        if (u?.id && u?.name) setFixedUser({ id: u.id, name: u.name });
+      } catch {
+        // ok: admin ainda consegue escolher manualmente dentro do modal
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [role, joinInfo?.token, appointmentId, fixedUser]);
 
   const toggleControl = async () => {
     if (role !== "admin") return;
@@ -394,6 +475,7 @@ export default function SessionCall() {
     if (m.kind === "content_select") {
       const p = m.payload?.path;
       if (typeof p === "string" && p) {
+        clearDoodleLocal();
         setContentPath(p);
         const t = m.payload?.title;
         setContentTitle(typeof t === "string" && t ? t : null);
@@ -414,6 +496,66 @@ export default function SessionCall() {
           window.location.origin
         );
       } catch {}
+    }
+
+    if (m.kind === "payment_link" && role === "user") {
+      const url = m.payload?.url;
+      const sessions = m.payload?.sessions;
+      if (typeof url === "string" && url.startsWith("http")) {
+        setPaymentUrl(url);
+        setPaymentSessions(Number.isFinite(Number(sessions)) ? Number(sessions) : null);
+        setPaymentDialogOpen(true);
+      }
+    }
+
+    if (m.kind === "draw_event") {
+      const p = m.payload || {};
+      const type = String(p.t || "");
+      const nx = Number(p.x);
+      const ny = Number(p.y);
+      const from = String((m as any).from || "other");
+      const ctx = drawCtxRef.current;
+      const canvas = drawCanvasRef.current;
+      const box = contentAreaRef.current;
+      if (!ctx || !canvas || !box) return;
+      const rect = box.getBoundingClientRect();
+      const x = Number.isFinite(nx) ? nx * rect.width : 0;
+      const y = Number.isFinite(ny) ? ny * rect.height : 0;
+      const key = from;
+
+      if (type === "clear") {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawRemoteLastRef.current = {};
+        return;
+      }
+
+      if (type === "begin") {
+        drawRemoteLastRef.current[key] = { x, y };
+        return;
+      }
+
+      if (type === "move") {
+        const last = drawRemoteLastRef.current[key];
+        if (!last) return;
+        const dpr = window.devicePixelRatio || 1;
+        const color = typeof p.color === "string" ? p.color : "#22c55e";
+        const w = Number.isFinite(Number(p.w)) ? Number(p.w) : 3;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = w * dpr;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(last.x * dpr, last.y * dpr);
+        ctx.lineTo(x * dpr, y * dpr);
+        ctx.stroke();
+        drawRemoteLastRef.current[key] = { x, y };
+        return;
+      }
+
+      if (type === "end") {
+        drawRemoteLastRef.current[key] = null;
+        return;
+      }
     }
 
     if (m.kind === "game_event") {
@@ -528,6 +670,12 @@ export default function SessionCall() {
     setRemoteStream(null);
     setMediaState("idle");
     setMediaError(null);
+    setDrawOn(false);
+    try {
+      const c = drawCanvasRef.current;
+      const ctx = c?.getContext("2d");
+      if (c && ctx) ctx.clearRect(0, 0, c.width, c.height);
+    } catch {}
   };
 
   // Bridge: recebe eventos do jogo (iframe) e envia para o outro participante
@@ -571,6 +719,114 @@ export default function SessionCall() {
     } catch {}
     cleanup();
     goBack(role);
+  };
+
+  // Doodle (rabisco) sobre a área de conteúdo (não interrompe a ligação)
+  useEffect(() => {
+    const canvas = drawCanvasRef.current;
+    const box = contentAreaRef.current;
+    if (!canvas || !box) return;
+
+    const ensure = () => {
+      const rect = box.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        drawCtxRef.current = ctx;
+        // não limpar aqui (senão apaga rabisco ao redimensionar)
+      }
+    };
+
+    ensure();
+    const ro = new ResizeObserver(() => ensure());
+    ro.observe(box);
+    window.addEventListener("resize", ensure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", ensure);
+    };
+  }, [contentPath, role]);
+
+  const sendDraw = async (payload: any) => {
+    await send("draw_event", payload);
+  };
+
+  const clearDoodle = async () => {
+    const canvas = drawCanvasRef.current;
+    const ctx = drawCtxRef.current;
+    if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawLastRef.current = null;
+    drawRemoteLastRef.current = {};
+    try {
+      await sendDraw({ t: "clear" });
+    } catch {}
+  };
+
+  const onDrawPointerDown = async (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!drawOn) return;
+    const box = contentAreaRef.current;
+    const canvas = drawCanvasRef.current;
+    const ctx = drawCtxRef.current;
+    if (!box || !canvas || !ctx) return;
+
+    // captura pra não perder o desenho em fullscreen/pseudo
+    try {
+      (e.currentTarget as any).setPointerCapture?.(e.pointerId);
+    } catch {}
+
+    const rect = box.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    drawActiveRef.current = true;
+    drawLastRef.current = { x, y };
+
+    const dpr = window.devicePixelRatio || 1;
+    const color = role === "admin" ? "#22c55e" : "#f97316";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3 * dpr;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    // not draw a dot; begin segment
+    void sendDraw({ t: "begin", x: x / rect.width, y: y / rect.height, color, w: 3 }).catch(() => {});
+  };
+
+  const onDrawPointerMove = async (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!drawOn) return;
+    if (!drawActiveRef.current) return;
+    const box = contentAreaRef.current;
+    const ctx = drawCtxRef.current;
+    if (!box || !ctx) return;
+    const last = drawLastRef.current;
+    if (!last) return;
+
+    const rect = box.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.beginPath();
+    ctx.moveTo(last.x * dpr, last.y * dpr);
+    ctx.lineTo(x * dpr, y * dpr);
+    ctx.stroke();
+    drawLastRef.current = { x, y };
+
+    const now = Date.now();
+    if (now - drawSendTsRef.current > 30) {
+      drawSendTsRef.current = now;
+      // envia coordenadas normalizadas
+      void sendDraw({ t: "move", x: x / rect.width, y: y / rect.height, color: ctx.strokeStyle, w: 3 }).catch(() => {});
+    }
+  };
+
+  const onDrawPointerUp = async () => {
+    if (!drawOn) return;
+    if (!drawActiveRef.current) return;
+    drawActiveRef.current = false;
+    drawLastRef.current = null;
+    void sendDraw({ t: "end" }).catch(() => {});
   };
 
   const startMedia = async () => {
@@ -733,9 +989,9 @@ export default function SessionCall() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           {/* Área principal (conteúdo da sessão) */}
-          <div className="rounded-2xl border border-border bg-card p-4 min-h-[60vh] flex items-center justify-center">
-            {iframeSrc ? (
-              <div className="relative w-full h-[60vh] lg:h-[70vh]">
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <div ref={contentAreaRef} className="relative w-full h-[60vh] lg:h-[70vh]">
+              {iframeSrc ? (
                 <iframe
                   key={iframeSrc}
                   src={iframeSrc}
@@ -745,36 +1001,60 @@ export default function SessionCall() {
                   onLoad={() => setContentLoading(false)}
                   style={{
                     // Sem reação visual: apenas bloqueia interação quando não liberado
-                    pointerEvents: role === "user" && !controlGranted ? "none" : "auto",
+                    pointerEvents:
+                      drawOn ? "none" : role === "user" && !controlGranted ? "none" : "auto",
                   }}
                 />
-                {contentLoading && (
-                  <div className="absolute inset-0 rounded-xl bg-background/60 backdrop-blur-[1px] flex items-center justify-center">
-                    <div className="text-sm font-semibold text-foreground">Carregando…</div>
-                  </div>
-                )}
-              </div>
-            ) : role === "user" ? (
-              <div className="text-center max-w-md">
-                <img src={logoImage} alt="Sementes da Fala" className="h-16 w-16 mx-auto mb-4 rounded-2xl object-cover" />
-                <div className="text-2xl font-display font-bold text-foreground mb-2">Boa sessão 🌱</div>
-                <div className="text-sm text-muted-foreground">
-                  Aguarde a fonoaudióloga selecionar a atividade.
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background">
+                  {role === "user" ? (
+                    <div className="text-center max-w-md">
+                      <img
+                        src={logoImage}
+                        alt="Sementes da Fala"
+                        className="h-16 w-16 mx-auto mb-4 rounded-2xl object-cover"
+                      />
+                      <div className="text-2xl font-display font-bold text-foreground mb-2">Boa sessão 🌱</div>
+                      <div className="text-sm text-muted-foreground">
+                        Aguarde a fonoaudióloga selecionar a atividade.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center max-w-md">
+                      <div className="text-xl font-semibold text-foreground mb-2">Selecione uma atividade/jogo</div>
+                      <div className="text-sm text-muted-foreground">
+                        Abra uma atividade/jogo e ele aparecerá aqui e para o paciente instantaneamente.
+                      </div>
+                      <div className="mt-4">
+                        <Button onClick={() => setCatalogOpen(true)} className="rounded-xl">
+                          Abrir catálogo
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ) : (
-              <div className="text-center max-w-md">
-                <div className="text-xl font-semibold text-foreground mb-2">Selecione uma atividade/jogo</div>
-                <div className="text-sm text-muted-foreground">
-                  Abra uma atividade/jogo e ele aparecerá aqui e para o paciente instantaneamente.
+              )}
+
+              {/* Rabisco sincronizado (canvas) */}
+              <canvas
+                ref={drawCanvasRef}
+                className="absolute inset-0 rounded-xl"
+                style={{
+                  pointerEvents: drawOn ? "auto" : "none",
+                  touchAction: drawOn ? "none" : "auto",
+                }}
+                onPointerDown={(e) => void onDrawPointerDown(e)}
+                onPointerMove={(e) => void onDrawPointerMove(e)}
+                onPointerUp={() => void onDrawPointerUp()}
+                onPointerCancel={() => void onDrawPointerUp()}
+              />
+
+              {contentLoading && (
+                <div className="absolute inset-0 rounded-xl bg-background/60 backdrop-blur-[1px] flex items-center justify-center">
+                  <div className="text-sm font-semibold text-foreground">Carregando…</div>
                 </div>
-                <div className="mt-4">
-                  <Button onClick={() => setCatalogOpen(true)} className="rounded-xl">
-                    Abrir catálogo
-                  </Button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Coluna de câmeras */}
@@ -819,7 +1099,15 @@ export default function SessionCall() {
           {role === "admin" && (
             <>
               <Button variant="outline" onClick={() => setCatalogOpen(true)} className="rounded-xl">
-                Catálogo
+                Catálogo (atividades/jogos)
+              </Button>
+              <Button variant="outline" onClick={() => setPackagesOpen(true)} className="rounded-xl">
+                <Package className="h-4 w-4 mr-2" />
+                Pacotes
+              </Button>
+              <Button variant="outline" onClick={() => setReportOpen(true)} className="rounded-xl">
+                <FileText className="h-4 w-4 mr-2" />
+                Relatório
               </Button>
               <Button variant="outline" onClick={() => void toggleControl()} className="rounded-xl">
                 {controlGranted ? "Retirar controle do paciente" : "Dar controle ao paciente"}
@@ -861,17 +1149,33 @@ export default function SessionCall() {
               </Button>
             </>
           )}
+
+          {/* Rabisco (admin e usuário) */}
+          <Button
+            variant="outline"
+            onClick={() => setDrawOn((v) => !v)}
+            className={cn("rounded-xl", drawOn ? "border-brand-green text-brand-green" : "")}
+            title="Rabiscar"
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          {drawOn && (
+            <Button variant="outline" onClick={() => void clearDoodle()} className="rounded-xl" title="Limpar rabiscos">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+
           <Button variant="destructive" onClick={() => void hangup()} className="rounded-xl">
             <PhoneOff />
           </Button>
         </div>
       </div>
 
-      {/* Catálogo (admin) */}
+      {/* Catálogo (admin): atividades + jogos */}
       <Dialog open={catalogOpen} onOpenChange={setCatalogOpen}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Catálogo da sessão</DialogTitle>
+            <DialogTitle>Catálogo (atividades e jogos)</DialogTitle>
           </DialogHeader>
 
           {catalogLoading ? (
@@ -955,39 +1259,127 @@ export default function SessionCall() {
                 </div>
               </div>
 
-              <div>
-                <div className="text-sm font-semibold text-foreground mb-3">Pacotes (links)</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                  {[
-                    { sessions: 3, url: "https://mpago.li/2nyHQAi" },
-                    { sessions: 6, url: "https://mpago.li/1j7Xk5U" },
-                    { sessions: 9, url: "https://mpago.li/2Fof5SU" },
-                    { sessions: 15, url: "https://mpago.li/32tdG89" },
-                    { sessions: 20, url: "https://mpago.li/1as3z5h" },
-                    { sessions: 35, url: "https://mpago.la/143JtGF" },
-                    { sessions: 45, url: "https://mpago.la/31AJ9th" },
-                  ].map((p) => (
-                    <button
-                      key={`pkg-${p.sessions}`}
-                      onClick={() => {
-                        setPendingShare({ path: p.url, title: `${p.sessions} sessões (link)`, kind: "package_link" });
-                        setShareConfirmOpen(true);
-                      }}
-                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-foreground">{p.sessions} sessões</div>
-                      <div className="text-xs text-muted-foreground">Abrir link no paciente</div>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-2 text-xs text-muted-foreground">
-                  Observação: alguns links externos podem bloquear uso em iframe (regra do provedor).
-                </div>
-              </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Catálogo de pacotes (admin) */}
+      <Dialog open={packagesOpen} onOpenChange={setPackagesOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pacotes (catálogo de preços)</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {packageCatalog.map((p) => (
+              <div key={`pkg-${p.sessions}`} className="rounded-xl border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">{p.sessions} sessões</div>
+                    <div className="text-xs text-muted-foreground">
+                      Total: {p.priceLabel} • {p.perSessionLabel}/sessão
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-lg"
+                    onClick={() => {
+                      setPendingPayment({ sessions: p.sessions, url: p.url });
+                      setPaymentConfirmOpen(true);
+                    }}
+                  >
+                    Enviar link
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            O link abre apenas para o paciente (ele confirma com um clique, sem interromper a ligação).
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de envio de pagamento (admin) */}
+      {role === "admin" && pendingPayment ? (
+        <BrandedConfirmDialog
+          open={paymentConfirmOpen}
+          onOpenChange={(open) => {
+            setPaymentConfirmOpen(open);
+            if (!open) setPendingPayment(null);
+          }}
+          title="Pagamento"
+          description={`Enviar link do Mercado Pago (${pendingPayment.sessions} sessões) para o paciente agora?`}
+          confirmText="Enviar"
+          cancelText="Cancelar"
+          onConfirm={() =>
+            void sendPayment(pendingPayment.sessions, pendingPayment.url).finally(() => {
+              setPaymentConfirmOpen(false);
+              setPendingPayment(null);
+              setPackagesOpen(false);
+            })
+          }
+        />
+      ) : null}
+
+      {/* Pagamento (user): abre só com clique */}
+      <Dialog
+        open={paymentDialogOpen}
+        onOpenChange={(open) => {
+          setPaymentDialogOpen(open);
+          if (!open) {
+            setPaymentUrl(null);
+            setPaymentSessions(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pagamento</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            {paymentSessions ? `Link de pagamento para ${paymentSessions} sessões.` : "Link de pagamento enviado pela fonoaudióloga."}
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setPaymentDialogOpen(false)}>
+              Agora não
+            </Button>
+            <Button
+              className="rounded-xl"
+              onClick={() => {
+                if (paymentUrl) {
+                  // registra intenção (para aparecer no admin/perfil), mas não bloqueia o fluxo
+                  if (paymentSessions) {
+                    void api.userRegisterPurchaseIntent({ package_sessions: paymentSessions }).catch(() => {});
+                  }
+                  window.open(paymentUrl, "_blank", "noopener,noreferrer");
+                }
+                setPaymentDialogOpen(false);
+              }}
+            >
+              Abrir Mercado Pago
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Relatório (admin) */}
+      {role === "admin" ? (
+        <Suspense fallback={null}>
+          <ReportFormModalLazy
+            open={reportOpen}
+            mode="create"
+            initial={null}
+            fixedUser={fixedUser}
+            onOpenChange={setReportOpen}
+            onSubmit={async (payload) => {
+              await api.adminCreateReport(payload);
+              toast({ title: "Relatório", description: "Relatório criado com sucesso." });
+            }}
+          />
+        </Suspense>
+      ) : null}
 
       {/* Confirmação de compartilhamento (admin) */}
       {role === "admin" && pendingShare ? (

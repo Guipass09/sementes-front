@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -32,8 +32,28 @@ import FullscreenToggle from "@/components/FullscreenToggle";
 const ActivityView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+
+  const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const inSession = sessionParams.get("session") === "1";
+  const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const applyingRemoteRef = useRef(false);
+
+  const emitSessionEvent = (event: any) => {
+    if (!inSession) return;
+    if (applyingRemoteRef.current) return;
+    if (sessionRole === "user" && !controlAllowedRef.current) return;
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "SESSION_GAME_EVENT", event }, window.location.origin);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   const [loading, setLoading] = useState(true);
   const [activity, setActivity] = useState<ActivityRow | null>(null);
@@ -114,6 +134,14 @@ const ActivityView = () => {
       setCurrent(carouselApi.selectedScrollSnap() + 1);
       setCanPrev(carouselApi.canScrollPrev());
       setCanNext(carouselApi.canScrollNext());
+
+      if (inSession && !applyingRemoteRef.current) {
+        emitSessionEvent({
+          game: "activity",
+          kind: "slide",
+          idx: carouselApi.selectedScrollSnap(),
+        });
+      }
     };
 
     update();
@@ -127,6 +155,10 @@ const ActivityView = () => {
   // Inicializa/restaura progresso quando a atividade carregar
   useEffect(() => {
     if (!activity) return;
+    if (inSession) {
+      setCompletedSteps([]);
+      return;
+    }
     const p = activity.progress;
     if (p?.completed_steps?.length) {
       setCompletedSteps(Array.from(new Set(p.completed_steps)).sort((a, b) => a - b));
@@ -138,6 +170,7 @@ const ActivityView = () => {
   // Ao ter carouselApi e progresso, rola para o passo atual (restaura após refresh)
   useEffect(() => {
     if (!carouselApi) return;
+    if (inSession) return;
     if (!activity?.progress) return;
     const idx = Math.max(0, Math.min(activity.progress.current_step ?? 0, (count || 1) - 1));
     // scrollTo só funciona bem após reInit
@@ -147,6 +180,7 @@ const ActivityView = () => {
 
   const persistProgress = async (nextStep?: number, nextCompleted?: number[]) => {
     if (!activityId) return;
+    if (inSession) return;
     if (!user || user.role !== "user") return; // progresso é do usuário
     // debounce simples
     if (saveTimerRef.t) window.clearTimeout(saveTimerRef.t);
@@ -166,10 +200,65 @@ const ActivityView = () => {
 
   // Salva passo atual quando o usuário navega (inclui swipe e bolinhas)
   useEffect(() => {
+    if (inSession) return;
     if (!activity || !user || user.role !== "user") return;
     void persistProgress();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, activity?.id]);
+
+  // Sessão ao vivo: sincroniza completedSteps
+  useEffect(() => {
+    if (!inSession) return;
+    if (applyingRemoteRef.current) return;
+    emitSessionEvent({ game: "activity", kind: "completed", steps: completedSteps });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completedSteps, inSession]);
+
+  // Sessão ao vivo: recebe controle e eventos (slide/completed)
+  useEffect(() => {
+    if (!inSession) return;
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      const data: any = ev.data;
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "SESSION_CONTROL") {
+        const granted = !!data.granted;
+        controlAllowedRef.current = sessionRole === "admin" ? true : granted;
+        return;
+      }
+
+      if (data.type !== "SESSION_GAME_EVENT") return;
+      const evt = data.event;
+      if (!evt || typeof evt !== "object") return;
+      if (evt.game !== "activity") return;
+
+      if (evt.kind === "slide") {
+        const idx = Number(evt.idx);
+        if (!carouselApi) return;
+        if (!Number.isFinite(idx)) return;
+        applyingRemoteRef.current = true;
+        try {
+          carouselApi.scrollTo(Math.max(0, idx), true);
+        } finally {
+          window.setTimeout(() => (applyingRemoteRef.current = false), 0);
+        }
+        return;
+      }
+
+      if (evt.kind === "completed") {
+        const steps = Array.isArray(evt.steps) ? evt.steps.map((x: any) => Number(x)).filter((n: number) => Number.isFinite(n)) : [];
+        applyingRemoteRef.current = true;
+        try {
+          setCompletedSteps(Array.from(new Set(steps)).sort((a, b) => a - b));
+        } finally {
+          window.setTimeout(() => (applyingRemoteRef.current = false), 0);
+        }
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [inSession, sessionRole, carouselApi]);
 
   const progress = useMemo(() => {
     if (!count) return 0;
@@ -205,43 +294,45 @@ const ActivityView = () => {
   return (
     <div className="min-h-[100svh] bg-transparent">
 
-      <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-
-            <div className="h-6 w-px bg-border hidden sm:block" />
-
+      {!inSession && (
+        <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
+          <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
-              <span className="hidden sm:block font-display font-bold text-base truncate">
-                <span className="text-brand-green">Sementes</span>{" "}
-                <span className="text-brand-brown">da Fala</span>
-              </span>
-            </div>
-          </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
 
-          {/* Indicador estilo “1 de N” */}
-          {count > 0 && (
-            <div className="text-sm text-muted-foreground whitespace-nowrap">
-              <span className="font-semibold text-foreground">{current}</span> de {count}
+              <div className="h-6 w-px bg-border hidden sm:block" />
+
+              <div className="flex items-center gap-3 min-w-0">
+                <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
+                <span className="hidden sm:block font-display font-bold text-base truncate">
+                  <span className="text-brand-green">Sementes</span>{" "}
+                  <span className="text-brand-brown">da Fala</span>
+                </span>
+              </div>
             </div>
-          )}
-        </div>
-      </header>
+
+            {/* Indicador estilo “1 de N” */}
+            {count > 0 && (
+              <div className="text-sm text-muted-foreground whitespace-nowrap">
+                <span className="font-semibold text-foreground">{current}</span> de {count}
+              </div>
+            )}
+          </div>
+        </header>
+      )}
 
       <main className="relative">
-        <div className="container mx-auto px-4 py-8 lg:py-10">
+        <div className={cn("container mx-auto px-4 py-8 lg:py-10", inSession && "px-0 py-0")}>
           <div className="max-w-5xl mx-auto">
             <div
               ref={fsRef}
               className="fs-target fs-allow-scroll relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col"
             >
               {/* botão pequeno dentro do conteúdo (canto superior direito) */}
-              <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" />
+              <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" mode={inSession ? "pseudo" : "auto"} />
               {/* Cabeçalho interno */}
               <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-5 border-b border-border/60">
                 {loading ? (

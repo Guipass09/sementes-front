@@ -30,13 +30,15 @@ export type FullscreenToggleProps = {
   targetRef: RefObject<HTMLElement | null>;
   /** classe do botão (posição), ex: "absolute bottom-3 right-3" */
   className?: string;
+  /** auto = tenta fullscreen nativo e cai no pseudo; pseudo = nunca usa fullscreen nativo (bom dentro da sessão ao vivo) */
+  mode?: "auto" | "pseudo";
 };
 
 /**
  * Botão pequeno para fullscreen do CONTEÚDO (elemento alvo), com fallback "pseudo fullscreen"
  * para dispositivos que não suportam fullscreen de elemento (ex: alguns iOS).
  */
-export default function FullscreenToggle({ targetRef, className }: FullscreenToggleProps): JSX.Element | null {
+export default function FullscreenToggle({ targetRef, className, mode = "auto" }: FullscreenToggleProps): JSX.Element | null {
   const [pseudoActive, setPseudoActive] = useState(false);
   const [nativeActive, setNativeActive] = useState(false);
   const active = nativeActive || pseudoActive;
@@ -75,8 +77,8 @@ export default function FullscreenToggle({ targetRef, className }: FullscreenTog
       return;
     }
 
-    // Se o browser suportar fullscreen nativo, usa.
-    if (canUseNativeFullscreen(el)) {
+    // Se o browser suportar fullscreen nativo, usa (modo auto).
+    if (mode !== "pseudo" && canUseNativeFullscreen(el)) {
       try {
         if (isNativeFullscreenActive()) {
           await exitNativeFullscreen();

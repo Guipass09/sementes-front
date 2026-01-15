@@ -126,6 +126,7 @@ export default function SessionCall() {
   const contentScreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const lastContentRef = useRef<{ path: string | null; title: string | null; kind: string | null; seed: number | null } | null>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
+  const screenTransceiverRef = useRef<RTCRtpTransceiver | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -603,6 +604,18 @@ export default function SessionCall() {
         setRemoteCamStream(inboundCam);
         setRemoteScreenStream(inboundScreen);
         let camVideoTrackId: string | null = null;
+        // Transceiver dedicado para screen share:
+        // - admin: sendonly (track entra via replaceTrack)
+        // - user: recvonly (recebe o track sem depender de renegociação)
+        try {
+          if (!screenTransceiverRef.current && role) {
+            const tr = pc.addTransceiver("video", { direction: role === "admin" ? "sendonly" : "recvonly" });
+            screenTransceiverRef.current = tr;
+            if (role === "admin") screenSenderRef.current = tr.sender;
+          }
+        } catch {
+          // ignore: fallback continuará via addTrack
+        }
 
         pc.ontrack = (ev) => {
           try {
@@ -615,17 +628,31 @@ export default function SessionCall() {
             } catch {}
           }
           if (ev.track.kind === "video") {
-            // 1º vídeo = câmera; 2º vídeo = screen share
+            // 1) Preferência: classifica pelo transceiver dedicado de tela (mais confiável).
+            if (screenTransceiverRef.current && ev.transceiver === screenTransceiverRef.current) {
+              try {
+                inboundScreen.addTrack(ev.track);
+              } catch {}
+              return;
+            }
+
+            // 2) Fallback: heurística (1º vídeo = câmera; 2º vídeo = tela)
             if (!camVideoTrackId) {
               camVideoTrackId = ev.track.id;
               try {
                 inboundCam.addTrack(ev.track);
               } catch {}
-            } else if (ev.track.id !== camVideoTrackId) {
+              return;
+            }
+            if (ev.track.id !== camVideoTrackId) {
               try {
                 inboundScreen.addTrack(ev.track);
               } catch {}
+              return;
             }
+            try {
+              inboundCam.addTrack(ev.track);
+            } catch {}
           }
         };
 
@@ -1018,18 +1045,43 @@ export default function SessionCall() {
         void el.play().catch(() => {});
       }
 
-      // Envia a tela como SEGUNDO track de vídeo (mantém a câmera no vídeo da chamada)
+      // Envia a tela usando o transceiver dedicado (preferência) => não precisa renegociar.
       const pc = pcRef.current;
       if (pc) {
-        // evita duplicar
-        if (!screenSenderRef.current) {
-          const sender = pc.addTrack(track, display as MediaStream);
-          screenSenderRef.current = sender;
+        let sender = screenSenderRef.current;
+        if (!sender) {
+          try {
+            const tr = pc.addTransceiver("video", { direction: "sendonly" });
+            screenTransceiverRef.current = tr;
+            sender = tr.sender;
+            screenSenderRef.current = sender;
+          } catch {
+            // fallback: addTrack (vai precisar renegociar)
+            const s = pc.addTrack(track, display as MediaStream);
+            screenSenderRef.current = s;
+          }
         }
-        // renegociação
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+
+        // Se temos sender, tenta replaceTrack (ideal).
+        if (sender?.replaceTrack) {
+          try {
+            await sender.replaceTrack(track);
+          } catch {
+            // fallback: renegociação (alguns browsers podem exigir)
+            try {
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+            } catch {}
+          }
+        } else {
+          // fallback: renegociação
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+          } catch {}
+        }
       }
 
       track.onended = () => {
@@ -1062,17 +1114,15 @@ export default function SessionCall() {
       el.srcObject = null;
     }
 
-    // remove track da tela + renegocia (mantém câmera)
+    // remove track da tela (mantém transceiver para futuras shares)
     const pc = pcRef.current;
     if (pc && screenSenderRef.current) {
       try {
-        pc.removeTrack(screenSenderRef.current);
-      } catch {}
-      screenSenderRef.current = null;
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+        if (screenSenderRef.current.replaceTrack) {
+          await screenSenderRef.current.replaceTrack(null as any);
+        } else {
+          pc.removeTrack(screenSenderRef.current);
+        }
       } catch {}
     }
   };

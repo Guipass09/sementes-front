@@ -39,6 +39,10 @@ const ActivityView = () => {
   const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const inSession = sessionParams.get("session") === "1";
   const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const sessionId = useMemo(() => {
+    const n = Number(sessionParams.get("session_id"));
+    return Number.isFinite(n) ? n : null;
+  }, [sessionParams]);
   const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
   const applyingRemoteRef = useRef(false);
   const autoPseudoFullscreen = inSession && sessionRole === "user";
@@ -117,7 +121,10 @@ const ActivityView = () => {
       setNotFound(false);
       setForbidden(false);
       try {
-        const a = user.role === "admin" ? await api.adminGetActivity(activityId) : await api.userGetActivity(activityId);
+        const a =
+          user.role === "admin"
+            ? await api.adminGetActivity(activityId)
+            : await api.userGetActivity(activityId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setActivity(a);
       } catch (e) {

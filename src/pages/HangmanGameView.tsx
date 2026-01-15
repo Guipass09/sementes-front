@@ -35,6 +35,10 @@ export default function HangmanGameView() {
   const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const inSession = sessionParams.get("session") === "1";
   const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const sessionId = useMemo(() => {
+    const n = Number(sessionParams.get("session_id"));
+    return Number.isFinite(n) ? n : null;
+  }, [sessionParams]);
   const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
   const applyingRemoteRef = useRef(false);
 
@@ -158,7 +162,7 @@ export default function HangmanGameView() {
         const g =
           auth.user?.role === "admin"
             ? await api.adminGetHangmanGame(gameId)
-            : await api.userGetHangmanGame(gameId);
+            : await api.userGetHangmanGame(gameId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
 

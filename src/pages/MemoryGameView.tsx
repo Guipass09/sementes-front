@@ -91,6 +91,10 @@ export default function MemoryGameView() {
   const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const inSession = sessionParams.get("session") === "1";
   const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const sessionId = useMemo(() => {
+    const n = Number(sessionParams.get("session_id"));
+    return Number.isFinite(n) ? n : null;
+  }, [sessionParams]);
   const initialSeed = (() => {
     const s = Number(sessionParams.get("session_seed"));
     return Number.isFinite(s) ? s : null;
@@ -168,7 +172,10 @@ export default function MemoryGameView() {
       setNotFound(false);
       setForbidden(false);
       try {
-        const g = user.role === "admin" ? await api.adminGetMemoryGame(gameId) : await api.userGetMemoryGame(gameId);
+        const g =
+          user.role === "admin"
+            ? await api.adminGetMemoryGame(gameId)
+            : await api.userGetMemoryGame(gameId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
       } catch (e) {

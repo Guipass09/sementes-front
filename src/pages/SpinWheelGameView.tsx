@@ -21,6 +21,10 @@ export default function SpinWheelGameView() {
   const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const inSession = sessionParams.get("session") === "1";
   const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const sessionId = useMemo(() => {
+    const n = Number(sessionParams.get("session_id"));
+    return Number.isFinite(n) ? n : null;
+  }, [sessionParams]);
   const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
   const applyingRemoteRef = useRef(false);
 
@@ -153,7 +157,7 @@ export default function SpinWheelGameView() {
         const isAdmin = auth.user?.role === "admin";
         const data = isAdmin
           ? await api.adminGetSpinWheelGame(Number(id))
-          : await api.userGetSpinWheelGame(Number(id));
+          : await api.userGetSpinWheelGame(Number(id), inSession ? { session_id: sessionId } : undefined);
         if (!cancelled) {
           setGame(data);
           setActiveOrder(Array.from({ length: data.items.length }, (_, i) => i));
@@ -162,7 +166,12 @@ export default function SpinWheelGameView() {
           setSelectedIndex(null);
         }
       } catch {
-        if (!cancelled) navigate("/paciente/jogos");
+        if (!cancelled) {
+          // Dentro da sessão ao vivo, não deve navegar para a dashboard (fica confuso no iframe).
+          // Apenas mostra "não encontrado".
+          if (inSession) setGame(null);
+          else navigate("/paciente/jogos");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

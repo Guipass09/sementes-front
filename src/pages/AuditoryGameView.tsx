@@ -66,6 +66,10 @@ export default function AuditoryGameView() {
   const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const inSession = sessionParams.get("session") === "1";
   const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
+  const sessionId = useMemo(() => {
+    const n = Number(sessionParams.get("session_id"));
+    return Number.isFinite(n) ? n : null;
+  }, [sessionParams]);
   const initialSeed = (() => {
     const s = Number(sessionParams.get("session_seed"));
     return Number.isFinite(s) ? s : 0;
@@ -150,7 +154,7 @@ export default function AuditoryGameView() {
         const g =
           auth.user?.role === "admin"
             ? await api.adminGetAuditoryGame(gameId)
-            : await api.userGetAuditoryGame(gameId);
+            : await api.userGetAuditoryGame(gameId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
 

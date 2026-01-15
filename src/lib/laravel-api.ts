@@ -829,8 +829,10 @@ export async function userListActivities(): Promise<ActivityRow[]> {
   return res.data;
 }
 
-export async function userGetActivity(id: number): Promise<ActivityRow> {
-  return await request<ActivityRow>(`/api/activities/${id}`);
+export async function userGetActivity(id: number, opts?: { session_id?: number | null }): Promise<ActivityRow> {
+  const sid = opts?.session_id;
+  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+  return await request<ActivityRow>(`/api/activities/${id}${qs}`);
 }
 
 export async function userUpdateActivityProgress(
@@ -846,8 +848,10 @@ export async function userListMemoryGames(): Promise<MemoryGameRow[]> {
   return res.data;
 }
 
-export async function userGetMemoryGame(id: number): Promise<MemoryGameRow> {
-  return await request<MemoryGameRow>(`/api/memory-games/${id}`);
+export async function userGetMemoryGame(id: number, opts?: { session_id?: number | null }): Promise<MemoryGameRow> {
+  const sid = opts?.session_id;
+  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+  return await request<MemoryGameRow>(`/api/memory-games/${id}${qs}`);
 }
 
 export async function userUpdateMemoryGameProgress(
@@ -868,12 +872,16 @@ export async function userListHangmanGames(): Promise<HangmanGameRow[]> {
   return res.data;
 }
 
-export async function userGetAuditoryGame(id: number): Promise<AuditoryGameRow> {
-  return await request<AuditoryGameRow>(`/api/auditory-games/${id}`);
+export async function userGetAuditoryGame(id: number, opts?: { session_id?: number | null }): Promise<AuditoryGameRow> {
+  const sid = opts?.session_id;
+  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+  return await request<AuditoryGameRow>(`/api/auditory-games/${id}${qs}`);
 }
 
-export async function userGetHangmanGame(id: number): Promise<HangmanGameRow> {
-  return await request<HangmanGameRow>(`/api/hangman-games/${id}`);
+export async function userGetHangmanGame(id: number, opts?: { session_id?: number | null }): Promise<HangmanGameRow> {
+  const sid = opts?.session_id;
+  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+  return await request<HangmanGameRow>(`/api/hangman-games/${id}${qs}`);
 }
 
 export async function userUpdateAuditoryGameProgress(
@@ -1055,8 +1063,10 @@ export async function userListSpinWheelGames(): Promise<SpinWheelGameRow[]> {
   return res.data;
 }
 
-export async function userGetSpinWheelGame(id: number): Promise<SpinWheelGameRow> {
-  return await request<SpinWheelGameRow>(`/api/spin-wheel-games/${id}`);
+export async function userGetSpinWheelGame(id: number, opts?: { session_id?: number | null }): Promise<SpinWheelGameRow> {
+  const sid = opts?.session_id;
+  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+  return await request<SpinWheelGameRow>(`/api/spin-wheel-games/${id}${qs}`);
 }
 
 export async function userUpdateSpinWheelGameProgress(

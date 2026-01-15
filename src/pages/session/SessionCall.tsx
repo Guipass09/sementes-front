@@ -117,6 +117,9 @@ export default function SessionCall() {
   const remoteVafRef = useRef<number | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const [screenSharing, setScreenSharing] = useState(false);
+  const [screenShareActive, setScreenShareActive] = useState(false);
+  const contentScreenVideoRef = useRef<HTMLVideoElement | null>(null);
+  const lastContentRef = useRef<{ path: string | null; title: string | null; kind: string | null; seed: number | null } | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -147,6 +150,20 @@ export default function SessionCall() {
   useEffect(() => {
     if (!authLoading && !user) navigate("/entrar");
   }, [authLoading, user, navigate]);
+
+  // Quando screen share estiver ativo:
+  // - admin mostra o próprio display stream no painel grande
+  // - user mostra o remoteStream (que passa a ser a tela do admin)
+  useEffect(() => {
+    if (!screenShareActive) return;
+    const el = contentScreenVideoRef.current;
+    if (!el) return;
+    const stream = role === "admin" ? screenStreamRef.current : remoteStream;
+    if (!stream) return;
+    el.srcObject = stream;
+    el.muted = true; // áudio continua controlado pelo vídeo remoto na lateral
+    void el.play().catch(() => {});
+  }, [screenShareActive, role, remoteStream]);
 
   // Temporizador simples da chamada (não depende do relógio do servidor)
   useEffect(() => {
@@ -193,6 +210,7 @@ export default function SessionCall() {
         );
         setContentLoading(false);
         setControlGranted(!!res.room?.control_granted_to_user);
+        setScreenShareActive(!!(res as any)?.room?.screen_share_active);
         setStatusLabel("Toque em “Iniciar câmera e microfone”");
         setMediaState("idle");
         setMediaError(null);
@@ -536,6 +554,12 @@ export default function SessionCall() {
       } catch {}
     }
 
+    if (m.kind === "screen_share") {
+      const active = !!m.payload?.active;
+      setScreenShareActive(active);
+      return;
+    }
+
     if (m.kind === "payment_link" && role === "user") {
       const url = m.payload?.url;
       const sessions = m.payload?.sessions;
@@ -712,6 +736,7 @@ export default function SessionCall() {
     setLocalSpeaking(false);
     setRemoteSpeaking(false);
     setScreenSharing(false);
+    setScreenShareActive(false);
     try {
       if (screenStreamRef.current) safeStopStream(screenStreamRef.current);
       screenStreamRef.current = null;
@@ -771,11 +796,14 @@ export default function SessionCall() {
       if (!track) throw new Error("Sem vídeo da tela");
       screenStreamRef.current = display as MediaStream;
       setScreenSharing(true);
+      setScreenShareActive(true);
+      void send("screen_share", { active: true }).catch(() => {});
 
-      // preview local mostra a tela (sem afetar o stream original)
-      const el = localVideoRef.current;
+      // mostra a tela no painel de atividades (área grande), sem mexer no vídeo da câmera do admin
+      const el = contentScreenVideoRef.current;
       if (el) {
         el.srcObject = display;
+        el.muted = true;
         void el.play().catch(() => {});
       }
 
@@ -803,16 +831,17 @@ export default function SessionCall() {
   const stopScreenShare = async () => {
     if (role !== "admin") return;
     setScreenSharing(false);
+    setScreenShareActive(false);
+    void send("screen_share", { active: false }).catch(() => {});
     try {
       if (screenStreamRef.current) safeStopStream(screenStreamRef.current);
     } catch {}
     screenStreamRef.current = null;
 
-    // volta preview local para câmera
-    const el = localVideoRef.current;
-    if (el && localStream) {
-      el.srcObject = localStream;
-      void el.play().catch(() => {});
+    // limpa vídeo do painel de atividades
+    const el = contentScreenVideoRef.current;
+    if (el) {
+      el.srcObject = null;
     }
 
     // volta track enviado para câmera
@@ -1183,7 +1212,18 @@ export default function SessionCall() {
           {/* Área principal (conteúdo da sessão) */}
           <div className="rounded-2xl border border-border bg-card p-4">
             <div ref={contentAreaRef} className="relative w-full h-[60vh] lg:h-[70vh]">
-              {iframeSrc ? (
+              {screenShareActive ? (
+                <div className="absolute inset-0 rounded-xl bg-black overflow-hidden">
+                  <video
+                    ref={contentScreenVideoRef}
+                    className="h-full w-full object-contain"
+                    autoPlay
+                    playsInline
+                    muted
+                    controls={false}
+                  />
+                </div>
+              ) : iframeSrc ? (
                 <iframe
                   key={iframeSrc}
                   src={iframeSrc}

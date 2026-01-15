@@ -349,6 +349,24 @@ export default function MemoryGameView() {
           }
           return;
         }
+        if (evt.kind === "force_close") {
+          applyingRemoteRef.current = true;
+          try {
+            if (timeoutRef.current) {
+              window.clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+            }
+            firstPickRef.current = null;
+            setFirstPick(null);
+            setLock(false);
+            setDeck((prev) => prev.map((c) => (c.matched ? c : { ...c, flipped: false })));
+          } finally {
+            window.setTimeout(() => {
+              applyingRemoteRef.current = false;
+            }, 0);
+          }
+          return;
+        }
       } finally {
         // solta no próximo tick pra não capturar efeitos síncronos
         window.setTimeout(() => {
@@ -392,6 +410,20 @@ export default function MemoryGameView() {
     }
     resetGame();
     window.setTimeout(() => setShuffleAnim(false), 520);
+  };
+
+  const forceCloseWrong = () => {
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    firstPickRef.current = null;
+    setFirstPick(null);
+    setLock(false);
+    setDeck((prev) => prev.map((c) => (c.matched ? c : { ...c, flipped: false })));
+    if (inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+      emitSessionEvent({ kind: "force_close" });
+    }
   };
 
   useEffect(() => {
@@ -770,6 +802,11 @@ export default function MemoryGameView() {
                             <RotateCcw className="h-4 w-4 mr-2" />
                             Reiniciar
                           </Button>
+                          {inSession && (
+                            <Button variant="secondary" onClick={forceCloseWrong}>
+                              Virar erradas
+                            </Button>
+                          )}
                         </>
                       )}
                       {/* Em sessão ao vivo dentro de iframe, usamos apenas pseudo fullscreen (não cobre os vídeos). */}

@@ -251,7 +251,7 @@ export default function MemoryGameView() {
       const evt = data.event;
       if (!evt || typeof evt !== "object") return;
 
-      // seed pode chegar via evento inicial do admin
+  // seed pode chegar via evento inicial do admin (compat)
       if (evt.kind === "seed" && typeof evt.seed === "number") {
         sessionSeedRef.current = evt.seed;
         setSessionSeed(evt.seed);
@@ -266,6 +266,11 @@ export default function MemoryGameView() {
           return;
         }
         if (evt.kind === "shuffle") {
+          // shuffle precisa ser determinístico; se vier seed, aplica antes
+          if (typeof (evt as any).seed === "number") {
+            sessionSeedRef.current = (evt as any).seed;
+            setSessionSeed((evt as any).seed);
+          }
           doShuffle();
           return;
         }
@@ -311,8 +316,8 @@ export default function MemoryGameView() {
       const seed = ((Date.now() % 1_000_000_000) ^ Math.floor(Math.random() * 1_000_000_000)) >>> 0;
       sessionSeedRef.current = seed;
       setSessionSeed(seed);
-      emitSessionEvent({ kind: "seed", seed });
-      emitSessionEvent({ kind: "shuffle" });
+      // manda seed junto no evento de shuffle para evitar race (shuffle chegar antes do seed)
+      emitSessionEvent({ kind: "shuffle", seed });
     }
     resetGame();
     window.setTimeout(() => setShuffleAnim(false), 520);

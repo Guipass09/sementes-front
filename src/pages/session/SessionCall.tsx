@@ -2,6 +2,7 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  Clock3,
   FileText,
   Mic,
   MicOff,
@@ -9,7 +10,6 @@ import {
   Package,
   Pencil,
   PhoneOff,
-  Timer,
   Trash2,
   Video,
   VideoOff,
@@ -67,6 +67,8 @@ export default function SessionCall() {
   const ensurePeerRef = useRef<Promise<void> | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remoteCamStream, setRemoteCamStream] = useState<MediaStream | null>(null);
+  const [remoteScreenStream, setRemoteScreenStream] = useState<MediaStream | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [remoteMuted, setRemoteMuted] = useState(true);
@@ -100,6 +102,7 @@ export default function SessionCall() {
 
   const [callStartedAtMs, setCallStartedAtMs] = useState<number | null>(null);
   const [callElapsedLabel, setCallElapsedLabel] = useState<string>("00:00");
+  const didForceReloadRef = useRef(false);
 
   const [drawOn, setDrawOn] = useState(false);
   const drawCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -120,6 +123,7 @@ export default function SessionCall() {
   const [screenShareActive, setScreenShareActive] = useState(false);
   const contentScreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const lastContentRef = useRef<{ path: string | null; title: string | null; kind: string | null; seed: number | null } | null>(null);
+  const screenSenderRef = useRef<RTCRtpSender | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -151,19 +155,42 @@ export default function SessionCall() {
     if (!authLoading && !user) navigate("/entrar");
   }, [authLoading, user, navigate]);
 
+  // Re-join robusto:
+  // - mantém o temporizador salvo
+  // - ao voltar para a chamada depois de sair, força 1 reload para limpar o estado do WebRTC
+  useEffect(() => {
+    if (!appointmentId) return;
+    const startKey = `call_started_at:${appointmentId}`;
+    const reloadKey = `call_force_reload:${appointmentId}`;
+
+    const savedStart = Number(sessionStorage.getItem(startKey) || "0");
+    if (!callStartedAtMs && Number.isFinite(savedStart) && savedStart > 0) {
+      setCallStartedAtMs(savedStart);
+    }
+
+    const pendingReload = Number(sessionStorage.getItem(reloadKey) || "0");
+    if (!didForceReloadRef.current && Number.isFinite(pendingReload) && pendingReload > 0) {
+      didForceReloadRef.current = true;
+      sessionStorage.removeItem(reloadKey);
+      const url = new URL(window.location.href);
+      url.searchParams.set("__rejoin", String(Date.now()));
+      window.location.replace(url.toString());
+    }
+  }, [appointmentId, callStartedAtMs]);
+
   // Quando screen share estiver ativo:
   // - admin mostra o próprio display stream no painel grande
-  // - user mostra o remoteStream (que passa a ser a tela do admin)
+  // - user mostra o remoteScreenStream (2º track de vídeo)
   useEffect(() => {
     if (!screenShareActive) return;
     const el = contentScreenVideoRef.current;
     if (!el) return;
-    const stream = role === "admin" ? screenStreamRef.current : remoteStream;
+    const stream = role === "admin" ? screenStreamRef.current : remoteScreenStream;
     if (!stream) return;
     el.srcObject = stream;
     el.muted = true; // áudio continua controlado pelo vídeo remoto na lateral
     void el.play().catch(() => {});
-  }, [screenShareActive, role, remoteStream]);
+  }, [screenShareActive, role, remoteScreenStream]);
 
   // Temporizador simples da chamada (não depende do relógio do servidor)
   useEffect(() => {
@@ -193,7 +220,12 @@ export default function SessionCall() {
         if (cancelled) return;
         setJoinInfo(res);
         setRole(res.role);
-        setCallStartedAtMs(Date.now());
+        // Timer: inicia uma vez e persiste entre reloads/saída-volta
+        const startKey = `call_started_at:${appointmentId}`;
+        const savedStart = Number(sessionStorage.getItem(startKey) || "0");
+        const start = Number.isFinite(savedStart) && savedStart > 0 ? savedStart : Date.now();
+        sessionStorage.setItem(startKey, String(start));
+        setCallStartedAtMs(start);
         // NÃO pular mensagens pendentes (ex.: offer enviado antes do paciente entrar).
         // A filtragem de mensagens antigas é feita via epoch.
         cursorRef.current = 0;
@@ -251,11 +283,12 @@ export default function SessionCall() {
   useEffect(() => {
     const el = remoteVideoRef.current;
     if (!el) return;
-    if (remoteStream) {
-      el.srcObject = remoteStream;
+    const s = remoteCamStream || remoteStream;
+    if (s) {
+      el.srcObject = s;
       void el.play().catch(() => {});
     }
-  }, [remoteStream]);
+  }, [remoteCamStream, remoteStream]);
 
   const send = async (kind: string, payload?: any) => {
     if (!joinInfo) return;
@@ -406,18 +439,35 @@ export default function SessionCall() {
         pcRef.current = pc;
 
         const inbound = new MediaStream();
-        setRemoteStream(inbound);
+        const inboundCam = new MediaStream();
+        const inboundScreen = new MediaStream();
+        setRemoteStream(inbound); // mantém compat (útil para áudio/VAD)
+        setRemoteCamStream(inboundCam);
+        setRemoteScreenStream(inboundScreen);
+        let camVideoTrackId: string | null = null;
 
         pc.ontrack = (ev) => {
           try {
             // preferir track direto (mais robusto)
             inbound.addTrack(ev.track);
           } catch {}
-          // Em alguns browsers, é mais confiável usar o stream completo
-          const s0 = ev.streams?.[0];
-          if (s0 && remoteVideoRef.current && remoteVideoRef.current.srcObject !== s0) {
-            remoteVideoRef.current.srcObject = s0;
-            void remoteVideoRef.current.play().catch(() => {});
+          if (ev.track.kind === "audio") {
+            try {
+              inboundCam.addTrack(ev.track);
+            } catch {}
+          }
+          if (ev.track.kind === "video") {
+            // 1º vídeo = câmera; 2º vídeo = screen share
+            if (!camVideoTrackId) {
+              camVideoTrackId = ev.track.id;
+              try {
+                inboundCam.addTrack(ev.track);
+              } catch {}
+            } else if (ev.track.id !== camVideoTrackId) {
+              try {
+                inboundScreen.addTrack(ev.track);
+              } catch {}
+            }
           }
         };
 
@@ -501,7 +551,9 @@ export default function SessionCall() {
       if (!pc) return;
       const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
-      if (pc.currentRemoteDescription) return;
+      // Renegociação (ex.: screen share) precisa aceitar novos answers.
+      // Só aplica se estamos respondendo a um offer local (estado esperado).
+      if (pc.signalingState !== "have-local-offer") return;
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       await flushPendingIce();
     }
@@ -737,6 +789,7 @@ export default function SessionCall() {
     setRemoteSpeaking(false);
     setScreenSharing(false);
     setScreenShareActive(false);
+    screenSenderRef.current = null;
     try {
       if (screenStreamRef.current) safeStopStream(screenStreamRef.current);
       screenStreamRef.current = null;
@@ -807,11 +860,18 @@ export default function SessionCall() {
         void el.play().catch(() => {});
       }
 
-      // Troca o track enviado no WebRTC (remote passa a ver a tela)
+      // Envia a tela como SEGUNDO track de vídeo (mantém a câmera no vídeo da chamada)
       const pc = pcRef.current;
       if (pc) {
-        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-        if (sender) await sender.replaceTrack(track);
+        // evita duplicar
+        if (!screenSenderRef.current) {
+          const sender = pc.addTrack(track, display as MediaStream);
+          screenSenderRef.current = sender;
+        }
+        // renegociação
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
       }
 
       track.onended = () => {
@@ -844,16 +904,26 @@ export default function SessionCall() {
       el.srcObject = null;
     }
 
-    // volta track enviado para câmera
+    // remove track da tela + renegocia (mantém câmera)
     const pc = pcRef.current;
-    const camTrack = localStream?.getVideoTracks?.()?.[0];
-    if (pc && camTrack) {
-      const sender = pc.getSenders().find((s) => s.track?.kind === "video");
-      if (sender) await sender.replaceTrack(camTrack);
+    if (pc && screenSenderRef.current) {
+      try {
+        pc.removeTrack(screenSenderRef.current);
+      } catch {}
+      screenSenderRef.current = null;
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+      } catch {}
     }
   };
 
   const hangup = async () => {
+    // Marca para forçar reload quando voltar (limpa sessão WebRTC travada), mas mantém timer via sessionStorage
+    if (appointmentId) {
+      sessionStorage.setItem(`call_force_reload:${appointmentId}`, String(Date.now()));
+    }
     cleanup();
     goBack(role);
   };
@@ -1199,19 +1269,20 @@ export default function SessionCall() {
               ) : null}
             </div>
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="inline-flex items-center gap-1">
-              <Timer className="h-4 w-4" />
-              <span>{callElapsedLabel}</span>
-            </div>
-            <div>ID {appointmentId}</div>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           {/* Área principal (conteúdo da sessão) */}
           <div className="rounded-2xl border border-border bg-card p-4">
             <div ref={contentAreaRef} className="relative w-full h-[60vh] lg:h-[70vh]">
+              {/* Temporizador estilo "pílula" (layout do print) */}
+              <div className="absolute left-3 top-3 z-40">
+                <div className="inline-flex items-center gap-2 rounded-full bg-black/55 text-white px-3 py-1.5 shadow-sm">
+                  <Clock3 className="h-4 w-4 opacity-90" />
+                  <span className="tabular-nums text-sm font-semibold">{callElapsedLabel}</span>
+                </div>
+              </div>
+
               {screenShareActive ? (
                 <div className="absolute inset-0 rounded-xl bg-black overflow-hidden">
                   <video

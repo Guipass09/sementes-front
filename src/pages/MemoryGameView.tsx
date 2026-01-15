@@ -232,6 +232,43 @@ export default function MemoryGameView() {
     }
   };
 
+  const applyResolve = (aId: string, bId: string, isMatch: boolean, delayMs = 750) => {
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setLock(true);
+    firstPickRef.current = null;
+    setFirstPick(null);
+    setDeck((prev) => {
+      const next = prev.map((c) => {
+        if (c.instanceId === aId || c.instanceId === bId) {
+          return { ...c, flipped: true };
+        }
+        return c;
+      });
+      if (isMatch) {
+        return next.map((c) =>
+          c.instanceId === aId || c.instanceId === bId ? { ...c, matched: true, flipped: true } : c,
+        );
+      }
+      return next;
+    });
+    if (isMatch) {
+      setLock(false);
+      return;
+    }
+    timeoutRef.current = window.setTimeout(() => {
+      setDeck((p) =>
+        p.map((c) =>
+          c.instanceId === aId || c.instanceId === bId ? { ...c, flipped: false } : c,
+        ),
+      );
+      setLock(false);
+      timeoutRef.current = null;
+    }, delayMs);
+  };
+
   // Sessão ao vivo: recebe seed/controle e eventos do outro lado via postMessage (vindo do SessionCall)
   useEffect(() => {
     if (!inSession) return;
@@ -301,43 +338,10 @@ export default function MemoryGameView() {
           const aId = evt.a;
           const bId = evt.b;
           const isMatch = !!evt.match;
+          const delay = Number.isFinite(Number(evt.delay)) ? Number(evt.delay) : 750;
           applyingRemoteRef.current = true;
           try {
-            if (timeoutRef.current) {
-              window.clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-            setLock(true);
-            firstPickRef.current = null;
-            setFirstPick(null);
-            setDeck((prev) => {
-              const next = prev.map((c) => {
-                if (c.instanceId === aId || c.instanceId === bId) {
-                  return { ...c, flipped: true };
-                }
-                return c;
-              });
-              if (isMatch) {
-                return next.map((c) =>
-                  c.instanceId === aId || c.instanceId === bId ? { ...c, matched: true, flipped: true } : c,
-                );
-              }
-              return next;
-            });
-            if (isMatch) {
-              setLock(false);
-              return;
-            }
-            // mismatch: fecha as duas após o mesmo delay do lado controlador
-            timeoutRef.current = window.setTimeout(() => {
-              setDeck((p) =>
-                p.map((c) =>
-                  c.instanceId === aId || c.instanceId === bId ? { ...c, flipped: false } : c,
-                ),
-              );
-              setLock(false);
-              timeoutRef.current = null;
-            }, 750);
+            applyResolve(aId, bId, isMatch, delay);
           } finally {
             window.setTimeout(() => {
               applyingRemoteRef.current = false;
@@ -526,8 +530,10 @@ export default function MemoryGameView() {
     else playWrong();
 
     if (inSession && !applyingRemoteRef.current) {
-      // Envia resolução explícita para sincronizar o flip-back/match entre os dois lados
-      emitSessionEvent({ kind: "resolve", a: firstId, b: instanceId, match: isMatch });
+      // Em sessão: resolução explícita e única para os dois lados (evita timeout local divergente)
+      emitSessionEvent({ kind: "resolve", a: firstId, b: instanceId, match: isMatch, delay: 750 });
+      applyResolve(firstId, instanceId, isMatch, 750);
+      return;
     }
 
     setDeck((prev) => {

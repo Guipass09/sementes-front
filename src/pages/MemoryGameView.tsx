@@ -308,6 +308,7 @@ export default function MemoryGameView() {
               timeoutRef.current = null;
             }
             setLock(true);
+            firstPickRef.current = null;
             setFirstPick(null);
             setDeck((prev) => {
               const next = prev.map((c) => {
@@ -482,6 +483,8 @@ export default function MemoryGameView() {
         copy[idx] = { ...c, flipped: true };
         return copy;
       });
+      // Atualiza ref imediatamente para evitar race em cliques rápidos
+      firstPickRef.current = instanceId;
       setFirstPick(instanceId);
       return;
     }
@@ -509,6 +512,7 @@ export default function MemoryGameView() {
         next[bIdx] = { ...b, flipped: true };
         return next;
       });
+      firstPickRef.current = null;
       setFirstPick(null);
       setLock(true);
       return;
@@ -545,6 +549,7 @@ export default function MemoryGameView() {
 
     if (isMatch) {
       // libera imediatamente
+      firstPickRef.current = null;
       setFirstPick(null);
       setLock(false);
       return;
@@ -557,6 +562,7 @@ export default function MemoryGameView() {
           c.instanceId === firstId || c.instanceId === instanceId ? { ...c, flipped: false } : c,
         ),
       );
+      firstPickRef.current = null;
       setFirstPick(null);
       setLock(false);
       timeoutRef.current = null;

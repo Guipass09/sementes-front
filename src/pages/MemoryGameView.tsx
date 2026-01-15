@@ -497,6 +497,23 @@ export default function MemoryGameView() {
     if (!firstCard || !secondCard) return;
     if (firstCard.matched || secondCard.matched) return;
 
+    // Se o flip veio do outro participante, NÃO resolva localmente.
+    // Apenas mostra a segunda carta e aguarda o evento "resolve" do lado controlador.
+    if (inSession && applyingRemoteRef.current) {
+      setDeck((prev) => {
+        const bIdx = prev.findIndex((c) => c.instanceId === instanceId);
+        if (bIdx < 0) return prev;
+        const b = prev[bIdx];
+        if (b.matched || b.flipped) return prev;
+        const next = [...prev];
+        next[bIdx] = { ...b, flipped: true };
+        return next;
+      });
+      setFirstPick(null);
+      setLock(true);
+      return;
+    }
+
     setMoves((m) => m + 1);
     setLock(true);
 

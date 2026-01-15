@@ -1892,8 +1892,15 @@ export default function SessionCall() {
           setPaymentIframeOpen(open);
         }}
       >
-        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 overflow-hidden">
-          <DialogHeader className="px-4 pt-4 pb-2">
+        <DialogContent
+          className={cn(
+            // Mobile/tablet: fullscreen para não “sair da chamada” e ficar usável no PWA
+            "flex flex-col w-[100vw] h-[100svh] max-w-none rounded-none p-0 overflow-hidden",
+            // Desktop: modal central tradicional
+            "sm:max-w-4xl sm:w-[95vw] sm:h-[85vh] sm:rounded-2xl",
+          )}
+        >
+          <DialogHeader className="px-4 pt-[calc(env(safe-area-inset-top)+16px)] pb-2">
             <DialogTitle>Pagamento (Mercado Pago)</DialogTitle>
           </DialogHeader>
           <div className="px-4 pb-3 text-xs text-muted-foreground">
@@ -1916,12 +1923,12 @@ export default function SessionCall() {
               Voltar para a chamada
             </Button>
           </div>
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 pb-[calc(env(safe-area-inset-bottom)+12px)]">
             {paymentUrl ? (
               <iframe
                 src={paymentUrl}
                 title="Pagamento Mercado Pago"
-                className="w-full h-[calc(85vh-160px)] bg-background"
+                className="w-full h-full bg-background"
                 // sandbox permissivo (ainda seguro por isolamento do iframe)
                 sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
                 allow="payment *; clipboard-write"

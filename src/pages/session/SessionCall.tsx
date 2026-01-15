@@ -40,6 +40,8 @@ export default function SessionCall() {
   const [role, setRole] = useState<Role | null>(null);
   const [cursor, setCursor] = useState(0);
   const cursorRef = useRef(0);
+  const [epoch, setEpoch] = useState<string | null>(null);
+  const epochRef = useRef<string | null>(null);
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
   const pendingIceRef = useRef<any[]>([]);
   const pendingOfferRef = useRef<any | null>(null);
@@ -100,9 +102,13 @@ export default function SessionCall() {
         if (cancelled) return;
         setJoinInfo(res);
         setRole(res.role);
-        const initialCursor = Number.isFinite((res as any)?.cursor) ? ((res as any).cursor as number) : 0;
-        cursorRef.current = initialCursor;
-        setCursor(initialCursor);
+        // NÃO pular mensagens pendentes (ex.: offer enviado antes do paciente entrar).
+        // A filtragem de mensagens antigas é feita via epoch.
+        cursorRef.current = 0;
+        setCursor(0);
+        const e = typeof (res as any)?.epoch === "string" ? ((res as any).epoch as string) : null;
+        epochRef.current = e;
+        setEpoch(e);
         const initialPath = res.room?.content?.path || null;
         setContentPath(typeof initialPath === "string" && initialPath ? initialPath : null);
         setContentTitle(null);
@@ -319,6 +325,14 @@ export default function SessionCall() {
   };
 
   const handleMessage = async (m: VideoPollMessage) => {
+    // Ignora mensagens antigas/de outra "versão" da chamada.
+    // (resolve "fila suja" sem perder mensagens pendentes quando o outro entra depois)
+    const myEpoch = epochRef.current;
+    const msgEpoch = (m as any)?.epoch;
+    if (myEpoch) {
+      if (typeof msgEpoch !== "string" || msgEpoch !== myEpoch) return;
+    }
+
     // WebRTC (sdp/ice) precisa esperar o peer/local tracks estarem prontos
     if (
       (m.kind === "webrtc_offer" ||

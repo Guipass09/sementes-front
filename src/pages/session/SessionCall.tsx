@@ -585,6 +585,12 @@ export default function SessionCall() {
     }
   };
 
+  useEffect(() => {
+    if (role !== "user") return;
+    if (controlGranted) return;
+    if (drawOn) setDrawOn(false);
+  }, [role, controlGranted, drawOn]);
+
   const flushPendingWebrtc = async () => {
     if (!peerReadyRef.current) return;
     const batch = pendingWebrtcRef.current.splice(0);
@@ -1259,6 +1265,7 @@ export default function SessionCall() {
 
   const onDrawPointerDown = async (e: ReactPointerEvent<HTMLCanvasElement>) => {
     if (!drawOn) return;
+    if (role === "user" && !controlGranted) return;
     const box = contentAreaRef.current;
     const canvas = drawCanvasRef.current;
     const ctx = drawCtxRef.current;
@@ -1287,6 +1294,7 @@ export default function SessionCall() {
 
   const onDrawPointerMove = async (e: ReactPointerEvent<HTMLCanvasElement>) => {
     if (!drawOn) return;
+    if (role === "user" && !controlGranted) return;
     if (!drawActiveRef.current) return;
     const box = contentAreaRef.current;
     const ctx = drawCtxRef.current;
@@ -1314,6 +1322,7 @@ export default function SessionCall() {
 
   const onDrawPointerUp = async () => {
     if (!drawOn) return;
+    if (role === "user" && !controlGranted) return;
     if (!drawActiveRef.current) return;
     drawActiveRef.current = false;
     drawLastRef.current = null;
@@ -1838,6 +1847,7 @@ export default function SessionCall() {
             onClick={() => setDrawOn((v) => !v)}
             className={cn("rounded-xl", drawOn ? "border-brand-green text-brand-green" : "")}
             title="Rabiscar"
+            disabled={role === "user" && !controlGranted}
           >
             <Pencil className="h-4 w-4" />
           </Button>

@@ -297,6 +297,53 @@ export default function MemoryGameView() {
           onCardClick(evt.instanceId);
           return;
         }
+        if (evt.kind === "resolve" && typeof evt.a === "string" && typeof evt.b === "string") {
+          const aId = evt.a;
+          const bId = evt.b;
+          const isMatch = !!evt.match;
+          applyingRemoteRef.current = true;
+          try {
+            if (timeoutRef.current) {
+              window.clearTimeout(timeoutRef.current);
+              timeoutRef.current = null;
+            }
+            setLock(true);
+            setFirstPick(null);
+            setDeck((prev) => {
+              const next = prev.map((c) => {
+                if (c.instanceId === aId || c.instanceId === bId) {
+                  return { ...c, flipped: true };
+                }
+                return c;
+              });
+              if (isMatch) {
+                return next.map((c) =>
+                  c.instanceId === aId || c.instanceId === bId ? { ...c, matched: true, flipped: true } : c,
+                );
+              }
+              return next;
+            });
+            if (isMatch) {
+              setLock(false);
+              return;
+            }
+            // mismatch: fecha as duas após o mesmo delay do lado controlador
+            timeoutRef.current = window.setTimeout(() => {
+              setDeck((p) =>
+                p.map((c) =>
+                  c.instanceId === aId || c.instanceId === bId ? { ...c, flipped: false } : c,
+                ),
+              );
+              setLock(false);
+              timeoutRef.current = null;
+            }, 750);
+          } finally {
+            window.setTimeout(() => {
+              applyingRemoteRef.current = false;
+            }, 0);
+          }
+          return;
+        }
       } finally {
         // solta no próximo tick pra não capturar efeitos síncronos
         window.setTimeout(() => {
@@ -456,6 +503,11 @@ export default function MemoryGameView() {
     const isMatch = firstCard.pairKey === secondCard.pairKey;
     if (isMatch) playCorrect();
     else playWrong();
+
+    if (inSession && !applyingRemoteRef.current) {
+      // Envia resolução explícita para sincronizar o flip-back/match entre os dois lados
+      emitSessionEvent({ kind: "resolve", a: firstId, b: instanceId, match: isMatch });
+    }
 
     setDeck((prev) => {
       const aIdx = prev.findIndex((c) => c.instanceId === firstId);

@@ -14,6 +14,8 @@ import {
   Trash2,
   Video,
   VideoOff,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
@@ -124,10 +126,13 @@ export default function SessionCall() {
   const screenStreamRef = useRef<MediaStream | null>(null);
   const [screenSharing, setScreenSharing] = useState(false);
   const [screenShareActive, setScreenShareActive] = useState(false);
+  const [screenShareWithAudio, setScreenShareWithAudio] = useState(false);
   const contentScreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const lastContentRef = useRef<{ path: string | null; title: string | null; kind: string | null; seed: number | null } | null>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
   const screenTransceiverRef = useRef<RTCRtpTransceiver | null>(null);
+  const screenAudioSenderRef = useRef<RTCRtpSender | null>(null);
+  const screenAudioTransceiverRef = useRef<RTCRtpTransceiver | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -980,6 +985,8 @@ export default function SessionCall() {
     setScreenShareActive(false);
     screenSenderRef.current = null;
     screenTransceiverRef.current = null;
+    screenAudioSenderRef.current = null;
+    screenAudioTransceiverRef.current = null;
     try {
       if (screenStreamRef.current) safeStopStream(screenStreamRef.current);
       screenStreamRef.current = null;
@@ -1033,10 +1040,15 @@ export default function SessionCall() {
       return;
     }
     try {
-      const display = await (navigator.mediaDevices as any).getDisplayMedia?.({ video: true, audio: false });
+      const display = await (navigator.mediaDevices as any).getDisplayMedia?.({
+        video: true,
+        // Quando disponível (principalmente no Chrome), permite compartilhar áudio da aba/página.
+        audio: !!screenShareWithAudio,
+      });
       if (!display) throw new Error("getDisplayMedia não disponível");
       const track: MediaStreamTrack | undefined = display.getVideoTracks?.()?.[0];
       if (!track) throw new Error("Sem vídeo da tela");
+      const audioTrack: MediaStreamTrack | undefined = display.getAudioTracks?.()?.[0];
       screenStreamRef.current = display as MediaStream;
       setScreenSharing(true);
       setScreenShareActive(true);
@@ -1087,6 +1099,47 @@ export default function SessionCall() {
             } catch {}
           }
         }
+
+        // Áudio da tela (opcional): envia sem substituir o microfone.
+        if (screenShareWithAudio) {
+          if (!audioTrack) {
+            toast({
+              title: "Áudio da tela",
+              description: "Seu navegador não forneceu áudio do compartilhamento. Tente compartilhar uma aba no Chrome e marcar 'Compartilhar áudio'.",
+            });
+          } else {
+            let aSender = screenAudioSenderRef.current;
+            if (!aSender) {
+              try {
+                // cria sender dedicado para áudio da tela
+                const trA = pc.addTransceiver("audio", { direction: "sendonly" });
+                screenAudioTransceiverRef.current = trA;
+                aSender = trA.sender;
+                screenAudioSenderRef.current = aSender;
+              } catch {
+                // fallback: addTrack (pode exigir renegociação em alguns browsers)
+                try {
+                  const sA = pc.addTrack(audioTrack, display as MediaStream);
+                  aSender = sA;
+                  screenAudioSenderRef.current = sA;
+                } catch {}
+              }
+            }
+
+            if (aSender?.replaceTrack) {
+              try {
+                await aSender.replaceTrack(audioTrack);
+              } catch {
+                // fallback: renegociação (se necessário)
+                try {
+                  const offer = await pc.createOffer();
+                  await pc.setLocalDescription(offer);
+                  await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+                } catch {}
+              }
+            }
+          }
+        }
       }
 
       track.onended = () => {
@@ -1127,6 +1180,15 @@ export default function SessionCall() {
           await screenSenderRef.current.replaceTrack(null as any);
         } else {
           pc.removeTrack(screenSenderRef.current);
+        }
+      } catch {}
+    }
+    if (pc && screenAudioSenderRef.current) {
+      try {
+        if (screenAudioSenderRef.current.replaceTrack) {
+          await screenAudioSenderRef.current.replaceTrack(null as any);
+        } else {
+          pc.removeTrack(screenAudioSenderRef.current);
         }
       } catch {}
     }
@@ -1316,6 +1378,26 @@ export default function SessionCall() {
       if (role === "admin") {
         const pc2 = pcRef.current;
         if (pc2) {
+          // Prepara sender dedicado para screen share (vídeo + áudio) ANTES do primeiro offer do admin.
+          // Assim, quando compartilhar, usamos replaceTrack sem substituir a câmera e sem renegociar.
+          if (!screenSenderRef.current) {
+            try {
+              const tr = pc2.addTransceiver("video", { direction: "sendonly" });
+              screenTransceiverRef.current = tr;
+              screenSenderRef.current = tr.sender;
+            } catch {
+              // ignore
+            }
+          }
+          if (!screenAudioSenderRef.current) {
+            try {
+              const trA = pc2.addTransceiver("audio", { direction: "sendonly" });
+              screenAudioTransceiverRef.current = trA;
+              screenAudioSenderRef.current = trA.sender;
+            } catch {
+              // ignore
+            }
+          }
           const offer = await pc2.createOffer();
           await pc2.setLocalDescription(offer);
         await send("webrtc_offer", { sdp: { type: pc2.localDescription?.type, sdp: pc2.localDescription?.sdp } });
@@ -1718,6 +1800,16 @@ export default function SessionCall() {
               >
                 <MonitorUp className="h-4 w-4 mr-2" />
                 {screenSharing ? "Parar tela" : "Compartilhar tela"}
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setScreenShareWithAudio((v) => !v)}
+                className={cn("rounded-xl", screenShareWithAudio ? "border-brand-green text-brand-green" : "")}
+                disabled={mediaState !== "ready" || screenSharing}
+                title={screenSharing ? "Pare a tela para alterar áudio" : screenShareWithAudio ? "Áudio da tela: ligado" : "Áudio da tela: desligado"}
+              >
+                {screenShareWithAudio ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
               </Button>
             </>
           )}

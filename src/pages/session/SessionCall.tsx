@@ -74,6 +74,7 @@ export default function SessionCall() {
   const [camOn, setCamOn] = useState(true);
   const [remoteMuted, setRemoteMuted] = useState(true);
   const [statusLabel, setStatusLabel] = useState<string>("Conectando...");
+  const [remotePresent, setRemotePresent] = useState(false);
   const [mediaState, setMediaState] = useState<"idle" | "requesting" | "ready" | "failed">("idle");
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [contentPath, setContentPath] = useState<string | null>(null);
@@ -604,24 +605,14 @@ export default function SessionCall() {
         setRemoteCamStream(inboundCam);
         setRemoteScreenStream(inboundScreen);
         let camVideoTrackId: string | null = null;
-        // Transceiver dedicado para screen share:
-        // - admin: sendonly (track entra via replaceTrack)
-        // - user: recvonly (recebe o track sem depender de renegociação)
-        try {
-          if (!screenTransceiverRef.current && role) {
-            const tr = pc.addTransceiver("video", { direction: role === "admin" ? "sendonly" : "recvonly" });
-            screenTransceiverRef.current = tr;
-            if (role === "admin") screenSenderRef.current = tr.sender;
-          }
-        } catch {
-          // ignore: fallback continuará via addTrack
-        }
 
         pc.ontrack = (ev) => {
           try {
             // preferir track direto (mais robusto)
             inbound.addTrack(ev.track);
           } catch {}
+          // Se chegou qualquer track remoto, consideramos "outro participante presente"
+          setRemotePresent(true);
           if (ev.track.kind === "audio") {
             try {
               inboundCam.addTrack(ev.track);
@@ -646,6 +637,10 @@ export default function SessionCall() {
             }
             if (ev.track.id !== camVideoTrackId) {
               try {
+                // garante que o stream de tela tenha só o track atual
+                for (const t of inboundScreen.getVideoTracks()) {
+                  try { inboundScreen.removeTrack(t); } catch {}
+                }
                 inboundScreen.addTrack(ev.track);
               } catch {}
               return;
@@ -671,6 +666,13 @@ export default function SessionCall() {
               ? "Falha na conexão"
               : "Conectando..."
           );
+          if (
+            pc.connectionState === "disconnected" ||
+            pc.connectionState === "failed" ||
+            pc.connectionState === "closed"
+          ) {
+            setRemotePresent(false);
+          }
         };
 
         pc.oniceconnectionstatechange = () => {
@@ -762,6 +764,7 @@ export default function SessionCall() {
     // A sessão só "fecha" quando o admin marcar o horário como realizada (status completed).
     if (m.kind === "call_end") {
       setStatusLabel("O outro participante saiu. Você pode entrar novamente quando quiser.");
+      setRemotePresent(false);
       return;
     }
 
@@ -963,6 +966,7 @@ export default function SessionCall() {
     pendingIceRef.current = [];
     pendingOfferRef.current = null;
     setRemoteMuted(true);
+    setRemotePresent(false);
     safeStopStream(localStream);
     safeStopStream(remoteStream);
     setLocalStream(null);
@@ -975,6 +979,7 @@ export default function SessionCall() {
     setScreenSharing(false);
     setScreenShareActive(false);
     screenSenderRef.current = null;
+    screenTransceiverRef.current = null;
     try {
       if (screenStreamRef.current) safeStopStream(screenStreamRef.current);
       screenStreamRef.current = null;
@@ -1045,10 +1050,14 @@ export default function SessionCall() {
         void el.play().catch(() => {});
       }
 
-      // Envia a tela usando o transceiver dedicado (preferência) => não precisa renegociar.
+      // Envia a tela usando sender dedicado (preferência) => não precisa renegociar.
+      // Importante: este sender NÃO pode ser o mesmo da câmera (senão "some" o vídeo ao vivo).
       const pc = pcRef.current;
       if (pc) {
         let sender = screenSenderRef.current;
+
+        // Se ainda não existe sender de tela, cria AGORA (após a câmera já ter sido adicionada),
+        // para evitar que addTrack reutilize e depois o replaceTrack substitua a câmera.
         if (!sender) {
           try {
             const tr = pc.addTransceiver("video", { direction: "sendonly" });
@@ -1056,9 +1065,12 @@ export default function SessionCall() {
             sender = tr.sender;
             screenSenderRef.current = sender;
           } catch {
-            // fallback: addTrack (vai precisar renegociar)
-            const s = pc.addTrack(track, display as MediaStream);
-            screenSenderRef.current = s;
+            try {
+              // fallback extremo: addTrack (pode exigir renegociação em alguns browsers)
+              const s = pc.addTrack(track, display as MediaStream);
+              sender = s;
+              screenSenderRef.current = s;
+            } catch {}
           }
         }
 
@@ -1074,13 +1086,6 @@ export default function SessionCall() {
               await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
             } catch {}
           }
-        } else {
-          // fallback: renegociação
-          try {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
-          } catch {}
         }
       }
 
@@ -1278,6 +1283,21 @@ export default function SessionCall() {
             } catch (e) {
               console.warn("[WebRTC] addTrack falhou (ignorado)", e);
             }
+          }
+        }
+      }
+
+      // Prepara um sender dedicado para screen share ANTES do primeiro offer do admin.
+      // (Assim, quando o admin compartilhar, usamos replaceTrack sem renegociação e sem substituir a câmera.)
+      if (role === "admin") {
+        const pc2 = pcRef.current;
+        if (pc2 && !screenSenderRef.current) {
+          try {
+            const tr = pc2.addTransceiver("video", { direction: "sendonly" });
+            screenTransceiverRef.current = tr;
+            screenSenderRef.current = tr.sender;
+          } catch {
+            // ignore
           }
         }
       }
@@ -1618,6 +1638,19 @@ export default function SessionCall() {
                     muted={remoteMuted}
                     className="h-full w-full object-cover"
                   />
+                  {!remotePresent && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white">
+                      <img
+                        src={logoImage}
+                        alt="Sementes da Fala"
+                        className="h-14 w-14 rounded-2xl object-cover mb-3 opacity-95"
+                        draggable={false}
+                      />
+                      <div className="text-sm font-semibold">
+                        {role === "admin" ? "Aguardando paciente" : "Aguardando profissional"}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

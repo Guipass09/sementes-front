@@ -127,6 +127,11 @@ export default function AuditoryGameView() {
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const pointerMovedRef = useRef(false);
 
+  const clearFeedbackSoon = useCallback(() => {
+    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = window.setTimeout(() => setFeedback(null), 900);
+  }, []);
+
   const gameId = useMemo(() => {
     const n = Number(id);
     return Number.isFinite(n) ? n : null;
@@ -417,11 +422,6 @@ export default function AuditoryGameView() {
       persistTimerRef.current = null;
     };
   }, [items, allDone, game?.id, auth.user?.id, auth.user?.role]);
-
-  const clearFeedbackSoon = useCallback(() => {
-    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
-    feedbackTimerRef.current = window.setTimeout(() => setFeedback(null), 900);
-  }, []);
 
   const onDragStart = useCallback((itemId: number) => {
     if (inSession && sessionRole === "user" && !controlAllowedRef.current) return;

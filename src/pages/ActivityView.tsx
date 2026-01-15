@@ -46,6 +46,7 @@ const ActivityView = () => {
   const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
   const applyingRemoteRef = useRef(false);
   const autoPseudoFullscreen = inSession && sessionRole === "user";
+  const compactForUser = inSession && sessionRole === "user";
 
   const emitSessionEvent = (event: any) => {
     if (!inSession) return;
@@ -357,14 +358,19 @@ const ActivityView = () => {
           <div className="max-w-5xl mx-auto">
             <div
               ref={fsRef}
-              className="fs-target fs-allow-scroll relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col"
+              className={cn(
+                "fs-target relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col",
+                // No modo sessão do paciente, precisa caber sem scroll dentro do iframe.
+                compactForUser ? "fs-no-scroll" : "fs-allow-scroll",
+              )}
             >
               {/* fora da sessão, permite fullscreen manual; na sessão o usuário já entra em pseudo fullscreen automaticamente */}
               {!inSession && (
                 <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" mode="auto" />
               )}
               {/* Cabeçalho interno */}
-              <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-5 border-b border-border/60">
+              {!compactForUser ? (
+                <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-5 border-b border-border/60">
                 {loading ? (
                   <div className="space-y-3">
                     <Skeleton className="h-7 w-2/3" />
@@ -475,10 +481,11 @@ const ActivityView = () => {
                     <p className="text-muted-foreground">Tente novamente em alguns instantes.</p>
                   </div>
                 )}
-              </div>
+                </div>
+              ) : null}
 
               {/* Conteúdo/Carrossel */}
-              <div className="px-4 sm:px-6 lg:px-10 py-6 sm:py-8">
+              <div className={cn("px-4 sm:px-6 lg:px-10 py-6 sm:py-8", compactForUser && "px-0 py-0 flex-1 min-h-0")}>
                 {loading ? (
                   <div className="rounded-2xl border border-border bg-background/40 p-4 sm:p-6">
                     <Skeleton className="h-[48vh] sm:h-[56vh] w-full rounded-xl" />
@@ -488,23 +495,33 @@ const ActivityView = () => {
                     </div>
                   </div>
                 ) : activity && orderedMedia.length > 0 ? (
-                  <div className="relative">
+                  <div className={cn("relative", compactForUser && "h-full")}>
                     <Carousel
                       setApi={setCarouselApi}
                       opts={{
                         align: "start",
                         loop: false,
                       }}
-                      className="w-full"
+                      className={cn("w-full", compactForUser && "h-full")}
                     >
-                      <CarouselContent className="-ml-4">
+                      <CarouselContent className={cn("-ml-4", compactForUser && "ml-0 h-full")}>
                         {orderedMedia.map((item) => (
-                          <CarouselItem key={item.id} className="pl-4">
+                          <CarouselItem key={item.id} className={cn("pl-4", compactForUser && "pl-0 h-full")}>
                             {/* Card “mais chamativo” */}
-                            <div className="rounded-3xl border border-border bg-gradient-to-b from-background to-muted/30 shadow-sm overflow-hidden">
+                            <div
+                              className={cn(
+                                "rounded-3xl border border-border bg-gradient-to-b from-background to-muted/30 shadow-sm overflow-hidden",
+                                compactForUser && "rounded-none border-0 h-full",
+                              )}
+                            >
                               <div className="relative">
                                 {/* Área principal (mídia) */}
-                                <div className="h-[46vh] sm:h-[54vh] lg:h-[58vh] bg-muted/30 flex items-center justify-center">
+                                <div
+                                  className={cn(
+                                    "bg-muted/30 flex items-center justify-center",
+                                    compactForUser ? "h-[78svh]" : "h-[46vh] sm:h-[54vh] lg:h-[58vh]",
+                                  )}
+                                >
                                   {item.media_type === "image" ? (
                                     <img
                                       src={normalizeMediaUrl(item.url)}
@@ -569,7 +586,8 @@ const ActivityView = () => {
                               </div>
 
                               {/* Texto (caption) */}
-                              <div className="px-5 sm:px-7 py-5">
+                              {!compactForUser ? (
+                                <div className="px-5 sm:px-7 py-5">
                                 <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
                                   Instrução
                                 </div>
@@ -578,7 +596,8 @@ const ActivityView = () => {
                                     ? item.caption
                                     : "Siga as orientações do(a) profissional e observe com atenção."}
                                 </div>
-                              </div>
+                                </div>
+                              ) : null}
                             </div>
                           </CarouselItem>
                         ))}
@@ -596,7 +615,8 @@ const ActivityView = () => {
                     </Carousel>
 
                     {/* Navegação grande (mais acessível/chamativa) */}
-                    <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    {!compactForUser ? (
+                      <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                       <Button
                         variant="secondary"
                         size="lg"
@@ -622,9 +642,10 @@ const ActivityView = () => {
                         <ChevronRight className="h-5 w-5 ml-2" />
                       </Button>
                     </div>
+                    ) : null}
 
                     {/* Mensagem final */}
-                    {count > 0 && current === count && (
+                    {!compactForUser && count > 0 && current === count ? (
                       <div className="mt-4 rounded-2xl border border-border bg-brand-green/10 px-4 py-3 text-sm">
                         <div className="font-semibold text-foreground inline-flex items-center gap-2">
                           <Trophy className="h-4 w-4 text-brand-green" />
@@ -645,7 +666,7 @@ const ActivityView = () => {
                           </div>
                         )}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 ) : activity ? (
                   <div className="rounded-2xl border border-border bg-background/40 p-8 text-center">

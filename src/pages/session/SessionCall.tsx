@@ -97,6 +97,7 @@ export default function SessionCall() {
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [paymentSessions, setPaymentSessions] = useState<number | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentIframeOpen, setPaymentIframeOpen] = useState(false);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [fixedUser, setFixedUser] = useState<null | { id: number; name: string }>(null);
@@ -498,6 +499,29 @@ export default function SessionCall() {
   const sendPayment = async (sessions: number, url: string) => {
     if (role !== "admin") return;
     await send("payment_link", { sessions, url });
+  };
+
+  const copyPaymentLink = async () => {
+    if (!paymentUrl) return;
+    try {
+      await navigator.clipboard.writeText(paymentUrl);
+      toast({ title: "Pagamento", description: "Link copiado." });
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = paymentUrl;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        toast({ title: "Pagamento", description: "Link copiado." });
+      } catch {
+        toast({ title: "Pagamento", description: "Não foi possível copiar o link.", variant: "destructive" });
+      }
+    }
   };
 
   // Carrega dados mínimos do paciente para pré-preencher relatório (admin)
@@ -1831,9 +1855,15 @@ export default function SessionCall() {
           <div className="text-sm text-muted-foreground">
             {paymentSessions ? `Link de pagamento para ${paymentSessions} sessões.` : "Link de pagamento enviado pela fonoaudióloga."}
           </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            Para **não interromper a chamada**, abra o pagamento **aqui dentro** ou copie o link para usar em outro dispositivo.
+          </div>
           <div className="mt-3 flex items-center justify-end gap-2">
             <Button variant="outline" className="rounded-xl" onClick={() => setPaymentDialogOpen(false)}>
               Agora não
+            </Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => void copyPaymentLink()}>
+              Copiar link
             </Button>
             <Button
               className="rounded-xl"
@@ -1843,13 +1873,64 @@ export default function SessionCall() {
                   if (paymentSessions) {
                     void api.userRegisterPurchaseIntent({ package_sessions: paymentSessions }).catch(() => {});
                   }
-                  window.open(paymentUrl, "_blank", "noopener,noreferrer");
+                  // Abre dentro da própria chamada (não derruba WebRTC)
+                  setPaymentIframeOpen(true);
                 }
                 setPaymentDialogOpen(false);
               }}
             >
-              Abrir Mercado Pago
+              Abrir aqui (Mercado Pago)
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pagamento embedado (user): mantém chamada ativa */}
+      <Dialog
+        open={paymentIframeOpen}
+        onOpenChange={(open) => {
+          setPaymentIframeOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-4xl w-[95vw] h-[85vh] p-0 overflow-hidden">
+          <DialogHeader className="px-4 pt-4 pb-2">
+            <DialogTitle>Pagamento (Mercado Pago)</DialogTitle>
+          </DialogHeader>
+          <div className="px-4 pb-3 text-xs text-muted-foreground">
+            Se não carregar (bloqueio do navegador), use <strong>Copiar link</strong> e abra em outro dispositivo/aba.
+          </div>
+          <div className="px-4 pb-3 flex flex-wrap gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => void copyPaymentLink()}>
+              Copiar link
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => {
+                if (paymentUrl) window.open(paymentUrl, "_blank", "noopener,noreferrer");
+              }}
+            >
+              Abrir em nova aba
+            </Button>
+            <Button className="rounded-xl ml-auto" onClick={() => setPaymentIframeOpen(false)}>
+              Voltar para a chamada
+            </Button>
+          </div>
+          <div className="flex-1 min-h-0">
+            {paymentUrl ? (
+              <iframe
+                src={paymentUrl}
+                title="Pagamento Mercado Pago"
+                className="w-full h-[calc(85vh-160px)] bg-background"
+                // sandbox permissivo (ainda seguro por isolamento do iframe)
+                sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
+                allow="payment *; clipboard-write"
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                Link indisponível.
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

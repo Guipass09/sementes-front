@@ -13,7 +13,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { emitUserProgressChanged } from "@/lib/user-events";
 import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 import FullscreenToggle from "@/components/FullscreenToggle";
-import { playCorrect, playWrong } from "@/lib/sfx";
+import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 
 type DeckCard = {
   instanceId: string;
@@ -118,6 +118,7 @@ export default function MemoryGameView() {
   const timeoutRef = useRef<number | null>(null);
   const deckRef = useRef<DeckCard[]>([]);
   const firstPickRef = useRef<string | null>(null);
+  const lockRef = useRef<boolean>(false);
   const persistTimerRef = useRef<number | null>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
   const autoPseudoFullscreen = inSession && sessionRole === "user";
@@ -240,6 +241,11 @@ export default function MemoryGameView() {
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
 
+      if (data.type === "SESSION_UNLOCK_SFX") {
+        void unlockSfx();
+        return;
+      }
+
       // controle (sem UI): apenas habilita/desabilita clique local
       if (data.type === "SESSION_CONTROL") {
         const granted = !!data.granted;
@@ -275,6 +281,19 @@ export default function MemoryGameView() {
           return;
         }
         if (evt.kind === "flip" && typeof evt.instanceId === "string") {
+          // Se este lado ficou "travado" por um timeout antigo, não deixe isso ignorar o flip remoto.
+          if (timeoutRef.current) {
+            try {
+              window.clearTimeout(timeoutRef.current);
+            } catch {}
+            timeoutRef.current = null;
+          }
+          if (lockRef.current) {
+            lockRef.current = false;
+            firstPickRef.current = null;
+            setLock(false);
+            setFirstPick(null);
+          }
           onCardClick(evt.instanceId);
           return;
         }
@@ -391,8 +410,14 @@ export default function MemoryGameView() {
     firstPickRef.current = firstPick;
   }, [firstPick]);
 
+  useEffect(() => {
+    lockRef.current = lock;
+  }, [lock]);
+
   const onCardClick = (instanceId: string) => {
-    if (lock) return;
+    // Não deixar o "lock" local bloquear eventos vindos do outro lado.
+    // (isso é uma causa comum de dessync: flip remoto chega enquanto este lado ainda acha que está travado)
+    if (lockRef.current && !applyingRemoteRef.current) return;
     if (inSession && !applyingRemoteRef.current) {
       // user só pode emitir clique quando controle estiver liberado; admin sempre pode
       if (sessionRole === "user" && !controlAllowedRef.current) return;

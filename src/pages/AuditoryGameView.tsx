@@ -13,7 +13,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { emitUserProgressChanged } from "@/lib/user-events";
 import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 import FullscreenToggle from "@/components/FullscreenToggle";
-import { playCorrect, playWrong } from "@/lib/sfx";
+import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 
 type ItemState = {
   id: number;
@@ -245,6 +245,11 @@ export default function AuditoryGameView() {
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
 
+      if (data.type === "SESSION_UNLOCK_SFX") {
+        void unlockSfx();
+        return;
+      }
+
       if (data.type === "SESSION_CONTROL") {
         const granted = !!data.granted;
         controlAllowedRef.current = sessionRole === "admin" ? true : granted;
@@ -312,7 +317,48 @@ export default function AuditoryGameView() {
               status: doneIds.includes(x.id) ? ("done" as const) : ("idle" as const),
             }));
           });
-          setFeedback(null);
+          setActiveDragId(null);
+          setPointerDrag(null);
+        } finally {
+          window.setTimeout(() => (applyingRemoteRef.current = false), 0);
+        }
+      }
+
+      if (evt.kind === "drop") {
+        const itemId = Number(evt.itemId);
+        const result = String(evt.result || "");
+        const expected = (String(evt.expected || "") as any) === "left" ? "left" : "right";
+        const nx = Number(evt.x);
+        const ny = Number(evt.y);
+        if (!Number.isFinite(itemId) || itemId <= 0) return;
+        if (result !== "correct" && result !== "wrong") return;
+
+        const rect = boardRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        const localX = clamp(Number.isFinite(nx) ? nx * rect.width : rect.width / 2, 0, rect.width);
+        const localY = clamp(Number.isFinite(ny) ? ny * rect.height : rect.height / 2, 0, rect.height);
+        const centerX = rect.width / 2;
+        const deadZone = rect.width * 0.08;
+
+        applyingRemoteRef.current = true;
+        try {
+          if (result === "correct") {
+            playCorrect();
+            const rightMinX = centerX + deadZone + rect.width * 0.06;
+            const clampedX =
+              expected === "right"
+                ? Math.max(localX, rightMinX)
+                : Math.min(localX, centerX - deadZone - rect.width * 0.06);
+            const clampedY = clamp(localY, rect.height * 0.12, rect.height * 0.9);
+            setFeedback({ kind: "correct", x: clampedX, y: clampedY });
+            clearFeedbackSoon();
+            setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, status: "done" } : it)));
+          } else {
+            playWrong();
+            setFeedback({ kind: "wrong", x: localX, y: localY });
+            clearFeedbackSoon();
+          }
           setActiveDragId(null);
           setPointerDrag(null);
         } finally {
@@ -323,7 +369,7 @@ export default function AuditoryGameView() {
 
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [inSession, sessionRole, game?.id]);
+  }, [inSession, sessionRole, game?.id, clearFeedbackSoon]);
 
   useEffect(() => {
     if (!allDone) return;
@@ -420,15 +466,35 @@ export default function AuditoryGameView() {
         setFeedback({ kind: "correct", x: clampedX, y: clampedY });
         clearFeedbackSoon();
         setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, status: "done" } : it)));
+        emitSessionEvent({
+          game: "auditory",
+          kind: "drop",
+          itemId,
+          result: "correct",
+          expected,
+          side,
+          x: rect.width > 0 ? localX / rect.width : 0.5,
+          y: rect.height > 0 ? localY / rect.height : 0.5,
+        });
       } else if (isWrong) {
         playWrong();
         setFeedback({ kind: "wrong", x: localX, y: localY });
         clearFeedbackSoon();
+        emitSessionEvent({
+          game: "auditory",
+          kind: "drop",
+          itemId,
+          result: "wrong",
+          expected,
+          side,
+          x: rect.width > 0 ? localX / rect.width : 0.5,
+          y: rect.height > 0 ? localY / rect.height : 0.5,
+        });
       }
 
       setActiveDragId(null);
     },
-    [clearFeedbackSoon, items, inSession, sessionRole],
+    [clearFeedbackSoon, items, inSession, sessionRole, emitSessionEvent],
   );
 
   const endPointerDrag = useCallback(

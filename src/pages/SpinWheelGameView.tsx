@@ -50,6 +50,7 @@ export default function SpinWheelGameView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
   const autoPseudoFullscreen = inSession && sessionRole === "user";
+  const compactForUser = inSession && sessionRole === "user";
 
   // Sessão ao vivo (usuário): abre automaticamente em pseudo fullscreen
   useEffect(() => {
@@ -68,6 +69,15 @@ export default function SpinWheelGameView() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const spinTimeoutRef = useRef<number | null>(null);
 
+  const ensureAudio = useCallback(async () => {
+    try {
+      if (!audioContextRef.current) audioContextRef.current = new AudioContext();
+      if (audioContextRef.current.state === "suspended") await audioContextRef.current.resume();
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // Sessão ao vivo: recebe controle + eventos do outro lado
   useEffect(() => {
     if (!inSession) return;
@@ -75,6 +85,11 @@ export default function SpinWheelGameView() {
       if (ev.origin !== window.location.origin) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
+
+      if (data.type === "SESSION_UNLOCK_SFX") {
+        void ensureAudio();
+        return;
+      }
 
       if (data.type === "SESSION_CONTROL") {
         const granted = !!data.granted;
@@ -118,11 +133,25 @@ export default function SpinWheelGameView() {
           window.setTimeout(() => (applyingRemoteRef.current = false), 0);
         }
 
+        // Sons também no usuário durante transmissão (espelha o admin).
+        // OBS: pode depender de o navegador liberar áudio para este iframe.
+        try {
+          let tickCount = 0;
+          const maxTicks = 40;
+          const tickInterval = window.setInterval(() => {
+            tickCount++;
+            playTickSound();
+            if (tickCount >= maxTicks) window.clearInterval(tickInterval);
+          }, 80 + tickCount * 8);
+          window.setTimeout(() => window.clearInterval(tickInterval), 6500);
+        } catch {}
+
         if (spinTimeoutRef.current) window.clearTimeout(spinTimeoutRef.current);
         spinTimeoutRef.current = window.setTimeout(() => {
           setSpinning(false);
           setSelectedIndex(finalIndex);
           setActiveOrder((prev) => prev.filter((x) => x !== finalIndex));
+          playWinSound();
         }, 6500);
       }
     };
@@ -199,6 +228,7 @@ export default function SpinWheelGameView() {
         audioContextRef.current = new AudioContext();
       }
       const ctx = audioContextRef.current;
+      if (ctx.state === "suspended") void ctx.resume().catch(() => {});
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       oscillator.connect(gainNode);
@@ -219,6 +249,7 @@ export default function SpinWheelGameView() {
         audioContextRef.current = new AudioContext();
       }
       const ctx = audioContextRef.current;
+      if (ctx.state === "suspended") void ctx.resume().catch(() => {});
       [523, 659, 784, 1047].forEach((freq, i) => {
         const oscillator = ctx.createOscillator();
         const gainNode = ctx.createGain();
@@ -376,7 +407,7 @@ export default function SpinWheelGameView() {
     "#FFB74D", "#4DB6AC", "#FFF176", "#BA68C8", "#4FC3F7", "#AED581",
   ];
 
-  const wheelSize = "min(78vw, 560px)";
+  const wheelSize = compactForUser ? "min(68svh, 78vw, 520px)" : "min(78vw, 560px)";
 
   return (
     <div ref={containerRef} className="min-h-[100svh] bg-transparent">
@@ -414,12 +445,17 @@ export default function SpinWheelGameView() {
           <div className="max-w-5xl mx-auto">
             <div
               ref={fsRef}
-              className="fs-target fs-allow-scroll relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col"
+              className={cn(
+                "fs-target relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col",
+                // No modo sessão, queremos evitar scroll dentro do iframe.
+                compactForUser ? "fs-no-scroll" : "fs-allow-scroll",
+              )}
             >
               <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" mode={inSession ? "pseudo" : "auto"} />
 
               {/* Cabeçalho interno (padrão das atividades) */}
-              <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-6 border-b border-border/60">
+              {!compactForUser ? (
+                <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-6 border-b border-border/60">
                 <div className="flex flex-col gap-3">
                   <div className="min-w-0">
                     <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">{game.title}</h1>
@@ -442,10 +478,11 @@ export default function SpinWheelGameView() {
                     ) : null}
                   </div>
                 </div>
-              </div>
+                </div>
+              ) : null}
 
               {/* Conteúdo (com fundo da atividade) */}
-              <div className="relative px-4 sm:px-6 lg:px-10 py-6 sm:py-8">
+              <div className={cn("relative px-4 sm:px-6 lg:px-10 py-6 sm:py-8", compactForUser && "px-2 sm:px-3 lg:px-3 py-3 sm:py-4")}>
                 <div className="relative rounded-3xl border border-border bg-muted/20 overflow-hidden">
                   {/* Fundo específico do jogo (não interfere no fundo global do gameplay) */}
                   <div
@@ -463,7 +500,7 @@ export default function SpinWheelGameView() {
                   />
 
                   {/* Área da roleta centralizada */}
-                  <div className="relative z-10 flex flex-col items-center justify-center py-8 sm:py-10">
+                  <div className={cn("relative z-10 flex flex-col items-center justify-center py-8 sm:py-10", compactForUser && "py-4 sm:py-5")}>
                     <div className="relative flex items-center justify-center">
                       {/* Roleta principal */}
                       <div
@@ -686,7 +723,7 @@ export default function SpinWheelGameView() {
                     </div>
 
                     {/* Resultado + CTA */}
-                    <div className="mt-6 sm:mt-8 w-full flex flex-col items-center gap-4">
+                    <div className={cn("mt-6 sm:mt-8 w-full flex flex-col items-center gap-4", compactForUser && "mt-3 sm:mt-4")}>
                       {selectedIndex !== null && game.items[selectedIndex] ? (
                         <div className="w-full max-w-xl">
                           <div className="bg-background/90 backdrop-blur-sm rounded-2xl border border-border shadow-sm px-5 py-4">
@@ -741,18 +778,22 @@ export default function SpinWheelGameView() {
                   </div>
                 </div>
 
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  {finished
-                    ? "Todas as opções já foram sorteadas. Clique em Reiniciar para começar de novo."
-                    : "Dica: fale uma frase/música usando a palavra sorteada."}
-                </div>
+                {!compactForUser ? (
+                  <div className="mt-4 text-center text-sm text-muted-foreground">
+                    {finished
+                      ? "Todas as opções já foram sorteadas. Clique em Reiniciar para começar de novo."
+                      : "Dica: fale uma frase/música usando a palavra sorteada."}
+                  </div>
+                ) : null}
               </div>
 
             {/* Rodapé interno (padrão) */}
-            <div className="px-6 sm:px-10 py-4 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
-              <span>Sementes da Fala • Conteúdo para acompanhamento terapêutico</span>
-              <span>Confidencial</span>
-            </div>
+            {!compactForUser ? (
+              <div className="px-6 sm:px-10 py-4 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
+                <span>Sementes da Fala • Conteúdo para acompanhamento terapêutico</span>
+                <span>Confidencial</span>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

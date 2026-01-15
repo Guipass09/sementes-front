@@ -13,7 +13,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { emitUserProgressChanged } from "@/lib/user-events";
 import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 import FullscreenToggle from "@/components/FullscreenToggle";
-import { playCorrect, playWrong } from "@/lib/sfx";
+import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 
 const LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i));
 
@@ -99,6 +99,11 @@ export default function HangmanGameView() {
       if (ev.origin !== window.location.origin) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
+
+      if (data.type === "SESSION_UNLOCK_SFX") {
+        void unlockSfx();
+        return;
+      }
 
       if (data.type === "SESSION_CONTROL") {
         const granted = !!data.granted;

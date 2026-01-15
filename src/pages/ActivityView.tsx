@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { emitUserProgressChanged } from "@/lib/user-events";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
-import { playCorrect, playWrong } from "@/lib/sfx";
+import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 import FullscreenToggle from "@/components/FullscreenToggle";
 
 const ActivityView = () => {
@@ -244,6 +244,11 @@ const ActivityView = () => {
       if (ev.origin !== window.location.origin) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
+
+      if (data.type === "SESSION_UNLOCK_SFX") {
+        void unlockSfx();
+        return;
+      }
 
       if (data.type === "SESSION_CONTROL") {
         const granted = !!data.granted;

@@ -1643,11 +1643,22 @@ export default function SessionCall() {
                       <img
                         src={logoImage}
                         alt="Sementes da Fala"
-                        className="h-14 w-14 rounded-2xl object-cover mb-3 opacity-95"
+                        className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-cover mb-3 opacity-95 animate-pulse"
                         draggable={false}
                       />
-                      <div className="text-sm font-semibold">
+                      <div className="text-base sm:text-lg font-semibold tracking-wide">
                         {role === "admin" ? "Aguardando paciente" : "Aguardando profissional"}
+                        <span className="inline-flex ml-1 align-baseline">
+                          <span className="animate-pulse" style={{ animationDelay: "0ms" }}>
+                            .
+                          </span>
+                          <span className="animate-pulse" style={{ animationDelay: "250ms" }}>
+                            .
+                          </span>
+                          <span className="animate-pulse" style={{ animationDelay: "500ms" }}>
+                            .
+                          </span>
+                        </span>
                       </div>
                     </div>
                   )}

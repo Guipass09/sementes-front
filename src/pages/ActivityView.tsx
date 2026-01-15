@@ -41,6 +41,7 @@ const ActivityView = () => {
   const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as "admin" | "user" | "";
   const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
   const applyingRemoteRef = useRef(false);
+  const autoPseudoFullscreen = inSession && sessionRole === "user";
 
   const emitSessionEvent = (event: any) => {
     if (!inSession) return;
@@ -73,6 +74,21 @@ const ActivityView = () => {
   const [finishCongratsOpen, setFinishCongratsOpen] = useState(false);
   const [pendingStep, setPendingStep] = useState<null | { stepIdx: number; isLast: boolean }>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
+
+  // Sessão ao vivo (usuário): abre automaticamente em pseudo fullscreen
+  useEffect(() => {
+    if (!autoPseudoFullscreen) return;
+    const el = fsRef.current;
+    if (!el) return;
+    el.classList.add("is-pseudo-fullscreen");
+    document.documentElement.classList.add("fs-lock");
+    document.documentElement.classList.add("fs-mode");
+    return () => {
+      el.classList.remove("is-pseudo-fullscreen");
+      document.documentElement.classList.remove("fs-lock");
+      document.documentElement.classList.remove("fs-mode");
+    };
+  }, [autoPseudoFullscreen]);
 
   const activityId = useMemo(() => {
     const n = Number(id);
@@ -331,8 +347,10 @@ const ActivityView = () => {
               ref={fsRef}
               className="fs-target fs-allow-scroll relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col"
             >
-              {/* botão pequeno dentro do conteúdo (canto superior direito) */}
-              <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" mode={inSession ? "pseudo" : "auto"} />
+              {/* fora da sessão, permite fullscreen manual; na sessão o usuário já entra em pseudo fullscreen automaticamente */}
+              {!inSession && (
+                <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" mode="auto" />
+              )}
               {/* Cabeçalho interno */}
               <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-5 border-b border-border/60">
                 {loading ? (

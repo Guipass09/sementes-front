@@ -45,6 +45,22 @@ export default function SpinWheelGameView() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
+  const autoPseudoFullscreen = inSession && sessionRole === "user";
+
+  // Sessão ao vivo (usuário): abre automaticamente em pseudo fullscreen
+  useEffect(() => {
+    if (!autoPseudoFullscreen) return;
+    const el = fsRef.current;
+    if (!el) return;
+    el.classList.add("is-pseudo-fullscreen");
+    document.documentElement.classList.add("fs-lock");
+    document.documentElement.classList.add("fs-mode");
+    return () => {
+      el.classList.remove("is-pseudo-fullscreen");
+      document.documentElement.classList.remove("fs-lock");
+      document.documentElement.classList.remove("fs-mode");
+    };
+  }, [autoPseudoFullscreen]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const spinTimeoutRef = useRef<number | null>(null);
 

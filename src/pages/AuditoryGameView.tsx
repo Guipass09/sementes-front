@@ -101,6 +101,22 @@ export default function AuditoryGameView() {
 
   const boardRef = useRef<HTMLDivElement | null>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
+  const autoPseudoFullscreen = inSession && sessionRole === "user";
+
+  // Sessão ao vivo (usuário): abre automaticamente em pseudo fullscreen
+  useEffect(() => {
+    if (!autoPseudoFullscreen) return;
+    const el = fsRef.current;
+    if (!el) return;
+    el.classList.add("is-pseudo-fullscreen");
+    document.documentElement.classList.add("fs-lock");
+    document.documentElement.classList.add("fs-mode");
+    return () => {
+      el.classList.remove("is-pseudo-fullscreen");
+      document.documentElement.classList.remove("fs-lock");
+      document.documentElement.classList.remove("fs-mode");
+    };
+  }, [autoPseudoFullscreen]);
   const feedbackTimerRef = useRef<number | null>(null);
   const pointerDragIdRef = useRef<number | null>(null);
   const persistTimerRef = useRef<number | null>(null);

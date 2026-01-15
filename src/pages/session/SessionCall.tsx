@@ -1,7 +1,19 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FileText, Mic, MicOff, Package, Pencil, PhoneOff, Trash2, Video, VideoOff } from "lucide-react";
+import {
+  FileText,
+  Mic,
+  MicOff,
+  MonitorUp,
+  Package,
+  Pencil,
+  PhoneOff,
+  Timer,
+  Trash2,
+  Video,
+  VideoOff,
+} from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -86,6 +98,9 @@ export default function SessionCall() {
   const [reportOpen, setReportOpen] = useState(false);
   const [fixedUser, setFixedUser] = useState<null | { id: number; name: string }>(null);
 
+  const [callStartedAtMs, setCallStartedAtMs] = useState<number | null>(null);
+  const [callElapsedLabel, setCallElapsedLabel] = useState<string>("00:00");
+
   const [drawOn, setDrawOn] = useState(false);
   const drawCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const contentAreaRef = useRef<HTMLDivElement | null>(null);
@@ -94,6 +109,14 @@ export default function SessionCall() {
   const drawLastRef = useRef<{ x: number; y: number } | null>(null);
   const drawRemoteLastRef = useRef<Record<string, { x: number; y: number } | null>>({});
   const drawSendTsRef = useRef(0);
+
+  const [localSpeaking, setLocalSpeaking] = useState(false);
+  const [remoteSpeaking, setRemoteSpeaking] = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const localVafRef = useRef<number | null>(null);
+  const remoteVafRef = useRef<number | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const [screenSharing, setScreenSharing] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -125,6 +148,18 @@ export default function SessionCall() {
     if (!authLoading && !user) navigate("/entrar");
   }, [authLoading, user, navigate]);
 
+  // Temporizador simples da chamada (não depende do relógio do servidor)
+  useEffect(() => {
+    if (!callStartedAtMs) return;
+    const id = window.setInterval(() => {
+      const sec = Math.max(0, Math.floor((Date.now() - callStartedAtMs) / 1000));
+      const mm = String(Math.floor(sec / 60)).padStart(2, "0");
+      const ss = String(sec % 60).padStart(2, "0");
+      setCallElapsedLabel(`${mm}:${ss}`);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [callStartedAtMs]);
+
   // Join room (backend), then set up WebRTC lazily
   useEffect(() => {
     if (!user) return;
@@ -141,6 +176,7 @@ export default function SessionCall() {
         if (cancelled) return;
         setJoinInfo(res);
         setRole(res.role);
+        setCallStartedAtMs(Date.now());
         // NÃO pular mensagens pendentes (ex.: offer enviado antes do paciente entrar).
         // A filtragem de mensagens antigas é feita via epoch.
         cursorRef.current = 0;
@@ -467,9 +503,11 @@ export default function SessionCall() {
       }
     }
 
+    // "call_end" não deve derrubar o outro participante.
+    // A sessão só "fecha" quando o admin marcar o horário como realizada (status completed).
     if (m.kind === "call_end") {
-      cleanup();
-      goBack(role);
+      setStatusLabel("O outro participante saiu. Você pode entrar novamente quando quiser.");
+      return;
     }
 
     if (m.kind === "content_select") {
@@ -671,6 +709,13 @@ export default function SessionCall() {
     setMediaState("idle");
     setMediaError(null);
     setDrawOn(false);
+    setLocalSpeaking(false);
+    setRemoteSpeaking(false);
+    setScreenSharing(false);
+    try {
+      if (screenStreamRef.current) safeStopStream(screenStreamRef.current);
+      screenStreamRef.current = null;
+    } catch {}
     try {
       const c = drawCanvasRef.current;
       const ctx = c?.getContext("2d");
@@ -713,10 +758,73 @@ export default function SessionCall() {
     setCamOn(tracks.every((t) => t.enabled));
   };
 
-  const hangup = async () => {
+  const startScreenShare = async () => {
+    if (role !== "admin") return;
+    if (mediaState !== "ready") {
+      toast({ title: "Compartilhar tela", description: "Inicie câmera/microfone antes.", variant: "destructive" });
+      return;
+    }
     try {
-      await send("call_end", {});
+      const display = await (navigator.mediaDevices as any).getDisplayMedia?.({ video: true, audio: false });
+      if (!display) throw new Error("getDisplayMedia não disponível");
+      const track: MediaStreamTrack | undefined = display.getVideoTracks?.()?.[0];
+      if (!track) throw new Error("Sem vídeo da tela");
+      screenStreamRef.current = display as MediaStream;
+      setScreenSharing(true);
+
+      // preview local mostra a tela (sem afetar o stream original)
+      const el = localVideoRef.current;
+      if (el) {
+        el.srcObject = display;
+        void el.play().catch(() => {});
+      }
+
+      // Troca o track enviado no WebRTC (remote passa a ver a tela)
+      const pc = pcRef.current;
+      if (pc) {
+        const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+        if (sender) await sender.replaceTrack(track);
+      }
+
+      track.onended = () => {
+        void stopScreenShare();
+      };
+    } catch (e: any) {
+      console.error("[ScreenShare] falhou", e);
+      toast({ title: "Compartilhar tela", description: "Não foi possível compartilhar a tela.", variant: "destructive" });
+      setScreenSharing(false);
+      try {
+        if (screenStreamRef.current) safeStopStream(screenStreamRef.current);
+      } catch {}
+      screenStreamRef.current = null;
+    }
+  };
+
+  const stopScreenShare = async () => {
+    if (role !== "admin") return;
+    setScreenSharing(false);
+    try {
+      if (screenStreamRef.current) safeStopStream(screenStreamRef.current);
     } catch {}
+    screenStreamRef.current = null;
+
+    // volta preview local para câmera
+    const el = localVideoRef.current;
+    if (el && localStream) {
+      el.srcObject = localStream;
+      void el.play().catch(() => {});
+    }
+
+    // volta track enviado para câmera
+    const pc = pcRef.current;
+    const camTrack = localStream?.getVideoTracks?.()?.[0];
+    if (pc && camTrack) {
+      const sender = pc.getSenders().find((s) => s.track?.kind === "video");
+      if (sender) await sender.replaceTrack(camTrack);
+    }
+  };
+
+  const hangup = async () => {
     cleanup();
     goBack(role);
   };
@@ -869,6 +977,12 @@ export default function SessionCall() {
       setMediaError(null);
       setStatusLabel("Aguardando o outro participante…");
 
+      // tentar liberar WebAudio após gesto do usuário (borda por voz)
+      try {
+        if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (audioCtxRef.current.state === "suspended") await audioCtxRef.current.resume();
+      } catch {}
+
       // Admin inicia offer ao ficar pronto
       if (role === "admin") {
         const pc2 = pcRef.current;
@@ -914,6 +1028,78 @@ export default function SessionCall() {
       toast({ title: "WebRTC", description: msg, variant: "destructive" });
     }
   };
+
+  const ensureAudioCtx = async (): Promise<AudioContext | null> => {
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtxRef.current.state === "suspended") await audioCtxRef.current.resume();
+      return audioCtxRef.current;
+    } catch {
+      return null;
+    }
+  };
+
+  const startVoiceActivity = async (stream: MediaStream, which: "local" | "remote") => {
+    const ctx = await ensureAudioCtx();
+    if (!ctx) return;
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    src.connect(analyser);
+    const data = new Uint8Array(analyser.fftSize);
+    const threshold = 0.06; // bem simples
+    const holdMs = 250;
+    let lastHot = 0;
+
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = (data[i] - 128) / 128;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      const now = Date.now();
+      const hot = rms >= threshold;
+      if (hot) lastHot = now;
+      const speaking = hot || now - lastHot < holdMs;
+      if (which === "local") setLocalSpeaking(speaking);
+      else setRemoteSpeaking(speaking);
+      const raf = window.requestAnimationFrame(tick);
+      if (which === "local") localVafRef.current = raf;
+      else remoteVafRef.current = raf;
+    };
+
+    tick();
+  };
+
+  useEffect(() => {
+    // local VAD
+    if (!localStream) return;
+    if (!localStream.getAudioTracks().length) return;
+    if (localVafRef.current) window.cancelAnimationFrame(localVafRef.current);
+    localVafRef.current = null;
+    void startVoiceActivity(localStream, "local");
+    return () => {
+      if (localVafRef.current) window.cancelAnimationFrame(localVafRef.current);
+      localVafRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localStream]);
+
+  useEffect(() => {
+    // remote VAD
+    if (!remoteStream) return;
+    if (!remoteStream.getAudioTracks().length) return;
+    if (remoteVafRef.current) window.cancelAnimationFrame(remoteVafRef.current);
+    remoteVafRef.current = null;
+    void startVoiceActivity(remoteStream, "remote");
+    return () => {
+      if (remoteVafRef.current) window.cancelAnimationFrame(remoteVafRef.current);
+      remoteVafRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteStream]);
 
   // Carregar catálogo apenas quando admin abrir (lazy)
   useEffect(() => {
@@ -984,7 +1170,13 @@ export default function SessionCall() {
               ) : null}
             </div>
           </div>
-          <div className="text-xs text-muted-foreground">ID {appointmentId}</div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="inline-flex items-center gap-1">
+              <Timer className="h-4 w-4" />
+              <span>{callElapsedLabel}</span>
+            </div>
+            <div>ID {appointmentId}</div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
@@ -1059,7 +1251,12 @@ export default function SessionCall() {
 
           {/* Coluna de câmeras */}
           <div className="space-y-4">
-            <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div
+              className={cn(
+                "rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150",
+                remoteSpeaking ? "border-brand-green shadow-[0_0_0_2px_rgba(34,197,94,0.35)]" : "border-border"
+              )}
+            >
               <div className="px-3 py-2 text-xs font-semibold text-foreground border-b border-border">
                 {role === "admin" ? "Paciente" : "Fonoaudióloga"}
               </div>
@@ -1074,7 +1271,12 @@ export default function SessionCall() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div
+              className={cn(
+                "rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150",
+                localSpeaking ? "border-brand-orange shadow-[0_0_0_2px_rgba(249,115,22,0.35)]" : "border-border"
+              )}
+            >
               <div className="px-3 py-2 text-xs font-semibold text-foreground border-b border-border">
                 {role === "admin" ? "Você (admin)" : "Você"}
               </div>
@@ -1111,6 +1313,16 @@ export default function SessionCall() {
               </Button>
               <Button variant="outline" onClick={() => void toggleControl()} className="rounded-xl">
                 {controlGranted ? "Retirar controle do paciente" : "Dar controle ao paciente"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void (screenSharing ? stopScreenShare() : startScreenShare())}
+                className={cn("rounded-xl", screenSharing ? "border-brand-green text-brand-green" : "")}
+                disabled={mediaState !== "ready"}
+                title={screenSharing ? "Parar compartilhamento de tela" : "Compartilhar a tela"}
+              >
+                <MonitorUp className="h-4 w-4 mr-2" />
+                {screenSharing ? "Parar tela" : "Compartilhar tela"}
               </Button>
             </>
           )}

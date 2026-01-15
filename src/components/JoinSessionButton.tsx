@@ -25,16 +25,16 @@ export function JoinSessionButton(props: {
   // Obs: quando `date/time/nowMs` forem fornecidos, usamos o relógio local (mesma lógica do pontinho laranja).
   const local = (() => {
     if (!hasLocalClock) return null;
-    const today = getTodayYMD(props.nowMs!);
-    const visible = props.date === today;
     const startMs = parseLocalDateTime(props.date!, props.time!);
-    if (startMs === null) return { visible, enabled: false, blink: false, reason: "invalid_time" as const };
+    if (startMs === null) return { visible: false, enabled: false, blink: false, reason: "invalid_time" as const };
 
     const enabledFrom = startMs - 10 * 60_000;
-    const enabledUntil = startMs + 20 * 60_000;
-    const enabled = props.nowMs! >= enabledFrom && props.nowMs! <= enabledUntil;
+    // A partir de 10 min antes, fica disponível até o admin marcar como realizada (sem expirar por tempo).
+    // Sessão 00:00 => enabledFrom cai no dia anterior (23:50), então visibilidade precisa considerar a janela.
+    const visible = props.nowMs! >= enabledFrom;
+    const enabled = props.nowMs! >= enabledFrom;
     const blink = props.nowMs! >= enabledFrom && props.nowMs! <= startMs;
-    const reason = enabled ? null : props.nowMs! < enabledFrom ? "too_early" : "expired";
+    const reason = enabled ? null : "too_early";
     return { visible, enabled, blink, reason };
   })();
 

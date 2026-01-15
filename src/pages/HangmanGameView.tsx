@@ -71,6 +71,22 @@ export default function HangmanGameView() {
   const hitTimerRef = useRef<number | null>(null);
   const winTimerRef = useRef<number | null>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
+  const autoPseudoFullscreen = inSession && sessionRole === "user";
+
+  // Sessão ao vivo (usuário): abre automaticamente em pseudo fullscreen
+  useEffect(() => {
+    if (!autoPseudoFullscreen) return;
+    const el = fsRef.current;
+    if (!el) return;
+    el.classList.add("is-pseudo-fullscreen");
+    document.documentElement.classList.add("fs-lock");
+    document.documentElement.classList.add("fs-mode");
+    return () => {
+      el.classList.remove("is-pseudo-fullscreen");
+      document.documentElement.classList.remove("fs-lock");
+      document.documentElement.classList.remove("fs-mode");
+    };
+  }, [autoPseudoFullscreen]);
 
   // Sessão ao vivo: recebe controle + estado do outro lado
   useEffect(() => {

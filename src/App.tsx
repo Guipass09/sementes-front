@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { Suspense } from "react";
 import { AuthProvider } from "@/auth/AuthContext";
 import { RequireAdmin, RequireUser } from "@/auth/RequireRole";
@@ -54,6 +54,13 @@ import { useOneSignal } from "@/hooks/use-onesignal";
 const queryClient = new QueryClient();
 
 const SessionCall = lazyWithRetry(() => import("./pages/session/SessionCall"), "SessionCall");
+
+function SessionCallRedirect(): JSX.Element {
+  const { id } = useParams();
+  const n = Number(id);
+  if (!Number.isFinite(n)) return <Navigate to="/" replace />;
+  return <Navigate to={`/sessao/${n}/chamada`} replace />;
+}
 
 // Componente interno para inicializar OneSignal
 function OneSignalInit() {
@@ -158,6 +165,8 @@ const App = () => {
                   </Suspense>
                 }
               />
+              {/* Compatibilidade: links antigos sem /chamada (ex.: cache/PWA no Windows) */}
+              <Route path="/sessao/:id" element={<SessionCallRedirect />} />
               <Route path="/atividades/:id" element={<ActivityView />} />
               <Route path="/jogos/:id" element={<MemoryGameView />} />
               <Route path="/jogos/auditivo/:id" element={<AuditoryGameView />} />

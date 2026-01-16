@@ -551,6 +551,11 @@ export default function WordSearchGameView() {
                                     }}
                                   >
                                     <img src={normalizeMediaUrl(item.image_url)} alt={item.word} className="w-full h-full object-contain p-1" />
+                                    {isFound && (
+                                      <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
+                                        <span className="text-3xl text-white drop-shadow-lg">✓</span>
+                                      </div>
+                                    )}
                                   </button>
                                 );
                               })}
@@ -558,17 +563,6 @@ export default function WordSearchGameView() {
                           </div>
                         );
                       })()}
-                                  {isFound && (
-                                    <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
-                                      <span className="text-3xl text-white drop-shadow-lg">✓</span>
-                                    </div>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     {/* Progresso */}

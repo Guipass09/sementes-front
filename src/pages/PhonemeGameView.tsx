@@ -319,34 +319,35 @@ export default function PhonemeGameView() {
                 )}
               </div>
 
-              <div ref={bodyRef} className="p-3 sm:p-6 lg:p-10 flex-1 fs-fit">
+              <div ref={bodyRef} className="p-2 sm:p-4 lg:p-6 flex-1 fs-fit flex items-center">
                 {loading ? (
                   <Skeleton className="h-[60vh] w-full rounded-2xl" />
                 ) : game && current ? (
-                  <div className="relative w-full h-full min-h-[50vh] rounded-2xl overflow-hidden border border-border bg-black">
+                  <div className="relative w-full h-full min-h-[40vh] sm:min-h-[50vh] rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-black">
                     <img src={current ? game.background_url : ""} alt="" className="absolute inset-0 w-full h-full object-cover opacity-95" />
                     <div className="absolute inset-0 bg-black/25" />
 
-                    <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-center">
-                      <Button type="button" onClick={doSpeak} className="rounded-full bg-white/90 text-foreground hover:bg-white">
-                        <Volume2 className="h-4 w-4 mr-2" />
-                        Ouvir palavra
+                    <div className="absolute top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 z-10 flex items-center justify-center">
+                      <Button type="button" onClick={doSpeak} className="rounded-full bg-white/90 text-foreground hover:bg-white text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-10">
+                        <Volume2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                        <span className="hidden sm:inline">Ouvir palavra</span>
+                        <span className="sm:hidden">Ouvir</span>
                       </Button>
                     </div>
 
-                    <div className="absolute inset-0 pt-16 pb-4 px-4 flex items-center justify-center">
-                      <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="absolute inset-0 pt-12 sm:pt-14 pb-12 sm:pb-16 px-2 sm:px-4 flex items-center justify-center">
+                      <div className="w-full h-full max-w-5xl grid grid-cols-2 gap-2 sm:gap-3 lg:gap-4">
                         <button
                           type="button"
                           onClick={() => pick("left")}
                           disabled={lock}
                           className={cn(
-                            "relative rounded-2xl overflow-hidden border bg-black/30 aspect-[4/3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                            flashSide === "left" ? "ring-4 ring-brand-green" : "",
+                            "relative rounded-xl sm:rounded-2xl overflow-hidden border bg-black/30 w-full h-full min-h-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            flashSide === "left" ? "ring-2 sm:ring-4 ring-brand-green" : "",
                             shakeSide === "left" ? "animate-[shake_0.35s_ease-in-out_0s_2]" : "",
                           )}
                         >
-                          <img src={current.left_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                          <img src={current.left_url} alt="" className="absolute inset-0 w-full h-full object-contain" />
                           {flashSide === "left" && (
                             <div className={cn("absolute inset-0", current.correct_side === "left" ? "bg-brand-green/30" : "bg-red-500/30")} />
                           )}
@@ -357,12 +358,12 @@ export default function PhonemeGameView() {
                           onClick={() => pick("right")}
                           disabled={lock}
                           className={cn(
-                            "relative rounded-2xl overflow-hidden border bg-black/30 aspect-[4/3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                            flashSide === "right" ? "ring-4 ring-brand-green" : "",
+                            "relative rounded-xl sm:rounded-2xl overflow-hidden border bg-black/30 w-full h-full min-h-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            flashSide === "right" ? "ring-2 sm:ring-4 ring-brand-green" : "",
                             shakeSide === "right" ? "animate-[shake_0.35s_ease-in-out_0s_2]" : "",
                           )}
                         >
-                          <img src={current.right_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                          <img src={current.right_url} alt="" className="absolute inset-0 w-full h-full object-contain" />
                           {flashSide === "right" && (
                             <div className={cn("absolute inset-0", current.correct_side === "right" ? "bg-brand-green/30" : "bg-red-500/30")} />
                           )}
@@ -370,12 +371,12 @@ export default function PhonemeGameView() {
                       </div>
                     </div>
 
-                    <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center justify-between text-white/90 text-sm">
-                      <div className="inline-flex items-center gap-2">
-                        <Gamepad2 className="h-4 w-4" />
-                        <span className="font-semibold">{current.word}</span>
+                    <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3 right-2 sm:right-3 z-10 flex items-center justify-between text-white/90 text-xs sm:text-sm bg-black/40 backdrop-blur-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2">
+                      <div className="inline-flex items-center gap-1.5 sm:gap-2 min-w-0">
+                        <Gamepad2 className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                        <span className="font-semibold truncate">{current.word}</span>
                       </div>
-                      <div className="tabular-nums">
+                      <div className="tabular-nums shrink-0 ml-2">
                         {idx + 1}/{game.items.length}
                       </div>
                     </div>

@@ -242,14 +242,27 @@ export default function WordSearchGameView() {
   };
 
   // Encontra palavra que contém a célula (row, col) - apenas palavras não encontradas
+  // Verifica também se a letra na célula corresponde à palavra (para evitar falsos positivos)
   const findWordAtCell = (row: number, col: number): { item: any; positions: Array<{ r: number; c: number }> } | null => {
-    if (!game || !game.items) return null;
+    if (!game || !game.items || !grid || grid.length === 0) return null;
+    const cellChar = grid[row]?.[col];
+    if (!cellChar) return null; // célula vazia ou inválida
+    
     for (const item of game.items) {
       if (foundWords.has(item.id)) continue;
       const positions = getWordPositions(item);
-      if (positions.some((p) => p.r === row && p.c === col)) {
-        return { item, positions };
+      // Verifica se a célula faz parte das posições da palavra
+      const cellPosition = positions.findIndex((p) => p.r === row && p.c === col);
+      if (cellPosition === -1) continue; // célula não faz parte desta palavra
+      
+      // CRÍTICO: Verifica se a letra na célula corresponde à letra esperada na palavra
+      // Isso previne falsos positivos quando palavras compartilham células
+      const expectedChar = item.word[cellPosition];
+      if (expectedChar && expectedChar.toUpperCase() !== cellChar.toUpperCase()) {
+        continue; // letra não corresponde - palavra diferente
       }
+      
+      return { item, positions };
     }
     return null;
   };
@@ -473,8 +486,8 @@ export default function WordSearchGameView() {
 
                       {/* Imagens (sempre visíveis, à direita) - integradas ao fundo */}
                       {game.items && (
-                        <div className="lg:flex-1 flex-shrink-0 flex items-center justify-center p-2 sm:p-3 overflow-y-auto">
-                          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2.5 w-full h-full content-start">
+                        <div className="lg:flex-1 flex-shrink-0 p-2 sm:p-3 overflow-y-auto max-h-full">
+                          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2.5 w-full content-start">
                             {game.items.map((item) => {
                               const isFound = foundImages.has(item.id);
                               const isShaking = shakeImageId === item.id;
@@ -487,7 +500,7 @@ export default function WordSearchGameView() {
                                   onClick={() => onImageClick(item.id)}
                                   disabled={lock || !isEnabled}
                                   className={cn(
-                                    "relative rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-lg w-full h-full min-h-0",
+                                    "relative rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-lg w-full",
                                     isFound
                                       ? "border-brand-green opacity-70 cursor-not-allowed"
                                       : isShaking

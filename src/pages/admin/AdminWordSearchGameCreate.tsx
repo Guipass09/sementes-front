@@ -288,42 +288,47 @@ export default function AdminWordSearchGameCreate() {
               </div>
 
               {/* Paleta de Cores */}
-              <div className="space-y-4 pt-2">
-                <Label className="text-base font-semibold">Personalização de Cores</Label>
+              <div className="space-y-3 pt-4 border-t border-border">
+                <Label className="text-base font-semibold text-foreground">Personalização de Cores</Label>
+                <p className="text-sm text-muted-foreground">Escolha as cores do grid e das letras</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Cor das letras</Label>
+                    <Label htmlFor="letter-color">Cor das letras</Label>
                     <div className="flex items-center gap-3">
                       <input
+                        id="letter-color"
                         type="color"
                         value={letterColor}
                         onChange={(e) => setLetterColor(e.target.value)}
-                        className="h-10 w-20 rounded-lg border border-border cursor-pointer"
+                        className="h-10 w-20 rounded-lg border-2 border-border cursor-pointer"
                       />
                       <Input
                         type="text"
                         value={letterColor}
                         onChange={(e) => setLetterColor(e.target.value)}
                         placeholder="#FFFFFF"
-                        className="flex-1 font-mono"
+                        className="flex-1 font-mono text-sm"
+                        pattern="^#[0-9A-Fa-f]{6}$"
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Cor do fundo do grid</Label>
+                    <Label htmlFor="grid-bg-color">Cor do fundo do grid</Label>
                     <div className="flex items-center gap-3">
                       <input
+                        id="grid-bg-color"
                         type="color"
                         value={gridBackgroundColor}
                         onChange={(e) => setGridBackgroundColor(e.target.value)}
-                        className="h-10 w-20 rounded-lg border border-border cursor-pointer"
+                        className="h-10 w-20 rounded-lg border-2 border-border cursor-pointer"
                       />
                       <Input
                         type="text"
                         value={gridBackgroundColor}
                         onChange={(e) => setGridBackgroundColor(e.target.value)}
                         placeholder="#000000"
-                        className="flex-1 font-mono"
+                        className="flex-1 font-mono text-sm"
+                        pattern="^#[0-9A-Fa-f]{6}$"
                       />
                     </div>
                   </div>

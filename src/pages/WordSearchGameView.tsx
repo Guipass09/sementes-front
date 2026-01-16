@@ -487,24 +487,22 @@ export default function WordSearchGameView() {
                 )}
               </div>
 
-              <div ref={bodyRef} className="p-2 sm:p-4 lg:p-6 flex-1 fs-fit">
+              <div ref={bodyRef} className="p-2 sm:p-4 lg:p-6 flex-1 fs-fit min-h-0">
                 {loading ? (
                   <Skeleton className="h-[60vh] w-full rounded-2xl" />
                 ) : game && grid.length > 0 ? (
-                  <div className="relative w-full h-[55vh] sm:h-[62vh] lg:h-[70vh] rounded-xl sm:rounded-2xl overflow-hidden border border-border">
+                  <div className="relative w-full h-full min-h-[55vh] sm:min-h-[62vh] lg:min-h-[70vh] rounded-xl sm:rounded-2xl overflow-hidden border border-border flex flex-col">
                     <img src={normalizeMediaUrl(game.background_url)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-95" />
                     <div className="absolute inset-0 bg-black/20" />
 
-                    {/* Grid e Imagens lado a lado */}
-                    <div className="relative h-full flex flex-col lg:flex-row gap-3 p-3 sm:p-4">
+                    {/* Grid e Imagens lado a lado - sempre responsivo */}
+                    <div className="relative flex-1 flex flex-col lg:flex-row gap-3 p-3 sm:p-4 min-h-0">
                       {/* Grid de letras (menor, à esquerda) */}
                       <div className="flex-1 lg:flex-[2] flex items-center justify-center min-w-0">
                         <div
                           className="grid gap-0.5 sm:gap-1 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-lg"
                           style={{
                             backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : undefined,
-                          }}
-                          style={{
                             gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
                             maxWidth: "100%",
                             maxHeight: "100%",

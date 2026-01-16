@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { AuthUser } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import apiClient from "@/services/api";
@@ -47,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   });
   const [loading, setLoading] = useState(true);
+  const didInitialSyncRef = useRef(false);
 
   const normalizeRole = useCallback((role: any): "admin" | "user" => {
     if (!role) {
@@ -117,15 +118,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadUser();
   }, [loadUser]);
 
-  // On mount: usar user do localStorage primeiro, NÃO chamar /api/me automaticamente
+  // On mount: usar user do localStorage primeiro, mas sincronizar /api/me em background
+  // para refletir mudanças de permissões (ex.: admin liberou "Horários") só com refresh.
   useEffect(() => {
     const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
     
     if (token && (user || storedUser)) {
-      // Se já temos user (estado ou localStorage), não precisa chamar /api/me
-      // O estado já foi inicializado com user do localStorage
+      // UX: renderiza imediatamente com o user armazenado,
+      // mas sincroniza permissões/dados em background via /api/me.
       setLoading(false);
+      if (didInitialSyncRef.current) return;
+      didInitialSyncRef.current = true;
+      void (async () => {
+        try {
+          const me = await api.me();
+          setAuthUser(me);
+        } catch (e: any) {
+          const status = e?.status || e?.response?.status;
+          if (status === 401) {
+            setAuthUser(null);
+            try {
+              localStorage.removeItem("token");
+              localStorage.removeItem("user");
+            } catch {}
+          }
+        }
+      })();
       return;
     }
     

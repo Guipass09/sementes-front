@@ -673,7 +673,8 @@ export default function MemoryGameView() {
       const availableW = Math.max(280, totalW - 16);
       const gap = totalW < 520 ? 6 : 10;
       const minCols = 3;
-      const maxCols = 8;
+      // Em celulares (largura pequena), limitar colunas evita cartas minúsculas/cortadas.
+      const maxCols = totalW < 430 ? 4 : 8;
       const best = bestGridCols({ totalCards: Math.max(1, totalCards), w: availableW, h: availableH, gap, minCols, maxCols });
       setFsLayout({ cols: best.cols, card: Math.max(42, best.card), gap });
     };
@@ -845,7 +846,8 @@ export default function MemoryGameView() {
                     className={cn("grid", shuffleAnim && "mg-shuffle")}
                     style={{
                       gridTemplateColumns: `repeat(${fsActive && fsLayout ? fsLayout.cols : cols}, minmax(0, 1fr))`,
-                      gap: `${fsActive && fsLayout ? fsLayout.gap : isSmall ? 12 : 16}px`,
+                      // Em mobile, reduzir um pouco o gap ajuda a deixar as cartas maiores sem cortar/scroll.
+                      gap: `${fsActive && fsLayout ? fsLayout.gap : isSmall ? 10 : 16}px`,
                     }}
                   >
                     {deck.map((c, idx) => {
@@ -895,7 +897,8 @@ export default function MemoryGameView() {
                               }} />
                               {/* Número no verso: reflete a posição atual no tabuleiro (embaralha junto) */}
                               <div className="relative flex flex-col items-center justify-center">
-                                <div className="text-3xl sm:text-4xl font-display font-black text-foreground/80 drop-shadow-sm">
+                                {/* Em alguns Android/iOS o font-display pode "cortar" o topo se a line-height for curta */}
+                                <div className="text-3xl sm:text-4xl leading-tight font-display font-black text-foreground/80 drop-shadow-sm">
                                   {idx + 1}
                                 </div>
                                 <img

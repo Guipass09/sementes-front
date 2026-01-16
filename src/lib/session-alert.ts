@@ -19,6 +19,24 @@ export function parseLocalDateTime(dateYMD: string, timeHHmm: string): number | 
   return d.getTime();
 }
 
+export function getJoinCountdownLabel(params: {
+  date: string;
+  time: string;
+  nowMs: number;
+}): { active: boolean; label: string | null } {
+  const startMs = parseLocalDateTime(params.date, params.time);
+  if (startMs === null) return { active: false, label: null };
+  const availableFrom = startMs - 10 * 60_000;
+  if (params.nowMs < availableFrom) return { active: false, label: null };
+  if (params.nowMs < startMs) {
+    const remainingSec = Math.max(0, Math.ceil((startMs - params.nowMs) / 1000));
+    const mm = String(Math.floor(remainingSec / 60)).padStart(2, "0");
+    const ss = String(remainingSec % 60).padStart(2, "0");
+    return { active: true, label: `${mm}:${ss}` };
+  }
+  return { active: true, label: "Sessão começou" };
+}
+
 export function computeTodaySessionAlert<T extends { date: string; time: string }>(params: {
   sessions: T[];
   todayYMD: string;

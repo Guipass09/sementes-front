@@ -464,9 +464,71 @@ export type AdminAppointmentRow = {
   join_session?: JoinSessionMeta;
 };
 
+export type CustomPackageRow = {
+  id: number;
+  user_id: number;
+  title: string;
+  sessions_count: number;
+  price_per_session: number | string;
+  total_price: number | string;
+  payment_url: string;
+  user?: { id: number; name: string };
+  created_at?: string;
+  updated_at?: string;
+};
+
 export async function adminListAppointments(): Promise<AdminAppointmentRow[]> {
   const res = await request<{ data: AdminAppointmentRow[] }>("/api/admin/appointments");
   return res.data;
+}
+
+export async function adminListCustomPackages(userId: number): Promise<CustomPackageRow[]> {
+  const res = await request<{ data: CustomPackageRow[] }>(`/api/admin/users/${userId}/custom-packages`);
+  return res.data;
+}
+
+export async function adminListAllCustomPackages(): Promise<CustomPackageRow[]> {
+  const res = await request<{ data: CustomPackageRow[] }>("/api/admin/custom-packages");
+  return res.data;
+}
+
+export async function adminCreateCustomPackage(
+  userId: number,
+  payload: {
+    title: string;
+    sessions_count: number;
+    price_per_session: number;
+    total_price: number;
+    payment_url: string;
+  }
+): Promise<CustomPackageRow> {
+  await ensureCsrfCookie();
+  return await request<CustomPackageRow>(`/api/admin/users/${userId}/custom-packages`, {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function adminUpdateCustomPackage(
+  id: number,
+  payload: Partial<{
+    title: string;
+    sessions_count: number;
+    price_per_session: number;
+    total_price: number;
+    payment_url: string;
+  }>
+): Promise<CustomPackageRow> {
+  await ensureCsrfCookie();
+  return await request<CustomPackageRow>(`/api/admin/custom-packages/${id}`, {
+    method: "PATCH",
+    json: payload,
+  });
+}
+
+export async function adminDeleteCustomPackage(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/admin/custom-packages/${id}`, { method: "DELETE" });
 }
 
 export async function adminCreateRecurringAppointments(payload: {
@@ -916,6 +978,11 @@ export async function userListAppointments(): Promise<{
   upcoming: Array<Pick<UserAppointmentRow, "id" | "professional_name" | "date" | "time" | "status" | "join_session">>;
 }> {
   return await request("/api/user/appointments");
+}
+
+export async function userListCustomPackages(): Promise<CustomPackageRow[]> {
+  const res = await request<{ data: CustomPackageRow[] }>("/api/user/custom-packages");
+  return res.data;
 }
 
 // ---------------------------

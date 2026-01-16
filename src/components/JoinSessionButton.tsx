@@ -17,6 +17,7 @@ export function JoinSessionButton(props: {
   if (meta?.reason === "not_active") return null;
   const hasLocalClock =
     typeof props.nowMs === "number" && !!props.date && !!props.time;
+  const useLocalClock = hasLocalClock && !meta;
 
   // Regras do botão (UI):
   // - aparece apenas no dia da sessão
@@ -24,7 +25,7 @@ export function JoinSessionButton(props: {
   // - fica clicável de 10 min antes até 20 min após
   // Obs: quando `date/time/nowMs` forem fornecidos, usamos o relógio local (mesma lógica do pontinho laranja).
   const local = (() => {
-    if (!hasLocalClock) return null;
+    if (!useLocalClock) return null;
     const startMs = parseLocalDateTime(props.date!, props.time!);
     if (startMs === null) return { visible: false, enabled: false, blink: false, reason: "invalid_time" as const };
 

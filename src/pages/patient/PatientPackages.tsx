@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { getWeeklySlotAvailability, userRegisterPurchaseIntent } from "@/lib/laravel-api";
+import { getWeeklySlotAvailability, userListCustomPackages, userRegisterPurchaseIntent, type CustomPackageRow } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 
@@ -12,6 +12,15 @@ interface PackageOption {
   id: number;
   sessions: number;
   price: number;
+}
+
+interface CustomPackageOption {
+  id: number;
+  sessions: number;
+  title: string;
+  pricePerSession: number;
+  totalPrice: number;
+  paymentUrl: string;
 }
 
 interface TimeSlotSelection {
@@ -65,6 +74,7 @@ const PatientPackages = () => {
   const [selectedSlots, setSelectedSlots] = useState<TimeSlotSelection[]>([]);
   const [openDays, setOpenDays] = useState<string[]>([]);
   const [unavailableByDay, setUnavailableByDay] = useState<Record<string, string[]>>({});
+  const [customPackages, setCustomPackages] = useState<CustomPackageOption[]>([]);
 
   const paymentLinks: Record<number, string> = {
     3: "https://mpago.li/2nyHQAi",
@@ -104,6 +114,31 @@ const PatientPackages = () => {
       cancelled = true;
     };
   }, [isModalOpen, auth.user, toast]);
+
+  useEffect(() => {
+    if (!auth.user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await userListCustomPackages();
+        if (cancelled) return;
+        const mapped = rows.map((pkg: CustomPackageRow) => ({
+          id: pkg.id,
+          sessions: Number(pkg.sessions_count),
+          title: pkg.title,
+          pricePerSession: Number(pkg.price_per_session),
+          totalPrice: Number(pkg.total_price),
+          paymentUrl: pkg.payment_url,
+        }));
+        setCustomPackages(mapped);
+      } catch {
+        if (!cancelled) setCustomPackages([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.user]);
 
   const isUnavailable = useMemo(() => {
     return (dayId: string, time: string) => {
@@ -179,6 +214,23 @@ const PatientPackages = () => {
     })();
   };
 
+  const handleCustomBuy = async (pkg: CustomPackageOption) => {
+    if (!pkg.paymentUrl) {
+      toast({
+        title: "Link de pagamento indisponível",
+        description: "Não foi possível abrir o pagamento deste pacote.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await userRegisterPurchaseIntent({ package_sessions: pkg.sessions });
+    } catch {
+      // ignore
+    }
+    window.location.href = pkg.paymentUrl;
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedPackage(null);
@@ -233,6 +285,40 @@ const PatientPackages = () => {
               {/* Buy Button */}
               <Button
                 onClick={() => handleBuyClick(pkg)}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <ShoppingCart size={18} className="mr-2" />
+                Comprar
+              </Button>
+            </div>
+          ))}
+          {customPackages.map((pkg, index) => (
+            <div
+              key={`custom-${pkg.id}`}
+              className="bg-card rounded-2xl border border-border p-6 shadow-sm hover:shadow-lg transition-all duration-300 animate-fade-in flex flex-col"
+              style={{ animationDelay: `${0.05 * (packages.length + index)}s` }}
+            >
+              {/* Sessions Badge */}
+              <div className="flex items-center justify-center mb-4">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                  <span className="text-3xl font-bold text-primary">{pkg.sessions}</span>
+                </div>
+              </div>
+
+              {/* Package Info */}
+              <div className="text-center flex-1">
+                <h3 className="text-lg font-semibold text-foreground mb-1">{pkg.title}</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {formatPrice(pkg.pricePerSession)} por sessão
+                </p>
+                <div className="text-2xl font-bold text-foreground mb-6">
+                  {formatPrice(pkg.totalPrice)}
+                </div>
+              </div>
+
+              {/* Buy Button */}
+              <Button
+                onClick={() => void handleCustomBuy(pkg)}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
               >
                 <ShoppingCart size={18} className="mr-2" />

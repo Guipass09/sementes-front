@@ -199,10 +199,6 @@ export function ReportPreviewModal(props: {
               <Button variant="outline" onClick={() => props.onOpenChange(false)}>
                 Fechar
               </Button>
-              <Button onClick={handleDownload} disabled={downloading}>
-                <Download size={18} className="mr-2" />
-                {downloading ? "Gerando PDF..." : "Baixar PDF"}
-              </Button>
             </div>
           </div>
         ) : (

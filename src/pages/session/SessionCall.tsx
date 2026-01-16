@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   Clock3,
   FileText,
+  Eraser,
   Mic,
   MicOff,
   MonitorUp,
@@ -11,7 +12,6 @@ import {
   Pencil,
   PhoneOff,
   RefreshCw,
-  Trash2,
   Video,
   VideoOff,
 } from "lucide-react";
@@ -98,6 +98,8 @@ export default function SessionCall() {
   const [paymentSessions, setPaymentSessions] = useState<number | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentIframeOpen, setPaymentIframeOpen] = useState(false);
+  const [endSessionOpen, setEndSessionOpen] = useState(false);
+  const [endingSession, setEndingSession] = useState(false);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [fixedUser, setFixedUser] = useState<null | { id: number; name: string }>(null);
@@ -1218,6 +1220,21 @@ export default function SessionCall() {
     goBack(role);
   };
 
+  const handleEndSession = async (markCompleted: boolean) => {
+    setEndingSession(true);
+    if (markCompleted && role === "admin" && appointmentId) {
+      try {
+        await api.adminUpdateAppointmentStatus(appointmentId, "completed");
+      } catch (e) {
+        const msg = isApiError(e) ? e.message : "Não foi possível marcar como realizada.";
+        toast({ title: "Sessão", description: msg, variant: "destructive" });
+      }
+    }
+    setEndingSession(false);
+    setEndSessionOpen(false);
+    await hangup();
+  };
+
   // Doodle (rabisco) sobre a área de conteúdo (não interrompe a ligação)
   useEffect(() => {
     const canvas = drawCanvasRef.current;
@@ -1614,14 +1631,6 @@ export default function SessionCall() {
                 "lg:h-[76svh] lg:max-h-[860px] lg:min-h-[560px]",
               )}
             >
-              {/* Temporizador estilo "pílula" (layout do print) */}
-              <div className="absolute left-3 top-3 z-40">
-                <div className="inline-flex items-center gap-2 rounded-full bg-black/55 text-white px-3 py-1.5 shadow-sm">
-                  <Clock3 className="h-4 w-4 opacity-90" />
-                  <span className="tabular-nums text-sm font-semibold">{callElapsedLabel}</span>
-                </div>
-              </div>
-
               {/* Botão de atualizar (útil no PWA) - overlay para não afetar responsividade */}
               <div className="absolute right-3 top-3 z-40">
                 <Button
@@ -1775,6 +1784,12 @@ export default function SessionCall() {
                 </div>
                 <div className="relative aspect-[4/3] bg-black">
                   <video ref={localVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
+                  <div className="absolute left-2 bottom-2 z-10">
+                    <div className="inline-flex items-center gap-2 rounded-full bg-black/60 text-white px-3 py-1.5 shadow-sm">
+                      <Clock3 className="h-4 w-4 opacity-90" />
+                      <span className="tabular-nums text-sm font-semibold">{callElapsedLabel}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1852,16 +1867,59 @@ export default function SessionCall() {
             <Pencil className="h-4 w-4" />
           </Button>
           {drawOn && (
-            <Button variant="outline" onClick={() => void clearDoodle()} className="rounded-xl" title="Limpar rabiscos">
-              <Trash2 className="h-4 w-4" />
+            <Button variant="outline" onClick={() => void clearDoodle()} className="rounded-xl" title="Apagar rabiscos">
+              <Eraser className="h-4 w-4" />
             </Button>
           )}
 
-          <Button variant="destructive" onClick={() => void hangup()} className="rounded-xl">
+          <Button
+            variant="destructive"
+            onClick={() => {
+              if (role === "admin") {
+                setEndSessionOpen(true);
+              } else {
+                void hangup();
+              }
+            }}
+            className="rounded-xl"
+          >
             <PhoneOff />
           </Button>
         </div>
       </div>
+
+      {/* Encerrar chamada (admin) */}
+      <Dialog open={endSessionOpen} onOpenChange={setEndSessionOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Encerrar sessão</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            A sessão foi finalizada? Ambas as opções encerram a chamada.
+          </div>
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setEndSessionOpen(false)} disabled={endingSession}>
+              Cancelar
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => void handleEndSession(false)}
+              disabled={endingSession}
+            >
+              Não finalizada
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-xl"
+              onClick={() => void handleEndSession(true)}
+              disabled={endingSession}
+            >
+              Finalizada
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Catálogo (admin): atividades + jogos */}
       <Dialog open={catalogOpen} onOpenChange={setCatalogOpen}>

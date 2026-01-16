@@ -7,6 +7,7 @@ import { useAuth } from "@/auth/AuthContext";
 import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import NotificationsBell from "@/components/NotificationsBell";
+import PwaInstallButton from "@/components/PwaInstallButton";
 
 interface UserData {
   name: string;
@@ -133,6 +134,7 @@ const AdminLayout = () => {
           {/* User Profile & Actions */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <NotificationsBell />
+            <PwaInstallButton />
             {/* User Info - Desktop */}
             <button
               type="button"

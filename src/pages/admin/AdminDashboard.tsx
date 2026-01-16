@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Users, Activity, Calendar, FileText, TrendingUp, Shield } from "lucide-react";
+import { Users, Activity, Calendar, FileText, TrendingUp, Shield, Eye, EyeOff, DollarSign, Package } from "lucide-react";
 import { Link } from "react-router-dom";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
-import { adminDashboardMetrics, isApiError } from "@/lib/laravel-api";
+import { adminDashboardMetrics, adminListAllCustomPackages, isApiError } from "@/lib/laravel-api";
 import { onAdminDataChanged } from "@/lib/admin-events";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 type StatCard = {
   label: string;
@@ -11,6 +13,36 @@ type StatCard = {
   icon: any;
   color: string;
   path: string;
+};
+
+type SalePackage = {
+  id: string;
+  title: string;
+  sessions: number;
+  pricePerSession: number;
+  totalPrice: number;
+  kind: "fixed" | "custom";
+  userName?: string;
+};
+
+const fixedPackages: SalePackage[] = [
+  { id: "fixed-3", title: "3 Sessões", sessions: 3, pricePerSession: 93.33, totalPrice: 280, kind: "fixed" },
+  { id: "fixed-6", title: "6 Sessões", sessions: 6, pricePerSession: 80, totalPrice: 480, kind: "fixed" },
+  { id: "fixed-9", title: "9 Sessões", sessions: 9, pricePerSession: 62.22, totalPrice: 560, kind: "fixed" },
+  { id: "fixed-15", title: "15 Sessões", sessions: 15, pricePerSession: 58.67, totalPrice: 880, kind: "fixed" },
+  { id: "fixed-20", title: "20 Sessões", sessions: 20, pricePerSession: 55, totalPrice: 1100, kind: "fixed" },
+  { id: "fixed-35", title: "35 Sessões", sessions: 35, pricePerSession: 50, totalPrice: 1750, kind: "fixed" },
+  { id: "fixed-45", title: "45 Sessões", sessions: 45, pricePerSession: 47, totalPrice: 2115, kind: "fixed" },
+];
+
+const formatMoney = (value: number) =>
+  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const getMonthKey = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
 };
 
 const quickActions = [
@@ -49,6 +81,14 @@ const AdminDashboard = () => {
     totalUsers: 0,
     scheduledSessions: 0,
   });
+  const [monthKey, setMonthKey] = useState(getMonthKey);
+  const [salesTotal, setSalesTotal] = useState(0);
+  const [salesVisible, setSalesVisible] = useState(true);
+  const [packagesOpen, setPackagesOpen] = useState(false);
+  const [saleConfirmOpen, setSaleConfirmOpen] = useState(false);
+  const [celebrateOpen, setCelebrateOpen] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<SalePackage | null>(null);
+  const [customPackages, setCustomPackages] = useState<SalePackage[]>([]);
 
   const stats: StatCard[] = useMemo(
     () => [
@@ -73,16 +113,33 @@ const AdminDashboard = () => {
         color: "from-brand-orange to-brand-orange-dark",
         path: "/admin/horarios",
       },
-      {
-        label: "Relatórios",
-        value: "—",
-        icon: FileText,
-        color: "from-brand-purple to-brand-blue",
-        path: "/admin/relatorios",
-      },
     ],
     [metrics.totalUsers, metrics.scheduledSessions]
   );
+
+  const allPackages = useMemo(() => [...fixedPackages, ...customPackages], [customPackages]);
+
+  useEffect(() => {
+    const storedVisible = window.localStorage.getItem("admin_sales_visible");
+    if (storedVisible === "0") setSalesVisible(false);
+  }, []);
+
+  useEffect(() => {
+    const key = getMonthKey();
+    if (key !== monthKey) setMonthKey(key);
+    const interval = window.setInterval(() => {
+      const k = getMonthKey();
+      if (k !== monthKey) setMonthKey(k);
+    }, 60 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, [monthKey]);
+
+  useEffect(() => {
+    const key = `admin_sales_total:${monthKey}`;
+    const stored = window.localStorage.getItem(key);
+    const value = stored ? Number(stored) : 0;
+    setSalesTotal(Number.isFinite(value) ? value : 0);
+  }, [monthKey]);
 
   useEffect(() => {
     let mounted = true;
@@ -116,6 +173,55 @@ const AdminDashboard = () => {
       window.clearInterval(interval);
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadPackages = async () => {
+      try {
+        const rows = await adminListAllCustomPackages();
+        if (!mounted) return;
+        const mapped = rows.map((pkg) => ({
+          id: `custom-${pkg.id}`,
+          title: pkg.title,
+          sessions: Number(pkg.sessions_count),
+          pricePerSession: Number(pkg.price_per_session),
+          totalPrice: Number(pkg.total_price),
+          kind: "custom" as const,
+          userName: pkg.user?.name,
+        }));
+        setCustomPackages(mapped);
+      } catch {
+        if (mounted) setCustomPackages([]);
+      }
+    };
+    void loadPackages();
+    const off = onAdminDataChanged(() => void loadPackages());
+    return () => {
+      mounted = false;
+      off();
+    };
+  }, []);
+
+  const handleToggleSalesVisibility = () => {
+    const next = !salesVisible;
+    setSalesVisible(next);
+    window.localStorage.setItem("admin_sales_visible", next ? "1" : "0");
+  };
+
+  const handleConfirmSale = (pkg: SalePackage) => {
+    setSelectedPackage(pkg);
+    setSaleConfirmOpen(true);
+  };
+
+  const applySale = () => {
+    if (!selectedPackage) return;
+    const key = `admin_sales_total:${monthKey}`;
+    const nextTotal = Math.max(0, salesTotal + selectedPackage.totalPrice);
+    setSalesTotal(nextTotal);
+    window.localStorage.setItem(key, String(nextTotal));
+    setSaleConfirmOpen(false);
+    setCelebrateOpen(true);
+  };
 
   return (
     <div className="min-h-full">
@@ -182,6 +288,38 @@ const AdminDashboard = () => {
                 </Link>
               );
             })}
+
+            {/* Vendas do mês */}
+            <button
+              type="button"
+              onClick={() => setPackagesOpen(true)}
+              className="bg-card rounded-xl border border-border p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-fade-in text-left"
+              style={{ animationDelay: "0.4s" }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center">
+                  <DollarSign size={24} className="text-white" />
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleSalesVisibility();
+                  }}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={salesVisible ? "Ocultar vendas" : "Mostrar vendas"}
+                >
+                  {salesVisible ? <Eye size={20} /> : <EyeOff size={20} />}
+                </button>
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-1">
+                {salesVisible ? formatMoney(salesTotal) : "••••••"}
+              </h3>
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Package size={16} />
+                Vendas do mês
+              </p>
+            </button>
           </div>
         </div>
       </section>
@@ -226,6 +364,124 @@ const AdminDashboard = () => {
           </div>
         </div>
       </section>
+
+      {/* Modal: pacotes vendidos */}
+      <Dialog open={packagesOpen} onOpenChange={setPackagesOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Pacotes disponíveis para venda</DialogTitle>
+            <DialogDescription>
+              Clique em um pacote para confirmar a venda e somar ao total do mês.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-3">Pacotes fixos</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {fixedPackages.map((pkg) => (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    onClick={() => handleConfirmSale(pkg)}
+                    className="text-left bg-card rounded-xl border border-border p-4 hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <span className="text-lg font-bold text-primary">{pkg.sessions}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-foreground truncate">{pkg.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatMoney(pkg.pricePerSession)} por sessão
+                        </div>
+                        <div className="text-sm font-semibold text-foreground">{formatMoney(pkg.totalPrice)}</div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-3">Pacotes personalizados</h4>
+              {customPackages.length === 0 ? (
+                <div className="text-sm text-muted-foreground">Nenhum pacote personalizado cadastrado.</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {customPackages.map((pkg) => (
+                    <button
+                      key={pkg.id}
+                      type="button"
+                      onClick={() => handleConfirmSale(pkg)}
+                      className="text-left bg-card rounded-xl border border-border p-4 hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-lg font-bold text-primary">{pkg.sessions}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-foreground truncate">{pkg.title}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatMoney(pkg.pricePerSession)} por sessão
+                          </div>
+                          <div className="text-sm font-semibold text-foreground">{formatMoney(pkg.totalPrice)}</div>
+                          {pkg.userName ? (
+                            <div className="text-xs text-muted-foreground truncate">Paciente: {pkg.userName}</div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: confirmar venda */}
+      <Dialog open={saleConfirmOpen} onOpenChange={setSaleConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar venda</DialogTitle>
+            <DialogDescription>
+              Você vendeu o pacote <strong>{selectedPackage?.title}</strong>?
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPackage && (
+            <div className="text-sm text-muted-foreground">
+              Valor: <strong className="text-foreground">{formatMoney(selectedPackage.totalPrice)}</strong>
+            </div>
+          )}
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => setSaleConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => applySale()}>Confirmar venda</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: celebração */}
+      <Dialog open={celebrateOpen} onOpenChange={setCelebrateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Parabéns pela venda! 🎉</DialogTitle>
+            <DialogDescription>
+              O valor foi somado ao total do mês.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center gap-4 py-6 text-4xl">
+            <span className="animate-bounce">🎆</span>
+            <span className="animate-pulse">🎉</span>
+            <span className="animate-bounce">✨</span>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={() => setCelebrateOpen(false)}>Fechar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

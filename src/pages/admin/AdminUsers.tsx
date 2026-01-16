@@ -1,5 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Users, Search, User, Lock, Unlock, Eye, Activity, Calendar, FileText, Shield, ShieldOff, Trash2, CheckCircle2 } from "lucide-react";
+import {
+  Users,
+  Search,
+  User,
+  Lock,
+  Unlock,
+  Eye,
+  Activity,
+  Calendar,
+  FileText,
+  Shield,
+  ShieldOff,
+  Trash2,
+  CheckCircle2,
+  Package,
+  Plus,
+  Pencil,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -8,11 +25,15 @@ import { Label } from "@/components/ui/label";
 import { computeTodaySessionAlert, getTodayYMD } from "@/lib/session-alert";
 import {
   adminClearPurchaseIntent,
+  adminCreateCustomPackage,
   adminDeleteUser,
   adminDeleteAllAppointmentsForUser,
+  adminDeleteCustomPackage,
   adminGetUserProgressSummary,
+  adminListCustomPackages,
   adminListUsers,
   adminUpdateAppointmentStatus,
+  adminUpdateCustomPackage,
   adminUpdateUser,
   isApiError,
 } from "@/lib/laravel-api";
@@ -20,7 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { emitAdminDataChanged, onAdminDataChanged } from "@/lib/admin-events";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { ReportFormModal } from "@/features/reports/ReportFormModal";
-import type { ReportType } from "@/lib/laravel-api";
+import type { CustomPackageRow, ReportType } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 
@@ -53,6 +74,12 @@ const formatDate = (dateStr: string) => {
   });
 };
 
+const formatMoney = (value: number | string) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "R$ 0,00";
+  return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+};
+
 const AdminUsers = () => {
   const { toast } = useToast();
   const [users, setUsers] = useState<UserData[]>([]);
@@ -71,6 +98,20 @@ const AdminUsers = () => {
   }>(null);
   const [progressLoading, setProgressLoading] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [customPackages, setCustomPackages] = useState<CustomPackageRow[]>([]);
+  const [customPackagesLoading, setCustomPackagesLoading] = useState(false);
+  const [packageDialogOpen, setPackageDialogOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<CustomPackageRow | null>(null);
+  const [savingPackage, setSavingPackage] = useState(false);
+  const [deletePackageOpen, setDeletePackageOpen] = useState(false);
+  const [deletePackageTarget, setDeletePackageTarget] = useState<CustomPackageRow | null>(null);
+  const [packageForm, setPackageForm] = useState({
+    sessions_count: "",
+    title: "",
+    price_per_session: "",
+    total_price: "",
+    payment_url: "",
+  });
   const [deleteAppointmentsOpen, setDeleteAppointmentsOpen] = useState(false);
   const [deletingAppointments, setDeletingAppointments] = useState(false);
   const [selectedUserAppointments, setSelectedUserAppointments] = useState<
@@ -116,6 +157,110 @@ const AdminUsers = () => {
         setSelectedUserAppointments(mapped);
       })
       .catch(() => setSelectedUserAppointments([]));
+  };
+
+  const reloadCustomPackages = async (userId: number) => {
+    setCustomPackagesLoading(true);
+    try {
+      const rows = await adminListCustomPackages(userId);
+      setCustomPackages(rows);
+    } catch {
+      setCustomPackages([]);
+    } finally {
+      setCustomPackagesLoading(false);
+    }
+  };
+
+  const resetPackageForm = (pkg?: CustomPackageRow | null) => {
+    setPackageForm({
+      sessions_count: pkg ? String(pkg.sessions_count) : "",
+      title: pkg?.title ?? "",
+      price_per_session: pkg ? String(pkg.price_per_session) : "",
+      total_price: pkg ? String(pkg.total_price) : "",
+      payment_url: pkg?.payment_url ?? "",
+    });
+  };
+
+  const openCreatePackage = () => {
+    setEditingPackage(null);
+    resetPackageForm();
+    setPackageDialogOpen(true);
+  };
+
+  const openEditPackage = (pkg: CustomPackageRow) => {
+    setEditingPackage(pkg);
+    resetPackageForm(pkg);
+    setPackageDialogOpen(true);
+  };
+
+  const handleSavePackage = async () => {
+    if (!selectedUser) return;
+    const sessionsCount = Number(packageForm.sessions_count);
+    const pricePerSession = Number(packageForm.price_per_session);
+    const totalPrice = Number(packageForm.total_price);
+    if (!Number.isFinite(sessionsCount) || sessionsCount <= 0) {
+      toast({ title: "Sessões inválidas", description: "Informe a quantidade de sessões.", variant: "destructive" });
+      return;
+    }
+    if (!packageForm.title.trim()) {
+      toast({ title: "Título obrigatório", description: "Informe o título do pacote.", variant: "destructive" });
+      return;
+    }
+    if (!Number.isFinite(pricePerSession) || pricePerSession < 0) {
+      toast({ title: "Valor inválido", description: "Informe o valor por sessão.", variant: "destructive" });
+      return;
+    }
+    if (!Number.isFinite(totalPrice) || totalPrice < 0) {
+      toast({ title: "Valor inválido", description: "Informe o valor total do pacote.", variant: "destructive" });
+      return;
+    }
+    if (!packageForm.payment_url.trim()) {
+      toast({ title: "Link obrigatório", description: "Informe o link do Mercado Pago.", variant: "destructive" });
+      return;
+    }
+
+    setSavingPackage(true);
+    try {
+      if (editingPackage) {
+        await adminUpdateCustomPackage(editingPackage.id, {
+          sessions_count: sessionsCount,
+          title: packageForm.title.trim(),
+          price_per_session: pricePerSession,
+          total_price: totalPrice,
+          payment_url: packageForm.payment_url.trim(),
+        });
+      } else {
+        await adminCreateCustomPackage(selectedUser.id, {
+          sessions_count: sessionsCount,
+          title: packageForm.title.trim(),
+          price_per_session: pricePerSession,
+          total_price: totalPrice,
+          payment_url: packageForm.payment_url.trim(),
+        });
+      }
+      await reloadCustomPackages(selectedUser.id);
+      setPackageDialogOpen(false);
+      setEditingPackage(null);
+    } catch (e) {
+      const msg = isApiError(e) ? e.message : "Não foi possível salvar o pacote.";
+      toast({ title: "Erro", description: msg, variant: "destructive" });
+    } finally {
+      setSavingPackage(false);
+    }
+  };
+
+  const confirmDeletePackage = async () => {
+    if (!deletePackageTarget || !selectedUser) return;
+    try {
+      await adminDeleteCustomPackage(deletePackageTarget.id);
+      await reloadCustomPackages(selectedUser.id);
+      setDeletePackageOpen(false);
+      setDeletePackageTarget(null);
+      toast({ title: "Pacote removido", description: "O pacote foi excluído permanentemente." });
+    } catch (e) {
+      const msg = isApiError(e) ? e.message : "Não foi possível excluir o pacote.";
+      toast({ title: "Erro", description: msg, variant: "destructive" });
+    }
   };
 
   const reloadUsers = async () => {
@@ -277,6 +422,8 @@ const AdminUsers = () => {
     setProgressSummary(null);
     setProgressLoading(true);
     setSelectedUserAppointments([]);
+    setCustomPackages([]);
+    setCustomPackagesLoading(true);
     void adminGetUserProgressSummary(user.id)
       .then((res) => setProgressSummary(res))
       .catch(() => setProgressSummary(null))
@@ -284,6 +431,7 @@ const AdminUsers = () => {
 
     // Busca horários/sessões do usuário para exibir alerta (bolinha) no perfil.
     void reloadSelectedUserAppointments(user.id);
+    void reloadCustomPackages(user.id);
   };
 
   const selectedUserTodayAlert = useMemo(() => {
@@ -627,6 +775,81 @@ const AdminUsers = () => {
                   }}
                 />
 
+                {/* Pacotes personalizados */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-semibold text-foreground flex items-center gap-2">
+                        <Package size={18} />
+                        Pacotes personalizados
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Estes pacotes aparecem no catálogo do paciente selecionado.
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={openCreatePackage}>
+                      <Plus size={16} className="mr-2" />
+                      Criar pacote
+                    </Button>
+                  </div>
+
+                  {customPackagesLoading ? (
+                    <div className="text-sm text-muted-foreground">Carregando pacotes…</div>
+                  ) : customPackages.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Nenhum pacote personalizado para este paciente.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {customPackages.map((pkg) => (
+                        <div key={pkg.id} className="rounded-xl border border-border p-4 bg-card">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                              <span className="text-lg font-bold text-primary">{pkg.sessions_count}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-semibold text-foreground truncate">{pkg.title}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatMoney(pkg.price_per_session)} por sessão
+                              </div>
+                              <div className="text-sm font-semibold text-foreground">{formatMoney(pkg.total_price)}</div>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openEditPackage(pkg)}>
+                              <Pencil size={14} className="mr-2" />
+                              Editar
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setDeletePackageTarget(pkg);
+                                setDeletePackageOpen(true);
+                              }}
+                            >
+                              <Trash2 size={14} className="mr-2" />
+                              Excluir
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <BrandedConfirmDialog
+                  open={deletePackageOpen}
+                  onOpenChange={(open) => {
+                    setDeletePackageOpen(open);
+                    if (!open) setDeletePackageTarget(null);
+                  }}
+                  title="Excluir pacote?"
+                  description="Isso remove o pacote personalizado permanentemente para este paciente."
+                  confirmLabel="Excluir"
+                  cancelLabel="Cancelar"
+                  variant="danger"
+                  onConfirm={() => void confirmDeletePackage()}
+                />
+
                 {/* Access Controls */}
                 <div className="space-y-4">
                   <div>
@@ -886,6 +1109,79 @@ const AdminUsers = () => {
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal: criar/editar pacote personalizado */}
+        <Dialog open={packageDialogOpen} onOpenChange={setPackageDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{editingPackage ? "Editar pacote" : "Criar pacote"}</DialogTitle>
+              <DialogDescription>
+                Este pacote aparecerá no catálogo do paciente selecionado.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="pkg-sessions">Quantidade de sessões</Label>
+                <Input
+                  id="pkg-sessions"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={packageForm.sessions_count}
+                  onChange={(e) => setPackageForm((prev) => ({ ...prev, sessions_count: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="pkg-title">Título</Label>
+                <Input
+                  id="pkg-title"
+                  value={packageForm.title}
+                  onChange={(e) => setPackageForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Pacote especial de férias"
+                />
+              </div>
+              <div>
+                <Label htmlFor="pkg-price-session">Valor por sessão</Label>
+                <Input
+                  id="pkg-price-session"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={packageForm.price_per_session}
+                  onChange={(e) => setPackageForm((prev) => ({ ...prev, price_per_session: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="pkg-total">Valor total</Label>
+                <Input
+                  id="pkg-total"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={packageForm.total_price}
+                  onChange={(e) => setPackageForm((prev) => ({ ...prev, total_price: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="pkg-link">Link do Mercado Pago</Label>
+                <Input
+                  id="pkg-link"
+                  value={packageForm.payment_url}
+                  onChange={(e) => setPackageForm((prev) => ({ ...prev, payment_url: e.target.value }))}
+                  placeholder="https://mpago.li/..."
+                />
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setPackageDialogOpen(false)} disabled={savingPackage}>
+                  Cancelar
+                </Button>
+                <Button onClick={() => void handleSavePackage()} disabled={savingPackage}>
+                  {savingPackage ? "Salvando..." : "Salvar"}
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
 

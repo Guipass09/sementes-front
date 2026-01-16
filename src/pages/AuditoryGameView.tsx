@@ -630,31 +630,31 @@ export default function AuditoryGameView() {
   return (
     <div className="min-h-[100svh] bg-transparent">
       {!inSession && (
-        <div className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur border-b border-border">
-          <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <Button variant="ghost" onClick={() => navigate(-1)} className="shrink-0">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-              <Button variant="secondary" onClick={restart} className="shrink-0 sm:hidden">
-                Recomeçar
-              </Button>
-            </div>
-
-            <div className="flex-1 min-w-0 text-center sm:text-left">
-              <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
-                <Ear className="h-4 w-4" />
-                Estimulação Auditiva
-              </div>
-              <div className="font-display font-bold text-foreground truncate">{game.title}</div>
-            </div>
-
-            <Button variant="secondary" onClick={restart} className="hidden sm:inline-flex">
+      <div className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur border-b border-border">
+        <div className="container mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
+          <Button variant="ghost" onClick={() => navigate(-1)} className="shrink-0">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Button>
+            <Button variant="secondary" onClick={restart} className="shrink-0 sm:hidden">
               Recomeçar
             </Button>
           </div>
+
+          <div className="flex-1 min-w-0 text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
+              <Ear className="h-4 w-4" />
+              Estimulação Auditiva
+            </div>
+            <div className="font-display font-bold text-foreground truncate">{game.title}</div>
+          </div>
+
+          <Button variant="secondary" onClick={restart} className="hidden sm:inline-flex">
+            Recomeçar
+          </Button>
         </div>
+      </div>
       )}
 
       <div className={cn("container mx-auto px-4 py-6", inSession && "px-0 py-0")}>

@@ -414,32 +414,32 @@ export default function SpinWheelGameView() {
   return (
     <div ref={containerRef} className="min-h-[100svh] bg-transparent">
       {!inSession && (
-        <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
-          <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+      <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+            <div className="h-6 w-px bg-border hidden sm:block" />
             <div className="flex items-center gap-3 min-w-0">
-              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-              <div className="h-6 w-px bg-border hidden sm:block" />
-              <div className="flex items-center gap-3 min-w-0">
-                <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
-                <span className="hidden sm:block font-display font-bold text-base truncate">
-                  <span className="text-brand-green">Sementes</span>{" "}
-                  <span className="text-brand-brown">da Fala</span>
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className="bg-brand-orange text-white shadow-sm hidden sm:flex">
-                <CircleDot className="h-3 w-3 mr-1" /> Roleta Musical
-              </Badge>
-              <Button variant="ghost" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} className="h-9 w-9">
-                {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-              </Button>
+              <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
+              <span className="hidden sm:block font-display font-bold text-base truncate">
+                <span className="text-brand-green">Sementes</span>{" "}
+                <span className="text-brand-brown">da Fala</span>
+              </span>
             </div>
           </div>
-        </header>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-brand-orange text-white shadow-sm hidden sm:flex">
+              <CircleDot className="h-3 w-3 mr-1" /> Roleta Musical
+            </Badge>
+            <Button variant="ghost" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} className="h-9 w-9">
+              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+      </header>
       )}
 
       <main className="relative">
@@ -469,7 +469,7 @@ export default function SpinWheelGameView() {
 
               {/* Cabeçalho interno (padrão das atividades) */}
               {!compactInSession ? (
-                <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-6 border-b border-border/60">
+              <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-6 border-b border-border/60">
                 <div className="flex flex-col gap-3">
                   <div className="min-w-0">
                     <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">{game.title}</h1>
@@ -492,7 +492,7 @@ export default function SpinWheelGameView() {
                     ) : null}
                   </div>
                 </div>
-                </div>
+              </div>
               ) : null}
 
               {/* Conteúdo (com fundo da atividade) */}
@@ -763,29 +763,29 @@ export default function SpinWheelGameView() {
 
                       {(!inSession || sessionRole === "admin") && (
                         <>
-                          <Button
-                            onClick={spinWheel}
-                            disabled={spinning || finished}
-                            size="lg"
-                            className={cn(
-                              "px-12 sm:px-16 py-6 sm:py-7 text-xl sm:text-2xl font-black rounded-full shadow-xl transition-all",
-                              spinning
-                                ? "bg-gray-400 cursor-not-allowed"
-                                : "bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 hover:scale-110 hover:shadow-2xl",
-                            )}
-                          >
-                            {finished ? "✅ Finalizado" : spinning ? "🎰 Girando..." : "🎯 GIRAR!"}
-                          </Button>
+                      <Button
+                        onClick={spinWheel}
+                        disabled={spinning || finished}
+                        size="lg"
+                        className={cn(
+                          "px-12 sm:px-16 py-6 sm:py-7 text-xl sm:text-2xl font-black rounded-full shadow-xl transition-all",
+                          spinning
+                            ? "bg-gray-400 cursor-not-allowed"
+                            : "bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 hover:scale-110 hover:shadow-2xl",
+                        )}
+                      >
+                        {finished ? "✅ Finalizado" : spinning ? "🎰 Girando..." : "🎯 GIRAR!"}
+                      </Button>
 
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={handleRestart}
-                            disabled={spinning || remainingCount === totalCount}
-                            className="w-full max-w-xs"
-                          >
-                            Reiniciar
-                          </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={handleRestart}
+                        disabled={spinning || remainingCount === totalCount}
+                        className="w-full max-w-xs"
+                      >
+                        Reiniciar
+                      </Button>
                         </>
                       )}
                     </div>
@@ -793,20 +793,20 @@ export default function SpinWheelGameView() {
                 </div>
 
                 {!compactInSession ? (
-                  <div className="mt-4 text-center text-sm text-muted-foreground">
-                    {finished
-                      ? "Todas as opções já foram sorteadas. Clique em Reiniciar para começar de novo."
-                      : "Dica: fale uma frase/música usando a palavra sorteada."}
-                  </div>
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  {finished
+                    ? "Todas as opções já foram sorteadas. Clique em Reiniciar para começar de novo."
+                    : "Dica: fale uma frase/música usando a palavra sorteada."}
+                </div>
                 ) : null}
               </div>
 
             {/* Rodapé interno (padrão) */}
             {!compactInSession ? (
-              <div className="px-6 sm:px-10 py-4 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
-                <span>Sementes da Fala • Conteúdo para acompanhamento terapêutico</span>
-                <span>Confidencial</span>
-              </div>
+            <div className="px-6 sm:px-10 py-4 border-t border-border/60 text-xs text-muted-foreground flex items-center justify-between">
+              <span>Sementes da Fala • Conteúdo para acompanhamento terapêutico</span>
+              <span>Confidencial</span>
+            </div>
             ) : null}
           </div>
         </div>

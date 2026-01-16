@@ -740,37 +740,37 @@ export default function MemoryGameView() {
     <div className="min-h-[100svh] bg-transparent">
 
       {!inSession && (
-        <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
-          <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+      <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+
+            <div className="h-6 w-px bg-border hidden sm:block" />
+
             <div className="flex items-center gap-3 min-w-0">
-              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-
-              <div className="h-6 w-px bg-border hidden sm:block" />
-
-              <div className="flex items-center gap-3 min-w-0">
-                <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
-                <span className="hidden sm:block font-display font-bold text-base truncate">
-                  <span className="text-brand-green">Sementes</span>{" "}
-                  <span className="text-brand-brown">da Fala</span>
-                </span>
-              </div>
+              <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
+              <span className="hidden sm:block font-display font-bold text-base truncate">
+                <span className="text-brand-green">Sementes</span>{" "}
+                <span className="text-brand-brown">da Fala</span>
+              </span>
             </div>
-
-            {!loading && game && (
-              <div className="text-sm text-muted-foreground whitespace-nowrap inline-flex items-center gap-3">
-                <span className="inline-flex items-center gap-2">
-                  <Grid3X3 className="h-4 w-4 text-brand-green" />
-                  {matchedCount}/{totalPairs} pares
-                </span>
-                <span className="hidden sm:inline">•</span>
-                <span className="hidden sm:inline">Tentativas: {moves}</span>
-              </div>
-            )}
           </div>
-        </header>
+
+          {!loading && game && (
+            <div className="text-sm text-muted-foreground whitespace-nowrap inline-flex items-center gap-3">
+              <span className="inline-flex items-center gap-2">
+                <Grid3X3 className="h-4 w-4 text-brand-green" />
+                {matchedCount}/{totalPairs} pares
+              </span>
+              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline">Tentativas: {moves}</span>
+            </div>
+          )}
+        </div>
+      </header>
       )}
 
       <main className="relative">
@@ -794,14 +794,14 @@ export default function MemoryGameView() {
                       </div>
                       {( !inSession || sessionRole === "admin") && (
                         <>
-                          <Button variant="secondary" onClick={doShuffle}>
-                            <Shuffle className="h-4 w-4 mr-2" />
-                            Embaralhar
-                          </Button>
-                          <Button variant="secondary" onClick={resetGame}>
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Reiniciar
-                          </Button>
+                      <Button variant="secondary" onClick={doShuffle}>
+                        <Shuffle className="h-4 w-4 mr-2" />
+                        Embaralhar
+                      </Button>
+                      <Button variant="secondary" onClick={resetGame}>
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Reiniciar
+                      </Button>
                           {inSession && (
                             <Button variant="secondary" onClick={forceCloseWrong}>
                               Virar erradas

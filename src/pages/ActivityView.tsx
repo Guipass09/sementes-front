@@ -324,33 +324,33 @@ const ActivityView = () => {
     <div className="min-h-[100svh] bg-transparent">
 
       {!inSession && (
-        <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
-          <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+      <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar
+            </Button>
+
+            <div className="h-6 w-px bg-border hidden sm:block" />
+
             <div className="flex items-center gap-3 min-w-0">
-              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-
-              <div className="h-6 w-px bg-border hidden sm:block" />
-
-              <div className="flex items-center gap-3 min-w-0">
-                <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
-                <span className="hidden sm:block font-display font-bold text-base truncate">
-                  <span className="text-brand-green">Sementes</span>{" "}
-                  <span className="text-brand-brown">da Fala</span>
-                </span>
-              </div>
+              <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
+              <span className="hidden sm:block font-display font-bold text-base truncate">
+                <span className="text-brand-green">Sementes</span>{" "}
+                <span className="text-brand-brown">da Fala</span>
+              </span>
             </div>
-
-            {/* Indicador estilo “1 de N” */}
-            {count > 0 && (
-              <div className="text-sm text-muted-foreground whitespace-nowrap">
-                <span className="font-semibold text-foreground">{current}</span> de {count}
-              </div>
-            )}
           </div>
-        </header>
+
+          {/* Indicador estilo “1 de N” */}
+          {count > 0 && (
+            <div className="text-sm text-muted-foreground whitespace-nowrap">
+              <span className="font-semibold text-foreground">{current}</span> de {count}
+            </div>
+          )}
+        </div>
+      </header>
       )}
 
       <main className="relative">
@@ -370,7 +370,7 @@ const ActivityView = () => {
               )}
               {/* Cabeçalho interno */}
               {!compactForUser ? (
-                <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-5 border-b border-border/60">
+              <div className="px-6 sm:px-10 pt-7 sm:pt-10 pb-5 border-b border-border/60">
                 {loading ? (
                   <div className="space-y-3">
                     <Skeleton className="h-7 w-2/3" />
@@ -481,7 +481,7 @@ const ActivityView = () => {
                     <p className="text-muted-foreground">Tente novamente em alguns instantes.</p>
                   </div>
                 )}
-                </div>
+              </div>
               ) : null}
 
               {/* Conteúdo/Carrossel */}
@@ -587,7 +587,7 @@ const ActivityView = () => {
 
                               {/* Texto (caption) */}
                               {!compactForUser ? (
-                                <div className="px-5 sm:px-7 py-5">
+                              <div className="px-5 sm:px-7 py-5">
                                 <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
                                   Instrução
                                 </div>
@@ -596,7 +596,7 @@ const ActivityView = () => {
                                     ? item.caption
                                     : "Siga as orientações do(a) profissional e observe com atenção."}
                                 </div>
-                                </div>
+                              </div>
                               ) : null}
                             </div>
                           </CarouselItem>
@@ -616,7 +616,7 @@ const ActivityView = () => {
 
                     {/* Navegação grande (mais acessível/chamativa) */}
                     {!compactForUser ? (
-                      <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                       <Button
                         variant="secondary"
                         size="lg"

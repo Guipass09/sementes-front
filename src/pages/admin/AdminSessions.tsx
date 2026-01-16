@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { computeTodaySessionAlert, getTodayYMD } from "@/lib/session-alert";
+import { computeTodaySessionAlert, getJoinCountdownLabel, getTodayYMD } from "@/lib/session-alert";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { JoinSessionButton } from "@/components/JoinSessionButton";
 import {
@@ -454,6 +454,22 @@ const AdminSessions = () => {
                                 nowMs={nowMs}
                                 onClick={() => goToCall(session.id)}
                               />
+                              {(() => {
+                                const countdown = getJoinCountdownLabel({
+                                  date: session.date,
+                                  time: session.time,
+                                  nowMs,
+                                });
+                                const showCountdown = session.join_session
+                                  ? session.join_session.visible
+                                  : countdown.active;
+                                if (!showCountdown || !countdown.label) return null;
+                                return (
+                                  <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                                    {countdown.label}
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2">

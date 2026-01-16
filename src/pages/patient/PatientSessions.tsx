@@ -6,7 +6,13 @@ import AccessBlocked from "@/components/AccessBlocked";
 import { useEffect, useMemo, useState } from "react";
 import { isApiError, userListAppointments } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
-import { BLINK_AFTER_MINUTES, BLINK_BEFORE_MINUTES, getTodayYMD, parseLocalDateTime } from "@/lib/session-alert";
+import {
+  BLINK_AFTER_MINUTES,
+  BLINK_BEFORE_MINUTES,
+  getJoinCountdownLabel,
+  getTodayYMD,
+  parseLocalDateTime,
+} from "@/lib/session-alert";
 import type { JoinSessionMeta } from "@/lib/laravel-api";
 import { JoinSessionButton } from "@/components/JoinSessionButton";
 
@@ -220,6 +226,22 @@ const PatientSessions = () => {
                           nowMs={nowMs}
                           onClick={() => goToCall(session.id)}
                         />
+                      {(() => {
+                        const countdown = getJoinCountdownLabel({
+                          date: session.date,
+                          time: session.time,
+                          nowMs,
+                        });
+                        const showCountdown = session.join_session
+                          ? session.join_session.visible
+                          : countdown.active;
+                        if (!showCountdown || !countdown.label) return null;
+                        return (
+                          <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                            {countdown.label}
+                          </span>
+                        );
+                      })()}
                       </div>
                     </div>
                   </div>
@@ -293,6 +315,22 @@ const PatientSessions = () => {
                         nowMs={nowMs}
                         onClick={() => goToCall(session.id)}
                       />
+                      {(() => {
+                        const countdown = getJoinCountdownLabel({
+                          date: session.date,
+                          time: session.time,
+                          nowMs,
+                        });
+                        const showCountdown = session.join_session
+                          ? session.join_session.visible
+                          : countdown.active;
+                        if (!showCountdown || !countdown.label) return null;
+                        return (
+                          <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                            {countdown.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

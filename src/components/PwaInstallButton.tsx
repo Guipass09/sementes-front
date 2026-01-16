@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -39,7 +39,7 @@ export default function PwaInstallButton(): JSX.Element | null {
   const isIos = useMemo(() => isIosDevice(), []);
   const isStandalone = useMemo(() => isStandaloneMode(), []);
   const canPromptInstall = !!installPrompt && !isStandalone;
-  const showButton = (canPromptInstall || (isIos && !isStandalone)) && typeof window !== "undefined";
+  const showButton = !isStandalone && typeof window !== "undefined";
 
   if (!showButton) return null;
 
@@ -61,12 +61,18 @@ export default function PwaInstallButton(): JSX.Element | null {
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setOpen(true)}
-        className="rounded-xl"
+        onClick={() => {
+          if (installPrompt) {
+            void handleConfirm();
+          } else {
+            setOpen(true);
+          }
+        }}
+        className="rounded-full border-emerald-200 bg-emerald-50/70 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
         title="Instalar app"
       >
-        <Download size={16} className="mr-2" />
-        <span className="hidden lg:inline">Instalar app</span>
+        <Sparkles size={16} className="mr-2" />
+        <span className="hidden lg:inline">Baixar aplicativo</span>
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -81,6 +87,11 @@ export default function PwaInstallButton(): JSX.Element | null {
           {installPrompt ? (
             <div className="text-sm text-muted-foreground">
               Ao confirmar, o atalho será instalado como aplicativo.
+            </div>
+          ) : !isIos ? (
+            <div className="text-sm text-muted-foreground">
+              No computador, use o menu do navegador e clique em
+              <strong> Instalar app</strong> ou <strong>Criar atalho</strong>.
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">

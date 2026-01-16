@@ -375,6 +375,23 @@ const AdminDashboard = () => {
             </DialogDescription>
           </DialogHeader>
 
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
+            <div className="text-sm text-muted-foreground">
+              Total do mês: <span className="font-semibold text-foreground">{formatMoney(salesTotal)}</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const key = `admin_sales_total:${monthKey}`;
+                setSalesTotal(0);
+                window.localStorage.setItem(key, "0");
+              }}
+            >
+              Limpar total
+            </Button>
+          </div>
+
           <div className="space-y-6">
             <div>
               <h4 className="text-sm font-semibold text-foreground mb-3">Pacotes fixos</h4>

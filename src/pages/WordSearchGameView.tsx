@@ -212,22 +212,41 @@ export default function WordSearchGameView() {
   const grid = gridData?.grid || [];
   const gridSize = gridData?.size || 10;
 
-  // Encontra palavra que contém a célula (row, col)
+  // Retorna todas as posições de uma palavra
+  const getWordPositions = (item: any): Array<{ r: number; c: number }> => {
+    const positions: Array<{ r: number; c: number }> = [];
+    const wordLen = item.word.length;
+    if (item.direction === "horizontal") {
+      for (let i = 0; i < wordLen; i++) {
+        positions.push({ r: item.start_row, c: item.start_col + i });
+      }
+    } else {
+      for (let i = 0; i < wordLen; i++) {
+        positions.push({ r: item.start_row + i, c: item.start_col });
+      }
+    }
+    return positions;
+  };
+
+  // Verifica se uma célula (row, col) faz parte de uma palavra encontrada
+  const isCellInFoundWord = (row: number, col: number): boolean => {
+    if (!game || !game.items) return false;
+    for (const item of game.items) {
+      if (!foundWords.has(item.id)) continue;
+      const positions = getWordPositions(item);
+      if (positions.some((p) => p.r === row && p.c === col)) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Encontra palavra que contém a célula (row, col) - apenas palavras não encontradas
   const findWordAtCell = (row: number, col: number): { item: any; positions: Array<{ r: number; c: number }> } | null => {
     if (!game || !game.items) return null;
     for (const item of game.items) {
       if (foundWords.has(item.id)) continue;
-      const positions: Array<{ r: number; c: number }> = [];
-      const wordLen = item.word.length;
-      if (item.direction === "horizontal") {
-        for (let i = 0; i < wordLen; i++) {
-          positions.push({ r: item.start_row, c: item.start_col + i });
-        }
-      } else {
-        for (let i = 0; i < wordLen; i++) {
-          positions.push({ r: item.start_row + i, c: item.start_col });
-        }
-      }
+      const positions = getWordPositions(item);
       if (positions.some((p) => p.r === row && p.c === col)) {
         return { item, positions };
       }
@@ -242,10 +261,16 @@ export default function WordSearchGameView() {
     const key = `${row}-${col}`;
     if (removedCells.has(key)) return; // célula já removida
 
+    // Primeiro verifica se já está em uma palavra encontrada (não deve acontecer, mas segurança)
+    if (isCellInFoundWord(row, col)) {
+      return; // célula já faz parte de palavra encontrada
+    }
+
     const wordAtCell = findWordAtCell(row, col);
     if (wordAtCell) {
-      // Palavra encontrada!
+      // Palavra encontrada! Ao clicar em QUALQUER letra da palavra, TODAS as letras ficam verdes
       playCorrect();
+      // Marca a palavra como encontrada - isso fará TODAS as letras ficarem verdes via isCellInFoundWord
       setFoundWords((prev) => new Set([...prev, wordAtCell.item.id]));
       setPendingWordId(wordAtCell.item.id); // agora precisa escolher a imagem correspondente
       if (inSession) {
@@ -394,13 +419,13 @@ export default function WordSearchGameView() {
                             row.map((char, cIdx) => {
                               const key = `${rIdx}-${cIdx}`;
                               const isRemoved = removedCells.has(key);
-                              const wordAtCell = findWordAtCell(rIdx, cIdx);
-                              const isFound = wordAtCell && foundWords.has(wordAtCell.item.id);
+                              const isInFoundWord = isCellInFoundWord(rIdx, cIdx); // TODAS as letras da palavra encontrada
                               const maxSize = Math.min(
                                 Math.floor((window.innerWidth * 0.45) / gridSize),
                                 Math.floor((window.innerHeight * 0.6) / gridSize),
                               );
-                              const cellSize = Math.max(20, Math.min(28, maxSize));
+                              // Aumentar um pouco o tamanho das letras para crianças
+                              const cellSize = Math.max(24, Math.min(36, maxSize));
 
                               if (isRemoved) {
                                 return <div key={key} className="w-full h-full aspect-square" style={{ width: cellSize, height: cellSize }} />;
@@ -414,11 +439,11 @@ export default function WordSearchGameView() {
                                   disabled={lock || pendingWordId !== null}
                                   className={cn(
                                     "w-full aspect-square rounded text-center font-bold transition-colors",
-                                    isFound
+                                    isInFoundWord
                                       ? "bg-brand-green text-white shadow-md"
                                       : "bg-black/90 hover:bg-black text-white border border-gray-700",
                                   )}
-                                  style={{ width: cellSize, height: cellSize, fontSize: `${Math.max(12, cellSize * 0.45)}px` }}
+                                  style={{ width: cellSize, height: cellSize, fontSize: `${Math.max(14, cellSize * 0.5)}px` }}
                                 >
                                   {char}
                                 </button>
@@ -428,43 +453,36 @@ export default function WordSearchGameView() {
                         </div>
                       </div>
 
-                      {/* Imagens (sempre visíveis, à direita) */}
+                      {/* Imagens (sempre visíveis, à direita) - integradas ao fundo */}
                       {game.items && (
-                        <div className="lg:flex-1 flex-shrink-0 bg-white/85 backdrop-blur-sm rounded-lg p-2 sm:p-3 overflow-y-auto">
-                          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-3">
+                        <div className="lg:flex-1 flex-shrink-0 flex items-center justify-center p-2 sm:p-3">
+                          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-3 w-full max-h-full">
                             {game.items.map((item) => {
                               const isFound = foundImages.has(item.id);
-                              const isPending = pendingWordId === item.id;
                               const isShaking = shakeImageId === item.id;
+                              const isEnabled = pendingWordId !== null && !isFound; // habilitado quando há palavra pendente e imagem não foi encontrada
 
                               return (
                                 <button
                                   key={item.id}
                                   type="button"
                                   onClick={() => onImageClick(item.id)}
-                                  disabled={lock || (pendingWordId === null && !isFound)}
+                                  disabled={lock || !isEnabled}
                                   className={cn(
-                                    "relative rounded-xl overflow-hidden border-2 transition-all aspect-square",
+                                    "relative rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-lg",
                                     isFound
-                                      ? "border-brand-green opacity-60 cursor-not-allowed"
+                                      ? "border-brand-green opacity-70 cursor-not-allowed"
                                       : isShaking
-                                        ? "border-red-500 animate-[shake_0.35s_ease-in-out_0s_2] bg-red-50"
-                                        : isPending
-                                          ? "border-brand-green ring-2 ring-brand-green/50 bg-green-50/50"
-                                          : pendingWordId !== null
-                                            ? "border-gray-300 hover:border-brand-green/50 bg-white"
-                                            : "border-gray-300 opacity-50 cursor-not-allowed",
+                                        ? "border-red-500 animate-[shake_0.35s_ease-in-out_0s_2] bg-red-100/90"
+                                        : isEnabled
+                                          ? "border-white/80 hover:border-brand-green/90 bg-white/95 cursor-pointer hover:scale-105"
+                                          : "border-white/40 opacity-50 cursor-not-allowed bg-white/60",
                                   )}
                                 >
                                   <img src={normalizeMediaUrl(item.image_url)} alt={item.word} className="w-full h-full object-cover" />
                                   {isFound && (
                                     <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
                                       <span className="text-3xl text-white drop-shadow-lg">✓</span>
-                                    </div>
-                                  )}
-                                  {isPending && !isFound && (
-                                    <div className="absolute inset-0 bg-brand-green/20 flex items-center justify-center pointer-events-none">
-                                      <span className="text-xs font-semibold text-brand-green">Selecione</span>
                                     </div>
                                   )}
                                 </button>

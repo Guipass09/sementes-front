@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Gamepad2, Ear, ArrowRight, Type, CircleDot } from "lucide-react";
+import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AdminGamesHub() {

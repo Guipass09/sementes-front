@@ -508,15 +508,13 @@ export default function WordSearchGameView() {
 
                     {/* Grid e Imagens lado a lado - sempre responsivo, igual dentro e fora da sessão */}
                     <div className="relative h-full w-full flex flex-col lg:flex-row gap-2 sm:gap-3 p-2 sm:p-3">
-                      {/* Grid de letras (menor à esquerda, para dar espaço às imagens) */}
-                      <div className="flex-1 lg:flex-[1.5] flex items-center justify-center min-w-0 max-w-[60%]">
+                      {/* Grid de letras (esquerda) */}
+                      <div className="lg:w-1/2 flex items-center justify-center min-w-0 flex-shrink-0">
                         <div
-                          className="grid gap-0.5 sm:gap-1 backdrop-blur-sm p-1.5 sm:p-2 rounded-lg shadow-lg"
+                          className="grid gap-0.5 sm:gap-1 backdrop-blur-sm p-1.5 sm:p-2 rounded-lg shadow-lg w-full max-w-full"
                           style={{
                             backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
                             gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                            width: "100%",
-                            maxWidth: "100%",
                             maxHeight: "100%",
                           }}
                         >
@@ -567,13 +565,13 @@ export default function WordSearchGameView() {
                       </div>
 
                       {/* Imagens (sempre visíveis, à direita) - adaptadas ao espaço disponível, sem cortar */}
-                      {game.items && (() => {
+                      {game.items && game.items.length > 0 ? (() => {
                         const itemsCount = game.items.length;
                         const cols = 2; // sempre 2 colunas
                         const rows = Math.ceil(itemsCount / cols);
                         
                         return (
-                          <div className="lg:flex-1 flex-shrink-0 p-1 sm:p-1.5 max-h-full overflow-hidden min-w-0 flex items-center justify-center">
+                          <div className="lg:w-1/2 lg:flex-shrink-0 p-1 sm:p-1.5 h-full max-h-full overflow-hidden min-w-0 flex items-center justify-center">
                             <div
                               className="grid w-full h-full gap-1 sm:gap-1.5"
                               style={{
@@ -626,7 +624,7 @@ export default function WordSearchGameView() {
                             </div>
                           </div>
                         );
-                      })()}
+                      })() : null}
                     </div>
 
                     {/* Progresso */}

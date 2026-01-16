@@ -469,12 +469,12 @@ export default function WordSearchGameView() {
                 {/* Fundo */}
                 <img src={normalizeMediaUrl(game.background_url)} alt="" className="absolute inset-0 w-full h-full object-cover" />
                 
-                {/* Grid e Imagens lado a lado */}
-                <div className="relative h-full w-full flex flex-row gap-3 p-3">
+                {/* Grid e Imagens lado a lado - sempre em row, mesmo no mobile */}
+                <div className="relative h-full w-full flex flex-row gap-1 sm:gap-2 p-1 sm:p-2">
                   {/* Grid de letras (esquerda) */}
-                  <div className="w-1/2 flex items-center justify-center min-w-0">
+                  <div className="w-1/2 flex items-center justify-center min-w-0 flex-shrink-0">
                     <div
-                      className="grid gap-0.5 p-2 rounded-lg w-full"
+                      className="grid gap-0.5 p-1 sm:p-1.5 rounded-lg w-full max-w-full"
                       style={{
                         backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
                         gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
@@ -486,15 +486,28 @@ export default function WordSearchGameView() {
                           const isRemoved = removedCells.has(key);
                           const isInFoundWord = isCellInFoundWord(rIdx, cIdx);
                           
-                          const maxSize = Math.min(
-                            Math.floor((window.innerWidth * 0.4) / gridSize),
-                            Math.floor((window.innerHeight * 0.7) / gridSize),
-                          );
-                          const cellSize = Math.max(24, Math.min(36, maxSize));
+                          // Cálculo responsivo para mobile e desktop
+                          const isMobile = window.innerWidth < 640;
+                          const maxSize = isMobile
+                            ? Math.min(
+                                Math.floor((window.innerWidth * 0.45) / gridSize),
+                                Math.floor((window.innerHeight * 0.6) / gridSize),
+                              )
+                            : Math.min(
+                                Math.floor((window.innerWidth * 0.4) / gridSize),
+                                Math.floor((window.innerHeight * 0.7) / gridSize),
+                              );
+                          const cellSize = isMobile 
+                            ? Math.max(18, Math.min(28, maxSize))
+                            : Math.max(24, Math.min(36, maxSize));
 
                           if (isRemoved) {
                             return <div key={key} className="w-full h-full aspect-square" style={{ width: cellSize, height: cellSize }} />;
                           }
+
+                          // Aplicar cores personalizadas corretamente
+                          const bgColor = game.grid_background_color || '#000000';
+                          const letterColor = game.letter_color || '#FFFFFF';
 
                           return (
                             <button
@@ -511,10 +524,10 @@ export default function WordSearchGameView() {
                               style={{
                                 width: cellSize,
                                 height: cellSize,
-                                fontSize: `${Math.max(16, cellSize * 0.55)}px`,
-                                backgroundColor: isInFoundWord ? undefined : (game.grid_background_color || '#000000'),
-                                color: isInFoundWord ? undefined : (game.letter_color || '#FFFFFF'),
-                                borderColor: isInFoundWord ? undefined : `${game.letter_color || '#FFFFFF'}40`,
+                                fontSize: `${Math.max(12, cellSize * 0.5)}px`,
+                                backgroundColor: isInFoundWord ? undefined : bgColor,
+                                color: isInFoundWord ? undefined : letterColor,
+                                borderColor: isInFoundWord ? undefined : `${letterColor}40`,
                               }}
                             >
                               {char}
@@ -525,11 +538,11 @@ export default function WordSearchGameView() {
                     </div>
                   </div>
 
-                  {/* Imagens (direita) */}
+                  {/* Imagens (direita) - sempre visível, adaptado ao espaço */}
                   {game.items && game.items.length > 0 && (
-                    <div className="w-1/2 h-full overflow-hidden flex items-center justify-center p-2">
+                    <div className="w-1/2 h-full overflow-hidden flex items-center justify-center p-0.5 sm:p-1 flex-shrink-0">
                       <div
-                        className="grid w-full h-full gap-2"
+                        className="grid w-full h-full gap-0.5 sm:gap-1"
                         style={{
                           gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                           gridTemplateRows: `repeat(${Math.ceil(game.items.length / 2)}, minmax(0, 1fr))`,
@@ -547,7 +560,7 @@ export default function WordSearchGameView() {
                               onClick={() => onImageClick(item.id)}
                               disabled={lock || !isEnabled}
                               className={cn(
-                                "relative rounded-lg overflow-hidden border-2 transition-all aspect-square",
+                                "relative rounded sm:rounded-lg overflow-hidden border border-white/60 transition-all aspect-square",
                                 isFound
                                   ? "border-brand-green opacity-70"
                                   : isShaking
@@ -556,15 +569,26 @@ export default function WordSearchGameView() {
                                       ? "border-white/80 hover:border-brand-green/90 bg-white/95 cursor-pointer"
                                       : "border-white/40 opacity-50 bg-white/60",
                               )}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                maxWidth: "100%",
+                                maxHeight: "100%",
+                              }}
                             >
                               <img 
                                 src={normalizeMediaUrl(item.image_url)} 
                                 alt={item.word} 
-                                className="w-full h-full object-contain p-1" 
+                                className="w-full h-full object-contain p-0.5" 
+                                style={{ 
+                                  maxWidth: "100%", 
+                                  maxHeight: "100%",
+                                  objectFit: "contain"
+                                }}
                               />
                               {isFound && (
                                 <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
-                                  <span className="text-2xl text-white drop-shadow-lg">✓</span>
+                                  <span className="text-lg sm:text-xl text-white drop-shadow-lg">✓</span>
                                 </div>
                               )}
                             </button>
@@ -575,7 +599,7 @@ export default function WordSearchGameView() {
                   )}
 
                   {/* Progresso */}
-                  <div className="absolute top-3 right-3 z-10 bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2 text-white/90 text-sm">
+                  <div className="absolute top-2 sm:top-3 right-2 sm:right-3 z-10 bg-black/40 backdrop-blur-sm rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 text-white/90 text-xs sm:text-sm">
                     {foundWords.size}/{game.items?.length || 0} palavras
                   </div>
                 </div>

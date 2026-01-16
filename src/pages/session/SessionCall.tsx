@@ -347,12 +347,31 @@ export default function SessionCall() {
     joiningRef.current = true;
 
     let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    
     (async () => {
       setJoining(true);
       setStatusLabel("Entrando na sessão...");
+      
+      // Timeout de segurança: se não completar em 30 segundos, cancela e mostra erro
+      timeoutId = setTimeout(() => {
+        if (!cancelled) {
+          cancelled = true;
+          setJoining(false);
+          joiningRef.current = false;
+          toast({ 
+            title: "Sessão", 
+            description: "Tempo limite excedido ao entrar na sessão. Tente novamente.", 
+            variant: "destructive" 
+          });
+        }
+      }, 30000);
+      
       try {
         const res = await videoJoin(appointmentId);
         if (cancelled) return;
+        if (timeoutId) clearTimeout(timeoutId);
+        
         setJoinInfo(res);
         setRole(res.role);
         // Timer: inicia uma vez e persiste entre reloads/saída-volta
@@ -381,8 +400,11 @@ export default function SessionCall() {
         setStatusLabel("Toque em “Iniciar câmera e microfone”");
         setMediaState("idle");
         setMediaError(null);
+        joiningRef.current = false; // Reset para permitir novo join se necessário
       } catch (e) {
         if (cancelled) return;
+        if (timeoutId) clearTimeout(timeoutId);
+        joiningRef.current = false; // Reset em caso de erro
         const msg =
           isApiError(e) && e.status === 403
             ? "Essa sessão ainda não está disponível. Tente mais perto do horário."
@@ -392,14 +414,19 @@ export default function SessionCall() {
         setRole(null);
         setJoining(false);
         // volta para lista
-        goBack((user?.role as any) === "admin" ? "admin" : "user");
+        setTimeout(() => {
+          goBack((user?.role as any) === "admin" ? "admin" : "user");
+        }, 2000); // Delay para mostrar o toast
       } finally {
+        if (!cancelled && timeoutId) clearTimeout(timeoutId);
         if (!cancelled) setJoining(false);
       }
     })();
 
     return () => {
       cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      joiningRef.current = false; // Reset ao desmontar
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointmentId, user]);

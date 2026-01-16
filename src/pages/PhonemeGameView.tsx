@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Gamepad2, Volume2, RotateCcw } from "lucide-react";
+import { ArrowLeft, Gamepad2, Volume2, RotateCcw, Headphones } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import FullscreenToggle from "@/components/FullscreenToggle";
 import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
+import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 
 type Role = "admin" | "user";
 
@@ -61,6 +62,7 @@ export default function PhonemeGameView() {
   const [shakeSide, setShakeSide] = useState<null | "left" | "right">(null);
   const [flashSide, setFlashSide] = useState<null | "left" | "right">(null);
   const [lock, setLock] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
 
   const fsRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLDivElement | null>(null);
@@ -163,6 +165,7 @@ export default function PhonemeGameView() {
           setShakeSide(null);
           setFlashSide(null);
           setLock(false);
+          setCelebrate(false);
           return;
         }
         if (evt.kind === "speak" && typeof evt.index === "number") {
@@ -183,10 +186,17 @@ export default function PhonemeGameView() {
           setShakeSide(correct ? null : evt.side);
           if (correct) {
             setLock(true);
+            const nextIdx = i + 1;
+            const isLastItem = nextIdx >= (g.items?.length ?? 0);
             window.setTimeout(() => {
               setFlashSide(null);
               setShakeSide(null);
-              setIdx((prev) => Math.min(prev + 1, (g.items?.length ?? 1) - 1));
+              if (isLastItem) {
+                setCelebrate(true);
+                setIdx(nextIdx);
+              } else {
+                setIdx(nextIdx);
+              }
               setLock(false);
             }, 650);
           } else {
@@ -208,13 +218,20 @@ export default function PhonemeGameView() {
   }, [inSession, sessionRole, game]);
 
   const current = game?.items?.[idx] ?? null;
-  const finished = !!game && idx >= (game.items?.length ?? 0) - 1 && false;
+  const finished = !!game && idx >= (game.items?.length ?? 0);
+
+  useEffect(() => {
+    if (!celebrate) return;
+    const t = window.setTimeout(() => setCelebrate(false), 2500);
+    return () => window.clearTimeout(t);
+  }, [celebrate]);
 
   const doReset = () => {
     setIdx(0);
     setShakeSide(null);
     setFlashSide(null);
     setLock(false);
+    setCelebrate(false);
     if (inSession && sessionRole === "admin") emitSessionEvent({ kind: "reset" });
   };
 
@@ -240,10 +257,17 @@ export default function PhonemeGameView() {
 
     if (correct) {
       setLock(true);
+      const nextIdx = idx + 1;
+      const isLastItem = nextIdx >= (game.items?.length ?? 0);
       window.setTimeout(() => {
         setFlashSide(null);
         setShakeSide(null);
-        setIdx((p) => Math.min(p + 1, (game.items?.length ?? 1) - 1));
+        if (isLastItem) {
+          setCelebrate(true);
+          setIdx(nextIdx);
+        } else {
+          setIdx(nextIdx);
+        }
         setLock(false);
       }, 650);
     } else {
@@ -322,20 +346,20 @@ export default function PhonemeGameView() {
               <div ref={bodyRef} className="p-2 sm:p-4 lg:p-6 flex-1 fs-fit flex items-center">
                 {loading ? (
                   <Skeleton className="h-[60vh] w-full rounded-2xl" />
-                ) : game && current ? (
-                  <div className="relative w-full h-full min-h-[40vh] sm:min-h-[50vh] rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-black">
+                ) : game && current && !finished ? (
+                  <div className="relative w-full h-[55vh] sm:h-[62vh] lg:h-[70vh] rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-black">
                     <img src={current ? game.background_url : ""} alt="" className="absolute inset-0 w-full h-full object-cover opacity-95" />
                     <div className="absolute inset-0 bg-black/25" />
 
                     <div className="absolute top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 z-10 flex items-center justify-center">
-                      <Button type="button" onClick={doSpeak} className="rounded-full bg-white/90 text-foreground hover:bg-white text-xs sm:text-sm px-3 sm:px-4 h-8 sm:h-10">
-                        <Volume2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                        <span className="hidden sm:inline">Ouvir palavra</span>
-                        <span className="sm:hidden">Ouvir</span>
+                      <Button type="button" onClick={doSpeak} className="rounded-full bg-white/95 hover:bg-white shadow-lg border border-white/20 text-foreground hover:scale-105 transition-transform text-xs sm:text-sm px-4 sm:px-5 h-9 sm:h-11">
+                        <Headphones className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-primary" />
+                        <span className="hidden sm:inline font-semibold">Ouvir palavra</span>
+                        <span className="sm:hidden font-semibold">Ouvir</span>
                       </Button>
                     </div>
 
-                    <div className="absolute inset-0 pt-12 sm:pt-14 pb-12 sm:pb-16 px-2 sm:px-4 flex items-center justify-center">
+                    <div className="absolute inset-0 pt-14 sm:pt-16 pb-14 sm:pb-18 px-2 sm:px-4 flex items-center justify-center">
                       <div className="w-full h-full max-w-5xl grid grid-cols-2 gap-2 sm:gap-3 lg:gap-4">
                         <button
                           type="button"
@@ -387,6 +411,23 @@ export default function PhonemeGameView() {
           </div>
         </div>
       </main>
+
+      {/* Celebration modal */}
+      <BrandedCongratsDialog
+        open={celebrate}
+        onOpenChange={setCelebrate}
+        title="Parabéns!"
+        description="Você concluiu o jogo."
+        primaryLabel="Fechar"
+      >
+        <div className="relative h-10">
+          <div className="mg-aud-celebrate pointer-events-none">
+            <span className="mg-aud-confetti" />
+            <span className="mg-aud-confetti" />
+            <span className="mg-aud-confetti" />
+          </div>
+        </div>
+      </BrandedCongratsDialog>
     </div>
   );
 }

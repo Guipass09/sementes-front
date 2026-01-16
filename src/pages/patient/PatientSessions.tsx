@@ -65,7 +65,8 @@ const PatientSessions = () => {
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
-    const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    // 1s para o contador ao lado do "Entrar na sessão" descer em tempo real.
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
 

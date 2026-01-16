@@ -566,16 +566,16 @@ export default function WordSearchGameView() {
                         </div>
                       </div>
 
-                      {/* Imagens (sempre visíveis, à direita) - integradas ao fundo, ajustadas dinamicamente sem scroll */}
+                      {/* Imagens (sempre visíveis, à direita) - adaptadas ao espaço disponível, sem cortar */}
                       {game.items && (() => {
                         const itemsCount = game.items.length;
                         const cols = 2; // sempre 2 colunas
                         const rows = Math.ceil(itemsCount / cols);
                         
                         return (
-                          <div className="lg:flex-1 flex-shrink-0 p-1.5 sm:p-2 max-h-full overflow-hidden min-w-0">
+                          <div className="lg:flex-1 flex-shrink-0 p-1 sm:p-1.5 max-h-full overflow-hidden min-w-0 flex items-center justify-center">
                             <div
-                              className="grid w-full h-full gap-1.5 sm:gap-2"
+                              className="grid w-full h-full gap-1 sm:gap-1.5"
                               style={{
                                 gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
                                 gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
@@ -593,13 +593,13 @@ export default function WordSearchGameView() {
                                     onClick={() => onImageClick(item.id)}
                                     disabled={lock || !isEnabled}
                                     className={cn(
-                                      "relative rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-lg",
+                                      "relative rounded-lg sm:rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-md",
                                       isFound
                                         ? "border-brand-green opacity-70 cursor-not-allowed"
                                         : isShaking
                                           ? "border-red-500 animate-[shake_0.35s_ease-in-out_0s_2] bg-red-100/90"
                                           : isEnabled
-                                            ? "border-white/80 hover:border-brand-green/90 bg-white/95 cursor-pointer hover:scale-105"
+                                            ? "border-white/80 hover:border-brand-green/90 bg-white/95 cursor-pointer"
                                             : "border-white/40 opacity-50 cursor-not-allowed bg-white/60",
                                     )}
                                     style={{
@@ -609,10 +609,15 @@ export default function WordSearchGameView() {
                                       maxHeight: "100%",
                                     }}
                                   >
-                                    <img src={normalizeMediaUrl(item.image_url)} alt={item.word} className="w-full h-full object-contain p-1" />
+                                    <img 
+                                      src={normalizeMediaUrl(item.image_url)} 
+                                      alt={item.word} 
+                                      className="w-full h-full object-contain p-0.5 sm:p-1" 
+                                      style={{ maxWidth: "100%", maxHeight: "100%" }}
+                                    />
                                     {isFound && (
                                       <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
-                                        <span className="text-3xl text-white drop-shadow-lg">✓</span>
+                                        <span className="text-xl sm:text-2xl text-white drop-shadow-lg">✓</span>
                                       </div>
                                     )}
                                   </button>

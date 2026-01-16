@@ -212,20 +212,38 @@ export default function WordSearchGameView() {
   const grid = gridData?.grid || [];
   const gridSize = gridData?.size || 10;
 
-  // Retorna todas as posições de uma palavra
-  const getWordPositions = (item: any): Array<{ r: number; c: number }> => {
+  // Retorna todas as posições de uma palavra e VALIDA se realmente está no grid
+  const getWordPositions = (item: any): Array<{ r: number; c: number }> | null => {
+    if (!grid || grid.length === 0) return null;
     const positions: Array<{ r: number; c: number }> = [];
-    const wordLen = item.word.length;
+    const wordUpper = item.word.toUpperCase();
+    const wordLen = wordUpper.length;
+    let positionsToCheck: Array<{ r: number; c: number }> = [];
+    
     if (item.direction === "horizontal") {
       for (let i = 0; i < wordLen; i++) {
-        positions.push({ r: item.start_row, c: item.start_col + i });
+        positionsToCheck.push({ r: item.start_row, c: item.start_col + i });
       }
     } else {
       for (let i = 0; i < wordLen; i++) {
-        positions.push({ r: item.start_row + i, c: item.start_col });
+        positionsToCheck.push({ r: item.start_row + i, c: item.start_col });
       }
     }
-    return positions;
+    
+    // VALIDAÇÃO CRÍTICA: Verifica se TODAS as letras no grid correspondem à palavra
+    for (let i = 0; i < wordLen; i++) {
+      const pos = positionsToCheck[i];
+      if (pos.r < 0 || pos.r >= grid.length || pos.c < 0 || pos.c >= (grid[pos.r]?.length || 0)) {
+        return null; // posição fora do grid
+      }
+      const gridChar = (grid[pos.r]?.[pos.c] || "").toUpperCase();
+      const expectedChar = wordUpper[i];
+      if (gridChar !== expectedChar) {
+        return null; // letra não corresponde - palavra não está nesta posição
+      }
+    }
+    
+    return positionsToCheck; // Todas as letras correspondem
   };
 
   // Verifica se uma célula (row, col) faz parte de uma palavra encontrada
@@ -234,6 +252,7 @@ export default function WordSearchGameView() {
     for (const item of game.items) {
       if (!foundWords.has(item.id)) continue;
       const positions = getWordPositions(item);
+      if (!positions) continue; // palavra inválida, ignora
       if (positions.some((p) => p.r === row && p.c === col)) {
         return true;
       }
@@ -242,7 +261,7 @@ export default function WordSearchGameView() {
   };
 
   // Encontra palavra que contém a célula (row, col) - apenas palavras não encontradas
-  // Verifica também se a letra na célula corresponde à palavra (para evitar falsos positivos)
+  // VALIDA usando o grid real para garantir que a palavra realmente está na posição salva
   const findWordAtCell = (row: number, col: number): { item: any; positions: Array<{ r: number; c: number }> } | null => {
     if (!game || !game.items || !grid || grid.length === 0) return null;
     const cellChar = grid[row]?.[col];
@@ -250,16 +269,20 @@ export default function WordSearchGameView() {
     
     for (const item of game.items) {
       if (foundWords.has(item.id)) continue;
+      
+      // getWordPositions já valida se a palavra realmente está no grid
       const positions = getWordPositions(item);
-      // Verifica se a célula faz parte das posições da palavra
+      if (!positions) continue; // palavra não está na posição salva ou é inválida
+      
+      // Verifica se a célula clicada faz parte das posições validadas desta palavra
       const cellPosition = positions.findIndex((p) => p.r === row && p.c === col);
       if (cellPosition === -1) continue; // célula não faz parte desta palavra
       
-      // CRÍTICO: Verifica se a letra na célula corresponde à letra esperada na palavra
-      // Isso previne falsos positivos quando palavras compartilham células
-      const expectedChar = item.word[cellPosition];
-      if (expectedChar && expectedChar.toUpperCase() !== cellChar.toUpperCase()) {
-        continue; // letra não corresponde - palavra diferente
+      // Verificação adicional: confirma que a letra na célula corresponde
+      const expectedChar = item.word[cellPosition]?.toUpperCase();
+      const actualChar = cellChar.toUpperCase();
+      if (expectedChar && expectedChar !== actualChar) {
+        continue; // letra não corresponde
       }
       
       return { item, positions };

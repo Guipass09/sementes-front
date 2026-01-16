@@ -145,6 +145,28 @@ export default function AdminGamesHub() {
               </div>
             </div>
           </div>
+
+          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm h-full">
+            <div className="flex items-start gap-4 h-full">
+              <div className="h-12 w-12 rounded-2xl bg-brand-green/10 flex items-center justify-center">
+                <Grid3X3 className="h-6 w-6 text-brand-green" />
+              </div>
+              <div className="flex-1 flex flex-col h-full">
+                <h2 className="font-display font-bold text-foreground text-xl">Caça-palavras</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Grid com palavras escondidas (vertical ou horizontal) e imagens correspondentes.
+                </p>
+                <div className="mt-auto pt-4 flex flex-wrap gap-2 items-center">
+                  <Button onClick={() => navigate("/admin/jogos/caca-palavras")} variant="default" className="bg-brand-green hover:bg-brand-green/90">
+                    Gerenciar <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                  <Button onClick={() => navigate("/admin/jogos/caca-palavras/novo")} variant="secondary">
+                    Novo jogo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
-import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow } from "@/lib/laravel-api";
+import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, WordSearchGameRow } from "@/lib/laravel-api";
 import type { PhonemeGameRow } from "@/lib/laravel-api";
 import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinResponse, type VideoPollMessage } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -93,6 +93,7 @@ export default function SessionCall() {
   const [audGames, setAudGames] = useState<AuditoryGameRow[]>([]);
   const [hangGames, setHangGames] = useState<HangmanGameRow[]>([]);
   const [spinGames, setSpinGames] = useState<SpinWheelGameRow[]>([]);
+  const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [pendingShare, setPendingShare] = useState<null | { path: string; title: string; kind: string }>(null);
   const [pendingPayment, setPendingPayment] = useState<null | { sessions: number; url: string }>(null);
@@ -1675,13 +1676,13 @@ export default function SessionCall() {
     if (!catalogOpen) return;
     if (role !== "admin") return;
     if (catalogLoading) return;
-    if (activities.length || memGames.length || memGames2.length || phonemeGames.length || audGames.length || hangGames.length || spinGames.length) return;
+    if (activities.length || memGames.length || memGames2.length || phonemeGames.length || audGames.length || hangGames.length || spinGames.length || wordSearchGames.length) return;
 
     let cancelled = false;
     (async () => {
       setCatalogLoading(true);
       try {
-        const [a, memClassic, memV2, phon, aud, hang, spin] = await Promise.all([
+        const [a, memClassic, memV2, phon, aud, hang, spin, ws] = await Promise.all([
           api.adminListActivities().catch(() => [] as ActivityRow[]),
           api.adminListMemoryGames({ variant: "classic" }).catch(() => [] as MemoryGameRow[]),
           api.adminListMemoryGames({ variant: "v2" }).catch(() => [] as MemoryGameRow[]),
@@ -1689,6 +1690,7 @@ export default function SessionCall() {
           api.adminListAuditoryGames().catch(() => [] as AuditoryGameRow[]),
           api.adminListHangmanGames().catch(() => [] as HangmanGameRow[]),
           api.adminListSpinWheelGames().catch(() => [] as SpinWheelGameRow[]),
+          api.adminListWordSearchGames().catch(() => [] as WordSearchGameRow[]),
         ]);
         if (cancelled) return;
         setActivities(a);
@@ -1698,6 +1700,7 @@ export default function SessionCall() {
         setAudGames(aud);
         setHangGames(hang);
         setSpinGames(spin);
+        setWordSearchGames(ws);
       } finally {
         if (!cancelled) setCatalogLoading(false);
       }
@@ -2157,6 +2160,19 @@ export default function SessionCall() {
                     >
                       <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
                       <div className="text-xs text-muted-foreground">Roleta</div>
+                    </button>
+                  ))}
+                  {wordSearchGames.map((g) => (
+                    <button
+                      key={`ws-${g.id}`}
+                      onClick={() => {
+                        setPendingShare({ path: `/jogos/caca-palavras/${g.id}`, title: g.title, kind: "word_search_game" });
+                        setShareConfirmOpen(true);
+                      }}
+                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
+                    >
+                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
+                      <div className="text-xs text-muted-foreground">Caça-palavras</div>
                     </button>
                   ))}
                 </div>

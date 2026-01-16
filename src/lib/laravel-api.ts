@@ -194,6 +194,38 @@ export type PhonemeGameRow = {
   created_at?: string | null;
 };
 
+// ---------------------------
+// CAÇA-PALAVRAS
+// ---------------------------
+
+export type WordSearchGameStatus = "disponivel" | "concluido";
+
+export type WordSearchGameItemRow = {
+  id: number;
+  position: number;
+  word: string;
+  image_url: string;
+  direction: "horizontal" | "vertical";
+  start_row: number;
+  start_col: number;
+};
+
+export type WordSearchGameRow = {
+  id: number;
+  title: string;
+  description: string;
+  words_count: number;
+  background_url: string;
+  status?: WordSearchGameStatus; // user
+  progress?: any | null;
+  grid_data?: { grid: string[][]; size: number; placed: any } | null;
+  created_by: { id?: number; name: string; role: AuthRole };
+  assigned_count?: number; // admin
+  assigned_to?: Array<{ id: number; name: string }>; // admin
+  items: WordSearchGameItemRow[];
+  created_at?: string | null;
+};
+
 export type HangmanSupportImageRow = {
   position: number;
   url: string;
@@ -811,6 +843,73 @@ export async function adminDeletePhonemeGame(id: number): Promise<void> {
   await request<void>(`/api/admin/phoneme-games/${id}`, { method: "DELETE" });
 }
 
+export async function adminListWordSearchGames(): Promise<WordSearchGameRow[]> {
+  const res = await request<{ data: WordSearchGameRow[] }>("/api/admin/word-search-games");
+  return res.data;
+}
+
+export async function adminGetWordSearchGame(id: number): Promise<WordSearchGameRow> {
+  return await request<WordSearchGameRow>(`/api/admin/word-search-games/${id}`);
+}
+
+export async function adminCreateWordSearchGame(payload: {
+  title: string;
+  description: string;
+  words_count: number;
+  assigned_to: number[];
+  background: File;
+  words: string[];
+  directions?: Array<"horizontal" | "vertical">;
+  images: File[];
+}): Promise<WordSearchGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("words_count", String(payload.words_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  fd.set("background", payload.background);
+  fd.set("words_json", JSON.stringify(payload.words || []));
+  if (payload.directions) {
+    fd.set("directions_json", JSON.stringify(payload.directions || []));
+  }
+  payload.images.forEach((f) => fd.append("images[]", f));
+  return await request<WordSearchGameRow>("/api/admin/word-search-games", { method: "POST", formData: fd });
+}
+
+export async function adminDeleteWordSearchGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/admin/word-search-games/${id}`, { method: "DELETE" });
+}
+
+export async function adminUpdateWordSearchGame(
+  id: number,
+  payload: {
+    title?: string;
+    description?: string;
+    assigned_to?: number[];
+    background?: File;
+    words?: string[];
+    directions?: Array<"horizontal" | "vertical">;
+    images?: File[];
+  }
+): Promise<WordSearchGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background) fd.set("background", payload.background);
+  if (payload.words !== undefined) fd.set("words_json", JSON.stringify(payload.words || []));
+  if (payload.directions !== undefined && payload.directions) {
+    fd.set("directions_json", JSON.stringify(payload.directions));
+  }
+  if (payload.images) {
+    payload.images.forEach((f) => fd.append("images[]", f));
+  }
+  return await request<WordSearchGameRow>(`/api/admin/word-search-games/${id}`, { method: "POST", formData: fd });
+}
+
 export async function adminDeleteHangmanGame(id: number): Promise<void> {
   await ensureCsrfCookie();
   await request<void>(`/api/admin/hangman-games/${id}`, { method: "DELETE" });
@@ -1043,6 +1142,25 @@ export async function userUpdatePhonemeGameProgress(
 ): Promise<PhonemeGameRow> {
   await ensureCsrfCookie();
   return await request<PhonemeGameRow>(`/api/phoneme-games/${id}/progress`, { method: "PATCH", json: payload });
+}
+
+export async function userListWordSearchGames(): Promise<WordSearchGameRow[]> {
+  const res = await request<{ data: WordSearchGameRow[] }>("/api/word-search-games");
+  return res.data;
+}
+
+export async function userGetWordSearchGame(id: number, opts?: { session_id?: number | null }): Promise<WordSearchGameRow> {
+  const sid = opts?.session_id;
+  const qs = sid ? `?session_id=${sid}` : "";
+  return await request<WordSearchGameRow>(`/api/word-search-games/${id}${qs}`);
+}
+
+export async function userUpdateWordSearchGameProgress(
+  id: number,
+  payload: { progress?: any; status?: WordSearchGameStatus }
+): Promise<WordSearchGameRow> {
+  await ensureCsrfCookie();
+  return await request<WordSearchGameRow>(`/api/word-search-games/${id}/progress`, { method: "PATCH", json: payload });
 }
 
 export async function userListAuditoryGames(): Promise<AuditoryGameRow[]> {

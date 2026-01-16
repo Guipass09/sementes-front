@@ -122,6 +122,10 @@ const AdminActivities = () => {
                   <CircleDot className="h-4 w-4 mr-2" />
                   Roleta
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/caca-palavras/novo")}>
+                  <Grid3X3 className="h-4 w-4 mr-2" />
+                  Caça-palavras
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button

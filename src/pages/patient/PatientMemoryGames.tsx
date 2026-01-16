@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Grid3X3, Play, Image as ImageIcon, Ear, Type, ChevronDown, Gamepad2, CircleDot } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
-import type { MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, PhonemeGameRow } from "@/lib/laravel-api";
+import type { MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, PhonemeGameRow, WordSearchGameRow } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import {
@@ -23,6 +23,7 @@ export default function PatientMemoryGames() {
   const [auditoryGames, setAuditoryGames] = useState<AuditoryGameRow[]>([]);
   const [hangmanGames, setHangmanGames] = useState<HangmanGameRow[]>([]);
   const [spinWheelGames, setSpinWheelGames] = useState<SpinWheelGameRow[]>([]);
+  const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
 
   useEffect(() => {
     if (!auth.user) return;
@@ -30,7 +31,7 @@ export default function PatientMemoryGames() {
     (async () => {
       setLoading(true);
       try {
-        const [memClassic, memV2, phon, aud, hang, spin] = await Promise.all([
+        const [memClassic, memV2, phon, aud, hang, spin, ws] = await Promise.all([
           api.userListMemoryGames({ variant: "classic" }).catch(err => {
             console.error("[Jogos] Erro ao buscar memory games:", err);
             return [];
@@ -55,6 +56,10 @@ export default function PatientMemoryGames() {
             console.error("[Jogos] Erro ao buscar spin wheel games:", err);
             return [];
           }),
+          api.userListWordSearchGames().catch(err => {
+            console.error("[Jogos] Erro ao buscar word search games:", err);
+            return [];
+          }),
         ]);
         if (!cancelled) {
           console.log("[Jogos] Resultados:", {
@@ -64,6 +69,7 @@ export default function PatientMemoryGames() {
             aud: aud.length,
             hang: hang.length,
             spin: spin.length,
+            ws: ws.length,
           });
           setGames(memClassic);
           setGamesV2(memV2);
@@ -71,6 +77,7 @@ export default function PatientMemoryGames() {
           setAuditoryGames(aud);
           setHangmanGames(hang);
           setSpinWheelGames(spin);
+          setWordSearchGames(ws);
         }
       } catch (error) {
         console.error("[Jogos] Erro geral ao buscar jogos:", error);
@@ -81,6 +88,7 @@ export default function PatientMemoryGames() {
           setAuditoryGames([]);
           setHangmanGames([]);
           setSpinWheelGames([]);
+          setWordSearchGames([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -92,7 +100,7 @@ export default function PatientMemoryGames() {
   }, [auth.user]);
 
   const totalGames =
-    games.length + gamesV2.length + phonemeGames.length + auditoryGames.length + hangmanGames.length + spinWheelGames.length;
+    games.length + gamesV2.length + phonemeGames.length + auditoryGames.length + hangmanGames.length + spinWheelGames.length + wordSearchGames.length;
 
   return (
     <div className="min-h-full py-8 lg:py-12">
@@ -489,6 +497,59 @@ export default function PatientMemoryGames() {
                               {g.center_title || "Gire a roleta!"}
                             </p>
                             <span className="text-xs text-amber-500 font-medium">{g.items_count} itens</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
+            {/* Caça-palavras */}
+            {wordSearchGames.length > 0 && (
+              <AccordionItem value="caca-palavras" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-green/10 flex items-center justify-center">
+                      <Grid3X3 className="h-5 w-5 text-brand-green" />
+                    </div>
+                    <div className="text-left">
+                      <h2 className="text-lg font-display font-bold text-foreground">Caça-palavras</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {wordSearchGames.length} jogo{wordSearchGames.length !== 1 ? "s" : ""} disponível{wordSearchGames.length !== 1 ? "is" : ""}
+                      </p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {wordSearchGames.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => navigate(`/jogos/caca-palavras/${g.id}`)}
+                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-green/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-xl bg-brand-green/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {g.items?.[0]?.image_url ? (
+                              <img
+                                src={normalizeMediaUrl(g.items[0].image_url)}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg";
+                                }}
+                              />
+                            ) : (
+                              <Grid3X3 size={24} className="text-brand-green" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
+                            <span className="text-xs text-brand-green font-medium">{g.words_count} palavra(s)</span>
                           </div>
                         </div>
                       </button>

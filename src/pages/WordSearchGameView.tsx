@@ -260,8 +260,39 @@ export default function WordSearchGameView() {
     return false;
   };
 
+  // Busca uma palavra no grid a partir de uma célula, testando ambas as direções
+  const findWordInGrid = (word: string, startRow: number, startCol: number, direction: "horizontal" | "vertical"): Array<{ r: number; c: number }> | null => {
+    if (!grid || grid.length === 0) return null;
+    const wordUpper = word.toUpperCase();
+    const wordLen = wordUpper.length;
+    const positions: Array<{ r: number; c: number }> = [];
+    
+    // Verifica limites
+    if (direction === "horizontal") {
+      if (startCol + wordLen > (grid[startRow]?.length || 0)) return null;
+      for (let i = 0; i < wordLen; i++) {
+        const r = startRow;
+        const c = startCol + i;
+        const gridChar = (grid[r]?.[c] || "").toUpperCase();
+        if (gridChar !== wordUpper[i]) return null; // letra não corresponde
+        positions.push({ r, c });
+      }
+    } else {
+      if (startRow + wordLen > grid.length) return null;
+      for (let i = 0; i < wordLen; i++) {
+        const r = startRow + i;
+        const c = startCol;
+        const gridChar = (grid[r]?.[c] || "").toUpperCase();
+        if (gridChar !== wordUpper[i]) return null; // letra não corresponde
+        positions.push({ r, c });
+      }
+    }
+    
+    return positions;
+  };
+
   // Encontra palavra que contém a célula (row, col) - apenas palavras não encontradas
-  // VALIDA usando o grid real para garantir que a palavra realmente está na posição salva
+  // Busca no grid real, não apenas confia nos dados do banco
   const findWordAtCell = (row: number, col: number): { item: any; positions: Array<{ r: number; c: number }> } | null => {
     if (!game || !game.items || !grid || grid.length === 0) return null;
     const cellChar = grid[row]?.[col];
@@ -270,22 +301,39 @@ export default function WordSearchGameView() {
     for (const item of game.items) {
       if (foundWords.has(item.id)) continue;
       
-      // getWordPositions já valida se a palavra realmente está no grid
-      const positions = getWordPositions(item);
-      if (!positions) continue; // palavra não está na posição salva ou é inválida
-      
-      // Verifica se a célula clicada faz parte das posições validadas desta palavra
-      const cellPosition = positions.findIndex((p) => p.r === row && p.c === col);
-      if (cellPosition === -1) continue; // célula não faz parte desta palavra
-      
-      // Verificação adicional: confirma que a letra na célula corresponde
-      const expectedChar = item.word[cellPosition]?.toUpperCase();
-      const actualChar = cellChar.toUpperCase();
-      if (expectedChar && expectedChar !== actualChar) {
-        continue; // letra não corresponde
+      // Primeiro tenta a posição salva no banco (mais rápido)
+      const savedPositions = getWordPositions(item);
+      if (savedPositions) {
+        const cellPosition = savedPositions.findIndex((p) => p.r === row && p.c === col);
+        if (cellPosition !== -1) {
+          return { item, positions: savedPositions };
+        }
       }
       
-      return { item, positions };
+      // Se não encontrou na posição salva, busca no grid (para casos onde dados do banco estão incorretos)
+      // Testa a partir da célula clicada em ambas as direções
+      const wordUpper = item.word.toUpperCase();
+      const wordLen = wordUpper.length;
+      
+      // Testa horizontal: palavra pode começar à esquerda da célula clicada
+      for (let offset = -(wordLen - 1); offset <= 0; offset++) {
+        const startCol = col + offset;
+        if (startCol < 0) continue;
+        const positions = findWordInGrid(item.word, row, startCol, "horizontal");
+        if (positions && positions.some((p) => p.r === row && p.c === col)) {
+          return { item, positions };
+        }
+      }
+      
+      // Testa vertical: palavra pode começar acima da célula clicada
+      for (let offset = -(wordLen - 1); offset <= 0; offset++) {
+        const startRow = row + offset;
+        if (startRow < 0) continue;
+        const positions = findWordInGrid(item.word, startRow, col, "vertical");
+        if (positions && positions.some((p) => p.r === row && p.c === col)) {
+          return { item, positions };
+        }
+      }
     }
     return null;
   };

@@ -102,6 +102,14 @@ const AdminActivities = () => {
                   <Grid3X3 className="h-4 w-4 mr-2" />
                   Jogo da Memória
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/memoria2/novo")}>
+                  <Grid3X3 className="h-4 w-4 mr-2" />
+                  Jogo da Memória 2.0
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/fonema/novo")}>
+                  <Grid3X3 className="h-4 w-4 mr-2" />
+                  Discriminação Fonema
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => navigate("/admin/jogos/auditivo/novo")}>
                   <Ear className="h-4 w-4 mr-2" />
                   Estimulação Auditiva

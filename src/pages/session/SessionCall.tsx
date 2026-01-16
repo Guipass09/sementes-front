@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
 import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow } from "@/lib/laravel-api";
+import type { PhonemeGameRow } from "@/lib/laravel-api";
 import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinResponse, type VideoPollMessage } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -87,6 +88,8 @@ export default function SessionCall() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [memGames, setMemGames] = useState<MemoryGameRow[]>([]);
+  const [memGames2, setMemGames2] = useState<MemoryGameRow[]>([]);
+  const [phonemeGames, setPhonemeGames] = useState<PhonemeGameRow[]>([]);
   const [audGames, setAudGames] = useState<AuditoryGameRow[]>([]);
   const [hangGames, setHangGames] = useState<HangmanGameRow[]>([]);
   const [spinGames, setSpinGames] = useState<SpinWheelGameRow[]>([]);
@@ -1672,22 +1675,26 @@ export default function SessionCall() {
     if (!catalogOpen) return;
     if (role !== "admin") return;
     if (catalogLoading) return;
-    if (activities.length || memGames.length || audGames.length || hangGames.length || spinGames.length) return;
+    if (activities.length || memGames.length || memGames2.length || phonemeGames.length || audGames.length || hangGames.length || spinGames.length) return;
 
     let cancelled = false;
     (async () => {
       setCatalogLoading(true);
       try {
-        const [a, mem, aud, hang, spin] = await Promise.all([
+        const [a, memClassic, memV2, phon, aud, hang, spin] = await Promise.all([
           api.adminListActivities().catch(() => [] as ActivityRow[]),
-          api.adminListMemoryGames().catch(() => [] as MemoryGameRow[]),
+          api.adminListMemoryGames({ variant: "classic" }).catch(() => [] as MemoryGameRow[]),
+          api.adminListMemoryGames({ variant: "v2" }).catch(() => [] as MemoryGameRow[]),
+          api.adminListPhonemeGames().catch(() => [] as PhonemeGameRow[]),
           api.adminListAuditoryGames().catch(() => [] as AuditoryGameRow[]),
           api.adminListHangmanGames().catch(() => [] as HangmanGameRow[]),
           api.adminListSpinWheelGames().catch(() => [] as SpinWheelGameRow[]),
         ]);
         if (cancelled) return;
         setActivities(a);
-        setMemGames(mem);
+        setMemGames(memClassic);
+        setMemGames2(memV2);
+        setPhonemeGames(phon);
         setAudGames(aud);
         setHangGames(hang);
         setSpinGames(spin);
@@ -2085,6 +2092,32 @@ export default function SessionCall() {
                     >
                       <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
                       <div className="text-xs text-muted-foreground">Jogo da Memória</div>
+                    </button>
+                  ))}
+                  {memGames2.map((g) => (
+                    <button
+                      key={`mem2-${g.id}`}
+                      onClick={() => {
+                        setPendingShare({ path: `/jogos/${g.id}`, title: g.title, kind: "memory_game_v2" });
+                        setShareConfirmOpen(true);
+                      }}
+                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
+                    >
+                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
+                      <div className="text-xs text-muted-foreground">Memória 2.0</div>
+                    </button>
+                  ))}
+                  {phonemeGames.map((g) => (
+                    <button
+                      key={`phon-${g.id}`}
+                      onClick={() => {
+                        setPendingShare({ path: `/jogos/fonema/${g.id}`, title: g.title, kind: "phoneme_game" });
+                        setShareConfirmOpen(true);
+                      }}
+                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
+                    >
+                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
+                      <div className="text-xs text-muted-foreground">Discriminação Fonema</div>
                     </button>
                   ))}
                   {audGames.map((g) => (

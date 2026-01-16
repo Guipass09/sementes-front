@@ -31,6 +31,12 @@ import ActivityView from "./pages/ActivityView";
 import AdminMemoryGameCreate from "./pages/admin/AdminMemoryGameCreate";
 import AdminMemoryGames from "./pages/admin/AdminMemoryGames";
 import AdminMemoryGameEdit from "./pages/admin/AdminMemoryGameEdit";
+import AdminMemoryGames2 from "./pages/admin/AdminMemoryGames2";
+import AdminMemoryGame2Create from "./pages/admin/AdminMemoryGame2Create";
+import AdminMemoryGame2Edit from "./pages/admin/AdminMemoryGame2Edit";
+import AdminPhonemeGames from "./pages/admin/AdminPhonemeGames";
+import AdminPhonemeGameCreate from "./pages/admin/AdminPhonemeGameCreate";
+import AdminPhonemeGameEdit from "./pages/admin/AdminPhonemeGameEdit";
 import AdminAuditoryStimulationCreate from "./pages/admin/AdminAuditoryStimulationCreate";
 import AdminAuditoryGames from "./pages/admin/AdminAuditoryGames";
 import AdminAuditoryGameEdit from "./pages/admin/AdminAuditoryGameEdit";
@@ -46,6 +52,7 @@ import AdminSpinWheelGames from "./pages/admin/AdminSpinWheelGames";
 import AdminSpinWheelGameCreate from "./pages/admin/AdminSpinWheelGameCreate";
 import AdminSpinWheelGameEdit from "./pages/admin/AdminSpinWheelGameEdit";
 import SpinWheelGameView from "./pages/SpinWheelGameView";
+import PhonemeGameView from "./pages/PhonemeGameView";
 import RouteChangeLoader from "./components/RouteChangeLoader";
 import GameplayBackground from "./components/GameplayBackground";
 import { installSfxUnlock } from "@/lib/sfx";
@@ -124,6 +131,12 @@ const App = () => {
                 <Route path="jogos/memoria" element={<AdminMemoryGames />} />
                 <Route path="jogos/memoria/novo" element={<AdminMemoryGameCreate />} />
                 <Route path="jogos/memoria/:id/editar" element={<AdminMemoryGameEdit />} />
+                <Route path="jogos/memoria2" element={<AdminMemoryGames2 />} />
+                <Route path="jogos/memoria2/novo" element={<AdminMemoryGame2Create />} />
+                <Route path="jogos/memoria2/:id/editar" element={<AdminMemoryGame2Edit />} />
+                <Route path="jogos/fonema" element={<AdminPhonemeGames />} />
+                <Route path="jogos/fonema/novo" element={<AdminPhonemeGameCreate />} />
+                <Route path="jogos/fonema/:id/editar" element={<AdminPhonemeGameEdit />} />
                 <Route path="jogos/auditivo" element={<AdminAuditoryGames />} />
                 <Route path="jogos/auditivo/novo" element={<AdminAuditoryStimulationCreate />} />
                 <Route path="jogos/auditivo/:id/editar" element={<AdminAuditoryGameEdit />} />
@@ -169,6 +182,9 @@ const App = () => {
               <Route path="/sessao/:id" element={<SessionCallRedirect />} />
               <Route path="/atividades/:id" element={<ActivityView />} />
               <Route path="/jogos/:id" element={<MemoryGameView />} />
+              <Route path="/jogos/memoria/:id" element={<MemoryGameView />} />
+              <Route path="/jogos/memoria2/:id" element={<MemoryGameView />} />
+              <Route path="/jogos/fonema/:id" element={<PhonemeGameView />} />
               <Route path="/jogos/auditivo/:id" element={<AuditoryGameView />} />
               <Route path="/jogos/forca/:id" element={<HangmanGameView />} />
               <Route path="/jogos/roleta/:id" element={<SpinWheelGameView />} />

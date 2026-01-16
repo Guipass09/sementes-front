@@ -11,7 +11,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import type { AdminUserRow, MemoryGameRow } from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 
-export default function AdminMemoryGames() {
+export default function AdminMemoryGames2() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -24,7 +24,7 @@ export default function AdminMemoryGames() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const [res, u] = await Promise.all([api.adminListMemoryGames({ variant: "classic" }), api.adminListUsers()]);
+      const [res, u] = await Promise.all([api.adminListMemoryGames({ variant: "v2" }), api.adminListUsers()]);
       setGames(res);
       setUsers(u.filter((x) => x.role === "user"));
     } finally {
@@ -52,12 +52,24 @@ export default function AdminMemoryGames() {
         byUser.set(u.id, arr);
       }
     }
-    // ordena por id desc dentro de cada usuário
     for (const [k, arr] of byUser.entries()) {
       byUser.set(k, [...arr].sort((a, b) => (b.id ?? 0) - (a.id ?? 0)));
     }
     return byUser;
   }, [filtered]);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await api.adminDeleteMemoryGame(deleteTarget.id);
+      toast({ title: "Jogo excluído", description: "O jogo foi removido com sucesso." });
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+      await refresh();
+    } catch {
+      toast({ title: "Erro ao excluir", description: "Não foi possível excluir o jogo.", variant: "destructive" });
+    }
+  };
 
   return (
     <div className="min-h-full py-8 lg:py-12">
@@ -66,11 +78,11 @@ export default function AdminMemoryGames() {
           <div>
             <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2 inline-flex items-center gap-2">
               <Grid3X3 className="h-6 w-6 text-brand-green" />
-              Jogos da Memória
+              Jogo da Memória 2.0
             </h1>
-            <p className="text-muted-foreground">Crie, edite e envie jogos para usuários</p>
+            <p className="text-muted-foreground">Crie, edite e envie jogos (pares definidos manualmente) para usuários</p>
           </div>
-          <Button onClick={() => navigate("/admin/jogos/memoria/novo")} className="w-full sm:w-auto">
+          <Button onClick={() => navigate("/admin/jogos/memoria2/novo")} className="w-full sm:w-auto">
             <Plus size={20} className="mr-2" />
             Criar Jogo
           </Button>
@@ -79,12 +91,7 @@ export default function AdminMemoryGames() {
         <div className="mb-6">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar jogos..."
-              className="pl-11"
-            />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar jogos..." className="pl-11" />
           </div>
         </div>
 
@@ -112,10 +119,7 @@ export default function AdminMemoryGames() {
           ) : (
             <Accordion type="multiple" className="w-full">
               {users
-                .map((u) => ({
-                  user: u,
-                  games: groupedByUser.get(u.id) ?? [],
-                }))
+                .map((u) => ({ user: u, games: groupedByUser.get(u.id) ?? [] }))
                 .filter((x) => x.games.length > 0)
                 .map(({ user, games: list }) => (
                   <AccordionItem key={user.id} value={`user-${user.id}`} className="border-b border-border/60">
@@ -129,80 +133,46 @@ export default function AdminMemoryGames() {
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="space-y-3 pt-2">
+                      <div className="space-y-2">
                         {list.map((g) => (
                           <div
                             key={g.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => navigate(`/jogos/${g.id}`)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                navigate(`/jogos/${g.id}`);
-                              }
-                            }}
-                            className="bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                            className="bg-card rounded-xl border border-border p-4 flex flex-col sm:flex-row sm:items-center gap-4"
                           >
-                            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                {g.thumbnail ? (
-                                  <img
-                                    src={normalizeMediaUrl(g.thumbnail.url)}
-                                    alt=""
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.currentTarget.src = "/placeholder.svg";
-                                    }}
-                                  />
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="h-12 w-12 rounded-xl bg-brand-green/10 overflow-hidden flex items-center justify-center">
+                                {g.thumbnail?.url ? (
+                                  <img src={normalizeMediaUrl(g.thumbnail.url)} alt="" className="w-full h-full object-cover" />
                                 ) : (
-                                  <ImageIcon size={24} className="text-primary" />
+                                  <ImageIcon className="h-5 w-5 text-brand-green" />
                                 )}
                               </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-2 mb-1">
-                                  <h3 className="font-semibold text-foreground">{g.title}</h3>
-                                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                    {g.pairs_count} pares
-                                  </span>
-                                </div>
-                                <p className="text-sm text-muted-foreground line-clamp-2">{g.description}</p>
+                              <div className="min-w-0">
+                                <div className="font-semibold text-foreground truncate">{g.title}</div>
+                                <div className="text-sm text-muted-foreground line-clamp-2">{g.description}</div>
+                                <div className="text-xs text-muted-foreground mt-1">{g.pairs_count} pares</div>
                               </div>
+                            </div>
 
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                  variant="secondary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/jogos/${g.id}`);
-                                  }}
-                                >
-                                  <Play className="h-4 w-4 mr-2" />
-                                  Ver
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/admin/jogos/memoria/${g.id}/editar`);
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Editar
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    setDeleteTarget(g);
-                                    setDeleteOpen(true);
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Excluir
-                                </Button>
-                              </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button variant="outline" onClick={() => navigate(`/jogos/memoria2/${g.id}`)}>
+                                <Play className="h-4 w-4 mr-2" />
+                                Abrir
+                              </Button>
+                              <Button variant="outline" onClick={() => navigate(`/admin/jogos/memoria2/${g.id}/editar`)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Editar
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onClick={() => {
+                                  setDeleteTarget(g);
+                                  setDeleteOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Excluir
+                              </Button>
                             </div>
                           </div>
                         ))}
@@ -217,29 +187,15 @@ export default function AdminMemoryGames() {
 
       <BrandedConfirmDialog
         open={deleteOpen}
-        onOpenChange={(open) => {
-          setDeleteOpen(open);
-          if (!open) setDeleteTarget(null);
-        }}
-        title="Excluir jogo?"
-        description={
-          deleteTarget
-            ? `Excluir o jogo "${deleteTarget.title}"? Esta ação é permanente.`
-            : "Esta ação é permanente."
-        }
+        onOpenChange={setDeleteOpen}
+        title="Excluir jogo"
+        description={deleteTarget ? `Excluir “${deleteTarget.title}”? Isso remove o jogo permanentemente.` : "Excluir este jogo?"}
         confirmLabel="Excluir"
         cancelLabel="Cancelar"
-        variant="danger"
-        onConfirm={() => {
-          if (!deleteTarget) return;
-          void api.adminDeleteMemoryGame(deleteTarget.id).then(() => {
-            toast({ title: "Jogo excluído" });
-            void refresh();
-          });
-        }}
+        onConfirm={() => void confirmDelete()}
+        destructive
       />
     </div>
   );
 }
-
 

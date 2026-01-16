@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Grid3X3, Play, Image as ImageIcon, Ear, Type, ChevronDown, Gamepad2, CircleDot } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
-import type { MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow } from "@/lib/laravel-api";
+import type { MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, PhonemeGameRow } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import {
@@ -18,6 +18,8 @@ export default function PatientMemoryGames() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [games, setGames] = useState<MemoryGameRow[]>([]);
+  const [gamesV2, setGamesV2] = useState<MemoryGameRow[]>([]);
+  const [phonemeGames, setPhonemeGames] = useState<PhonemeGameRow[]>([]);
   const [auditoryGames, setAuditoryGames] = useState<AuditoryGameRow[]>([]);
   const [hangmanGames, setHangmanGames] = useState<HangmanGameRow[]>([]);
   const [spinWheelGames, setSpinWheelGames] = useState<SpinWheelGameRow[]>([]);
@@ -28,9 +30,17 @@ export default function PatientMemoryGames() {
     (async () => {
       setLoading(true);
       try {
-        const [mem, aud, hang, spin] = await Promise.all([
-          api.userListMemoryGames().catch(err => {
+        const [memClassic, memV2, phon, aud, hang, spin] = await Promise.all([
+          api.userListMemoryGames({ variant: "classic" }).catch(err => {
             console.error("[Jogos] Erro ao buscar memory games:", err);
+            return [];
+          }),
+          api.userListMemoryGames({ variant: "v2" }).catch(err => {
+            console.error("[Jogos] Erro ao buscar memory games v2:", err);
+            return [];
+          }),
+          api.userListPhonemeGames().catch(err => {
+            console.error("[Jogos] Erro ao buscar phoneme games:", err);
             return [];
           }),
           api.userListAuditoryGames().catch(err => {
@@ -47,8 +57,17 @@ export default function PatientMemoryGames() {
           }),
         ]);
         if (!cancelled) {
-          console.log("[Jogos] Resultados:", { mem: mem.length, aud: aud.length, hang: hang.length, spin: spin.length });
-          setGames(mem);
+          console.log("[Jogos] Resultados:", {
+            mem: memClassic.length,
+            mem2: memV2.length,
+            phon: phon.length,
+            aud: aud.length,
+            hang: hang.length,
+            spin: spin.length,
+          });
+          setGames(memClassic);
+          setGamesV2(memV2);
+          setPhonemeGames(phon);
           setAuditoryGames(aud);
           setHangmanGames(hang);
           setSpinWheelGames(spin);
@@ -57,6 +76,8 @@ export default function PatientMemoryGames() {
         console.error("[Jogos] Erro geral ao buscar jogos:", error);
         if (!cancelled) {
           setGames([]);
+          setGamesV2([]);
+          setPhonemeGames([]);
           setAuditoryGames([]);
           setHangmanGames([]);
           setSpinWheelGames([]);
@@ -70,7 +91,8 @@ export default function PatientMemoryGames() {
     };
   }, [auth.user]);
 
-  const totalGames = games.length + auditoryGames.length + hangmanGames.length + spinWheelGames.length;
+  const totalGames =
+    games.length + gamesV2.length + phonemeGames.length + auditoryGames.length + hangmanGames.length + spinWheelGames.length;
 
   return (
     <div className="min-h-full py-8 lg:py-12">
@@ -93,6 +115,16 @@ export default function PatientMemoryGames() {
               <div className="w-3 h-3 rounded-full bg-brand-green"></div>
               <span className="text-muted-foreground">Jogos da Memória:</span>
               <span className="font-semibold text-foreground">{games.length}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-brand-green/60"></div>
+              <span className="text-muted-foreground">Memória 2.0:</span>
+              <span className="font-semibold text-foreground">{gamesV2.length}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-brand-purple"></div>
+              <span className="text-muted-foreground">Discriminação Fonema:</span>
+              <span className="font-semibold text-foreground">{phonemeGames.length}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-brand-blue"></div>
@@ -137,7 +169,7 @@ export default function PatientMemoryGames() {
             <p className="text-muted-foreground">Nenhum jogo disponível ainda.</p>
           </div>
         ) : (
-          <Accordion type="multiple" defaultValue={["memoria", "auditivo", "forca", "roleta"]} className="space-y-4">
+          <Accordion type="multiple" defaultValue={["memoria", "memoria2", "fonema", "auditivo", "forca", "roleta"]} className="space-y-4">
             {/* Jogos da Memória */}
             {games.length > 0 && (
               <AccordionItem value="memoria" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
@@ -184,6 +216,112 @@ export default function PatientMemoryGames() {
                             <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
                             <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
                             <span className="text-xs text-brand-green font-medium">{g.pairs_count} pares</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
+            {/* Jogos da Memória 2.0 */}
+            {gamesV2.length > 0 && (
+              <AccordionItem value="memoria2" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-green/10 flex items-center justify-center">
+                      <Grid3X3 className="h-5 w-5 text-brand-green" />
+                    </div>
+                    <div className="text-left">
+                      <h2 className="text-lg font-display font-bold text-foreground">Memória 2.0</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {gamesV2.length} jogo{gamesV2.length !== 1 ? "s" : ""} disponível{gamesV2.length !== 1 ? "is" : ""}
+                      </p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {gamesV2.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => navigate(`/jogos/memoria2/${g.id}`)}
+                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-green/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-xl bg-brand-green/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {g.thumbnail ? (
+                              <img
+                                src={normalizeMediaUrl(g.thumbnail.url)}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg";
+                                }}
+                              />
+                            ) : (
+                              <ImageIcon size={24} className="text-brand-green" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
+                            <span className="text-xs text-brand-green font-medium">{g.pairs_count} pares</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
+            {/* Discriminação Fonema */}
+            {phonemeGames.length > 0 && (
+              <AccordionItem value="fonema" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-purple/10 flex items-center justify-center">
+                      <Ear className="h-5 w-5 text-brand-purple" />
+                    </div>
+                    <div className="text-left">
+                      <h2 className="text-lg font-display font-bold text-foreground">Discriminação Fonema</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {phonemeGames.length} jogo{phonemeGames.length !== 1 ? "s" : ""} disponível{phonemeGames.length !== 1 ? "is" : ""}
+                      </p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {phonemeGames.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => navigate(`/jogos/fonema/${g.id}`)}
+                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-purple/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-purple/40"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-xl bg-brand-purple/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {g.thumbnail?.left_url ? (
+                              <img
+                                src={normalizeMediaUrl(g.thumbnail.left_url)}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg";
+                                }}
+                              />
+                            ) : (
+                              <Ear size={24} className="text-brand-purple" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
+                            <span className="text-xs text-brand-purple font-medium">{g.sessions_count} sessões</span>
                           </div>
                         </div>
                       </button>

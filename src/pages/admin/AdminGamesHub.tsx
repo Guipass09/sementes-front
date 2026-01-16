@@ -38,6 +38,50 @@ export default function AdminGamesHub() {
 
           <div className="bg-card rounded-2xl border border-border p-6 shadow-sm h-full">
             <div className="flex items-start gap-4 h-full">
+              <div className="h-12 w-12 rounded-2xl bg-brand-green/10 flex items-center justify-center">
+                <Gamepad2 className="h-6 w-6 text-brand-green" />
+              </div>
+              <div className="flex-1 flex flex-col h-full">
+                <h2 className="font-display font-bold text-foreground text-xl">Jogo da Memória 2.0</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Você escolhe manualmente as 2 imagens de cada par (sem duplicação automática).
+                </p>
+                <div className="mt-auto pt-4 flex flex-wrap gap-2 items-center">
+                  <Button onClick={() => navigate("/admin/jogos/memoria2")} variant="default">
+                    Gerenciar <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                  <Button onClick={() => navigate("/admin/jogos/memoria2/novo")} variant="secondary">
+                    Novo jogo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm h-full">
+            <div className="flex items-start gap-4 h-full">
+              <div className="h-12 w-12 rounded-2xl bg-brand-purple/10 flex items-center justify-center">
+                <Gamepad2 className="h-6 w-6 text-brand-purple" />
+              </div>
+              <div className="flex-1 flex flex-col h-full">
+                <h2 className="font-display font-bold text-foreground text-xl">Discriminação Fonema</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Fundo fixo + palavra com áudio + 2 imagens (certa/errada) por sessão.
+                </p>
+                <div className="mt-auto pt-4 flex flex-wrap gap-2 items-center">
+                  <Button onClick={() => navigate("/admin/jogos/fonema")} variant="default">
+                    Gerenciar <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                  <Button onClick={() => navigate("/admin/jogos/fonema/novo")} variant="secondary">
+                    Novo jogo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm h-full">
+            <div className="flex items-start gap-4 h-full">
               <div className="h-12 w-12 rounded-2xl bg-brand-blue/10 flex items-center justify-center">
                 <Ear className="h-6 w-6 text-brand-blue" />
               </div>

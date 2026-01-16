@@ -91,6 +91,7 @@ export type MemoryGameRow = {
   title: string;
   description: string;
   pairs_count: number;
+  variant?: "classic" | "v2";
   status?: MemoryGameStatus; // user
   progress?: any | null;
   created_by: { id?: number; name: string; role: AuthRole };
@@ -159,6 +160,37 @@ export type SpinWheelGameRow = {
   assigned_to?: Array<{ id: number; name: string }>; // admin
   items: SpinWheelGameItemRow[];
   thumbnail?: { url: string } | null;
+  created_at?: string | null;
+};
+
+// ---------------------------
+// DISCRIMINAÇÃO FONEMA
+// ---------------------------
+
+export type PhonemeGameStatus = "disponivel" | "concluido";
+
+export type PhonemeGameItemRow = {
+  id: number;
+  position: number;
+  word: string;
+  left_url: string;
+  right_url: string;
+  correct_side: "left" | "right";
+};
+
+export type PhonemeGameRow = {
+  id: number;
+  title: string;
+  description: string;
+  sessions_count: number;
+  background_url: string;
+  status?: PhonemeGameStatus; // user
+  progress?: any | null;
+  created_by: { id?: number; name: string; role: AuthRole };
+  assigned_count?: number; // admin
+  assigned_to?: Array<{ id: number; name: string }>; // admin
+  items: PhonemeGameItemRow[];
+  thumbnail?: PhonemeGameItemRow | null;
   created_at?: string | null;
 };
 
@@ -626,8 +658,9 @@ export async function adminGetActivity(id: number): Promise<ActivityRow> {
   return await request<ActivityRow>(`/api/admin/activities/${id}`);
 }
 
-export async function adminListMemoryGames(): Promise<MemoryGameRow[]> {
-  const res = await request<{ data: MemoryGameRow[] }>("/api/admin/memory-games");
+export async function adminListMemoryGames(opts?: { variant?: "classic" | "v2" }): Promise<MemoryGameRow[]> {
+  const qs = opts?.variant ? `?variant=${encodeURIComponent(opts.variant)}` : "";
+  const res = await request<{ data: MemoryGameRow[] }>(`/api/admin/memory-games${qs}`);
   return res.data;
 }
 
@@ -639,6 +672,7 @@ export async function adminCreateMemoryGame(payload: {
   title: string;
   description: string;
   pairs_count: number;
+  variant?: "classic" | "v2";
   assigned_to: number[];
   pair_images: File[];
 }): Promise<MemoryGameRow> {
@@ -647,6 +681,7 @@ export async function adminCreateMemoryGame(payload: {
   fd.set("title", payload.title);
   fd.set("description", payload.description);
   fd.set("pairs_count", String(payload.pairs_count));
+  if (payload.variant) fd.set("variant", payload.variant);
   fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
   payload.pair_images.forEach((f) => fd.append("pair_images[]", f));
   return await request<MemoryGameRow>("/api/admin/memory-games", { method: "POST", formData: fd });
@@ -681,6 +716,11 @@ export async function adminListAuditoryGames(): Promise<AuditoryGameRow[]> {
   return res.data;
 }
 
+export async function adminListPhonemeGames(): Promise<PhonemeGameRow[]> {
+  const res = await request<{ data: PhonemeGameRow[] }>("/api/admin/phoneme-games");
+  return res.data;
+}
+
 export async function adminListHangmanGames(): Promise<HangmanGameRow[]> {
   const res = await request<{ data: HangmanGameRow[] }>("/api/admin/hangman-games");
   return res.data;
@@ -688,6 +728,10 @@ export async function adminListHangmanGames(): Promise<HangmanGameRow[]> {
 
 export async function adminGetAuditoryGame(id: number): Promise<AuditoryGameRow> {
   return await request<AuditoryGameRow>(`/api/admin/auditory-games/${id}`);
+}
+
+export async function adminGetPhonemeGame(id: number): Promise<PhonemeGameRow> {
+  return await request<PhonemeGameRow>(`/api/admin/phoneme-games/${id}`);
 }
 
 export async function adminGetHangmanGame(id: number): Promise<HangmanGameRow> {
@@ -715,6 +759,31 @@ export async function adminCreateAuditoryGame(payload: {
   return await request<AuditoryGameRow>("/api/admin/auditory-games", { method: "POST", formData: fd });
 }
 
+export async function adminCreatePhonemeGame(payload: {
+  title: string;
+  description: string;
+  sessions_count: number;
+  assigned_to: number[];
+  background: File;
+  words: string[];
+  correct_sides: Array<"left" | "right">;
+  left_images: File[];
+  right_images: File[];
+}): Promise<PhonemeGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("sessions_count", String(payload.sessions_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  fd.set("background", payload.background);
+  fd.set("words_json", JSON.stringify(payload.words || []));
+  fd.set("correct_sides_json", JSON.stringify(payload.correct_sides || []));
+  payload.left_images.forEach((f) => fd.append("left_images[]", f));
+  payload.right_images.forEach((f) => fd.append("right_images[]", f));
+  return await request<PhonemeGameRow>("/api/admin/phoneme-games", { method: "POST", formData: fd });
+}
+
 export async function adminCreateHangmanGame(payload: {
   title: string;
   description: string;
@@ -735,6 +804,11 @@ export async function adminCreateHangmanGame(payload: {
 export async function adminDeleteAuditoryGame(id: number): Promise<void> {
   await ensureCsrfCookie();
   await request<void>(`/api/admin/auditory-games/${id}`, { method: "DELETE" });
+}
+
+export async function adminDeletePhonemeGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/admin/phoneme-games/${id}`, { method: "DELETE" });
 }
 
 export async function adminDeleteHangmanGame(id: number): Promise<void> {
@@ -763,6 +837,33 @@ export async function adminUpdateAuditoryGame(
   if (payload.items_sides !== undefined) fd.set("items_sides_json", JSON.stringify(payload.items_sides));
   fd.set("_method", "PATCH");
   return await request<AuditoryGameRow>(`/api/admin/auditory-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function adminUpdatePhonemeGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    assigned_to: number[];
+    background: File;
+    words: string[];
+    correct_sides: Array<"left" | "right">;
+    left_images: File[];
+    right_images: File[];
+  }>
+): Promise<PhonemeGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background !== undefined && payload.background) fd.set("background", payload.background);
+  if (payload.words !== undefined) fd.set("words_json", JSON.stringify(payload.words || []));
+  if (payload.correct_sides !== undefined) fd.set("correct_sides_json", JSON.stringify(payload.correct_sides || []));
+  if (payload.left_images !== undefined) payload.left_images.forEach((f) => fd.append("left_images[]", f));
+  if (payload.right_images !== undefined) payload.right_images.forEach((f) => fd.append("right_images[]", f));
+  fd.set("_method", "PATCH");
+  return await request<PhonemeGameRow>(`/api/admin/phoneme-games/${id}`, { method: "POST", formData: fd });
 }
 
 export async function adminUpdateHangmanGame(
@@ -905,8 +1006,9 @@ export async function userUpdateActivityProgress(
   return await request<ActivityRow>(`/api/activities/${id}/progress`, { method: "PATCH", json: payload });
 }
 
-export async function userListMemoryGames(): Promise<MemoryGameRow[]> {
-  const res = await request<{ data: MemoryGameRow[] }>("/api/memory-games");
+export async function userListMemoryGames(opts?: { variant?: "classic" | "v2" }): Promise<MemoryGameRow[]> {
+  const qs = opts?.variant ? `?variant=${encodeURIComponent(opts.variant)}` : "";
+  const res = await request<{ data: MemoryGameRow[] }>(`/api/memory-games${qs}`);
   return res.data;
 }
 
@@ -922,6 +1024,25 @@ export async function userUpdateMemoryGameProgress(
 ): Promise<MemoryGameRow> {
   await ensureCsrfCookie();
   return await request<MemoryGameRow>(`/api/memory-games/${id}/progress`, { method: "PATCH", json: payload });
+}
+
+export async function userListPhonemeGames(): Promise<PhonemeGameRow[]> {
+  const res = await request<{ data: PhonemeGameRow[] }>("/api/phoneme-games");
+  return res.data;
+}
+
+export async function userGetPhonemeGame(id: number, opts?: { session_id?: number | null }): Promise<PhonemeGameRow> {
+  const sid = opts?.session_id;
+  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+  return await request<PhonemeGameRow>(`/api/phoneme-games/${id}${qs}`);
+}
+
+export async function userUpdatePhonemeGameProgress(
+  id: number,
+  payload: { progress?: any; status?: PhonemeGameStatus }
+): Promise<PhonemeGameRow> {
+  await ensureCsrfCookie();
+  return await request<PhonemeGameRow>(`/api/phoneme-games/${id}/progress`, { method: "PATCH", json: payload });
 }
 
 export async function userListAuditoryGames(): Promise<AuditoryGameRow[]> {

@@ -457,96 +457,217 @@ export default function WordSearchGameView() {
       )}
 
       <main className="relative">
-        <div className={cn("container mx-auto px-4 py-6 lg:py-8", inSession && "px-0 py-0")}>
-          <div className="max-w-6xl mx-auto">
-            <div ref={fsRef} className="fs-target rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col">
-              <div ref={headerRef} className="px-6 sm:px-10 pt-7 sm:pt-9 pb-5 border-b border-border/60">
-                {loading ? (
-                  <div className="space-y-3">
-                    <Skeleton className="h-7 w-2/3" />
-                    <Skeleton className="h-4 w-full" />
+        {inSession ? (
+          // TRANSMISSÃO: Layout simplificado - só o jogo com fundo
+          <div ref={fsRef} className="fs-target w-full h-[100svh] overflow-hidden bg-transparent">
+            {loading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Skeleton className="h-[60vh] w-full" />
+              </div>
+            ) : game && grid.length > 0 ? (
+              <div className="relative w-full h-full">
+                {/* Fundo */}
+                <img src={normalizeMediaUrl(game.background_url)} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                
+                {/* Grid e Imagens lado a lado */}
+                <div className="relative h-full w-full flex flex-row gap-3 p-3">
+                  {/* Grid de letras (esquerda) */}
+                  <div className="w-1/2 flex items-center justify-center min-w-0">
+                    <div
+                      className="grid gap-0.5 p-2 rounded-lg w-full"
+                      style={{
+                        backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
+                        gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                      }}
+                    >
+                      {grid.map((row, rIdx) =>
+                        row.map((char, cIdx) => {
+                          const key = `${rIdx}-${cIdx}`;
+                          const isRemoved = removedCells.has(key);
+                          const isInFoundWord = isCellInFoundWord(rIdx, cIdx);
+                          
+                          const maxSize = Math.min(
+                            Math.floor((window.innerWidth * 0.4) / gridSize),
+                            Math.floor((window.innerHeight * 0.7) / gridSize),
+                          );
+                          const cellSize = Math.max(24, Math.min(36, maxSize));
+
+                          if (isRemoved) {
+                            return <div key={key} className="w-full h-full aspect-square" style={{ width: cellSize, height: cellSize }} />;
+                          }
+
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => onCellClick(rIdx, cIdx)}
+                              disabled={lock || pendingWordId !== null}
+                              className={cn(
+                                "w-full aspect-square rounded text-center font-bold transition-colors",
+                                isInFoundWord
+                                  ? "bg-brand-green text-white shadow-md"
+                                  : "hover:opacity-80 border",
+                              )}
+                              style={{
+                                width: cellSize,
+                                height: cellSize,
+                                fontSize: `${Math.max(16, cellSize * 0.55)}px`,
+                                backgroundColor: isInFoundWord ? undefined : (game.grid_background_color || '#000000'),
+                                color: isInFoundWord ? undefined : (game.letter_color || '#FFFFFF'),
+                                borderColor: isInFoundWord ? undefined : `${game.letter_color || '#FFFFFF'}40`,
+                              }}
+                            >
+                              {char}
+                            </button>
+                          );
+                        }),
+                      )}
+                    </div>
                   </div>
-                ) : game ? (
-                  <div className="flex flex-col gap-2">
-                    <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">{game.title}</h1>
-                    <p className="fs-hide-in-fs text-muted-foreground leading-relaxed">{game.description}</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {(!inSession || sessionRole === "admin") && (
+
+                  {/* Imagens (direita) */}
+                  {game.items && game.items.length > 0 && (
+                    <div className="w-1/2 h-full overflow-hidden flex items-center justify-center p-2">
+                      <div
+                        className="grid w-full h-full gap-2"
+                        style={{
+                          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                          gridTemplateRows: `repeat(${Math.ceil(game.items.length / 2)}, minmax(0, 1fr))`,
+                        }}
+                      >
+                        {game.items.map((item) => {
+                          const isFound = foundImages.has(item.id);
+                          const isShaking = shakeImageId === item.id;
+                          const isEnabled = pendingWordId !== null && !isFound;
+
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => onImageClick(item.id)}
+                              disabled={lock || !isEnabled}
+                              className={cn(
+                                "relative rounded-lg overflow-hidden border-2 transition-all aspect-square",
+                                isFound
+                                  ? "border-brand-green opacity-70"
+                                  : isShaking
+                                    ? "border-red-500 animate-[shake_0.35s_ease-in-out_0s_2] bg-red-100/90"
+                                    : isEnabled
+                                      ? "border-white/80 hover:border-brand-green/90 bg-white/95 cursor-pointer"
+                                      : "border-white/40 opacity-50 bg-white/60",
+                              )}
+                            >
+                              <img 
+                                src={normalizeMediaUrl(item.image_url)} 
+                                alt={item.word} 
+                                className="w-full h-full object-contain p-1" 
+                              />
+                              {isFound && (
+                                <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
+                                  <span className="text-2xl text-white drop-shadow-lg">✓</span>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Progresso */}
+                  <div className="absolute top-3 right-3 z-10 bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2 text-white/90 text-sm">
+                    {foundWords.size}/{game.items?.length || 0} palavras
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          // FORA DA TRANSMISSÃO: Layout completo com header
+          <div className="container mx-auto px-4 py-6 lg:py-8">
+            <div className="max-w-6xl mx-auto">
+              <div ref={fsRef} className="fs-target rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col">
+                <div ref={headerRef} className="px-6 sm:px-10 pt-7 sm:pt-9 pb-5 border-b border-border/60">
+                  {loading ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-7 w-2/3" />
+                      <Skeleton className="h-4 w-full" />
+                    </div>
+                  ) : game ? (
+                    <div className="flex flex-col gap-2">
+                      <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">{game.title}</h1>
+                      <p className="fs-hide-in-fs text-muted-foreground leading-relaxed">{game.description}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
                         <Button variant="secondary" onClick={doReset}>
                           <RotateCcw className="h-4 w-4 mr-2" />
                           Reiniciar
                         </Button>
-                      )}
-                      <FullscreenToggle targetRef={fsRef} className="ml-auto" mode={inSession ? "pseudo" : "auto"} />
+                        <FullscreenToggle targetRef={fsRef} className="ml-auto" mode="auto" />
+                      </div>
                     </div>
-                  </div>
-                ) : notFound ? (
-                  <div className="space-y-2">
-                    <h1 className="text-xl font-display font-bold text-foreground">Jogo não encontrado</h1>
-                    <p className="text-muted-foreground">Esse jogo não existe (ou foi removido).</p>
-                  </div>
-                ) : forbidden ? (
-                  <div className="space-y-2">
-                    <h1 className="text-xl font-display font-bold text-foreground">Acesso negado</h1>
-                    <p className="text-muted-foreground">Você não tem permissão para acessar este jogo.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <h1 className="text-xl font-display font-bold text-foreground">Não foi possível carregar</h1>
-                    <p className="text-muted-foreground">Tente novamente em alguns instantes.</p>
-                  </div>
-                )}
-              </div>
+                  ) : notFound ? (
+                    <div className="space-y-2">
+                      <h1 className="text-xl font-display font-bold text-foreground">Jogo não encontrado</h1>
+                      <p className="text-muted-foreground">Esse jogo não existe (ou foi removido).</p>
+                    </div>
+                  ) : forbidden ? (
+                    <div className="space-y-2">
+                      <h1 className="text-xl font-display font-bold text-foreground">Acesso negado</h1>
+                      <p className="text-muted-foreground">Você não tem permissão para acessar este jogo.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <h1 className="text-xl font-display font-bold text-foreground">Não foi possível carregar</h1>
+                      <p className="text-muted-foreground">Tente novamente em alguns instantes.</p>
+                    </div>
+                  )}
+                </div>
 
-              <div ref={bodyRef} className="p-2 sm:p-4 lg:p-6 flex-1 fs-fit min-h-0 overflow-hidden">
-                {loading ? (
-                  <Skeleton className="h-[60vh] w-full rounded-2xl" />
-                ) : game && grid.length > 0 ? (
-                  <div className="relative w-full h-full min-h-[55vh] sm:min-h-[62vh] lg:min-h-[70vh] max-h-[calc(100vh-12rem)] rounded-xl sm:rounded-2xl overflow-hidden border border-border">
-                    <img src={normalizeMediaUrl(game.background_url)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-95" />
-                    <div className="absolute inset-0 bg-black/20" />
+                <div ref={bodyRef} className="p-2 sm:p-4 lg:p-6 flex-1 fs-fit min-h-0 overflow-hidden">
+                  {loading ? (
+                    <Skeleton className="h-[60vh] w-full rounded-2xl" />
+                  ) : game && grid.length > 0 ? (
+                    <div className="relative w-full h-full min-h-[55vh] sm:min-h-[62vh] lg:min-h-[70vh] max-h-[calc(100vh-12rem)] rounded-xl sm:rounded-2xl overflow-hidden border border-border">
+                      <img src={normalizeMediaUrl(game.background_url)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-95" />
+                      <div className="absolute inset-0 bg-black/20" />
 
-                    {/* Grid e Imagens lado a lado - sempre responsivo, igual dentro e fora da sessão */}
-                    <div className="relative h-full w-full flex flex-col lg:flex-row gap-2 sm:gap-3 p-2 sm:p-3">
-                      {/* Grid de letras (esquerda) */}
-                      <div className="lg:w-1/2 flex items-center justify-center min-w-0 flex-shrink-0">
-                        <div
-                          className="grid gap-0.5 sm:gap-1 backdrop-blur-sm p-1.5 sm:p-2 rounded-lg shadow-lg w-full max-w-full"
-                          style={{
-                            backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
-                            gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
-                            maxHeight: "100%",
-                          }}
-                        >
-                          {grid.map((row, rIdx) =>
-                            row.map((char, cIdx) => {
-                              const key = `${rIdx}-${cIdx}`;
-                              const isRemoved = removedCells.has(key);
-                              const isInFoundWord = isCellInFoundWord(rIdx, cIdx); // TODAS as letras da palavra encontrada
-                              // Grid menor - cálculo mais conservador para não ocupar muito espaço
-                              const maxSize = Math.min(
-                                Math.floor((window.innerWidth * 0.35) / gridSize),
-                                Math.floor((window.innerHeight * 0.5) / gridSize),
-                              );
-                              // Tamanho das letras ajustado
-                              const cellSize = Math.max(22, Math.min(32, maxSize));
+                      <div className="relative h-full w-full flex flex-col lg:flex-row gap-2 sm:gap-3 p-2 sm:p-3">
+                        <div className="lg:w-1/2 flex items-center justify-center min-w-0 flex-shrink-0">
+                          <div
+                            className="grid gap-0.5 sm:gap-1 backdrop-blur-sm p-1.5 sm:p-2 rounded-lg shadow-lg w-full max-w-full"
+                            style={{
+                              backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
+                              gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                              maxHeight: "100%",
+                            }}
+                          >
+                            {grid.map((row, rIdx) =>
+                              row.map((char, cIdx) => {
+                                const key = `${rIdx}-${cIdx}`;
+                                const isRemoved = removedCells.has(key);
+                                const isInFoundWord = isCellInFoundWord(rIdx, cIdx);
+                                const maxSize = Math.min(
+                                  Math.floor((window.innerWidth * 0.35) / gridSize),
+                                  Math.floor((window.innerHeight * 0.5) / gridSize),
+                                );
+                                const cellSize = Math.max(22, Math.min(32, maxSize));
 
-                              if (isRemoved) {
-                                return <div key={key} className="w-full h-full aspect-square" style={{ width: cellSize, height: cellSize }} />;
-                              }
+                                if (isRemoved) {
+                                  return <div key={key} className="w-full h-full aspect-square" style={{ width: cellSize, height: cellSize }} />;
+                                }
 
-                              return (
-                                <button
-                                  key={key}
-                                  type="button"
-                                  onClick={() => onCellClick(rIdx, cIdx)}
-                                  disabled={lock || pendingWordId !== null}
-                                  className={cn(
-                                    "w-full aspect-square rounded text-center font-bold transition-colors",
-                                    isInFoundWord
-                                      ? "bg-brand-green text-white shadow-md"
-                                      : "hover:opacity-80 border",
-                                  )}
+                                return (
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => onCellClick(rIdx, cIdx)}
+                                    disabled={lock || pendingWordId !== null}
+                                    className={cn(
+                                      "w-full aspect-square rounded text-center font-bold transition-colors",
+                                      isInFoundWord
+                                        ? "bg-brand-green text-white shadow-md"
+                                        : "hover:opacity-80 border",
+                                    )}
                                     style={{
                                       width: cellSize,
                                       height: cellSize,
@@ -555,88 +676,87 @@ export default function WordSearchGameView() {
                                       color: isInFoundWord ? undefined : (game.letter_color || '#FFFFFF'),
                                       borderColor: isInFoundWord ? undefined : `${game.letter_color || '#FFFFFF'}40`,
                                     }}
-                                >
-                                  {char}
-                                </button>
-                              );
-                            }),
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Imagens (sempre visíveis, à direita) - adaptadas ao espaço disponível, sem cortar */}
-                      {game.items && game.items.length > 0 ? (() => {
-                        const itemsCount = game.items.length;
-                        const cols = 2; // sempre 2 colunas
-                        const rows = Math.ceil(itemsCount / cols);
-                        
-                        return (
-                          <div className="lg:w-1/2 lg:flex-shrink-0 p-1 sm:p-1.5 h-full max-h-full overflow-hidden min-w-0 flex items-center justify-center">
-                            <div
-                              className="grid w-full h-full gap-1 sm:gap-1.5"
-                              style={{
-                                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-                                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-                              }}
-                            >
-                              {game.items.map((item) => {
-                                const isFound = foundImages.has(item.id);
-                                const isShaking = shakeImageId === item.id;
-                                const isEnabled = pendingWordId !== null && !isFound; // habilitado quando há palavra pendente e imagem não foi encontrada
-
-                                return (
-                                  <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => onImageClick(item.id)}
-                                    disabled={lock || !isEnabled}
-                                    className={cn(
-                                      "relative rounded-lg sm:rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-md",
-                                      isFound
-                                        ? "border-brand-green opacity-70 cursor-not-allowed"
-                                        : isShaking
-                                          ? "border-red-500 animate-[shake_0.35s_ease-in-out_0s_2] bg-red-100/90"
-                                          : isEnabled
-                                            ? "border-white/80 hover:border-brand-green/90 bg-white/95 cursor-pointer"
-                                            : "border-white/40 opacity-50 cursor-not-allowed bg-white/60",
-                                    )}
-                                    style={{
-                                      width: "100%",
-                                      height: "100%",
-                                      maxWidth: "100%",
-                                      maxHeight: "100%",
-                                    }}
                                   >
-                                    <img 
-                                      src={normalizeMediaUrl(item.image_url)} 
-                                      alt={item.word} 
-                                      className="w-full h-full object-contain p-0.5 sm:p-1" 
-                                      style={{ maxWidth: "100%", maxHeight: "100%" }}
-                                    />
-                                    {isFound && (
-                                      <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
-                                        <span className="text-xl sm:text-2xl text-white drop-shadow-lg">✓</span>
-                                      </div>
-                                    )}
+                                    {char}
                                   </button>
                                 );
-                              })}
-                            </div>
+                              }),
+                            )}
                           </div>
-                        );
-                      })() : null}
-                    </div>
+                        </div>
 
-                    {/* Progresso */}
-                    <div className="absolute top-2 sm:top-3 right-2 sm:right-3 z-10 bg-black/40 backdrop-blur-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-white/90 text-xs sm:text-sm">
-                      {foundWords.size}/{game.items?.length || 0} palavras
+                        {game.items && game.items.length > 0 ? (() => {
+                          const itemsCount = game.items.length;
+                          const cols = 2;
+                          const rows = Math.ceil(itemsCount / cols);
+                          
+                          return (
+                            <div className="lg:w-1/2 lg:flex-shrink-0 p-1 sm:p-1.5 h-full max-h-full overflow-hidden min-w-0 flex items-center justify-center">
+                              <div
+                                className="grid w-full h-full gap-1 sm:gap-1.5"
+                                style={{
+                                  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                                  gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+                                }}
+                              >
+                                {game.items.map((item) => {
+                                  const isFound = foundImages.has(item.id);
+                                  const isShaking = shakeImageId === item.id;
+                                  const isEnabled = pendingWordId !== null && !isFound;
+
+                                  return (
+                                    <button
+                                      key={item.id}
+                                      type="button"
+                                      onClick={() => onImageClick(item.id)}
+                                      disabled={lock || !isEnabled}
+                                      className={cn(
+                                        "relative rounded-lg sm:rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-md",
+                                        isFound
+                                          ? "border-brand-green opacity-70 cursor-not-allowed"
+                                          : isShaking
+                                            ? "border-red-500 animate-[shake_0.35s_ease-in-out_0s_2] bg-red-100/90"
+                                            : isEnabled
+                                              ? "border-white/80 hover:border-brand-green/90 bg-white/95 cursor-pointer"
+                                              : "border-white/40 opacity-50 cursor-not-allowed bg-white/60",
+                                      )}
+                                      style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        maxWidth: "100%",
+                                        maxHeight: "100%",
+                                      }}
+                                    >
+                                      <img 
+                                        src={normalizeMediaUrl(item.image_url)} 
+                                        alt={item.word} 
+                                        className="w-full h-full object-contain p-0.5 sm:p-1" 
+                                        style={{ maxWidth: "100%", maxHeight: "100%" }}
+                                      />
+                                      {isFound && (
+                                        <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
+                                          <span className="text-xl sm:text-2xl text-white drop-shadow-lg">✓</span>
+                                        </div>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })() : null}
+                      </div>
+
+                      <div className="absolute top-2 sm:top-3 right-2 sm:right-3 z-10 bg-black/40 backdrop-blur-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-white/90 text-xs sm:text-sm">
+                        {foundWords.size}/{game.items?.length || 0} palavras
+                      </div>
                     </div>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
 
       <BrandedCongratsDialog

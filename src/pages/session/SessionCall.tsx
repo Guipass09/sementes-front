@@ -137,6 +137,7 @@ export default function SessionCall() {
   const contentFrameRef = useRef<HTMLIFrameElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const joiningRef = useRef(false);
+  const resumeInFlightRef = useRef(false);
 
   const goBack = (r: Role | null) => {
     if (r === "admin") navigate("/admin/horarios");
@@ -421,6 +422,125 @@ export default function SessionCall() {
       void el.play().catch(() => {});
     }
   }, [remoteCamStream, remoteStream]);
+
+  const resumeAfterVisibility = useCallback(async () => {
+    if (resumeInFlightRef.current) return;
+    resumeInFlightRef.current = true;
+    try {
+      // 1) Reforça play() nos vídeos (Safari/iOS costuma pausar ao trocar de aba)
+      const kick = async (el: HTMLVideoElement | null, opts?: { muted?: boolean }) => {
+        if (!el) return;
+        try {
+          if (typeof opts?.muted === "boolean") el.muted = opts.muted;
+          // Re-attach "best effort" (alguns Safari só retomam depois de re-setar srcObject)
+          const s = el.srcObject;
+          if (s) {
+            el.srcObject = null;
+            el.srcObject = s;
+          }
+          await el.play();
+        } catch {
+          // ignore
+        }
+      };
+
+      await kick(localVideoRef.current, { muted: true });
+      await kick(remoteVideoRef.current, { muted: false });
+      if (screenShareActive) await kick(contentScreenVideoRef.current, { muted: true });
+
+      // 2) Se WebAudio foi suspenso ao perder foco, tenta resumir
+      try {
+        const ctx = audioCtxRef.current;
+        if (ctx && ctx.state === "suspended") await ctx.resume();
+      } catch {}
+
+      // 3) iOS pode encerrar tracks ao trocar de aba; se a chamada estava "ready", tenta recuperar.
+      if (mediaState !== "ready") return;
+      const pc = pcRef.current;
+      if (!pc) return;
+
+      const isEnded = (t: MediaStreamTrack | null | undefined) => !t || t.readyState === "ended";
+
+      const currentAudio = localStream?.getAudioTracks?.()?.[0] ?? null;
+      const currentVideo = localStream?.getVideoTracks?.()?.[0] ?? null;
+
+      // sender de câmera/mic (não confundir com screen share)
+      const pickSender = (kind: "audio" | "video") => {
+        const senders = pc.getSenders().filter((s) => s?.track?.kind === kind);
+        if (kind === "video") return senders.find((s) => s !== screenSenderRef.current) ?? null;
+        return senders.find((s) => s !== screenAudioSenderRef.current) ?? null;
+      };
+
+      const camSender = pickSender("video");
+      const micSender = pickSender("audio");
+
+      const needsNew =
+        isEnded(currentAudio) ||
+        isEnded(currentVideo) ||
+        isEnded((micSender?.track as any) || null) ||
+        isEnded((camSender?.track as any) || null);
+
+      if (!needsNew) return;
+
+      try {
+        const fresh = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        // respeita os toggles atuais
+        for (const t of fresh.getAudioTracks()) t.enabled = micOn;
+        for (const t of fresh.getVideoTracks()) t.enabled = camOn;
+
+        // atualiza state/UI (preview local)
+        setLocalStream(fresh);
+
+        const newAudio = fresh.getAudioTracks?.()?.[0] ?? null;
+        const newVideo = fresh.getVideoTracks?.()?.[0] ?? null;
+
+        // troca as tracks no peer connection (sem renegociar, quando suportado)
+        if (micSender?.replaceTrack && newAudio) {
+          try {
+            await micSender.replaceTrack(newAudio);
+          } catch {}
+        }
+        if (camSender?.replaceTrack && newVideo) {
+          try {
+            await camSender.replaceTrack(newVideo);
+          } catch {}
+        }
+
+        // fallback: se não há sender por algum motivo, tenta addTrack (melhor esforço)
+        const hasAny = pc.getSenders().some((s) => !!s.track);
+        if (!hasAny) {
+          for (const track of fresh.getTracks()) {
+            try {
+              pc.addTrack(track, fresh);
+            } catch {}
+          }
+        }
+
+        setMediaError(null);
+      } catch (e) {
+        // Se o navegador exigir gesto do usuário para reabrir câmera/mic, mostramos a call-to-action.
+        setMediaState("failed");
+        setMediaError("No iPhone, ao trocar de aba o Safari pode pausar a câmera/mic. Volte para a aba e toque em “Iniciar câmera e microfone”.");
+      }
+    } finally {
+      resumeInFlightRef.current = false;
+    }
+  }, [camOn, localStream, mediaState, micOn, screenShareActive]);
+
+  // iPhone/Safari: ao voltar para a aba/app, tenta retomar a reprodução e recuperar tracks encerradas.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void resumeAfterVisibility();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [resumeAfterVisibility]);
 
   // iOS/Safari (PWA) pode bloquear autoplay com áudio; tenta destravar no primeiro toque.
   useEffect(() => {

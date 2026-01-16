@@ -246,13 +246,24 @@ export default function WordSearchGameView() {
     return positionsToCheck; // Todas as letras correspondem
   };
 
-  // Verifica se uma célula (row, col) faz parte de uma palavra encontrada
-  const isCellInFoundWord = (row: number, col: number): boolean => {
-    if (!game || !game.items) return false;
+  // Cache de posições de palavras encontradas para otimizar performance (evita recálculos durante render)
+  const foundWordsPositionsCache = useMemo(() => {
+    const cache = new Map<number, Array<{ r: number; c: number }>>();
+    if (!game || !game.items || !grid || grid.length === 0) return cache;
     for (const item of game.items) {
-      if (!foundWords.has(item.id)) continue;
-      const positions = getWordPositions(item);
-      if (!positions) continue; // palavra inválida, ignora
+      if (foundWords.has(item.id)) {
+        const positions = getWordPositions(item);
+        if (positions) {
+          cache.set(item.id, positions);
+        }
+      }
+    }
+    return cache;
+  }, [game?.items, foundWords, grid]);
+
+  // Verifica se uma célula (row, col) faz parte de uma palavra encontrada (otimizado com cache)
+  const isCellInFoundWord = (row: number, col: number): boolean => {
+    for (const positions of foundWordsPositionsCache.values()) {
       if (positions.some((p) => p.r === row && p.c === col)) {
         return true;
       }
@@ -496,16 +507,15 @@ export default function WordSearchGameView() {
                     <div className="absolute inset-0 bg-black/20" />
 
                     {/* Grid e Imagens lado a lado - sempre responsivo, igual dentro e fora da sessão */}
-                    <div className="relative h-full w-full flex flex-col lg:flex-row gap-3 p-3 sm:p-4">
-                      {/* Grid de letras (à esquerda) */}
-                      <div className="flex-1 lg:flex-[2] flex items-center justify-center min-w-0">
+                    <div className="relative h-full w-full flex flex-col lg:flex-row gap-2 sm:gap-3 p-2 sm:p-3">
+                      {/* Grid de letras (menor à esquerda, para dar espaço às imagens) */}
+                      <div className="flex-1 lg:flex-[1.5] flex items-center justify-center min-w-0 max-w-[60%]">
                         <div
-                          className="grid gap-0.5 sm:gap-1 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-lg"
+                          className="grid gap-0.5 sm:gap-1 backdrop-blur-sm p-1.5 sm:p-2 rounded-lg shadow-lg"
                           style={{
                             backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
                             gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
                             width: "100%",
-                            height: "100%",
                             maxWidth: "100%",
                             maxHeight: "100%",
                           }}
@@ -515,12 +525,13 @@ export default function WordSearchGameView() {
                               const key = `${rIdx}-${cIdx}`;
                               const isRemoved = removedCells.has(key);
                               const isInFoundWord = isCellInFoundWord(rIdx, cIdx); // TODAS as letras da palavra encontrada
+                              // Grid menor - cálculo mais conservador para não ocupar muito espaço
                               const maxSize = Math.min(
-                                Math.floor((window.innerWidth * 0.45) / gridSize),
-                                Math.floor((window.innerHeight * 0.6) / gridSize),
+                                Math.floor((window.innerWidth * 0.35) / gridSize),
+                                Math.floor((window.innerHeight * 0.5) / gridSize),
                               );
-                              // Aumentar mais o tamanho das letras para crianças
-                              const cellSize = Math.max(28, Math.min(42, maxSize));
+                              // Tamanho das letras ajustado
+                              const cellSize = Math.max(22, Math.min(32, maxSize));
 
                               if (isRemoved) {
                                 return <div key={key} className="w-full h-full aspect-square" style={{ width: cellSize, height: cellSize }} />;
@@ -558,13 +569,13 @@ export default function WordSearchGameView() {
                       {/* Imagens (sempre visíveis, à direita) - integradas ao fundo, ajustadas dinamicamente sem scroll */}
                       {game.items && (() => {
                         const itemsCount = game.items.length;
-                        const cols = itemsCount <= 4 ? 2 : 2; // sempre 2 colunas
+                        const cols = 2; // sempre 2 colunas
                         const rows = Math.ceil(itemsCount / cols);
                         
                         return (
-                          <div className="lg:flex-1 flex-shrink-0 p-2 sm:p-3 max-h-full overflow-hidden">
+                          <div className="lg:flex-1 flex-shrink-0 p-1.5 sm:p-2 max-h-full overflow-hidden min-w-0">
                             <div
-                              className="grid w-full h-full gap-2 sm:gap-2.5"
+                              className="grid w-full h-full gap-1.5 sm:gap-2"
                               style={{
                                 gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
                                 gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,

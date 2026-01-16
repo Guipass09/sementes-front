@@ -487,23 +487,25 @@ export default function WordSearchGameView() {
                 )}
               </div>
 
-              <div ref={bodyRef} className="p-2 sm:p-4 lg:p-6 flex-1 fs-fit min-h-0">
+              <div ref={bodyRef} className="p-2 sm:p-4 lg:p-6 flex-1 fs-fit min-h-0 overflow-hidden">
                 {loading ? (
                   <Skeleton className="h-[60vh] w-full rounded-2xl" />
                 ) : game && grid.length > 0 ? (
-                  <div className="relative w-full h-full min-h-[55vh] sm:min-h-[62vh] lg:min-h-[70vh] rounded-xl sm:rounded-2xl overflow-hidden border border-border flex flex-col">
+                  <div className="relative w-full h-full min-h-[55vh] sm:min-h-[62vh] lg:min-h-[70vh] max-h-[calc(100vh-12rem)] rounded-xl sm:rounded-2xl overflow-hidden border border-border">
                     <img src={normalizeMediaUrl(game.background_url)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-95" />
                     <div className="absolute inset-0 bg-black/20" />
 
-                    {/* Grid e Imagens lado a lado - sempre responsivo */}
-                    <div className="relative flex-1 flex flex-col lg:flex-row gap-3 p-3 sm:p-4 min-h-0">
-                      {/* Grid de letras (menor, à esquerda) */}
+                    {/* Grid e Imagens lado a lado - sempre responsivo, igual dentro e fora da sessão */}
+                    <div className="relative h-full w-full flex flex-col lg:flex-row gap-3 p-3 sm:p-4">
+                      {/* Grid de letras (à esquerda) */}
                       <div className="flex-1 lg:flex-[2] flex items-center justify-center min-w-0">
                         <div
                           className="grid gap-0.5 sm:gap-1 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-lg"
                           style={{
-                            backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : undefined,
+                            backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
                             gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                            width: "100%",
+                            height: "100%",
                             maxWidth: "100%",
                             maxHeight: "100%",
                           }}
@@ -536,14 +538,14 @@ export default function WordSearchGameView() {
                                       ? "bg-brand-green text-white shadow-md"
                                       : "hover:opacity-80 border",
                                   )}
-                                  style={{
-                                    width: cellSize,
-                                    height: cellSize,
-                                    fontSize: `${Math.max(16, cellSize * 0.55)}px`,
-                                    backgroundColor: isInFoundWord ? undefined : game.grid_background_color || '#1a1a1a',
-                                    color: isInFoundWord ? undefined : game.letter_color || '#FFFFFF',
-                                    borderColor: isInFoundWord ? undefined : `${game.letter_color || '#FFFFFF'}40`,
-                                  }}
+                                    style={{
+                                      width: cellSize,
+                                      height: cellSize,
+                                      fontSize: `${Math.max(16, cellSize * 0.55)}px`,
+                                      backgroundColor: isInFoundWord ? undefined : (game.grid_background_color || '#000000'),
+                                      color: isInFoundWord ? undefined : (game.letter_color || '#FFFFFF'),
+                                      borderColor: isInFoundWord ? undefined : `${game.letter_color || '#FFFFFF'}40`,
+                                    }}
                                 >
                                   {char}
                                 </button>

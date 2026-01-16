@@ -484,33 +484,57 @@ export default function WordSearchGameView() {
                         </div>
                       </div>
 
-                      {/* Imagens (sempre visíveis, à direita) - integradas ao fundo */}
-                      {game.items && (
-                        <div className="lg:flex-1 flex-shrink-0 p-2 sm:p-3 overflow-y-auto max-h-full">
-                          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2.5 w-full content-start">
-                            {game.items.map((item) => {
-                              const isFound = foundImages.has(item.id);
-                              const isShaking = shakeImageId === item.id;
-                              const isEnabled = pendingWordId !== null && !isFound; // habilitado quando há palavra pendente e imagem não foi encontrada
+                      {/* Imagens (sempre visíveis, à direita) - integradas ao fundo, ajustadas dinamicamente sem scroll */}
+                      {game.items && (() => {
+                        const itemsCount = game.items.length;
+                        const cols = itemsCount <= 4 ? 2 : 2; // sempre 2 colunas
+                        const rows = Math.ceil(itemsCount / cols);
+                        
+                        return (
+                          <div className="lg:flex-1 flex-shrink-0 p-2 sm:p-3 max-h-full overflow-hidden">
+                            <div
+                              className="grid w-full h-full gap-2 sm:gap-2.5"
+                              style={{
+                                gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+                              }}
+                            >
+                              {game.items.map((item) => {
+                                const isFound = foundImages.has(item.id);
+                                const isShaking = shakeImageId === item.id;
+                                const isEnabled = pendingWordId !== null && !isFound; // habilitado quando há palavra pendente e imagem não foi encontrada
 
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => onImageClick(item.id)}
-                                  disabled={lock || !isEnabled}
-                                  className={cn(
-                                    "relative rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-lg w-full",
-                                    isFound
-                                      ? "border-brand-green opacity-70 cursor-not-allowed"
-                                      : isShaking
-                                        ? "border-red-500 animate-[shake_0.35s_ease-in-out_0s_2] bg-red-100/90"
-                                        : isEnabled
-                                          ? "border-white/80 hover:border-brand-green/90 bg-white/95 cursor-pointer hover:scale-105"
-                                          : "border-white/40 opacity-50 cursor-not-allowed bg-white/60",
-                                  )}
-                                >
-                                  <img src={normalizeMediaUrl(item.image_url)} alt={item.word} className="w-full h-full object-contain" />
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => onImageClick(item.id)}
+                                    disabled={lock || !isEnabled}
+                                    className={cn(
+                                      "relative rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-lg",
+                                      isFound
+                                        ? "border-brand-green opacity-70 cursor-not-allowed"
+                                        : isShaking
+                                          ? "border-red-500 animate-[shake_0.35s_ease-in-out_0s_2] bg-red-100/90"
+                                          : isEnabled
+                                            ? "border-white/80 hover:border-brand-green/90 bg-white/95 cursor-pointer hover:scale-105"
+                                            : "border-white/40 opacity-50 cursor-not-allowed bg-white/60",
+                                    )}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      maxWidth: "100%",
+                                      maxHeight: "100%",
+                                    }}
+                                  >
+                                    <img src={normalizeMediaUrl(item.image_url)} alt={item.word} className="w-full h-full object-contain p-1" />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                                   {isFound && (
                                     <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
                                       <span className="text-3xl text-white drop-shadow-lg">✓</span>

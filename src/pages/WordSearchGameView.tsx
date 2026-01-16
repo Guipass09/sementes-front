@@ -259,17 +259,23 @@ export default function WordSearchGameView() {
     if (inSession && sessionRole === "user" && !controlAllowedRef.current) return;
     if (pendingWordId !== null) return; // aguardando escolher imagem - não pode clicar em mais letras
     const key = `${row}-${col}`;
-    if (removedCells.has(key)) return; // célula já removida
-
-    // Primeiro verifica se já está em uma palavra encontrada (não deve acontecer, mas segurança)
+    
+    // Primeiro verifica se já está em uma palavra encontrada - não faz nada
     if (isCellInFoundWord(row, col)) {
       return; // célula já faz parte de palavra encontrada
     }
 
+    // Verifica se a célula faz parte de uma palavra válida (não encontrada ainda)
     const wordAtCell = findWordAtCell(row, col);
     if (wordAtCell) {
       // Palavra encontrada! Ao clicar em QUALQUER letra da palavra, TODAS as letras ficam verdes
       playCorrect();
+      // Remove a célula de removedCells se estava lá (caso tenha sido marcada como errada antes)
+      setRemovedCells((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
       // Marca a palavra como encontrada - isso fará TODAS as letras ficarem verdes via isCellInFoundWord
       setFoundWords((prev) => new Set([...prev, wordAtCell.item.id]));
       setPendingWordId(wordAtCell.item.id); // agora precisa escolher a imagem correspondente
@@ -277,11 +283,13 @@ export default function WordSearchGameView() {
         emitSessionEvent({ kind: "word_found", wordId: wordAtCell.item.id });
       }
     } else {
-      // Letra errada - remove célula
-      playWrong();
-      setRemovedCells((prev) => new Set([...prev, key]));
-      if (inSession) {
-        emitSessionEvent({ kind: "cell_removed", row, col });
+      // Letra errada - só remove se não estiver já removida
+      if (!removedCells.has(key)) {
+        playWrong();
+        setRemovedCells((prev) => new Set([...prev, key]));
+        if (inSession) {
+          emitSessionEvent({ kind: "cell_removed", row, col });
+        }
       }
     }
   };
@@ -408,7 +416,10 @@ export default function WordSearchGameView() {
                       {/* Grid de letras (menor, à esquerda) */}
                       <div className="flex-1 lg:flex-[2] flex items-center justify-center min-w-0">
                         <div
-                          className="grid gap-0.5 sm:gap-1 bg-black/80 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-lg"
+                          className="grid gap-0.5 sm:gap-1 backdrop-blur-sm p-2 sm:p-3 rounded-lg shadow-lg"
+                          style={{
+                            backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : undefined,
+                          }}
                           style={{
                             gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
                             maxWidth: "100%",
@@ -424,8 +435,8 @@ export default function WordSearchGameView() {
                                 Math.floor((window.innerWidth * 0.45) / gridSize),
                                 Math.floor((window.innerHeight * 0.6) / gridSize),
                               );
-                              // Aumentar um pouco o tamanho das letras para crianças
-                              const cellSize = Math.max(24, Math.min(36, maxSize));
+                              // Aumentar mais o tamanho das letras para crianças
+                              const cellSize = Math.max(28, Math.min(42, maxSize));
 
                               if (isRemoved) {
                                 return <div key={key} className="w-full h-full aspect-square" style={{ width: cellSize, height: cellSize }} />;
@@ -441,9 +452,16 @@ export default function WordSearchGameView() {
                                     "w-full aspect-square rounded text-center font-bold transition-colors",
                                     isInFoundWord
                                       ? "bg-brand-green text-white shadow-md"
-                                      : "bg-black/90 hover:bg-black text-white border border-gray-700",
+                                      : "hover:opacity-80 border",
                                   )}
-                                  style={{ width: cellSize, height: cellSize, fontSize: `${Math.max(14, cellSize * 0.5)}px` }}
+                                  style={{
+                                    width: cellSize,
+                                    height: cellSize,
+                                    fontSize: `${Math.max(16, cellSize * 0.55)}px`,
+                                    backgroundColor: isInFoundWord ? undefined : game.grid_background_color || '#1a1a1a',
+                                    color: isInFoundWord ? undefined : game.letter_color || '#FFFFFF',
+                                    borderColor: isInFoundWord ? undefined : `${game.letter_color || '#FFFFFF'}40`,
+                                  }}
                                 >
                                   {char}
                                 </button>
@@ -455,8 +473,8 @@ export default function WordSearchGameView() {
 
                       {/* Imagens (sempre visíveis, à direita) - integradas ao fundo */}
                       {game.items && (
-                        <div className="lg:flex-1 flex-shrink-0 flex items-center justify-center p-2 sm:p-3">
-                          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-3 w-full max-h-full">
+                        <div className="lg:flex-1 flex-shrink-0 flex items-center justify-center p-2 sm:p-3 overflow-y-auto">
+                          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2 sm:gap-2.5 w-full h-full content-start">
                             {game.items.map((item) => {
                               const isFound = foundImages.has(item.id);
                               const isShaking = shakeImageId === item.id;
@@ -469,7 +487,7 @@ export default function WordSearchGameView() {
                                   onClick={() => onImageClick(item.id)}
                                   disabled={lock || !isEnabled}
                                   className={cn(
-                                    "relative rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-lg",
+                                    "relative rounded-xl overflow-hidden border-2 transition-all aspect-square shadow-lg w-full h-full min-h-0",
                                     isFound
                                       ? "border-brand-green opacity-70 cursor-not-allowed"
                                       : isShaking
@@ -479,7 +497,7 @@ export default function WordSearchGameView() {
                                           : "border-white/40 opacity-50 cursor-not-allowed bg-white/60",
                                   )}
                                 >
-                                  <img src={normalizeMediaUrl(item.image_url)} alt={item.word} className="w-full h-full object-cover" />
+                                  <img src={normalizeMediaUrl(item.image_url)} alt={item.word} className="w-full h-full object-contain" />
                                   {isFound && (
                                     <div className="absolute inset-0 bg-brand-green/40 flex items-center justify-center">
                                       <span className="text-3xl text-white drop-shadow-lg">✓</span>

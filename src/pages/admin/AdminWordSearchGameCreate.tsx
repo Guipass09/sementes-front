@@ -37,6 +37,8 @@ export default function AdminWordSearchGameCreate() {
   const [wordsCount, setWordsCount] = useState(5);
   const [background, setBackground] = useState<File | null>(null);
   const [bgPreview, setBgPreview] = useState<string | null>(null);
+  const [letterColor, setLetterColor] = useState("#FFFFFF");
+  const [gridBackgroundColor, setGridBackgroundColor] = useState("#000000");
 
   const [words, setWords] = useState<WordInput[]>(() =>
     Array.from({ length: 5 }, () => ({
@@ -189,6 +191,8 @@ export default function AdminWordSearchGameCreate() {
         background,
         words: slice.map((w) => w.word.trim()),
         images: slice.map((w) => w.imageFile!),
+        letter_color: letterColor,
+        grid_background_color: gridBackgroundColor,
       });
       toast({ title: "Jogo criado!", description: `"${created.title}" enviado para ${selectedUserIds.length} usuário(s).` });
       navigate(`/jogos/caca-palavras/${created.id}`);
@@ -279,6 +283,49 @@ export default function AdminWordSearchGameCreate() {
                         Remover
                       </Button>
                     )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Paleta de Cores */}
+              <div className="space-y-4 pt-2">
+                <Label className="text-base font-semibold">Personalização de Cores</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Cor das letras</Label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={letterColor}
+                        onChange={(e) => setLetterColor(e.target.value)}
+                        className="h-10 w-20 rounded-lg border border-border cursor-pointer"
+                      />
+                      <Input
+                        type="text"
+                        value={letterColor}
+                        onChange={(e) => setLetterColor(e.target.value)}
+                        placeholder="#FFFFFF"
+                        className="flex-1 font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cor do fundo do grid</Label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={gridBackgroundColor}
+                        onChange={(e) => setGridBackgroundColor(e.target.value)}
+                        className="h-10 w-20 rounded-lg border border-border cursor-pointer"
+                      />
+                      <Input
+                        type="text"
+                        value={gridBackgroundColor}
+                        onChange={(e) => setGridBackgroundColor(e.target.value)}
+                        placeholder="#000000"
+                        className="flex-1 font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

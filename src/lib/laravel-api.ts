@@ -219,6 +219,8 @@ export type WordSearchGameRow = {
   status?: WordSearchGameStatus; // user
   progress?: any | null;
   grid_data?: { grid: string[][]; size: number; placed: any } | null;
+  letter_color?: string; // Cor das letras (hex)
+  grid_background_color?: string; // Cor do fundo do grid (hex)
   created_by: { id?: number; name: string; role: AuthRole };
   assigned_count?: number; // admin
   assigned_to?: Array<{ id: number; name: string }>; // admin
@@ -861,6 +863,8 @@ export async function adminCreateWordSearchGame(payload: {
   words: string[];
   directions?: Array<"horizontal" | "vertical">;
   images: File[];
+  letter_color?: string;
+  grid_background_color?: string;
 }): Promise<WordSearchGameRow> {
   await ensureCsrfCookie();
   const fd = new FormData();
@@ -872,6 +876,12 @@ export async function adminCreateWordSearchGame(payload: {
   fd.set("words_json", JSON.stringify(payload.words || []));
   if (payload.directions) {
     fd.set("directions_json", JSON.stringify(payload.directions || []));
+  }
+  if (payload.letter_color) {
+    fd.set("letter_color", payload.letter_color);
+  }
+  if (payload.grid_background_color) {
+    fd.set("grid_background_color", payload.grid_background_color);
   }
   payload.images.forEach((f) => fd.append("images[]", f));
   return await request<WordSearchGameRow>("/api/admin/word-search-games", { method: "POST", formData: fd });
@@ -892,6 +902,8 @@ export async function adminUpdateWordSearchGame(
     words?: string[];
     directions?: Array<"horizontal" | "vertical">;
     images?: File[];
+    letter_color?: string;
+    grid_background_color?: string;
   }
 ): Promise<WordSearchGameRow> {
   await ensureCsrfCookie();
@@ -904,9 +916,12 @@ export async function adminUpdateWordSearchGame(
   if (payload.directions !== undefined && payload.directions) {
     fd.set("directions_json", JSON.stringify(payload.directions));
   }
+  if (payload.letter_color !== undefined) fd.set("letter_color", payload.letter_color);
+  if (payload.grid_background_color !== undefined) fd.set("grid_background_color", payload.grid_background_color);
   if (payload.images) {
     payload.images.forEach((f) => fd.append("images[]", f));
   }
+  fd.set("_method", "PATCH");
   return await request<WordSearchGameRow>(`/api/admin/word-search-games/${id}`, { method: "POST", formData: fd });
 }
 

@@ -427,6 +427,15 @@ export default function SessionCall() {
     }
   }, [remoteCamStream, remoteStream]);
 
+  // Timeout de segurança: remove contentLoading se iframe não carregar em 15 segundos
+  useEffect(() => {
+    if (!contentLoading) return;
+    const timeout = setTimeout(() => {
+      setContentLoading(false);
+    }, 15000); // 15 segundos
+    return () => clearTimeout(timeout);
+  }, [contentLoading]);
+
   const resumeAfterVisibility = useCallback(async () => {
     if (resumeInFlightRef.current) return;
     resumeInFlightRef.current = true;
@@ -1796,7 +1805,13 @@ export default function SessionCall() {
                   allow="autoplay"
                   className="absolute inset-0 h-full w-full rounded-xl bg-background"
                   title="Conteúdo da sessão"
-                  onLoad={() => setContentLoading(false)}
+                  onLoad={() => {
+                    setContentLoading(false);
+                  }}
+                  onError={() => {
+                    // Se houver erro no iframe, remove loading após delay
+                    setTimeout(() => setContentLoading(false), 1000);
+                  }}
                   style={{
                     // Sem reação visual: apenas bloqueia interação quando não liberado
                     pointerEvents:

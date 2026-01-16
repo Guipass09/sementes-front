@@ -84,6 +84,11 @@ export default function WordSearchGameView() {
       setLoading(false);
       return;
     }
+    // Se está em sessão mas sessionId ainda não está disponível, aguarda um pouco
+    if (inSession && !sessionId) {
+      // Aguarda sessionId estar disponível antes de fazer requisição
+      return;
+    }
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -93,7 +98,7 @@ export default function WordSearchGameView() {
         const g =
           user.role === "admin"
             ? await api.adminGetWordSearchGame(gameId)
-            : await api.userGetWordSearchGame(gameId, inSession ? { session_id: sessionId } : undefined);
+            : await api.userGetWordSearchGame(gameId, inSession && sessionId ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
         // Restaura progresso se existir

@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
 import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, WordSearchGameRow } from "@/lib/laravel-api";
@@ -2103,123 +2104,222 @@ export default function SessionCall() {
           {catalogLoading ? (
             <div className="text-sm text-muted-foreground">Carregando…</div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
+              {/* Seção: Atividades */}
               <div>
-                <div className="text-sm font-semibold text-foreground mb-3">Atividades</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {activities.map((a) => (
-                    <button
-                      key={`act-${a.id}`}
-                      onClick={() => {
-                        setPendingShare({ path: `/atividades/${a.id}`, title: a.title, kind: "activity" });
-                        setShareConfirmOpen(true);
-                      }}
-                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-foreground line-clamp-1">{a.title}</div>
-                      <div className="text-xs text-muted-foreground line-clamp-1">{a.category || "Atividade"}</div>
-                    </button>
-                  ))}
+                <div className="text-base font-semibold text-foreground mb-3">Atividades</div>
+                <div className="space-y-2">
+                  {activities.length === 0 ? (
+                    <div className="text-sm text-muted-foreground py-2">Nenhuma atividade disponível</div>
+                  ) : (
+                    activities.map((a) => (
+                      <button
+                        key={`act-${a.id}`}
+                        onClick={() => {
+                          setPendingShare({ path: `/atividades/${a.id}`, title: a.title, kind: "activity" });
+                          setShareConfirmOpen(true);
+                        }}
+                        className="w-full text-left rounded-xl border border-border bg-card hover:bg-accent hover:border-brand-green transition-colors px-4 py-3"
+                      >
+                        <div className="text-sm font-semibold text-foreground line-clamp-1">{a.title}</div>
+                        <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{a.category || "Atividade"}</div>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
 
+              {/* Seção: Jogos (com categorias expansíveis) */}
               <div>
-                <div className="text-sm font-semibold text-foreground mb-3">Jogos</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {memGames.map((g) => (
-                    <button
-                      key={`mem-${g.id}`}
-                      onClick={() => {
-                        setPendingShare({ path: `/jogos/${g.id}`, title: g.title, kind: "memory_game" });
-                        setShareConfirmOpen(true);
-                      }}
-                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
-                      <div className="text-xs text-muted-foreground">Jogo da Memória</div>
-                    </button>
-                  ))}
-                  {memGames2.map((g) => (
-                    <button
-                      key={`mem2-${g.id}`}
-                      onClick={() => {
-                        setPendingShare({ path: `/jogos/${g.id}`, title: g.title, kind: "memory_game_v2" });
-                        setShareConfirmOpen(true);
-                      }}
-                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
-                      <div className="text-xs text-muted-foreground">Memória 2.0</div>
-                    </button>
-                  ))}
-                  {phonemeGames.map((g) => (
-                    <button
-                      key={`phon-${g.id}`}
-                      onClick={() => {
-                        setPendingShare({ path: `/jogos/fonema/${g.id}`, title: g.title, kind: "phoneme_game" });
-                        setShareConfirmOpen(true);
-                      }}
-                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
-                      <div className="text-xs text-muted-foreground">Discriminação Fonema</div>
-                    </button>
-                  ))}
-                  {audGames.map((g) => (
-                    <button
-                      key={`aud-${g.id}`}
-                      onClick={() => {
-                        setPendingShare({ path: `/jogos/auditivo/${g.id}`, title: g.title, kind: "auditory_game" });
-                        setShareConfirmOpen(true);
-                      }}
-                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
-                      <div className="text-xs text-muted-foreground">Estimulação Auditiva</div>
-                    </button>
-                  ))}
-                  {hangGames.map((g) => (
-                    <button
-                      key={`hang-${g.id}`}
-                      onClick={() => {
-                        setPendingShare({ path: `/jogos/forca/${g.id}`, title: g.title, kind: "hangman_game" });
-                        setShareConfirmOpen(true);
-                      }}
-                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
-                      <div className="text-xs text-muted-foreground">Jogo da Forca</div>
-                    </button>
-                  ))}
-                  {spinGames.map((g) => (
-                    <button
-                      key={`spin-${g.id}`}
-                      onClick={() => {
-                        setPendingShare({ path: `/jogos/roleta/${g.id}`, title: g.title, kind: "spin_wheel_game" });
-                        setShareConfirmOpen(true);
-                      }}
-                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
-                      <div className="text-xs text-muted-foreground">Roleta</div>
-                    </button>
-                  ))}
-                  {wordSearchGames.map((g) => (
-                    <button
-                      key={`ws-${g.id}`}
-                      onClick={() => {
-                        setPendingShare({ path: `/jogos/caca-palavras/${g.id}`, title: g.title, kind: "word_search_game" });
-                        setShareConfirmOpen(true);
-                      }}
-                      className="text-left rounded-xl border border-border bg-card hover:bg-accent px-3 py-2"
-                    >
-                      <div className="text-sm font-semibold text-foreground line-clamp-1">{g.title}</div>
-                      <div className="text-xs text-muted-foreground">Caça-palavras</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
+                <div className="text-base font-semibold text-foreground mb-3">Jogos</div>
+                <Accordion type="multiple" className="w-full space-y-2">
+                  {/* Jogo da Memória */}
+                  {memGames.length > 0 && (
+                    <AccordionItem value="memory" className="border border-border rounded-xl px-4">
+                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
+                        Jogo da Memória ({memGames.length})
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2">
+                          {memGames.map((g) => (
+                            <button
+                              key={`mem-${g.id}`}
+                              onClick={() => {
+                                setPendingShare({ path: `/jogos/${g.id}`, title: g.title, kind: "memory_game" });
+                                setShareConfirmOpen(true);
+                              }}
+                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                            >
+                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
 
+                  {/* Memória 2.0 */}
+                  {memGames2.length > 0 && (
+                    <AccordionItem value="memory-v2" className="border border-border rounded-xl px-4">
+                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
+                        Jogo da Memória 2.0 ({memGames2.length})
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2">
+                          {memGames2.map((g) => (
+                            <button
+                              key={`mem2-${g.id}`}
+                              onClick={() => {
+                                setPendingShare({ path: `/jogos/${g.id}`, title: g.title, kind: "memory_game_v2" });
+                                setShareConfirmOpen(true);
+                              }}
+                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                            >
+                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+
+                  {/* Discriminação de Fonemas */}
+                  {phonemeGames.length > 0 && (
+                    <AccordionItem value="phoneme" className="border border-border rounded-xl px-4">
+                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
+                        Discriminação de Fonemas ({phonemeGames.length})
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2">
+                          {phonemeGames.map((g) => (
+                            <button
+                              key={`phon-${g.id}`}
+                              onClick={() => {
+                                setPendingShare({ path: `/jogos/fonema/${g.id}`, title: g.title, kind: "phoneme_game" });
+                                setShareConfirmOpen(true);
+                              }}
+                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                            >
+                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+
+                  {/* Estimulação Auditiva */}
+                  {audGames.length > 0 && (
+                    <AccordionItem value="auditory" className="border border-border rounded-xl px-4">
+                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
+                        Estimulação Auditiva ({audGames.length})
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2">
+                          {audGames.map((g) => (
+                            <button
+                              key={`aud-${g.id}`}
+                              onClick={() => {
+                                setPendingShare({ path: `/jogos/auditivo/${g.id}`, title: g.title, kind: "auditory_game" });
+                                setShareConfirmOpen(true);
+                              }}
+                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                            >
+                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+
+                  {/* Jogo da Forca */}
+                  {hangGames.length > 0 && (
+                    <AccordionItem value="hangman" className="border border-border rounded-xl px-4">
+                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
+                        Jogo da Forca ({hangGames.length})
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2">
+                          {hangGames.map((g) => (
+                            <button
+                              key={`hang-${g.id}`}
+                              onClick={() => {
+                                setPendingShare({ path: `/jogos/forca/${g.id}`, title: g.title, kind: "hangman_game" });
+                                setShareConfirmOpen(true);
+                              }}
+                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                            >
+                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+
+                  {/* Roleta */}
+                  {spinGames.length > 0 && (
+                    <AccordionItem value="spin" className="border border-border rounded-xl px-4">
+                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
+                        Roleta ({spinGames.length})
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2">
+                          {spinGames.map((g) => (
+                            <button
+                              key={`spin-${g.id}`}
+                              onClick={() => {
+                                setPendingShare({ path: `/jogos/roleta/${g.id}`, title: g.title, kind: "spin_wheel_game" });
+                                setShareConfirmOpen(true);
+                              }}
+                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                            >
+                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+
+                  {/* Caça-palavras */}
+                  {wordSearchGames.length > 0 && (
+                    <AccordionItem value="wordsearch" className="border border-border rounded-xl px-4">
+                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
+                        Caça-palavras ({wordSearchGames.length})
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2">
+                          {wordSearchGames.map((g) => (
+                            <button
+                              key={`ws-${g.id}`}
+                              onClick={() => {
+                                setPendingShare({ path: `/jogos/caca-palavras/${g.id}`, title: g.title, kind: "word_search_game" });
+                                setShareConfirmOpen(true);
+                              }}
+                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                            >
+                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+
+                  {/* Mensagem se não houver jogos */}
+                  {memGames.length === 0 &&
+                    memGames2.length === 0 &&
+                    phonemeGames.length === 0 &&
+                    audGames.length === 0 &&
+                    hangGames.length === 0 &&
+                    spinGames.length === 0 &&
+                    wordSearchGames.length === 0 && (
+                      <div className="text-sm text-muted-foreground py-2">Nenhum jogo disponível</div>
+                    )}
+                </Accordion>
+              </div>
             </div>
           )}
         </DialogContent>

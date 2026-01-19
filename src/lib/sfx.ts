@@ -248,10 +248,64 @@ export function playWin(): void {
     fireworkBurst(winBus, tt, 0.16 + Math.random() * 0.08, 0.22 + Math.random() * 0.18);
   }
 
-  // Finalzinho “sparkle”
+  // Finalzinho "sparkle"
   fireworkBurst(winBus, t0 + 3.6, 0.26, 0.35);
   toneTo(winBus, 1046.5, t0 + 3.65, 0.18, "sine", 0.35); // C6
   toneTo(winBus, 1318.5, t0 + 3.78, 0.22, "sine", 0.30); // E6
+}
+
+export function playFanfare(): void {
+  installSfxUnlock();
+  const c = getCtx();
+  if (!c || !master) return;
+  if (c.state === "suspended") return;
+
+  const t0 = c.currentTime + 0.01;
+
+  // Fanfarra estilo trompete (surpresa/comemoração)
+  // Sequência de notas em tríades maiores que soa como "TÁ-DÁ-DÁ-DÁ!"
+  const notes: Array<[number, number, OscillatorType, number]> = [
+    // Nota inicial (forte)
+    [523.25, 0.0, "square", 0.15], // C5
+    [659.25, 0.0, "square", 0.15], // E5
+    [783.99, 0.0, "square", 0.15], // G5
+    
+    // Segunda nota (descendo)
+    [587.33, 0.18, "square", 0.12], // D5
+    [698.46, 0.18, "square", 0.12], // F5
+    
+    // Terceira nota (mais aguda, surpresa)
+    [783.99, 0.33, "square", 0.10], // G5
+    [987.77, 0.33, "square", 0.10], // B5
+    [1046.5, 0.33, "square", 0.10], // C6
+    
+    // Quarta nota (final, triunfante)
+    [659.25, 0.46, "sine", 0.25], // E5
+    [783.99, 0.46, "sine", 0.25], // G5
+    [987.77, 0.46, "sine", 0.25], // B5
+  ];
+
+  for (const [freq, start, type, dur] of notes) {
+    const o = c.createOscillator();
+    const g = c.createGain();
+    
+    // Volume variado para criar dinâmica
+    const vol = type === "square" ? 0.55 : 0.45;
+    g.gain.value = vol;
+    
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0 + start);
+    o.connect(g);
+    g.connect(master);
+    
+    // Envelope para cada nota
+    env(g, t0 + start, 0.005, dur);
+    o.start(t0 + start);
+    o.stop(t0 + start + dur);
+  }
+
+  // Adiciona um "estouro" no final para mais impacto
+  fireworkBurst(master, t0 + 0.48, 0.2, 0.4);
 }
 
 

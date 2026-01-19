@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Video,
   VideoOff,
+  Sparkles,
 } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
@@ -28,6 +29,7 @@ import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinW
 import type { PhonemeGameRow } from "@/lib/laravel-api";
 import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinResponse, type VideoPollMessage } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
+import { playFanfare } from "@/lib/sfx";
 
 const ReportFormModalLazy = lazy(async () => {
   const mod = await import("@/features/reports/ReportFormModal");
@@ -121,6 +123,9 @@ export default function SessionCall() {
   const drawLastRef = useRef<{ x: number; y: number } | null>(null);
   const drawRemoteLastRef = useRef<Record<string, { x: number; y: number } | null>>({});
   const drawSendTsRef = useRef(0);
+
+  const [confettiActive, setConfettiActive] = useState(false);
+  const confettiKeyRef = useRef(0);
 
   const [localSpeaking, setLocalSpeaking] = useState(false);
   const [remoteSpeaking, setRemoteSpeaking] = useState(false);
@@ -1062,6 +1067,15 @@ export default function SessionCall() {
         // ignore
       }
     }
+
+    if (m.kind === "confetti") {
+      // Dispara confete para ambos os participantes
+      confettiKeyRef.current += 1;
+      setConfettiActive(true);
+      playFanfare();
+      // Remove o confete após a animação
+      setTimeout(() => setConfettiActive(false), 3000);
+    }
   };
 
   // Start peer + admin offer
@@ -1794,10 +1808,51 @@ export default function SessionCall() {
                 "sc-content-area relative w-full",
                 // Mobile: mantém mais compacto para caber controles e vídeos
                 "h-[55vh] sm:h-[58vh]",
-                // Desktop/notebooks: mais alto para não “achatar” e evitar corte em telas 768px de altura
+                // Desktop/notebooks: mais alto para não "achatar" e evitar corte em telas 768px de altura
                 "lg:h-[76svh] lg:max-h-[860px] lg:min-h-[560px]",
               )}
             >
+              {/* Animação de confete */}
+              {confettiActive && (
+                <div key={confettiKeyRef.current} className="absolute inset-0 pointer-events-none z-50 overflow-hidden rounded-xl">
+                  {Array.from({ length: 100 }).map((_, i) => {
+                    const delay = Math.random() * 0.5;
+                    const duration = 2.5 + Math.random() * 1;
+                    const left = Math.random() * 100;
+                    const colors = [
+                      "bg-red-500",
+                      "bg-blue-500",
+                      "bg-yellow-500",
+                      "bg-green-500",
+                      "bg-purple-500",
+                      "bg-pink-500",
+                      "bg-orange-500",
+                      "bg-indigo-500",
+                    ];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    const size = 8 + Math.random() * 8;
+                    const rotation = Math.random() * 360;
+                    
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          "absolute rounded-sm",
+                          color
+                        )}
+                        style={{
+                          left: `${left}%`,
+                          width: `${size}px`,
+                          height: `${size}px`,
+                          animation: `session-confetti-fall ${duration}s ease-out ${delay}s forwards`,
+                          transform: `rotate(${rotation}deg)`,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Botão de atualizar (útil no PWA) - overlay para não afetar responsividade */}
               <div className="absolute right-3 top-3 z-40">
                 <Button
@@ -2005,6 +2060,23 @@ export default function SessionCall() {
               >
                 <MonitorUp className="h-4 w-4 mr-2" />
                 {screenSharing ? "Parar tela" : "Compartilhar tela"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // Dispara confete localmente
+                  confettiKeyRef.current += 1;
+                  setConfettiActive(true);
+                  playFanfare();
+                  setTimeout(() => setConfettiActive(false), 3000);
+                  // Envia evento para sincronizar com o usuário
+                  void send("confetti", {});
+                }}
+                className="rounded-xl border-brand-orange text-brand-orange hover:bg-brand-orange/10"
+                title="Soltar confetes!"
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                Confetes
               </Button>
             </>
           )}

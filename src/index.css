@@ -476,6 +476,17 @@
   .mg-aud-confetti:nth-child(2) { left: 50%; background: linear-gradient(135deg, #06d6a0, #118ab2); animation-delay: 120ms; }
   .mg-aud-confetti:nth-child(3) { left: 78%; background: linear-gradient(135deg, #8338ec, #ffbe0b); animation-delay: 240ms; }
 
+  @keyframes session-confetti-fall {
+    0% {
+      transform: translateY(-10px) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(calc(100vh + 100px)) rotate(720deg);
+      opacity: 0;
+    }
+  }
+
   .input-field {
     @apply w-full px-4 py-3 rounded-xl border-2 border-input bg-background/50 
            text-foreground placeholder:text-muted-foreground

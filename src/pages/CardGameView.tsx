@@ -98,6 +98,14 @@ export default function CardGameView() {
     openedRef.current = opened;
   }, [opened]);
 
+  const [viewportW, setViewportW] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1024));
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const isMobileNarrow = inSession && viewportW < 640;
+
   const gameBgUrl = game?.background_url ? normalizeMediaUrl(game.background_url) : null;
 
   // Sessão ao vivo (usuário): pseudo fullscreen
@@ -393,7 +401,7 @@ export default function CardGameView() {
         {/* Tabuleiro grande (igual estilo do auditivo): fundo + baralho + carta aberta */}
         <div
           className={cn(
-            "mt-4 relative w-full h-[55vh] sm:h-[62vh] lg:h-[70vh] rounded-2xl overflow-hidden bg-black/5",
+            "cg-board mt-4 relative w-full h-[55vh] sm:h-[62vh] lg:h-[70vh] rounded-2xl overflow-hidden bg-black/5",
             shuffleAnim ? "cg-shuffling" : ""
           )}
         >
@@ -458,8 +466,8 @@ export default function CardGameView() {
                   const isTop = idx === opened.length - 1;
                       const isNew = flippingId === pos;
                       const isFlipStarted = flipStartedId === pos;
-                  const dx = Math.min(180, idx * 10);
-                  const dy = Math.min(120, idx * 7);
+                  const dx = Math.min(isMobileNarrow ? 92 : 180, idx * (isMobileNarrow ? 6 : 10));
+                  const dy = Math.min(isMobileNarrow ? 62 : 120, idx * (isMobileNarrow ? 4 : 7));
                   return (
                     <div
                       key={`${pos}-${idx}`}
@@ -581,21 +589,28 @@ export default function CardGameView() {
           }
 
           /* Mobile dentro da transmissão: layout vertical (baralho em cima, cartas embaixo) */
+          /* Mobile: mantém lado a lado (baralho à esquerda, cartas à direita), com tamanhos fixos */
           @media (max-width: 640px) {
+            .cg-board{
+              height: 46vh;
+            }
             .cg-deck{
-              left: 50% !important;
-              top: 32% !important;
-              width: 78% !important;
+              left: 3% !important;
+              top: 56% !important;
+              width: 44% !important;
               max-width: none !important;
-              transform: translate(-50%, -50%) !important;
+              transform: translateY(-50%) !important;
             }
             .cg-open-stack{
-              left: 50% !important;
-              right: auto !important;
-              top: 74% !important;
-              width: 88% !important;
+              right: 3% !important;
+              top: 56% !important;
+              width: 52% !important;
               max-width: none !important;
-              transform: translate(-50%, -50%) !important;
+              transform: translateY(-50%) !important;
+            }
+            .cg-open-card{
+              width: 96% !important;
+              height: 96% !important;
             }
           }
         `}</style>

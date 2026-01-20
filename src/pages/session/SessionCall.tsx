@@ -935,6 +935,14 @@ export default function SessionCall() {
       if (ignoreOfferRef.current) return;
 
       try {
+        // Se houve colisão e somos "polite", faz rollback do offer local antes de aceitar o remoto.
+        if (offerCollision && polite) {
+          try {
+            await pc.setLocalDescription({ type: "rollback" } as any);
+          } catch {
+            // Alguns browsers podem não suportar rollback; segue tentando aplicar o remote.
+          }
+        }
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       } catch (e) {
         // Se falhar por corrida, não derruba a chamada.
@@ -1602,6 +1610,32 @@ export default function SessionCall() {
         if (audioCtxRef.current.state === "suspended") await audioCtxRef.current.resume();
       } catch {}
 
+      // Se já existe offer pendente (o outro entrou antes), responde primeiro para evitar glare.
+      if (pendingOfferRef.current && pcRef.current) {
+        const sdp = normalizeSdpInit(pendingOfferRef.current);
+        pendingOfferRef.current = null;
+        if (!sdp) throw new Error("SDP inválido (offer pendente).");
+        const offerCollision = makingOfferRef.current || pcRef.current.signalingState !== "stable";
+        const polite = role === "user";
+        ignoreOfferRef.current = !polite && offerCollision;
+        if (!ignoreOfferRef.current) {
+          // rollback do lado "polite" (se necessário)
+          if (offerCollision && polite) {
+            try {
+              await pcRef.current.setLocalDescription({ type: "rollback" } as any);
+            } catch {}
+          }
+          await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+          await flushPendingIce();
+          const answer = await pcRef.current.createAnswer();
+          await pcRef.current.setLocalDescription(answer);
+          await send("webrtc_answer", {
+            sdp: { type: pcRef.current.localDescription?.type, sdp: pcRef.current.localDescription?.sdp },
+          });
+        }
+        return; // já respondeu, não cria offer agora
+      }
+
       // Inicia offer ao ficar pronto (qualquer lado pode iniciar)
       const pc2 = pcRef.current;
       if (pc2) {
@@ -1640,26 +1674,6 @@ export default function SessionCall() {
           console.warn("[WebRTC] createOffer falhou", e);
         } finally {
           makingOfferRef.current = false;
-        }
-      }
-
-      // Se o usuário já recebeu offer antes, responde agora
-      if (pendingOfferRef.current && pcRef.current) {
-        const sdp = normalizeSdpInit(pendingOfferRef.current);
-        pendingOfferRef.current = null;
-        if (!sdp) throw new Error("SDP inválido (offer pendente).");
-        // Usa o mesmo fluxo de offer recebido (com proteção contra glare)
-        const offerCollision = makingOfferRef.current || pcRef.current.signalingState !== "stable";
-        const polite = role === "user";
-        ignoreOfferRef.current = !polite && offerCollision;
-        if (!ignoreOfferRef.current) {
-          await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
-          await flushPendingIce();
-          const answer = await pcRef.current.createAnswer();
-          await pcRef.current.setLocalDescription(answer);
-          await send("webrtc_answer", {
-            sdp: { type: pcRef.current.localDescription?.type, sdp: pcRef.current.localDescription?.sdp },
-          });
         }
       }
     } catch (e: any) {

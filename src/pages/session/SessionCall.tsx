@@ -842,30 +842,18 @@ export default function SessionCall() {
             } catch {}
           }
           if (ev.track.kind === "video") {
-            // 0) Melhor heurística: screen share costuma vir em um transceiver "recvonly"
-            // (enquanto a câmera tende a ser "sendrecv"). Isso evita tela preta por classificação errada.
-            try {
-              const dir = (ev.transceiver as any)?.currentDirection || (ev.transceiver as any)?.direction;
-              if (dir === "recvonly") {
-                try {
-                  for (const t of inboundScreen.getVideoTracks()) {
-                    try { inboundScreen.removeTrack(t); } catch {}
-                  }
-                  inboundScreen.addTrack(ev.track);
-                } catch {}
-                return;
-              }
-            } catch {}
-
-            // 1) Preferência: classifica pelo transceiver dedicado de tela (mais confiável).
+            // 1) Preferência: classifica pelo transceiver dedicado de tela (determinístico).
             if (screenTransceiverRef.current && ev.transceiver === screenTransceiverRef.current) {
               try {
+                for (const t of inboundScreen.getVideoTracks()) {
+                  try { inboundScreen.removeTrack(t); } catch {}
+                }
                 inboundScreen.addTrack(ev.track);
               } catch {}
               return;
             }
 
-            // 2) Fallback: heurística (1º vídeo = câmera; 2º vídeo = tela)
+            // 2) Caso contrário, tratamos como câmera (evita sumir câmera quando screen share está ativo).
             if (!camVideoTrackId) {
               camVideoTrackId = ev.track.id;
               try {

@@ -165,10 +165,10 @@ const AdminSessions = () => {
   }, [sessions, searchTerm]);
 
   const sessionsByUser = useMemo(() => {
-    const map = new Map<number, { userId: number; userName: string; items: SessionData[] }>();
+    const map = new Map<number, { userId: number; userName: string; items: SessionData[]; hasTodayAlert: boolean }>();
     for (const s of filteredSessions) {
       const key = s.userId || 0;
-      const entry = map.get(key) || { userId: key, userName: s.userName || "—", items: [] };
+      const entry = map.get(key) || { userId: key, userName: s.userName || "—", items: [], hasTodayAlert: false };
       entry.items.push(s);
       map.set(key, entry);
     }
@@ -180,11 +180,17 @@ const AdminSessions = () => {
         const db = `${b.date}T${b.time || "00:00"}`;
         return da.localeCompare(db);
       });
+
+      // bolinha laranja: sessão AGENDADA hoje
+      entry.hasTodayAlert = entry.items.some((s) => s.status === "agendada" && s.date === todayYMD);
     }
 
-    // ordena usuários por nome
-    return Array.from(map.values()).sort((a, b) => a.userName.localeCompare(b.userName));
-  }, [filteredSessions]);
+    // ordena usuários: primeiro quem tem bolinha laranja (sessão hoje), depois alfabético
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.hasTodayAlert !== b.hasTodayAlert) return a.hasTodayAlert ? -1 : 1;
+      return a.userName.localeCompare(b.userName);
+    });
+  }, [filteredSessions, todayYMD]);
 
   const todayYMD = useMemo(() => getTodayYMD(nowMs), [nowMs]);
 

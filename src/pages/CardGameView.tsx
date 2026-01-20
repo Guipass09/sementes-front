@@ -90,6 +90,12 @@ export default function CardGameView() {
   const [flippingId, setFlippingId] = useState<number | null>(null);
   const [flipStartedId, setFlipStartedId] = useState<number | null>(null);
   const [congratsOpen, setCongratsOpen] = useState(false);
+  const [shuffleAnim, setShuffleAnim] = useState<null | { seed: number; count: number }>(null);
+
+  const openedRef = useRef<number[]>([]);
+  useEffect(() => {
+    openedRef.current = opened;
+  }, [opened]);
 
   const gameBgUrl = game?.background_url ? normalizeMediaUrl(game.background_url) : null;
 
@@ -178,6 +184,17 @@ export default function CardGameView() {
           return;
         }
 
+        if (evt.kind === "shuffle") {
+          const count = Number(evt.cards_count);
+          const seed = Number(evt.seed);
+          if (!Number.isFinite(count) || !Number.isFinite(seed)) return;
+          // anima e depois reseta
+          playCardShuffle();
+          setCongratsOpen(false);
+          setShuffleAnim({ seed: seed >>> 0, count: clamp(count) });
+          return;
+        }
+
         if (evt.kind === "state") {
           const rem = Array.isArray(evt.remaining) ? evt.remaining.map((x: any) => Number(x)).filter(Number.isFinite) : null;
           const op = Array.isArray(evt.opened) ? evt.opened.map((x: any) => Number(x)).filter(Number.isFinite) : null;
@@ -196,6 +213,19 @@ export default function CardGameView() {
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, [inSession, resetDeck, sessionRole]);
+
+  // Execução do shuffle animado: espera animação e então reseta o deck
+  useEffect(() => {
+    if (!shuffleAnim) return;
+    const currentOpened = openedRef.current;
+    // duração baseada no tamanho da pilha (max 15)
+    const totalMs = 850 + Math.min(600, currentOpened.length * 35);
+    const t = window.setTimeout(() => {
+      resetDeck(shuffleAnim.count, shuffleAnim.seed);
+      setShuffleAnim(null);
+    }, totalMs);
+    return () => window.clearTimeout(t);
+  }, [shuffleAnim, resetDeck]);
 
   // Sempre que tiver uma carta "flippingId", dispara a fase 2 do flip (para ficar aberta)
   useEffect(() => {
@@ -241,15 +271,19 @@ export default function CardGameView() {
   const doShuffle = useCallback(() => {
     if (!game) return;
     if (!canInteract) return;
+    if (shuffleAnim) return;
     const seed = (Date.now() ^ sessionSeed) >>> 0;
     playCardShuffle();
-    resetDeck(clamp(game.cards_count), seed);
-    emitSessionEvent({ game: "cards", kind: "reset", cards_count: clamp(game.cards_count), seed });
-  }, [game, canInteract, resetDeck, emitSessionEvent, sessionSeed]);
+    // dispara animação local e sincroniza; ao final, reseta.
+    setCongratsOpen(false);
+    setShuffleAnim({ seed, count: clamp(game.cards_count) });
+    emitSessionEvent({ game: "cards", kind: "shuffle", cards_count: clamp(game.cards_count), seed });
+  }, [game, canInteract, resetDeck, emitSessionEvent, sessionSeed, shuffleAnim]);
 
   const doDraw = useCallback(() => {
     if (!game) return;
     if (!canInteract) return;
+    if (shuffleAnim) return;
     if (remaining.length === 0) return;
 
     const nextId = remaining[0]; // position
@@ -354,7 +388,12 @@ export default function CardGameView() {
         </div>
 
         {/* Tabuleiro grande (igual estilo do auditivo): fundo + baralho + carta aberta */}
-        <div className="mt-4 relative w-full h-[55vh] sm:h-[62vh] lg:h-[70vh] rounded-2xl overflow-hidden bg-black/5">
+        <div
+          className={cn(
+            "mt-4 relative w-full h-[55vh] sm:h-[62vh] lg:h-[70vh] rounded-2xl overflow-hidden bg-black/5",
+            shuffleAnim ? "cg-shuffling" : ""
+          )}
+        >
           {gameBgUrl ? (
             <img
               src={gameBgUrl}
@@ -370,10 +409,11 @@ export default function CardGameView() {
           <button
             type="button"
             onClick={doDraw}
-            disabled={!canInteract || remaining.length === 0}
+            disabled={!canInteract || remaining.length === 0 || !!shuffleAnim}
             className={cn(
               "absolute left-[4%] top-1/2 -translate-y-1/2",
               "w-[42%] max-w-[520px] aspect-[4/3]",
+              "cg-deck",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40",
               !canInteract ? "opacity-75 cursor-not-allowed" : "hover:brightness-[1.02]"
             )}
@@ -392,7 +432,7 @@ export default function CardGameView() {
                   <div className="absolute inset-[10px] rounded-[20px] border-[10px] border-[#D6B15C]/90" />
                   <div className="absolute inset-[22px] rounded-[14px] border border-[#D6B15C]/70 bg-[#D6B15C]/10" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <img src={logoImage} alt="" className="h-16 w-16 rounded-2xl object-cover opacity-95" />
+                    <img src={logoImage} alt="" className="h-24 w-24 rounded-3xl object-cover opacity-95" />
                   </div>
                 </div>
               ))}
@@ -400,7 +440,7 @@ export default function CardGameView() {
           </button>
 
           {/* Cartas abertas (direita) */}
-          <div className="absolute right-[4%] top-1/2 -translate-y-1/2 w-[48%] max-w-[620px] aspect-[4/3]">
+          <div className="cg-open-stack absolute right-[4%] top-1/2 -translate-y-1/2 w-[48%] max-w-[620px] aspect-[4/3]">
             <div className="relative w-full h-full">
               {opened.length === 0 ? (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -420,9 +460,15 @@ export default function CardGameView() {
                   return (
                     <div
                       key={`${pos}-${idx}`}
-                      className={cn("absolute left-0 top-0 w-[92%] h-[92%]", isTop ? "z-30" : "z-10")}
+                      className={cn(
+                        "cg-open-card absolute left-0 top-0 w-[92%] h-[92%]",
+                        isTop ? "z-30" : "z-10"
+                      )}
                       style={{
                         transform: `translate(${dx}px, ${dy}px) rotate(${(idx - 2) * 0.2}deg)`,
+                        // delay escalonado para animação de retorno
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ["--d" as any]: `${Math.min(520, idx * 35)}ms`,
                       }}
                     >
                       <div className={cn("cg-card", "is-faceup", isNew ? "is-new" : "", isFlipStarted ? "cg-flipped" : "")}>
@@ -431,7 +477,7 @@ export default function CardGameView() {
                           <div className="cg-card-face cg-card-back">
                             <div className="cg-frame" />
                             <div className="cg-frame-inner" />
-                            <img src={logoImage} alt="" className="h-14 w-14 rounded-2xl object-cover opacity-95" />
+                            <img src={logoImage} alt="" className="h-24 w-24 rounded-3xl object-cover opacity-95" />
                           </div>
                           {/* front */}
                           <div
@@ -504,6 +550,28 @@ export default function CardGameView() {
             border: 1px solid rgba(214,177,92,.75);
             background: rgba(214,177,92,.10);
             pointer-events:none;
+          }
+
+          /* Embaralhar: cartas voltam para o baralho + baralho "shake" */
+          .cg-shuffling .cg-open-card{
+            animation: cg-return-to-deck 540ms cubic-bezier(.2,.8,.2,1) forwards;
+            animation-delay: var(--d, 0ms);
+          }
+          .cg-shuffling .cg-deck{
+            animation: cg-deck-shuffle 680ms ease-in-out both;
+          }
+          @keyframes cg-return-to-deck {
+            0% { opacity: 1; transform: translate(var(--x, 0px), var(--y, 0px)) scale(1) rotate(0deg); }
+            40% { opacity: 0.95; }
+            100% { opacity: 0; transform: translate(-220px, 40px) scale(0.55) rotate(-6deg); filter: blur(0.4px); }
+          }
+          @keyframes cg-deck-shuffle {
+            0% { transform: translate(-0%, -50%) rotate(0deg); }
+            15% { transform: translate(-0%, -50%) rotate(-1.2deg) translateX(-6px); }
+            30% { transform: translate(-0%, -50%) rotate(1.4deg) translateX(7px); }
+            45% { transform: translate(-0%, -50%) rotate(-1.0deg) translateX(-5px); }
+            60% { transform: translate(-0%, -50%) rotate(1.0deg) translateX(5px); }
+            100% { transform: translate(-0%, -50%) rotate(0deg); }
           }
         `}</style>
       </div>

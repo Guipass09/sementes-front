@@ -23,6 +23,7 @@ export type AuthUser = {
   name: string;
   email: string;
   phone?: string | null;
+  child_age?: number | null;
   role: AuthRole;
   blocked: boolean;
   profile_description?: string | null;
@@ -396,6 +397,7 @@ export async function register(params: {
   name: string;
   email: string;
   phone: string;
+  child_age?: number | null;
   password: string;
   password_confirmation: string;
 }): Promise<AuthUser> {
@@ -450,6 +452,7 @@ export type AdminUserRow = {
   name: string;
   email: string;
   phone?: string | null;
+  child_age?: number | null;
   role: AuthRole;
   blocked: boolean;
   access: UserAccess;

@@ -10,7 +10,7 @@ type AuthContextValue = {
   setAuthUser: (u: AuthUser | null) => void;
   loadUser: () => Promise<AuthUser | null>;
   login: (params: { email: string; password: string; remember?: boolean }) => Promise<AuthUser>;
-  register: (params: { name: string; email: string; phone: string; password: string; password_confirmation: string }) => Promise<AuthUser>;
+  register: (params: { name: string; email: string; phone: string; child_age?: number | null; password: string; password_confirmation: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
 
@@ -245,7 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [setAuthUser, normalizeRole]
   );
 
-  const register = useCallback(async (params: { name: string; email: string; phone?: string; password: string; password_confirmation: string }) => {
+  const register = useCallback(async (params: { name: string; email: string; phone?: string; child_age?: number | null; password: string; password_confirmation: string }) => {
     // Backend pode retornar token+user ou apenas user
     const res = await api.register(params as any);
     

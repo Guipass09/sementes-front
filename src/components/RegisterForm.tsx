@@ -9,6 +9,7 @@ interface FormState {
   name: string;
   email: string;
   phone: string;
+  childAge: string;
   password: string;
   confirmPassword: string;
 }
@@ -17,6 +18,7 @@ interface ValidationState {
   name: { valid: boolean; touched: boolean; message: string };
   email: { valid: boolean; touched: boolean; message: string };
   phone: { valid: boolean; touched: boolean; message: string };
+  childAge: { valid: boolean; touched: boolean; message: string };
   password: { valid: boolean; touched: boolean; message: string };
   confirmPassword: { valid: boolean; touched: boolean; message: string };
 }
@@ -30,6 +32,7 @@ const RegisterForm = () => {
     name: "",
     email: "",
     phone: "",
+    childAge: "",
     password: "",
     confirmPassword: "",
   });
@@ -38,6 +41,7 @@ const RegisterForm = () => {
     name: { valid: false, touched: false, message: "" },
     email: { valid: false, touched: false, message: "" },
     phone: { valid: false, touched: false, message: "" },
+    childAge: { valid: false, touched: false, message: "" },
     password: { valid: false, touched: false, message: "" },
     confirmPassword: { valid: false, touched: false, message: "" },
   });
@@ -84,6 +88,18 @@ const RegisterForm = () => {
     return { valid: true, message: "" };
   }, []);
 
+  const validateChildAge = useCallback((age: string): { valid: boolean; message: string } => {
+    const s = String(age ?? "").trim();
+    if (!s) return { valid: false, message: "Idade da criança é obrigatória" };
+    const n = Number(s);
+    if (!Number.isFinite(n) || !Number.isInteger(n)) {
+      return { valid: false, message: "Informe uma idade válida (número inteiro)" };
+    }
+    if (n < 0) return { valid: false, message: "Idade não pode ser negativa" };
+    if (n > 120) return { valid: false, message: "Idade inválida" };
+    return { valid: true, message: "" };
+  }, []);
+
   const validatePassword = useCallback((password: string): { valid: boolean; message: string } => {
     if (!password) {
       return { valid: false, message: "Senha é obrigatória" };
@@ -119,6 +135,9 @@ const RegisterForm = () => {
           break;
         case "phone":
           result = validatePhone(value);
+          break;
+        case "childAge":
+          result = validateChildAge(value);
           break;
         case "password":
           result = validatePassword(value);
@@ -156,6 +175,9 @@ const RegisterForm = () => {
       case "phone":
         result = validatePhone(formData.phone);
         break;
+      case "childAge":
+        result = validateChildAge(formData.childAge);
+        break;
       case "password":
         result = validatePassword(formData.password);
         break;
@@ -178,6 +200,7 @@ const RegisterForm = () => {
     const nameResult = validateName(formData.name);
     const emailResult = validateEmail(formData.email);
     const phoneResult = validatePhone(formData.phone);
+    const childAgeResult = validateChildAge(formData.childAge);
     const passwordResult = validatePassword(formData.password);
     const confirmPasswordResult = validateConfirmPassword(formData.confirmPassword, formData.password);
 
@@ -185,11 +208,12 @@ const RegisterForm = () => {
       name: { ...nameResult, touched: true },
       email: { ...emailResult, touched: true },
       phone: { ...phoneResult, touched: true },
+      childAge: { ...childAgeResult, touched: true },
       password: { ...passwordResult, touched: true },
       confirmPassword: { ...confirmPasswordResult, touched: true },
     });
 
-    if (!nameResult.valid || !emailResult.valid || !phoneResult.valid || !passwordResult.valid || !confirmPasswordResult.valid) {
+    if (!nameResult.valid || !emailResult.valid || !phoneResult.valid || !childAgeResult.valid || !passwordResult.valid || !confirmPasswordResult.valid) {
       return;
     }
 
@@ -200,6 +224,7 @@ const RegisterForm = () => {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
+        child_age: Number(formData.childAge),
         password: formData.password,
         password_confirmation: formData.confirmPassword,
       });
@@ -218,6 +243,7 @@ const RegisterForm = () => {
           e.data?.message ||
           e.data?.errors?.email?.[0] ||
           e.data?.errors?.phone?.[0] ||
+          e.data?.errors?.child_age?.[0] ||
           e.data?.errors?.password?.[0] ||
           "Verifique os campos e tente novamente.";
         setRegisterError(msg);
@@ -368,6 +394,45 @@ const RegisterForm = () => {
         {validation.phone.touched && !validation.phone.valid && (
           <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">
             {validation.phone.message}
+          </p>
+        )}
+      </div>
+
+      {/* Child Age Field */}
+      <div className="space-y-2">
+        <label htmlFor="childAge" className="block text-sm font-semibold text-foreground">
+          Idade da Criança (anos)
+        </label>
+        <div className="relative">
+          <input
+            type="number"
+            id="childAge"
+            name="childAge"
+            value={formData.childAge}
+            onChange={handleInputChange("childAge")}
+            onBlur={handleInputBlur("childAge")}
+            placeholder="Ex: 7"
+            inputMode="numeric"
+            min={0}
+            max={120}
+            step={1}
+            aria-label="Idade da criança em anos"
+            aria-invalid={validation.childAge.touched && !validation.childAge.valid}
+            className={`${getInputClassName("childAge")} pl-4 pr-10`}
+          />
+          {validation.childAge.touched && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              {validation.childAge.valid ? (
+                <Check size={18} className="text-primary" />
+              ) : (
+                <AlertCircle size={18} className="text-destructive" />
+              )}
+            </div>
+          )}
+        </div>
+        {validation.childAge.touched && !validation.childAge.valid && (
+          <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">
+            {validation.childAge.message}
           </p>
         )}
       </div>

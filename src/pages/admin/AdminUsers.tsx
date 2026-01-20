@@ -56,6 +56,7 @@ interface UserData {
   name: string;
   email: string;
   phone?: string | null;
+  child_age?: number | null;
   blocked: boolean;
   access: UserAccess;
   profile_description?: string | null;
@@ -274,6 +275,7 @@ const AdminUsers = () => {
         name: u.name,
         email: u.email,
         phone: u.phone ?? null,
+        child_age: u.child_age ?? null,
         blocked: u.blocked,
         access: u.access,
         profile_description: u.profile_description ?? null,
@@ -298,6 +300,7 @@ const AdminUsers = () => {
             name: u.name,
             email: u.email,
             phone: u.phone ?? null,
+            child_age: u.child_age ?? null,
             blocked: u.blocked,
             access: u.access,
             profile_description: u.profile_description ?? null,
@@ -555,6 +558,11 @@ const AdminUsers = () => {
                         Celular: {user.phone}
                       </p>
                     )}
+                    {user.child_age !== null && user.child_age !== undefined && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        Idade da criança: {user.child_age} ano(s)
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -669,6 +677,11 @@ const AdminUsers = () => {
                     {selectedUser.phone && (
                       <p className="text-sm text-muted-foreground">
                         Celular: {selectedUser.phone}
+                      </p>
+                    )}
+                    {selectedUser.child_age !== null && selectedUser.child_age !== undefined && (
+                      <p className="text-sm text-muted-foreground">
+                        Idade da criança: {selectedUser.child_age} ano(s)
                       </p>
                     )}
                   </div>

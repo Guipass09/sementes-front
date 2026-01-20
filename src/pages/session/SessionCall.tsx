@@ -847,20 +847,11 @@ export default function SessionCall() {
             stream.addTrack(track);
           } catch {}
         };
+        let camVideoTrackId: string | null = null;
 
-        // Importante: NÃO criar transceiver sendonly de tela no ADMIN aqui,
-        // senão o addTrack da câmera pode reutilizar esse transceiver e depois o screen share substitui a câmera.
-        // Para o USER, criamos um recvonly dedicado para a tela para evitar tela preta.
-        if (role === "user") {
-          try {
-            if (!screenTransceiverRef.current) {
-              const tr = pc.addTransceiver("video", { direction: "recvonly" });
-              screenTransceiverRef.current = tr;
-            }
-          } catch {
-            // ignore: alguns browsers podem rejeitar cedo; ainda temos fallbacks
-          }
-        }
+        // Não criamos transceiver recvonly/sendonly extra aqui.
+        // A lógica de screen share é baseada na presença do 2º track de vídeo,
+        // o que evita interferir na câmera.
 
         pc.ontrack = (ev) => {
           try {
@@ -875,22 +866,21 @@ export default function SessionCall() {
             } catch {}
           }
           if (ev.track.kind === "video") {
-            // 1) Preferência: classifica pelo transceiver dedicado de tela (determinístico).
-            // IMPORTANTE: isso só faz sentido no lado do USUÁRIO (que recebe a tela do admin).
-            // No admin, `screenTransceiverRef` é sendonly e pode conflitar com o 1º vídeo recebido.
-            if (
-              role === "user" &&
-              screenTransceiverRef.current &&
-              ev.transceiver === screenTransceiverRef.current &&
-              screenShareActiveRef.current
-            ) {
-              try {
-                setSingleVideoTrack(inboundScreen, ev.track);
-              } catch {}
+            // Regra estável:
+            // - Primeiro vídeo remoto => câmera
+            // - Se screen share estiver ativo, o próximo vídeo remoto => tela
+            if (!camVideoTrackId) {
+              camVideoTrackId = ev.track.id;
+              setSingleVideoTrack(inboundCam, ev.track);
               return;
             }
 
-            // 2) Todo resto de vídeo vira CÂMERA (sempre mantém 1 track, para não ficar preto)
+            if (screenShareActiveRef.current && ev.track.id !== camVideoTrackId) {
+              setSingleVideoTrack(inboundScreen, ev.track);
+              return;
+            }
+
+            // fallback: mantém câmera (ex.: renegociação/reattach do track)
             setSingleVideoTrack(inboundCam, ev.track);
           }
         };

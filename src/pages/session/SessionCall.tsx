@@ -68,6 +68,8 @@ export default function SessionCall() {
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
   const pendingIceRef = useRef<any[]>([]);
   const pendingOfferRef = useRef<any | null>(null);
+  const makingOfferRef = useRef(false);
+  const ignoreOfferRef = useRef(false);
   const peerReadyRef = useRef(false);
   const ensurePeerRef = useRef<Promise<void> | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -915,23 +917,37 @@ export default function SessionCall() {
 
     const pc = pcRef.current;
 
-    if (m.kind === "webrtc_offer" && role === "user") {
+    if (m.kind === "webrtc_offer") {
       if (!pc) return;
       const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
-      // Guardar o offer até o usuário iniciar câmera/microfone (garante 2-way)
+      // Guardar o offer até iniciar câmera/microfone (garante 2-way)
       if (mediaState !== "ready") {
         pendingOfferRef.current = sdp;
         return;
       }
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+
+      // Perfect negotiation (evita "glare" quando ambos podem criar offer)
+      const offerCollision = makingOfferRef.current || pc.signalingState !== "stable";
+      // Determinístico: user é "polite", admin é "impolite"
+      const polite = role === "user";
+      ignoreOfferRef.current = !polite && offerCollision;
+      if (ignoreOfferRef.current) return;
+
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      } catch (e) {
+        // Se falhar por corrida, não derruba a chamada.
+        console.warn("[WebRTC] setRemoteDescription falhou", e);
+        return;
+      }
       await flushPendingIce();
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await send("webrtc_answer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
     }
 
-    if (m.kind === "webrtc_answer" && role === "admin") {
+    if (m.kind === "webrtc_answer") {
       if (!pc) return;
       const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
@@ -1586,12 +1602,11 @@ export default function SessionCall() {
         if (audioCtxRef.current.state === "suspended") await audioCtxRef.current.resume();
       } catch {}
 
-      // Admin inicia offer ao ficar pronto
-      if (role === "admin") {
-        const pc2 = pcRef.current;
-        if (pc2) {
-          // Prepara sender dedicado para screen share (vídeo + áudio) ANTES do primeiro offer do admin.
-          // Assim, quando compartilhar, usamos replaceTrack sem substituir a câmera e sem renegociar.
+      // Inicia offer ao ficar pronto (qualquer lado pode iniciar)
+      const pc2 = pcRef.current;
+      if (pc2) {
+        // Admin: mantém preparação de senders dedicados para screen share antes do primeiro offer.
+        if (role === "admin") {
           if (!screenSenderRef.current) {
             try {
               const tr = pc2.addTransceiver("video", { direction: "sendonly" });
@@ -1610,24 +1625,42 @@ export default function SessionCall() {
               // ignore
             }
           }
+        }
+
+        try {
+          makingOfferRef.current = true;
           const offer = await pc2.createOffer();
+          if (pc2.signalingState !== "stable") {
+            // corrida: deixa o outro lado iniciar
+            return;
+          }
           await pc2.setLocalDescription(offer);
-        await send("webrtc_offer", { sdp: { type: pc2.localDescription?.type, sdp: pc2.localDescription?.sdp } });
+          await send("webrtc_offer", { sdp: { type: pc2.localDescription?.type, sdp: pc2.localDescription?.sdp } });
+        } catch (e) {
+          console.warn("[WebRTC] createOffer falhou", e);
+        } finally {
+          makingOfferRef.current = false;
         }
       }
 
       // Se o usuário já recebeu offer antes, responde agora
-      if (role === "user" && pendingOfferRef.current && pcRef.current) {
+      if (pendingOfferRef.current && pcRef.current) {
         const sdp = normalizeSdpInit(pendingOfferRef.current);
         pendingOfferRef.current = null;
         if (!sdp) throw new Error("SDP inválido (offer pendente).");
-        await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
-        await flushPendingIce();
-        const answer = await pcRef.current.createAnswer();
-        await pcRef.current.setLocalDescription(answer);
-        await send("webrtc_answer", {
-          sdp: { type: pcRef.current.localDescription?.type, sdp: pcRef.current.localDescription?.sdp },
-        });
+        // Usa o mesmo fluxo de offer recebido (com proteção contra glare)
+        const offerCollision = makingOfferRef.current || pcRef.current.signalingState !== "stable";
+        const polite = role === "user";
+        ignoreOfferRef.current = !polite && offerCollision;
+        if (!ignoreOfferRef.current) {
+          await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+          await flushPendingIce();
+          const answer = await pcRef.current.createAnswer();
+          await pcRef.current.setLocalDescription(answer);
+          await send("webrtc_answer", {
+            sdp: { type: pcRef.current.localDescription?.type, sdp: pcRef.current.localDescription?.sdp },
+          });
+        }
       }
     } catch (e: any) {
       console.error("[WebRTC] falha ao iniciar sessão (mídia/webrtc)", e);

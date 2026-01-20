@@ -10,7 +10,7 @@ import { adminListUsers } from "@/lib/laravel-api";
 import type { ReportDetail } from "./types";
 import { reportTypeConfig } from "./report-config";
 
-type FormValue = {
+export type ReportFormDraft = {
   userId: number | null;
   patientName: string;
   professionalName: string;
@@ -24,7 +24,7 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function toFormValue(r?: ReportDetail | null): FormValue {
+function toFormValue(r?: ReportDetail | null): ReportFormDraft {
   return {
     userId: r?.patient?.id ?? null,
     patientName: (r?.patientName ?? r?.patient?.name ?? "").toString(),
@@ -41,6 +41,16 @@ export function ReportFormModal(props: {
   mode: "create" | "edit";
   initial?: ReportDetail | null;
   fixedUser?: { id: number; name: string } | null;
+  /**
+   * Se informado, o modal restaura esse rascunho ao abrir.
+   * Útil para "minimizar" sem perder o que foi digitado.
+   */
+  draft?: ReportFormDraft | null;
+  /**
+   * Se true, exibe botão "Minimizar" que chama `onMinimize(formAtual)` e fecha o modal.
+   */
+  showMinimize?: boolean;
+  onMinimize?: (draft: ReportFormDraft) => void;
   onOpenChange: (open: boolean) => void;
   onSubmit: (payload: {
     user_id: number;
@@ -55,11 +65,11 @@ export function ReportFormModal(props: {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<FormValue>(() => toFormValue(props.initial));
+  const [form, setForm] = useState<ReportFormDraft>(() => toFormValue(props.initial));
 
   useEffect(() => {
     if (!props.open) return;
-    const v = toFormValue(props.initial);
+    const v = props.draft ? { ...props.draft } : toFormValue(props.initial);
     // No modal dentro do perfil: fixa a conta (user_id) e deixa o admin digitar o nome da criança.
     if (props.mode === "create" && props.fixedUser?.id) {
       v.userId = props.fixedUser.id;
@@ -67,7 +77,7 @@ export function ReportFormModal(props: {
       if (!v.patientName.trim()) v.patientName = props.fixedUser.name;
     }
     setForm(v);
-  }, [props.open, props.initial, props.fixedUser, props.mode]);
+  }, [props.open, props.initial, props.fixedUser, props.mode, props.draft]);
 
   useEffect(() => {
     if (!props.open) return;
@@ -115,6 +125,12 @@ export function ReportFormModal(props: {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleMinimize = () => {
+    if (saving) return;
+    props.onMinimize?.(form);
+    props.onOpenChange(false);
   };
 
   return (
@@ -226,6 +242,11 @@ export function ReportFormModal(props: {
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
+            {props.showMinimize ? (
+              <Button variant="outline" onClick={handleMinimize} disabled={saving}>
+                Minimizar
+              </Button>
+            ) : null}
             <Button variant="outline" onClick={() => props.onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>

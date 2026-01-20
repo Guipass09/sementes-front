@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
+import type { ReportFormDraft } from "@/features/reports/ReportFormModal";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -109,6 +110,8 @@ export default function SessionCall() {
   const [endingSession, setEndingSession] = useState(false);
 
   const [reportOpen, setReportOpen] = useState(false);
+  const [reportDraft, setReportDraft] = useState<ReportFormDraft | null>(null);
+  const reportMinimizedRef = useRef(false);
   const [fixedUser, setFixedUser] = useState<null | { id: number; name: string }>(null);
 
   const [callStartedAtMs, setCallStartedAtMs] = useState<number | null>(null);
@@ -2569,7 +2572,24 @@ export default function SessionCall() {
             mode="create"
             initial={null}
             fixedUser={fixedUser}
-            onOpenChange={setReportOpen}
+            draft={reportDraft}
+            showMinimize
+            onMinimize={(draft) => {
+              setReportDraft(draft);
+              reportMinimizedRef.current = true;
+            }}
+            onOpenChange={(open) => {
+              setReportOpen(open);
+              if (!open) {
+                // Se fechou por "Minimizar", mantém o rascunho para reabrir depois.
+                if (reportMinimizedRef.current) {
+                  reportMinimizedRef.current = false;
+                  return;
+                }
+                // Qualquer outro fechamento descarta rascunho.
+                setReportDraft(null);
+              }
+            }}
             onSubmit={async (payload) => {
               await api.adminCreateReport(payload);
               toast({ title: "Relatório", description: "Relatório criado com sucesso." });

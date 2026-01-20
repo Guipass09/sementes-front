@@ -187,6 +187,19 @@ export default function SessionCall() {
     }
   }, []);
 
+  const refreshPage = useCallback(() => {
+    // Mantém timer via sessionStorage (call_started_at:*).
+    // Tenta “furar cache” adicionando query param.
+    void tryClearCaches();
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("__reload", String(Date.now()));
+      window.location.replace(url.toString());
+    } catch {
+      window.location.reload();
+    }
+  }, [tryClearCaches]);
+
   // Re-join robusto:
   // - mantém o temporizador salvo
   // - ao voltar para a chamada depois de sair, força 1 reload para limpar o estado do WebRTC

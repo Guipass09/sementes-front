@@ -88,6 +88,7 @@ export default function CardGameView() {
   const [remaining, setRemaining] = useState<number[]>([]); // posições (0..n-1)
   const [opened, setOpened] = useState<number[]>([]); // posições (0..n-1)
   const [flippingId, setFlippingId] = useState<number | null>(null);
+  const [flipStartedId, setFlipStartedId] = useState<number | null>(null);
   const [congratsOpen, setCongratsOpen] = useState(false);
 
   const gameBgUrl = game?.background_url ? normalizeMediaUrl(game.background_url) : null;
@@ -196,6 +197,24 @@ export default function CardGameView() {
     return () => window.removeEventListener("message", onMsg);
   }, [inSession, resetDeck, sessionRole]);
 
+  // Sempre que tiver uma carta "flippingId", dispara a fase 2 do flip (para ficar aberta)
+  useEffect(() => {
+    if (flippingId === null) {
+      setFlipStartedId(null);
+      return;
+    }
+    setFlipStartedId(null);
+    const t = window.setTimeout(() => setFlipStartedId(flippingId), 40);
+    const t2 = window.setTimeout(() => {
+      setFlippingId(null);
+      setFlipStartedId(null);
+    }, 900);
+    return () => {
+      window.clearTimeout(t);
+      window.clearTimeout(t2);
+    };
+  }, [flippingId]);
+
   const canInteract = useMemo(() => {
     if (!inSession) return true;
     if (sessionRole === "admin") return true;
@@ -241,8 +260,6 @@ export default function CardGameView() {
     setFlippingId(nextId);
 
     playCardFlip();
-
-    window.setTimeout(() => setFlippingId((cur) => (cur === nextId ? null : cur)), 520);
 
     const done = nextRemaining.length === 0;
     if (done) {
@@ -301,18 +318,9 @@ export default function CardGameView() {
     <div
       ref={fsRef as any}
       className={cn(
-        "min-h-[100svh] bg-background",
+        "min-h-[100svh] bg-transparent",
         inSession ? "p-0" : "py-6"
       )}
-      style={
-        gameBgUrl
-          ? {
-              backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,.08), rgba(0,0,0,.18)), url(${gameBgUrl})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }
-          : undefined
-      }
     >
       <div className={cn("container mx-auto px-4", inSession ? "py-3" : "py-4")}>
         <div className="flex items-center justify-between gap-3">
@@ -345,144 +353,113 @@ export default function CardGameView() {
           </div>
         </div>
 
-        <div className={cn("mt-4 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4")}>
-          {/* Baralho */}
-          <div className="bg-card/80 backdrop-blur rounded-2xl border border-border p-4">
-            <div className="flex items-center justify-between">
-              <div className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Layers className="h-4 w-4 text-brand-brown" />
-                Baralho
-              </div>
-              <div className="text-xs text-muted-foreground">{remaining.length} restantes</div>
+        {/* Tabuleiro grande (igual estilo do auditivo): fundo + baralho + carta aberta */}
+        <div className="mt-4 relative w-full h-[55vh] sm:h-[62vh] lg:h-[70vh] rounded-2xl overflow-hidden bg-black/5">
+          {gameBgUrl ? (
+            <img
+              src={gameBgUrl}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              draggable={false}
+            />
+          ) : null}
+          {/* leve vinheta para destacar cartas */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/5 to-black/15" />
+
+          {/* Baralho (esquerda) */}
+          <button
+            type="button"
+            onClick={doDraw}
+            disabled={!canInteract || remaining.length === 0}
+            className={cn(
+              "absolute left-[4%] top-1/2 -translate-y-1/2",
+              "w-[42%] max-w-[520px] aspect-[4/3]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40",
+              !canInteract ? "opacity-75 cursor-not-allowed" : "hover:brightness-[1.02]"
+            )}
+            title={!canInteract ? "Aguardando controle" : remaining.length === 0 ? "Sem cartas" : "Virar carta"}
+          >
+            <div className="relative w-full h-full">
+              {/* pilha */}
+              {Array.from({ length: Math.min(10, Math.max(2, remaining.length)) }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute inset-0 rounded-[26px] bg-white/80 shadow-[0_12px_30px_rgba(0,0,0,.20)]"
+                  style={{
+                    transform: `translate(${i * 2.2}px, ${i * 1.6}px) rotate(${(i - 4) * 0.15}deg)`,
+                  }}
+                >
+                  <div className="absolute inset-[10px] rounded-[20px] border-[10px] border-[#D6B15C]/90" />
+                  <div className="absolute inset-[22px] rounded-[14px] border border-[#D6B15C]/70 bg-[#D6B15C]/10" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <img src={logoImage} alt="" className="h-16 w-16 rounded-2xl object-cover opacity-95" />
+                  </div>
+                </div>
+              ))}
             </div>
+          </button>
 
-            <button
-              type="button"
-              onClick={doDraw}
-              disabled={!canInteract || remaining.length === 0}
-              className={cn(
-                "mt-4 w-full aspect-[3/4] rounded-2xl border border-border overflow-hidden shadow-sm relative",
-                "bg-gradient-to-br from-brand-green/20 via-background to-brand-brown/15",
-                !canInteract ? "opacity-70 cursor-not-allowed" : "hover:shadow-md",
-                remaining.length === 0 ? "opacity-60" : ""
+          {/* Cartas abertas (direita) */}
+          <div className="absolute right-[4%] top-1/2 -translate-y-1/2 w-[48%] max-w-[620px] aspect-[4/3]">
+            <div className="relative w-full h-full">
+              {opened.length === 0 ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="px-4 py-2 rounded-xl bg-background/70 border border-border text-sm text-muted-foreground">
+                    Clique no baralho para abrir as cartas.
+                  </div>
+                </div>
+              ) : (
+                opened.map((pos, idx) => {
+                  const imgUrl = cardsByPos.get(pos) ?? null;
+                  const face = faceFor(pos, sessionSeed);
+                  const isTop = idx === opened.length - 1;
+                      const isNew = flippingId === pos;
+                      const isFlipStarted = flipStartedId === pos;
+                  const dx = Math.min(180, idx * 10);
+                  const dy = Math.min(120, idx * 7);
+                  return (
+                    <div
+                      key={`${pos}-${idx}`}
+                      className={cn("absolute left-0 top-0 w-[92%] h-[92%]", isTop ? "z-30" : "z-10")}
+                      style={{
+                        transform: `translate(${dx}px, ${dy}px) rotate(${(idx - 2) * 0.2}deg)`,
+                      }}
+                    >
+                      <div className={cn("cg-card", "is-faceup", isNew ? "is-new" : "", isFlipStarted ? "cg-flipped" : "")}>
+                        <div className="cg-card-inner">
+                          {/* back */}
+                          <div className="cg-card-face cg-card-back">
+                            <div className="cg-frame" />
+                            <div className="cg-frame-inner" />
+                            <img src={logoImage} alt="" className="h-14 w-14 rounded-2xl object-cover opacity-95" />
+                          </div>
+                          {/* front */}
+                          <div
+                            className="cg-card-face cg-card-front"
+                            style={{
+                              background: imgUrl
+                                ? `linear-gradient(to bottom, rgba(0,0,0,.10), rgba(0,0,0,.18)), url(${imgUrl})`
+                                : `linear-gradient(135deg, hsl(${face.hue} 85% 62%), hsl(${(face.hue + 40) % 360} 85% 48%))`,
+                              backgroundSize: "cover",
+                              backgroundPosition: "center",
+                            }}
+                          >
+                            <div className="cg-frame" />
+                            <div className="cg-frame-inner" />
+                            {!imgUrl ? <div className="text-4xl drop-shadow-sm">{face.stamp}</div> : null}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
               )}
-              title={!canInteract ? "Aguardando controle" : remaining.length === 0 ? "Sem cartas" : "Virar carta"}
-            >
-              {/* efeito pilha */}
-              <div className="absolute inset-0">
-                {Array.from({ length: Math.min(6, remaining.length) }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute inset-0 rounded-2xl border border-border bg-background/40"
-                    style={{ transform: `translate(${i * 2}px, ${i * 2}px)` }}
-                  />
-                ))}
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <img src={logoImage} alt="Logo" className="h-16 w-16 rounded-2xl object-cover shadow-md" />
-              </div>
-            </button>
-
-            <div className="mt-4 text-xs text-muted-foreground">
-              Clique no baralho para virar uma carta. As cartas abertas ficam empilhadas ao lado.
             </div>
           </div>
 
-          {/* Cartas abertas */}
-          <div className="bg-card/80 backdrop-blur rounded-2xl border border-border p-4 min-h-[360px]">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-foreground">Cartas abertas</div>
-              <div className="text-xs text-muted-foreground">{opened.length} abertas</div>
-            </div>
-
-            <div className="mt-4 flex flex-col sm:flex-row gap-4 items-stretch">
-              {/* Pilha aberta */}
-              <div className="flex-1 min-h-[280px] rounded-2xl border border-border bg-background/40 p-4 relative overflow-hidden">
-                {opened.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                    Vire a primeira carta para começar.
-                  </div>
-                ) : (
-                  <div className="absolute inset-0">
-                    {opened.slice(-8).map((cid, idx) => {
-                      const imgUrl = cardsByPos.get(cid) ?? null;
-                      const face = faceFor(cid, sessionSeed);
-                      const isTop = cid === topOpened;
-                      const isFlipping = flippingId === cid;
-                      const dx = idx * 10;
-                      const dy = idx * 6;
-                      return (
-                        <div
-                          key={cid}
-                          className={cn("absolute left-6 top-6 w-[200px] max-w-[70%] aspect-[3/4]", isTop ? "z-20" : "z-10")}
-                          style={{ transform: `translate(${dx}px, ${dy}px)` }}
-                        >
-                          <div className={cn("cg-card", isFlipping ? "is-flipping" : "")}>
-                            <div className="cg-card-inner">
-                              {/* back */}
-                              <div className="cg-card-face cg-card-back">
-                                <img src={logoImage} alt="" className="h-12 w-12 rounded-2xl object-cover opacity-95" />
-                                <div className="text-xs text-muted-foreground mt-2">Sementes da Fala</div>
-                              </div>
-                              {/* front */}
-                              <div
-                                className="cg-card-face cg-card-front"
-                                style={{
-                                  background: imgUrl
-                                    ? `linear-gradient(to bottom, rgba(0,0,0,.10), rgba(0,0,0,.18)), url(${imgUrl})`
-                                    : `linear-gradient(135deg, hsl(${face.hue} 85% 62%), hsl(${(face.hue + 40) % 360} 85% 48%))`,
-                                  backgroundSize: "cover",
-                                  backgroundPosition: "center",
-                                }}
-                              >
-                                {!imgUrl ? (
-                                  <>
-                                    <div className="text-4xl drop-shadow-sm">{face.stamp}</div>
-                                    <div className="mt-2 text-sm font-semibold text-white/90">Carta</div>
-                                  </>
-                                ) : (
-                                  <div className="absolute inset-0 bg-black/5" />
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Pilha fechada (efeito) */}
-              <div className="w-full sm:w-[220px] rounded-2xl border border-border bg-background/40 p-4">
-                <div className="text-sm font-semibold text-foreground">Pilha fechada</div>
-                <div className="text-xs text-muted-foreground">Efeito visual do baralho</div>
-                <div className="mt-4 relative h-[220px]">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="absolute left-2 top-2 w-[160px] aspect-[3/4] rounded-2xl border border-border bg-gradient-to-br from-brand-green/15 via-background to-brand-brown/10 shadow-sm"
-                      style={{ transform: `translate(${i * 6}px, ${i * 4}px)` }}
-                    >
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <img src={logoImage} alt="" className="h-10 w-10 rounded-2xl object-cover opacity-90" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center justify-end">
-              <Button
-                className="rounded-xl bg-brand-brown hover:bg-brand-brown/90"
-                onClick={doDraw}
-                disabled={!canInteract || remaining.length === 0}
-                title={!canInteract ? "Aguardando controle" : remaining.length === 0 ? "Sem cartas" : "Virar carta"}
-              >
-                Virar carta
-              </Button>
-            </div>
+          {/* indicador de restantes (discreto) */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold bg-background/70 border border-border">
+            {opened.length}/{game.cards_count} abertas • {remaining.length} restantes
           </div>
         </div>
 
@@ -496,23 +473,37 @@ export default function CardGameView() {
             transform-style: preserve-3d;
             transition: transform 520ms cubic-bezier(.2,.8,.2,1);
           }
-          .cg-card.is-flipping .cg-card-inner { transform: rotateY(180deg); }
+          .cg-card.is-faceup .cg-card-inner { transform: rotateY(180deg); }
+          /* animação: nasce fechado e vira */
+          .cg-card.is-faceup.is-new .cg-card-inner { transform: rotateY(0deg); }
+          .cg-card.is-faceup.is-new.cg-flipped .cg-card-inner { transform: rotateY(180deg); }
           .cg-card-face{
             position:absolute; inset:0;
-            border-radius: 18px;
-            border: 1px solid rgba(0,0,0,.08);
+            border-radius: 22px;
+            border: 0;
             backface-visibility: hidden;
             display:flex; flex-direction:column; align-items:center; justify-content:center;
             overflow:hidden;
           }
           .cg-card-back{
-            background: radial-gradient(circle at 30% 20%, rgba(34,197,94,.18), transparent 60%),
-                        radial-gradient(circle at 70% 80%, rgba(180,83,9,.16), transparent 60%),
-                        rgba(255,255,255,.75);
+            background: rgba(255,255,255,.85);
           }
           .cg-card-front{
             transform: rotateY(180deg);
             color: white;
+          }
+          .cg-frame{
+            position:absolute; inset:10px;
+            border-radius: 18px;
+            border: 10px solid rgba(214,177,92,.92);
+            pointer-events:none;
+          }
+          .cg-frame-inner{
+            position:absolute; inset:24px;
+            border-radius: 12px;
+            border: 1px solid rgba(214,177,92,.75);
+            background: rgba(214,177,92,.10);
+            pointer-events:none;
           }
         `}</style>
       </div>

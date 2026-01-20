@@ -85,8 +85,8 @@ export default function CardGameView() {
   const [game, setGame] = useState<CardGameRow | null>(null);
 
   // Estado do baralho
-  const [remaining, setRemaining] = useState<number[]>([]);
-  const [opened, setOpened] = useState<number[]>([]);
+  const [remaining, setRemaining] = useState<number[]>([]); // posições (0..n-1)
+  const [opened, setOpened] = useState<number[]>([]); // posições (0..n-1)
   const [flippingId, setFlippingId] = useState<number | null>(null);
   const [congratsOpen, setCongratsOpen] = useState(false);
 
@@ -233,7 +233,7 @@ export default function CardGameView() {
     if (!canInteract) return;
     if (remaining.length === 0) return;
 
-    const nextId = remaining[0];
+    const nextId = remaining[0]; // position
     const nextRemaining = remaining.slice(1);
     const nextOpened = [...opened, nextId];
     setRemaining(nextRemaining);
@@ -267,6 +267,13 @@ export default function CardGameView() {
   }, [game?.id, remaining.length]);
 
   const topOpened = opened.length ? opened[opened.length - 1] : null;
+
+  const cardsByPos = useMemo(() => {
+    const arr = Array.isArray(game?.cards) ? game!.cards! : [];
+    const map = new Map<number, string | null>();
+    for (const c of arr) map.set(Number(c.position), c.url ? normalizeMediaUrl(c.url) : null);
+    return map;
+  }, [game?.id, game?.cards]);
 
   if (loading) {
     return (
@@ -398,6 +405,7 @@ export default function CardGameView() {
                 ) : (
                   <div className="absolute inset-0">
                     {opened.slice(-8).map((cid, idx) => {
+                      const imgUrl = cardsByPos.get(cid) ?? null;
                       const face = faceFor(cid, sessionSeed);
                       const isTop = cid === topOpened;
                       const isFlipping = flippingId === cid;
@@ -420,11 +428,21 @@ export default function CardGameView() {
                               <div
                                 className="cg-card-face cg-card-front"
                                 style={{
-                                  background: `linear-gradient(135deg, hsl(${face.hue} 85% 62%), hsl(${(face.hue + 40) % 360} 85% 48%))`,
+                                  background: imgUrl
+                                    ? `linear-gradient(to bottom, rgba(0,0,0,.10), rgba(0,0,0,.18)), url(${imgUrl})`
+                                    : `linear-gradient(135deg, hsl(${face.hue} 85% 62%), hsl(${(face.hue + 40) % 360} 85% 48%))`,
+                                  backgroundSize: "cover",
+                                  backgroundPosition: "center",
                                 }}
                               >
-                                <div className="text-4xl drop-shadow-sm">{face.stamp}</div>
-                                <div className="mt-2 text-sm font-semibold text-white/90">Carta</div>
+                                {!imgUrl ? (
+                                  <>
+                                    <div className="text-4xl drop-shadow-sm">{face.stamp}</div>
+                                    <div className="mt-2 text-sm font-semibold text-white/90">Carta</div>
+                                  </>
+                                ) : (
+                                  <div className="absolute inset-0 bg-black/5" />
+                                )}
                               </div>
                             </div>
                           </div>

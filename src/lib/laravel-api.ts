@@ -241,6 +241,7 @@ export type CardGameRow = {
   description: string;
   cards_count: number;
   background_url?: string | null;
+  cards?: Array<{ id: number; position: number; url: string | null }>;
   status?: CardGameStatus; // user
   progress?: any | null; // user
   created_by: { id?: number; name: string; role: AuthRole };
@@ -963,6 +964,7 @@ export async function adminCreateCardGame(payload: {
   cards_count: number;
   assigned_to: number[];
   background?: File;
+  card_images: File[];
 }): Promise<CardGameRow> {
   await ensureCsrfCookie();
   const fd = new FormData();
@@ -971,6 +973,7 @@ export async function adminCreateCardGame(payload: {
   fd.set("cards_count", String(payload.cards_count));
   fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
   if (payload.background) fd.set("background", payload.background);
+  for (const f of payload.card_images || []) fd.append("card_images[]", f);
   return await request<CardGameRow>("/api/admin/card-games", { method: "POST", formData: fd });
 }
 
@@ -982,6 +985,7 @@ export async function adminUpdateCardGame(
     cards_count?: number;
     assigned_to?: number[];
     background?: File | null;
+    card_images?: File[] | null;
   }
 ): Promise<CardGameRow> {
   await ensureCsrfCookie();
@@ -991,6 +995,9 @@ export async function adminUpdateCardGame(
   if (payload.cards_count !== undefined) fd.set("cards_count", String(payload.cards_count));
   if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
   if (payload.background) fd.set("background", payload.background);
+  if (payload.card_images && payload.card_images.length) {
+    for (const f of payload.card_images) fd.append("card_images[]", f);
+  }
   fd.set("_method", "PATCH");
   return await request<CardGameRow>(`/api/admin/card-games/${id}`, { method: "POST", formData: fd });
 }

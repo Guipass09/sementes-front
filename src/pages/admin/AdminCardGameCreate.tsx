@@ -17,6 +17,11 @@ function clampInt(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
+type CardImageInput = {
+  file: File | null;
+  previewUrl: string | null;
+};
+
 export default function AdminCardGameCreate() {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -29,6 +34,9 @@ export default function AdminCardGameCreate() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [cardsCount, setCardsCount] = useState(10);
+  const [cardImages, setCardImages] = useState<CardImageInput[]>(() =>
+    Array.from({ length: 10 }, () => ({ file: null, previewUrl: null }))
+  );
   const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
@@ -81,6 +89,32 @@ export default function AdminCardGameCreate() {
     setBackgroundPreview(file ? URL.createObjectURL(file) : null);
   };
 
+  // Ajusta cardImages quando cardsCount muda
+  useEffect(() => {
+    setCardImages((prev) => {
+      const nextCount = clampInt(cardsCount, 1, 15);
+      const copy = [...prev];
+      if (copy.length > nextCount) {
+        for (let i = nextCount; i < copy.length; i++) {
+          if (copy[i]?.previewUrl) URL.revokeObjectURL(copy[i].previewUrl!);
+        }
+      }
+      while (copy.length < nextCount) copy.push({ file: null, previewUrl: null });
+      return copy.slice(0, nextCount);
+    });
+  }, [cardsCount]);
+
+  const setCardFile = (idx: number, file: File | null) => {
+    setCardImages((prev) => {
+      const copy = [...prev];
+      const old = copy[idx];
+      if (!old) return prev;
+      if (old.previewUrl) URL.revokeObjectURL(old.previewUrl);
+      copy[idx] = { file, previewUrl: file ? URL.createObjectURL(file) : null };
+      return copy;
+    });
+  };
+
   const onSubmit = async () => {
     const n = clampInt(cardsCount, 1, 15);
     if (!title.trim()) {
@@ -96,6 +130,16 @@ export default function AdminCardGameCreate() {
       return;
     }
 
+    const files = cardImages.slice(0, n).map((x) => x.file).filter(Boolean) as File[];
+    if (files.length !== n) {
+      toast({
+        title: "Faltam imagens das cartas",
+        description: `Envie ${n} imagem(ns) (uma para cada carta).`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSaving(true);
     try {
       const created = await api.adminCreateCardGame({
@@ -104,6 +148,7 @@ export default function AdminCardGameCreate() {
         cards_count: n,
         assigned_to: selectedUserIds,
         background: backgroundFile || undefined,
+        card_images: files,
       });
       toast({ title: "Jogo criado!", description: `"${created.title}" foi enviado para ${selectedUserIds.length} usuário(s).` });
       navigate(`/jogos/cartas/${created.id}`);
@@ -215,6 +260,51 @@ export default function AdminCardGameCreate() {
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <Label>Imagens das cartas (obrigatório)</Label>
+                <div className="text-xs text-muted-foreground">
+                  Envie <b>{clampInt(cardsCount, 1, 15)}</b> imagens — uma para cada carta do baralho.
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
+                  {cardImages.map((c, idx) => (
+                    <div key={idx} className="rounded-xl border border-border bg-background p-2">
+                      <div className="text-xs font-medium text-foreground mb-2">Carta {idx + 1}</div>
+                      <div className="rounded-lg border border-border overflow-hidden bg-muted/20 h-[92px] flex items-center justify-center">
+                        {c.previewUrl ? (
+                          <img src={c.previewUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="text-[11px] text-muted-foreground text-center px-2">Sem imagem</div>
+                        )}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <label className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-border hover:bg-muted/50 cursor-pointer text-xs">
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>Escolher</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => setCardFile(idx, e.target.files?.[0] ?? null)}
+                          />
+                        </label>
+                        {c.file ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2"
+                            onClick={() => setCardFile(idx, null)}
+                            title="Remover"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

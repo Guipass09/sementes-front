@@ -17,6 +17,12 @@ function clampInt(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
+type CardImageInput = {
+  file: File | null;
+  previewUrl: string | null;
+  existingUrl: string | null;
+};
+
 export default function AdminCardGameEdit() {
   const { id } = useParams<{ id: string }>();
   const gameId = Number(id);
@@ -38,6 +44,8 @@ export default function AdminCardGameEdit() {
   const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [backgroundPreview, setBackgroundPreview] = useState<string | null>(null);
   const [keepExistingBackground, setKeepExistingBackground] = useState(true);
+  const [cardImages, setCardImages] = useState<CardImageInput[]>([]);
+  const [replaceCardImages, setReplaceCardImages] = useState(false);
 
   useEffect(() => {
     if (auth.loading) return;
@@ -58,6 +66,12 @@ export default function AdminCardGameEdit() {
         setDescription(g.description || "");
         setCardsCount(g.cards_count || 10);
         setSelectedUserIds((g.assigned_to ?? []).map((x) => x.id));
+        const count = clampInt(g.cards_count || 10, 1, 15);
+        const existing = Array.isArray(g.cards) ? g.cards : [];
+        const byPos = new Map<number, string | null>();
+        for (const c of existing) byPos.set(Number(c.position), c.url ? normalizeMediaUrl(c.url) : null);
+        setCardImages(Array.from({ length: count }, (_, i) => ({ file: null, previewUrl: null, existingUrl: byPos.get(i) ?? null })));
+        setReplaceCardImages(false);
         setUsers(u.filter((x) => x.role === "user"));
       } catch {
         if (!cancelled) {
@@ -90,6 +104,33 @@ export default function AdminCardGameEdit() {
     setKeepExistingBackground(false);
   };
 
+  // Ajusta cardImages quando cardsCount muda (mantém URLs existentes se possível)
+  useEffect(() => {
+    setCardImages((prev) => {
+      const nextCount = clampInt(cardsCount, 1, 15);
+      const copy = [...prev];
+      if (copy.length > nextCount) {
+        for (let i = nextCount; i < copy.length; i++) {
+          if (copy[i]?.previewUrl) URL.revokeObjectURL(copy[i].previewUrl!);
+        }
+      }
+      while (copy.length < nextCount) copy.push({ file: null, previewUrl: null, existingUrl: null });
+      return copy.slice(0, nextCount);
+    });
+  }, [cardsCount]);
+
+  const setCardFile = (idx: number, file: File | null) => {
+    setCardImages((prev) => {
+      const copy = [...prev];
+      const old = copy[idx];
+      if (!old) return prev;
+      if (old.previewUrl) URL.revokeObjectURL(old.previewUrl);
+      copy[idx] = { ...old, file, previewUrl: file ? URL.createObjectURL(file) : null };
+      return copy;
+    });
+    setReplaceCardImages(true);
+  };
+
   const onSubmit = async () => {
     const n = clampInt(cardsCount, 1, 15);
     if (!title.trim()) {
@@ -105,6 +146,20 @@ export default function AdminCardGameEdit() {
       return;
     }
 
+    let cardFiles: File[] | null = null;
+    if (replaceCardImages) {
+      const files = cardImages.slice(0, n).map((x) => x.file).filter(Boolean) as File[];
+      if (files.length !== n) {
+        toast({
+          title: "Faltam imagens das cartas",
+          description: `Envie ${n} imagem(ns) (uma para cada carta) ou desmarque a troca.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      cardFiles = files;
+    }
+
     setSaving(true);
     try {
       const updated = await api.adminUpdateCardGame(gameId, {
@@ -113,6 +168,7 @@ export default function AdminCardGameEdit() {
         cards_count: n,
         assigned_to: selectedUserIds,
         background: keepExistingBackground ? null : backgroundFile || null,
+        card_images: cardFiles,
       });
       toast({ title: "Jogo atualizado", description: "Alterações salvas com sucesso." });
       setGame(updated);
@@ -219,6 +275,64 @@ export default function AdminCardGameEdit() {
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <Label>Imagens das cartas</Label>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs text-muted-foreground">
+                    Para trocar as imagens, selecione novas imagens (isso substitui todas as cartas).
+                  </div>
+                  <Button
+                    type="button"
+                    variant={replaceCardImages ? "default" : "outline"}
+                    className={cn("rounded-xl", replaceCardImages ? "bg-brand-brown hover:bg-brand-brown/90" : "")}
+                    onClick={() => setReplaceCardImages((v) => !v)}
+                  >
+                    {replaceCardImages ? "Trocando imagens" : "Manter imagens atuais"}
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
+                  {cardImages.map((c, idx) => {
+                    const showUrl = c.previewUrl || c.existingUrl;
+                    return (
+                      <div key={idx} className="rounded-xl border border-border bg-background p-2">
+                        <div className="text-xs font-medium text-foreground mb-2">Carta {idx + 1}</div>
+                        <div className="rounded-lg border border-border overflow-hidden bg-muted/20 h-[92px] flex items-center justify-center">
+                          {showUrl ? (
+                            <img src={showUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="text-[11px] text-muted-foreground text-center px-2">Sem imagem</div>
+                          )}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <label
+                            className={cn(
+                              "inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-border text-xs",
+                              replaceCardImages ? "hover:bg-muted/50 cursor-pointer" : "opacity-50 cursor-not-allowed"
+                            )}
+                          >
+                            <Upload className="h-3.5 w-3.5" />
+                            <span>Escolher</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              disabled={!replaceCardImages}
+                              onChange={(e) => setCardFile(idx, e.target.files?.[0] ?? null)}
+                            />
+                          </label>
+                          {c.file ? (
+                            <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => setCardFile(idx, null)} title="Remover">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

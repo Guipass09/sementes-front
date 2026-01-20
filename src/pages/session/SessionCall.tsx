@@ -814,6 +814,21 @@ export default function SessionCall() {
         setRemoteScreenStream(inboundScreen);
         let camVideoTrackId: string | null = null;
 
+        // Garante que exista um transceiver dedicado para screen share desde o início:
+        // - Admin: sendonly (sender será usado com replaceTrack quando compartilhar)
+        // - Usuário: recvonly (evita depender da heurística "2º vídeo" e resolve tela preta)
+        try {
+          if (!screenTransceiverRef.current) {
+            const tr = pc.addTransceiver("video", { direction: role === "admin" ? "sendonly" : "recvonly" });
+            screenTransceiverRef.current = tr;
+            if (role === "admin") {
+              screenSenderRef.current = tr.sender;
+            }
+          }
+        } catch {
+          // ignore: alguns browsers podem rejeitar cedo; ainda temos fallbacks
+        }
+
         pc.ontrack = (ev) => {
           try {
             // preferir track direto (mais robusto)

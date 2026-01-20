@@ -351,6 +351,28 @@ export default function SessionCall() {
     };
   }, [remoteScreenStream, screenShareActive, role]);
 
+  // Alguns browsers também não atualizam o <video> quando o stream de câmera remota ganha track depois.
+  // Forçamos re-attach quando o track remoto chega (resolve "conecta mas fica preto").
+  useEffect(() => {
+    const s = remoteCamStream || remoteStream;
+    if (!s) return;
+    const el = remoteVideoRef.current;
+    if (!el) return;
+    const onAdd = () => {
+      const stream = remoteCamStream || remoteStream;
+      if (!stream) return;
+      el.srcObject = stream;
+      el.muted = false;
+      void el.play().catch(() => {});
+    };
+    s.addEventListener("addtrack", onAdd as any);
+    s.addEventListener("removetrack", onAdd as any);
+    return () => {
+      s.removeEventListener("addtrack", onAdd as any);
+      s.removeEventListener("removetrack", onAdd as any);
+    };
+  }, [remoteCamStream, remoteStream]);
+
   // Temporizador simples da chamada (não depende do relógio do servidor)
   useEffect(() => {
     if (!callStartedAtMs) return;

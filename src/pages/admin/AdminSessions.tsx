@@ -164,6 +164,8 @@ const AdminSessions = () => {
     );
   }, [sessions, searchTerm]);
 
+  const todayYMD = useMemo(() => getTodayYMD(nowMs), [nowMs]);
+
   const sessionsByUser = useMemo(() => {
     const map = new Map<number, { userId: number; userName: string; items: SessionData[]; hasTodayAlert: boolean }>();
     for (const s of filteredSessions) {
@@ -191,8 +193,6 @@ const AdminSessions = () => {
       return a.userName.localeCompare(b.userName);
     });
   }, [filteredSessions, todayYMD]);
-
-  const todayYMD = useMemo(() => getTodayYMD(nowMs), [nowMs]);
 
   const previewDates = useMemo(() => {
     if (!formData.date || !formData.totalSessions || formData.totalSessions < 1) return [];

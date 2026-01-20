@@ -842,7 +842,9 @@ export default function SessionCall() {
           }
           if (ev.track.kind === "video") {
             // 1) Preferência: classifica pelo transceiver dedicado de tela (determinístico).
-            if (screenTransceiverRef.current && ev.transceiver === screenTransceiverRef.current) {
+            // IMPORTANTE: isso só faz sentido no lado do USUÁRIO (que recebe a tela do admin).
+            // No admin, `screenTransceiverRef` é sendonly e pode conflitar com o 1º vídeo recebido.
+            if (role === "user" && screenTransceiverRef.current && ev.transceiver === screenTransceiverRef.current) {
               try {
                 for (const t of inboundScreen.getVideoTracks()) {
                   try { inboundScreen.removeTrack(t); } catch {}

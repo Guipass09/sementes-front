@@ -148,6 +148,7 @@ export default function SessionCall() {
   const screenStreamRef = useRef<MediaStream | null>(null);
   const [screenSharing, setScreenSharing] = useState(false);
   const [screenShareActive, setScreenShareActive] = useState(false);
+  const screenShareActiveRef = useRef(false);
   const contentScreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const lastContentRef = useRef<{ path: string | null; title: string | null; kind: string | null; seed: number | null } | null>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
@@ -315,6 +316,10 @@ export default function SessionCall() {
   // Quando screen share estiver ativo:
   // - admin mostra o próprio display stream no painel grande
   // - user mostra o remoteScreenStream (2º track de vídeo)
+  useEffect(() => {
+    screenShareActiveRef.current = screenShareActive;
+  }, [screenShareActive]);
+
   useEffect(() => {
     if (!screenShareActive) return;
     const el = contentScreenVideoRef.current;
@@ -812,7 +817,14 @@ export default function SessionCall() {
         setRemoteStream(inbound); // mantém compat (útil para áudio/VAD)
         setRemoteCamStream(inboundCam);
         setRemoteScreenStream(inboundScreen);
-        let camVideoTrackId: string | null = null;
+        const setSingleVideoTrack = (stream: MediaStream, track: MediaStreamTrack) => {
+          try {
+            for (const t of stream.getVideoTracks()) {
+              try { stream.removeTrack(t); } catch {}
+            }
+            stream.addTrack(track);
+          } catch {}
+        };
 
         // Importante: NÃO criar transceiver sendonly de tela no ADMIN aqui,
         // senão o addTrack da câmera pode reutilizar esse transceiver e depois o screen share substitui a câmera.
@@ -844,37 +856,20 @@ export default function SessionCall() {
             // 1) Preferência: classifica pelo transceiver dedicado de tela (determinístico).
             // IMPORTANTE: isso só faz sentido no lado do USUÁRIO (que recebe a tela do admin).
             // No admin, `screenTransceiverRef` é sendonly e pode conflitar com o 1º vídeo recebido.
-            if (role === "user" && screenTransceiverRef.current && ev.transceiver === screenTransceiverRef.current) {
+            if (
+              role === "user" &&
+              screenTransceiverRef.current &&
+              ev.transceiver === screenTransceiverRef.current &&
+              screenShareActiveRef.current
+            ) {
               try {
-                for (const t of inboundScreen.getVideoTracks()) {
-                  try { inboundScreen.removeTrack(t); } catch {}
-                }
-                inboundScreen.addTrack(ev.track);
+                setSingleVideoTrack(inboundScreen, ev.track);
               } catch {}
               return;
             }
 
-            // 2) Caso contrário, tratamos como câmera (evita sumir câmera quando screen share está ativo).
-            if (!camVideoTrackId) {
-              camVideoTrackId = ev.track.id;
-              try {
-                inboundCam.addTrack(ev.track);
-              } catch {}
-              return;
-            }
-            if (ev.track.id !== camVideoTrackId) {
-              try {
-                // garante que o stream de tela tenha só o track atual
-                for (const t of inboundScreen.getVideoTracks()) {
-                  try { inboundScreen.removeTrack(t); } catch {}
-                }
-                inboundScreen.addTrack(ev.track);
-              } catch {}
-              return;
-            }
-            try {
-              inboundCam.addTrack(ev.track);
-            } catch {}
+            // 2) Todo resto de vídeo vira CÂMERA (sempre mantém 1 track, para não ficar preto)
+            setSingleVideoTrack(inboundCam, ev.track);
           }
         };
 

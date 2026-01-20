@@ -10,7 +10,7 @@ export type AuthRole = "admin" | "user";
  * - atividades: true
  * - jogos: true (sempre acessível)
  * - relatorios: true
- * - horarios/sessoes: false (admin controla via modal de perfil)
+ * - horarios/sessoes: true
  */
 export type UserAccess = {
   atividades: boolean;

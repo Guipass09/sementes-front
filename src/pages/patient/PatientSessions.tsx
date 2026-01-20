@@ -63,6 +63,7 @@ const PatientSessions = () => {
   const [summary, setSummary] = useState({ total: 0, used: 0, remaining: 0 });
   const [sessions, setSessions] = useState<Session[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const hasCompletedSession = useMemo(() => sessions.some((s) => s.status === "realizada"), [sessions]);
 
   useEffect(() => {
     // 1s para o contador ao lado do "Entrar na sessão" descer em tempo real.
@@ -341,15 +342,17 @@ const PatientSessions = () => {
         </div>
       </div>
 
-      {/* Fixed Add Sessions Button */}
-      <Link to="/paciente/pacotes">
-        <Button
-          className="fixed bottom-6 right-6 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 z-50"
-        >
-          <Plus size={20} className="mr-2" />
-          Adicionar Sessões
-        </Button>
-      </Link>
+      {/* Botão do catálogo: só aparece após existir ao menos 1 sessão realizada */}
+      {hasCompletedSession ? (
+        <Link to="/paciente/pacotes">
+          <Button
+            className="fixed bottom-6 right-6 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 z-50"
+          >
+            <Plus size={20} className="mr-2" />
+            Adicionar Sessões
+          </Button>
+        </Link>
+      ) : null}
     </div>
   );
 };

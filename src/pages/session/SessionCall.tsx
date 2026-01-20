@@ -12,7 +12,6 @@ import {
   Package,
   Pencil,
   PhoneOff,
-  RefreshCw,
   Video,
   VideoOff,
   Sparkles,
@@ -187,19 +186,6 @@ export default function SessionCall() {
       // ignore
     }
   }, []);
-
-  const refreshPage = useCallback(() => {
-    // Mantém timer via sessionStorage (call_started_at:*).
-    // Tenta “furar cache” adicionando query param.
-    void tryClearCaches();
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set("__reload", String(Date.now()));
-      window.location.replace(url.toString());
-    } catch {
-      window.location.reload();
-    }
-  }, [tryClearCaches]);
 
   // Re-join robusto:
   // - mantém o temporizador salvo
@@ -1855,22 +1841,6 @@ export default function SessionCall() {
                   })}
                 </div>
               )}
-
-              {/* Botão de atualizar (útil no PWA) - overlay para não afetar responsividade */}
-              <div className="absolute right-3 top-3 z-40">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full bg-background/80 backdrop-blur border-border shadow-sm"
-                  onClick={refreshPage}
-                  title="Atualizar página"
-                  aria-label="Atualizar página"
-                >
-                  <RefreshCw className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Atualizar página</span>
-                </Button>
-              </div>
 
               {screenShareActive ? (
                 <div className="absolute inset-0 rounded-xl bg-black overflow-hidden">

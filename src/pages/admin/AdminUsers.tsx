@@ -868,7 +868,7 @@ const AdminUsers = () => {
                   <div>
                     <h4 className="font-semibold text-foreground">Controle de Acessos</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Permissões padrão aplicadas no registro: Início, Atividades, Jogos e Relatórios habilitados. Sessões desabilitadas por padrão.
+                      Permissões padrão aplicadas no registro: Início, Atividades, Jogos, Relatórios e Sessões habilitados.
                     </p>
                   </div>
                   

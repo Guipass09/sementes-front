@@ -63,6 +63,7 @@ export default function CardGameView() {
     const n = Number(sessionParams.get("session_seed"));
     return Number.isFinite(n) ? (n >>> 0) : 123456789;
   }, [sessionParams]);
+  const [controlAllowed, setControlAllowed] = useState<boolean>(sessionRole === "admin");
   const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
   const applyingRemoteRef = useRef(false);
   const autoPseudoFullscreen = inSession && sessionRole === "user";
@@ -165,7 +166,9 @@ export default function CardGameView() {
 
       if (data.type === "SESSION_CONTROL") {
         const granted = !!data.granted;
-        controlAllowedRef.current = sessionRole === "admin" ? true : granted;
+        const allowed = sessionRole === "admin" ? true : granted;
+        controlAllowedRef.current = allowed;
+        setControlAllowed(allowed);
         return;
       }
 
@@ -248,8 +251,8 @@ export default function CardGameView() {
   const canInteract = useMemo(() => {
     if (!inSession) return true;
     if (sessionRole === "admin") return true;
-    return !!controlAllowedRef.current;
-  }, [inSession, sessionRole]);
+    return !!controlAllowed;
+  }, [inSession, sessionRole, controlAllowed]);
 
   const clamp = (n: number) => Math.max(1, Math.min(15, Math.floor(n)));
 
@@ -419,7 +422,7 @@ export default function CardGameView() {
             )}
             title={!canInteract ? "Aguardando controle" : remaining.length === 0 ? "Sem cartas" : "Virar carta"}
           >
-            <div className="relative w-full h-full">
+            <div className="relative w-full h-full cg-deck-inner">
               {/* pilha */}
               {Array.from({ length: Math.min(10, Math.max(2, remaining.length)) }).map((_, i) => (
                 <div
@@ -565,13 +568,35 @@ export default function CardGameView() {
             40% { opacity: 0.95; }
             100% { opacity: 0; transform: translate(-220px, 40px) scale(0.55) rotate(-6deg); filter: blur(0.4px); }
           }
+          .cg-shuffling .cg-deck-inner{
+            animation: cg-deck-shuffle 680ms ease-in-out both;
+          }
           @keyframes cg-deck-shuffle {
-            0% { transform: translate(-0%, -50%) rotate(0deg); }
-            15% { transform: translate(-0%, -50%) rotate(-1.2deg) translateX(-6px); }
-            30% { transform: translate(-0%, -50%) rotate(1.4deg) translateX(7px); }
-            45% { transform: translate(-0%, -50%) rotate(-1.0deg) translateX(-5px); }
-            60% { transform: translate(-0%, -50%) rotate(1.0deg) translateX(5px); }
-            100% { transform: translate(-0%, -50%) rotate(0deg); }
+            0% { transform: rotate(0deg) translateX(0px); }
+            15% { transform: rotate(-1.2deg) translateX(-6px); }
+            30% { transform: rotate(1.4deg) translateX(7px); }
+            45% { transform: rotate(-1.0deg) translateX(-5px); }
+            60% { transform: rotate(1.0deg) translateX(5px); }
+            100% { transform: rotate(0deg) translateX(0px); }
+          }
+
+          /* Mobile dentro da transmissão: layout vertical (baralho em cima, cartas embaixo) */
+          @media (max-width: 640px) {
+            .cg-deck{
+              left: 50% !important;
+              top: 32% !important;
+              width: 78% !important;
+              max-width: none !important;
+              transform: translate(-50%, -50%) !important;
+            }
+            .cg-open-stack{
+              left: 50% !important;
+              right: auto !important;
+              top: 74% !important;
+              width: 88% !important;
+              max-width: none !important;
+              transform: translate(-50%, -50%) !important;
+            }
           }
         `}</style>
       </div>

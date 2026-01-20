@@ -57,6 +57,10 @@ import AdminWordSearchGames from "./pages/admin/AdminWordSearchGames";
 import AdminWordSearchGameCreate from "./pages/admin/AdminWordSearchGameCreate";
 import AdminWordSearchGameEdit from "./pages/admin/AdminWordSearchGameEdit";
 import WordSearchGameView from "./pages/WordSearchGameView";
+import AdminCardGames from "./pages/admin/AdminCardGames";
+import AdminCardGameCreate from "./pages/admin/AdminCardGameCreate";
+import AdminCardGameEdit from "./pages/admin/AdminCardGameEdit";
+import CardGameView from "./pages/CardGameView";
 import RouteChangeLoader from "./components/RouteChangeLoader";
 import GameplayBackground from "./components/GameplayBackground";
 import { installSfxUnlock } from "@/lib/sfx";
@@ -153,6 +157,9 @@ const App = () => {
                 <Route path="jogos/caca-palavras" element={<AdminWordSearchGames />} />
                 <Route path="jogos/caca-palavras/novo" element={<AdminWordSearchGameCreate />} />
                 <Route path="jogos/caca-palavras/:id/editar" element={<AdminWordSearchGameEdit />} />
+                <Route path="jogos/cartas" element={<AdminCardGames />} />
+                <Route path="jogos/cartas/novo" element={<AdminCardGameCreate />} />
+                <Route path="jogos/cartas/:id/editar" element={<AdminCardGameEdit />} />
                 <Route path="horarios" element={<AdminSessions />} />
                 <Route path="relatorios" element={<AdminReports />} />
               </Route>
@@ -196,6 +203,7 @@ const App = () => {
               <Route path="/jogos/forca/:id" element={<HangmanGameView />} />
               <Route path="/jogos/roleta/:id" element={<SpinWheelGameView />} />
               <Route path="/jogos/caca-palavras/:id" element={<WordSearchGameView />} />
+              <Route path="/jogos/cartas/:id" element={<CardGameView />} />
               <Route path="*" element={<NotFound />} />
               </Routes>
               </div>

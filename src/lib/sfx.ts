@@ -308,4 +308,26 @@ export function playFanfare(): void {
   fireworkBurst(master, t0 + 0.48, 0.2, 0.4);
 }
 
+export function playCardFlip(): void {
+  installSfxUnlock();
+  const c = getCtx();
+  if (!c) return;
+  const t = c.currentTime + 0.01;
+  // "click" curto e suave
+  tone(880, t, 0.05, "triangle", 0.7);
+  tone(660, t + 0.01, 0.06, "sine", 0.45);
+}
+
+export function playCardShuffle(): void {
+  installSfxUnlock();
+  const c = getCtx();
+  if (!c) return;
+  const t = c.currentTime + 0.01;
+  // "shhh" + ticks
+  noise(t, 0.18, 0.35);
+  tone(220, t + 0.02, 0.08, "square", 0.25);
+  tone(260, t + 0.07, 0.08, "square", 0.22);
+  tone(300, t + 0.12, 0.08, "square", 0.20);
+}
+
 

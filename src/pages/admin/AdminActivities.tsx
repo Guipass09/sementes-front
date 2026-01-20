@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Plus, Search, FileText, Clock, Tag, Grid3X3, ChevronDown, Ear, Type, CircleDot } from "lucide-react";
+import { Activity, Plus, Search, FileText, Clock, Tag, Grid3X3, ChevronDown, Ear, Type, CircleDot, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -125,6 +125,10 @@ const AdminActivities = () => {
                 <DropdownMenuItem onSelect={() => navigate("/admin/jogos/caca-palavras/novo")}>
                   <Grid3X3 className="h-4 w-4 mr-2" />
                   Caça-palavras
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/cartas/novo")}>
+                  <Layers className="h-4 w-4 mr-2" />
+                  Jogo das Cartas
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

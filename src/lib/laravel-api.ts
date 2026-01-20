@@ -229,6 +229,26 @@ export type WordSearchGameRow = {
   created_at?: string | null;
 };
 
+// ---------------------------
+// JOGO DAS CARTAS
+// ---------------------------
+
+export type CardGameStatus = "disponivel" | "concluido";
+
+export type CardGameRow = {
+  id: number;
+  title: string;
+  description: string;
+  cards_count: number;
+  background_url?: string | null;
+  status?: CardGameStatus; // user
+  progress?: any | null; // user
+  created_by: { id?: number; name: string; role: AuthRole };
+  assigned_count?: number; // admin
+  assigned_to?: Array<{ id: number; name: string }>; // admin
+  created_at?: string | null;
+};
+
 export type HangmanSupportImageRow = {
   position: number;
   url: string;
@@ -926,6 +946,76 @@ export async function adminUpdateWordSearchGame(
   }
   fd.set("_method", "PATCH");
   return await request<WordSearchGameRow>(`/api/admin/word-search-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function adminListCardGames(): Promise<CardGameRow[]> {
+  const res = await request<{ data: CardGameRow[] }>("/api/admin/card-games");
+  return res.data;
+}
+
+export async function adminGetCardGame(id: number): Promise<CardGameRow> {
+  return await request<CardGameRow>(`/api/admin/card-games/${id}`);
+}
+
+export async function adminCreateCardGame(payload: {
+  title: string;
+  description: string;
+  cards_count: number;
+  assigned_to: number[];
+  background?: File;
+}): Promise<CardGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("cards_count", String(payload.cards_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background) fd.set("background", payload.background);
+  return await request<CardGameRow>("/api/admin/card-games", { method: "POST", formData: fd });
+}
+
+export async function adminUpdateCardGame(
+  id: number,
+  payload: {
+    title?: string;
+    description?: string;
+    cards_count?: number;
+    assigned_to?: number[];
+    background?: File | null;
+  }
+): Promise<CardGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.cards_count !== undefined) fd.set("cards_count", String(payload.cards_count));
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background) fd.set("background", payload.background);
+  fd.set("_method", "PATCH");
+  return await request<CardGameRow>(`/api/admin/card-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function adminDeleteCardGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/admin/card-games/${id}`, { method: "DELETE" });
+}
+
+export async function userListCardGames(): Promise<CardGameRow[]> {
+  const res = await request<{ data: CardGameRow[] }>("/api/card-games");
+  return res.data;
+}
+
+export async function userGetCardGame(id: number, opts?: { session_id?: number | null }): Promise<CardGameRow> {
+  const q = opts?.session_id ? `?session_id=${encodeURIComponent(String(opts.session_id))}` : "";
+  return await request<CardGameRow>(`/api/card-games/${id}${q}`);
+}
+
+export async function userUpdateCardGameProgress(
+  id: number,
+  payload: { status?: CardGameStatus; progress?: any }
+): Promise<CardGameRow> {
+  await ensureCsrfCookie();
+  return await request<CardGameRow>(`/api/card-games/${id}/progress`, { method: "PATCH", json: payload });
 }
 
 export async function adminDeleteHangmanGame(id: number): Promise<void> {

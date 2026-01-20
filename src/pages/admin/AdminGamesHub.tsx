@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3 } from "lucide-react";
+import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AdminGamesHub() {
@@ -161,6 +161,28 @@ export default function AdminGamesHub() {
                     Gerenciar <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                   <Button onClick={() => navigate("/admin/jogos/caca-palavras/novo")} variant="secondary">
+                    Novo jogo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm h-full">
+            <div className="flex items-start gap-4 h-full">
+              <div className="h-12 w-12 rounded-2xl bg-brand-brown/10 flex items-center justify-center">
+                <Layers className="h-6 w-6 text-brand-brown" />
+              </div>
+              <div className="flex-1 flex flex-col h-full">
+                <h2 className="font-display font-bold text-foreground text-xl">Jogo das Cartas</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Vire cartas do baralho, empilhe cartas abertas e embaralhe quando quiser.
+                </p>
+                <div className="mt-auto pt-4 flex flex-wrap gap-2 items-center">
+                  <Button onClick={() => navigate("/admin/jogos/cartas")} variant="default" className="bg-brand-brown hover:bg-brand-brown/90">
+                    Gerenciar <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                  <Button onClick={() => navigate("/admin/jogos/cartas/novo")} variant="secondary">
                     Novo jogo
                   </Button>
                 </div>

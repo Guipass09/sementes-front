@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Grid3X3, Play, Image as ImageIcon, Ear, Type, ChevronDown, Gamepad2, CircleDot } from "lucide-react";
+import { Grid3X3, Play, Image as ImageIcon, Ear, Type, ChevronDown, Gamepad2, CircleDot, Layers } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
-import type { MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, PhonemeGameRow, WordSearchGameRow } from "@/lib/laravel-api";
+import type { MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, PhonemeGameRow, WordSearchGameRow, CardGameRow } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import {
@@ -24,6 +24,7 @@ export default function PatientMemoryGames() {
   const [hangmanGames, setHangmanGames] = useState<HangmanGameRow[]>([]);
   const [spinWheelGames, setSpinWheelGames] = useState<SpinWheelGameRow[]>([]);
   const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
+  const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
 
   useEffect(() => {
     if (!auth.user) return;
@@ -31,7 +32,7 @@ export default function PatientMemoryGames() {
     (async () => {
       setLoading(true);
       try {
-        const [memClassic, memV2, phon, aud, hang, spin, ws] = await Promise.all([
+        const [memClassic, memV2, phon, aud, hang, spin, ws, cards] = await Promise.all([
           api.userListMemoryGames({ variant: "classic" }).catch(err => {
             console.error("[Jogos] Erro ao buscar memory games:", err);
             return [];
@@ -60,6 +61,10 @@ export default function PatientMemoryGames() {
             console.error("[Jogos] Erro ao buscar word search games:", err);
             return [];
           }),
+          api.userListCardGames().catch(err => {
+            console.error("[Jogos] Erro ao buscar card games:", err);
+            return [];
+          }),
         ]);
         if (!cancelled) {
           console.log("[Jogos] Resultados:", {
@@ -78,6 +83,7 @@ export default function PatientMemoryGames() {
           setHangmanGames(hang);
           setSpinWheelGames(spin);
           setWordSearchGames(ws);
+          setCardGames(cards);
         }
       } catch (error) {
         console.error("[Jogos] Erro geral ao buscar jogos:", error);
@@ -89,6 +95,7 @@ export default function PatientMemoryGames() {
           setHangmanGames([]);
           setSpinWheelGames([]);
           setWordSearchGames([]);
+          setCardGames([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -100,7 +107,14 @@ export default function PatientMemoryGames() {
   }, [auth.user]);
 
   const totalGames =
-    games.length + gamesV2.length + phonemeGames.length + auditoryGames.length + hangmanGames.length + spinWheelGames.length + wordSearchGames.length;
+    games.length +
+    gamesV2.length +
+    phonemeGames.length +
+    auditoryGames.length +
+    hangmanGames.length +
+    spinWheelGames.length +
+    wordSearchGames.length +
+    cardGames.length;
 
   return (
     <div className="min-h-full py-8 lg:py-12">
@@ -149,6 +163,11 @@ export default function PatientMemoryGames() {
               <span className="text-muted-foreground">Roleta:</span>
               <span className="font-semibold text-foreground">{spinWheelGames.length}</span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-brand-brown"></div>
+              <span className="text-muted-foreground">Jogo das Cartas:</span>
+              <span className="font-semibold text-foreground">{cardGames.length}</span>
+            </div>
             <div className="ml-auto flex items-center gap-2">
               <span className="text-muted-foreground">Total:</span>
               <span className="font-bold text-foreground">{totalGames} jogos</span>
@@ -177,7 +196,7 @@ export default function PatientMemoryGames() {
             <p className="text-muted-foreground">Nenhum jogo disponível ainda.</p>
           </div>
         ) : (
-          <Accordion type="multiple" defaultValue={["memoria", "memoria2", "fonema", "auditivo", "forca", "roleta"]} className="space-y-4">
+          <Accordion type="multiple" defaultValue={["memoria", "memoria2", "fonema", "auditivo", "forca", "roleta", "cartas"]} className="space-y-4">
             {/* Jogos da Memória */}
             {games.length > 0 && (
               <AccordionItem value="memoria" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
@@ -550,6 +569,59 @@ export default function PatientMemoryGames() {
                             <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
                             <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
                             <span className="text-xs text-brand-green font-medium">{g.words_count} palavra(s)</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
+            {/* Jogo das Cartas */}
+            {cardGames.length > 0 && (
+              <AccordionItem value="cartas" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-brown/10 flex items-center justify-center">
+                      <Layers className="h-5 w-5 text-brand-brown" />
+                    </div>
+                    <div className="text-left">
+                      <h2 className="text-lg font-display font-bold text-foreground">Jogo das Cartas</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {cardGames.length} jogo{cardGames.length !== 1 ? "s" : ""} disponível{cardGames.length !== 1 ? "is" : ""}
+                      </p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {cardGames.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => navigate(`/jogos/cartas/${g.id}`)}
+                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-brown/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-brown/40"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-xl bg-brand-brown/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {g.background_url ? (
+                              <img
+                                src={normalizeMediaUrl(g.background_url)}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg";
+                                }}
+                              />
+                            ) : (
+                              <Layers size={24} className="text-brand-brown" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
+                            <span className="text-xs text-brand-brown font-medium">{g.cards_count} carta(s)</span>
                           </div>
                         </div>
                       </button>

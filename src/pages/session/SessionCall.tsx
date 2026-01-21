@@ -885,6 +885,27 @@ export default function SessionCall() {
           }
         };
 
+        // Quando alguém adiciona tracks depois do handshake inicial (ex.: admin inicia câmera após já estar conectado),
+        // o WebRTC precisa renegociar. Alguns fluxos anteriores dependiam de "createOffer" manual e às vezes pulavam
+        // quando o signalingState não estava "stable". Usamos onnegotiationneeded + perfect negotiation.
+        pc.onnegotiationneeded = async () => {
+          const pc2 = pcRef.current;
+          if (!pc2) return;
+          try {
+            makingOfferRef.current = true;
+            const offer = await pc2.createOffer();
+            if (pc2.signalingState !== "stable") return;
+            await pc2.setLocalDescription(offer);
+            await send("webrtc_offer", {
+              sdp: { type: pc2.localDescription?.type, sdp: pc2.localDescription?.sdp },
+            });
+          } catch (e) {
+            console.warn("[WebRTC] onnegotiationneeded falhou", e);
+          } finally {
+            makingOfferRef.current = false;
+          }
+        };
+
         pc.onicecandidate = (ev) => {
           if (!ev.candidate) return;
           void send("webrtc_ice", { candidate: ev.candidate });

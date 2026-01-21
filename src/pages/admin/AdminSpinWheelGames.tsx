@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
 import type { SpinWheelGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
@@ -13,6 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 
 export default function AdminSpinWheelGames() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -21,10 +23,13 @@ export default function AdminSpinWheelGames() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SpinWheelGameRow | null>(null);
 
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
+
   const refresh = async () => {
     setLoading(true);
     try {
-      const data = await api.adminListSpinWheelGames();
+      const data = await (isProfessional ? api.professionalListSpinWheelGames() : api.adminListSpinWheelGames());
       setGames(data);
     } catch {
       toast({ title: "Erro ao carregar jogos", variant: "destructive" });
@@ -74,7 +79,7 @@ export default function AdminSpinWheelGames() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await api.adminDeleteSpinWheelGame(deleteTarget.id);
+      await (isProfessional ? api.professionalDeleteSpinWheelGame(deleteTarget.id) : api.adminDeleteSpinWheelGame(deleteTarget.id));
       toast({ title: "Roleta excluída!" });
       void refresh();
     } catch {
@@ -87,7 +92,7 @@ export default function AdminSpinWheelGames() {
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="mb-8 flex flex-col gap-3">
-          <Button variant="ghost" className="w-fit" onClick={() => navigate("/admin/jogos")}>
+          <Button variant="ghost" className="w-fit" onClick={() => navigate(`${base}/jogos`)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar para Jogos
           </Button>
@@ -106,7 +111,7 @@ export default function AdminSpinWheelGames() {
               </p>
             </div>
 
-            <Button onClick={() => navigate("/admin/jogos/roleta/novo")}>
+            <Button onClick={() => navigate(`${base}/jogos/roleta/novo`)}>
               <Plus className="h-4 w-4 mr-2" />
               Nova Roleta
             </Button>

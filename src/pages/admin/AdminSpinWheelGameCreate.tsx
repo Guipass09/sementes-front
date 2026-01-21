@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow } from "@/lib/laravel-api";
+import type { AdminUserRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
@@ -29,7 +29,7 @@ export default function AdminSpinWheelGameCreate() {
   const { toast } = useToast();
 
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -46,7 +46,7 @@ export default function AdminSpinWheelGameCreate() {
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.user) return navigate("/entrar");
-    if (auth.user.role !== "admin") return navigate("/paciente");
+    if (auth.user.role !== "admin" && auth.user.role !== "professional") return navigate("/paciente");
   }, [auth.loading, auth.user, navigate]);
 
   useEffect(() => {
@@ -54,9 +54,13 @@ export default function AdminSpinWheelGameCreate() {
     (async () => {
       setLoadingUsers(true);
       try {
-        const u = await api.adminListUsers();
+        const u = auth.user?.role === "professional" ? await api.professionalListUsers() : await api.adminListUsers();
         if (cancelled) return;
-        setUsers(u.filter((x) => x.role === "user"));
+        if (auth.user?.role === "professional") {
+          setUsers((u as any).data ?? []);
+        } else {
+          setUsers((u as any).filter((x: any) => x.role === "user"));
+        }
       } catch {
         toast({
           title: "Não foi possível carregar usuários",
@@ -162,7 +166,9 @@ export default function AdminSpinWheelGameCreate() {
 
     setSaving(true);
     try {
-      const created = await api.adminCreateSpinWheelGame({
+      const isProfessional = auth.user?.role === "professional";
+      const base = isProfessional ? "/profissional/jogos" : "/admin/jogos";
+      const created = await (isProfessional ? api.professionalCreateSpinWheelGame : api.adminCreateSpinWheelGame)({
         title: title.trim(),
         center_title: centerTitle.trim() || undefined,
         items_count: finalItemsCount,
@@ -173,7 +179,7 @@ export default function AdminSpinWheelGameCreate() {
       });
 
       toast({ title: "Roleta criada!", description: `"${created.title}" foi enviada para ${selectedUserIds.length} usuário(s).` });
-      navigate(`/jogos/roleta/${created.id}`);
+      navigate(`${base}/roleta`);
     } catch (e) {
       toast({ title: "Não foi possível criar", description: "Verifique os campos e tente novamente.", variant: "destructive" });
     } finally {

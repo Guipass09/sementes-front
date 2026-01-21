@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow, CardGameRow } from "@/lib/laravel-api";
+import type { AdminUserRow, CardGameRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
@@ -29,11 +29,13 @@ export default function AdminCardGameEdit() {
   const navigate = useNavigate();
   const auth = useAuth();
   const { toast } = useToast();
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional/jogos" : "/admin/jogos";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
   const [search, setSearch] = useState("");
 
   const [game, setGame] = useState<CardGameRow | null>(null);
@@ -50,7 +52,7 @@ export default function AdminCardGameEdit() {
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.user) return navigate("/entrar");
-    if (auth.user.role !== "admin") return navigate("/paciente");
+    if (auth.user.role !== "admin" && auth.user.role !== "professional") return navigate("/paciente");
   }, [auth.loading, auth.user, navigate]);
 
   useEffect(() => {
@@ -59,7 +61,10 @@ export default function AdminCardGameEdit() {
     (async () => {
       setLoading(true);
       try {
-        const [g, u] = await Promise.all([api.adminGetCardGame(gameId), api.adminListUsers()]);
+        const [g, u] = await Promise.all([
+          isProfessional ? api.professionalGetCardGame(gameId) : api.adminGetCardGame(gameId),
+          isProfessional ? api.professionalListUsers() : api.adminListUsers(),
+        ]);
         if (cancelled) return;
         setGame(g);
         setTitle(g.title || "");
@@ -72,11 +77,12 @@ export default function AdminCardGameEdit() {
         for (const c of existing) byPos.set(Number(c.position), c.url ? normalizeMediaUrl(c.url) : null);
         setCardImages(Array.from({ length: count }, (_, i) => ({ file: null, previewUrl: null, existingUrl: byPos.get(i) ?? null })));
         setReplaceCardImages(false);
-        setUsers(u.filter((x) => x.role === "user"));
+        if (isProfessional) setUsers((u as any).data ?? []);
+        else setUsers((u as any).filter((x: any) => x.role === "user"));
       } catch {
         if (!cancelled) {
           toast({ title: "Jogo", description: "Não foi possível carregar o jogo.", variant: "destructive" });
-          navigate("/admin/jogos/cartas");
+          navigate(`${base}/cartas`);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -162,7 +168,7 @@ export default function AdminCardGameEdit() {
 
     setSaving(true);
     try {
-      const updated = await api.adminUpdateCardGame(gameId, {
+      const updated = await (isProfessional ? api.professionalUpdateCardGame : api.adminUpdateCardGame)(gameId, {
         title: title.trim(),
         description: description.trim(),
         cards_count: n,
@@ -172,7 +178,7 @@ export default function AdminCardGameEdit() {
       });
       toast({ title: "Jogo atualizado", description: "Alterações salvas com sucesso." });
       setGame(updated);
-      navigate(`/jogos/cartas/${updated.id}`);
+      navigate(`${base}/cartas`);
     } catch {
       toast({ title: "Erro", description: "Não foi possível salvar agora.", variant: "destructive" });
     } finally {

@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow } from "@/lib/laravel-api";
+import type { AdminUserRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
@@ -30,7 +30,7 @@ export default function AdminHangmanGameCreate() {
   const { toast } = useToast();
 
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -45,7 +45,7 @@ export default function AdminHangmanGameCreate() {
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.user) return navigate("/entrar");
-    if (auth.user.role !== "admin") return navigate("/paciente");
+    if (auth.user.role !== "admin" && auth.user.role !== "professional") return navigate("/paciente");
   }, [auth.loading, auth.user, navigate]);
 
   useEffect(() => {
@@ -53,9 +53,13 @@ export default function AdminHangmanGameCreate() {
     (async () => {
       setLoadingUsers(true);
       try {
-        const u = await api.adminListUsers();
+        const u = auth.user?.role === "professional" ? await api.professionalListUsers() : await api.adminListUsers();
         if (cancelled) return;
-        setUsers(u.filter((x) => x.role === "user"));
+        if (auth.user?.role === "professional") {
+          setUsers((u as any).data ?? []);
+        } else {
+          setUsers((u as any).filter((x: any) => x.role === "user"));
+        }
       } catch {
         toast({ title: "Não foi possível carregar usuários", variant: "destructive" });
         if (!cancelled) setUsers([]);
@@ -124,7 +128,7 @@ export default function AdminHangmanGameCreate() {
 
     setSaving(true);
     try {
-      const created = await api.adminCreateHangmanGame({
+      const created = await (auth.user?.role === "professional" ? api.professionalCreateHangmanGame : api.adminCreateHangmanGame)({
         title: title.trim(),
         description: description.trim(),
         secret_word: secretWordInput,
@@ -132,7 +136,7 @@ export default function AdminHangmanGameCreate() {
         support_images: support.map((s) => s.file!).filter(Boolean),
       });
       toast({ title: "Jogo criado!", description: `“${created.title}” enviado para ${selectedUserIds.length} usuário(s).` });
-      navigate(`/admin/jogos/forca`);
+      navigate(auth.user?.role === "professional" ? `/profissional/jogos/forca` : `/admin/jogos/forca`);
     } catch {
       toast({ title: "Não foi possível criar", description: "Verifique os campos e tente novamente.", variant: "destructive" });
     } finally {

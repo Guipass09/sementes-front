@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow } from "@/lib/laravel-api";
+import type { AdminUserRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
@@ -28,7 +28,7 @@ export default function AdminCardGameCreate() {
   const { toast } = useToast();
 
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -45,7 +45,7 @@ export default function AdminCardGameCreate() {
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.user) return navigate("/entrar");
-    if (auth.user.role !== "admin") return navigate("/paciente");
+    if (auth.user.role !== "admin" && auth.user.role !== "professional") return navigate("/paciente");
   }, [auth.loading, auth.user, navigate]);
 
   useEffect(() => {
@@ -53,9 +53,13 @@ export default function AdminCardGameCreate() {
     (async () => {
       setLoadingUsers(true);
       try {
-        const u = await api.adminListUsers();
+        const u = auth.user?.role === "professional" ? await api.professionalListUsers() : await api.adminListUsers();
         if (cancelled) return;
-        setUsers(u.filter((x) => x.role === "user"));
+        if (auth.user?.role === "professional") {
+          setUsers((u as any).data ?? []);
+        } else {
+          setUsers((u as any).filter((x: any) => x.role === "user"));
+        }
       } catch {
         toast({
           title: "Não foi possível carregar usuários",
@@ -142,7 +146,9 @@ export default function AdminCardGameCreate() {
 
     setSaving(true);
     try {
-      const created = await api.adminCreateCardGame({
+      const isProfessional = auth.user?.role === "professional";
+      const base = isProfessional ? "/profissional/jogos" : "/admin/jogos";
+      const created = await (isProfessional ? api.professionalCreateCardGame : api.adminCreateCardGame)({
         title: title.trim(),
         description: description.trim(),
         cards_count: n,
@@ -151,7 +157,7 @@ export default function AdminCardGameCreate() {
         card_images: files,
       });
       toast({ title: "Jogo criado!", description: `"${created.title}" foi enviado para ${selectedUserIds.length} usuário(s).` });
-      navigate(`/jogos/cartas/${created.id}`);
+      navigate(`${base}/cartas`);
     } catch {
       toast({ title: "Não foi possível criar", description: "Verifique os campos e tente novamente.", variant: "destructive" });
     } finally {

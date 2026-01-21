@@ -7,27 +7,43 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import * as api from "@/lib/laravel-api";
-import type { CardGameRow, AdminUserRow } from "@/lib/laravel-api";
+import type { CardGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import { useAuth } from "@/auth/AuthContext";
 
 export default function AdminCardGames() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const auth = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [games, setGames] = useState<CardGameRow[]>([]);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string; profile_photo_url?: string | null }>>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CardGameRow | null>(null);
 
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
+
   const refresh = async () => {
     setLoading(true);
     try {
-      const [gamesData, usersData] = await Promise.all([api.adminListCardGames(), api.adminListUsers()]);
+      const [gamesData, usersData] = await Promise.all([
+        isProfessional ? api.professionalListCardGames() : api.adminListCardGames(),
+        isProfessional ? api.professionalListUsers() : api.adminListUsers(),
+      ]);
       setGames(gamesData);
-      setUsers(usersData.filter((u) => u.role === "user"));
+      const list = isProfessional ? (usersData as any).data ?? [] : (usersData as any).filter((u: any) => u.role === "user");
+      setUsers(
+        (list as any[]).map((x) => ({
+          id: x.id,
+          name: x.name,
+          email: x.email,
+          profile_photo_url: x.profile_photo_url ?? null,
+        }))
+      );
     } catch {
       toast({
         title: "Erro ao carregar jogos",
@@ -81,7 +97,7 @@ export default function AdminCardGames() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await api.adminDeleteCardGame(deleteTarget.id);
+      await (isProfessional ? api.professionalDeleteCardGame(deleteTarget.id) : api.adminDeleteCardGame(deleteTarget.id));
       toast({ title: "Jogo excluído", description: "O jogo foi removido com sucesso." });
       await refresh();
     } catch {
@@ -100,7 +116,7 @@ export default function AdminCardGames() {
             </h1>
             <p className="text-muted-foreground">Crie, edite e envie o jogo para usuários.</p>
           </div>
-          <Button onClick={() => navigate("/admin/jogos/cartas/novo")} className="w-full sm:w-auto bg-brand-brown text-white hover:bg-brand-brown/90">
+          <Button onClick={() => navigate(`${base}/jogos/cartas/novo`)} className="w-full sm:w-auto bg-brand-brown text-white hover:bg-brand-brown/90">
             Novo jogo
           </Button>
         </div>

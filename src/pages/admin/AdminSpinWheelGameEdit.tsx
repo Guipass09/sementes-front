@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow, SpinWheelGameRow } from "@/lib/laravel-api";
+import type { AdminUserRow, ProfessionalUserRow, SpinWheelGameRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
@@ -26,10 +26,12 @@ export default function AdminSpinWheelGameEdit() {
   const navigate = useNavigate();
   const auth = useAuth();
   const { toast } = useToast();
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional/jogos" : "/admin/jogos";
 
   const [loadingGame, setLoadingGame] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -44,7 +46,7 @@ export default function AdminSpinWheelGameEdit() {
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.user) return navigate("/entrar");
-    if (auth.user.role !== "admin") return navigate("/paciente");
+    if (auth.user.role !== "admin" && auth.user.role !== "professional") return navigate("/paciente");
   }, [auth.loading, auth.user, navigate]);
 
   // Load game data
@@ -55,7 +57,7 @@ export default function AdminSpinWheelGameEdit() {
     (async () => {
       setLoadingGame(true);
       try {
-        const game = await api.adminGetSpinWheelGame(Number(id));
+        const game = await (isProfessional ? api.professionalGetSpinWheelGame : api.adminGetSpinWheelGame)(Number(id));
         if (cancelled) return;
 
         setTitle(game.title);
@@ -73,7 +75,7 @@ export default function AdminSpinWheelGameEdit() {
         );
       } catch {
         toast({ title: "Erro ao carregar roleta", variant: "destructive" });
-        navigate("/admin/jogos/roleta");
+        navigate(`${base}/roleta`);
       } finally {
         if (!cancelled) setLoadingGame(false);
       }
@@ -90,9 +92,10 @@ export default function AdminSpinWheelGameEdit() {
     (async () => {
       setLoadingUsers(true);
       try {
-        const u = await api.adminListUsers();
+        const u = isProfessional ? await api.professionalListUsers() : await api.adminListUsers();
         if (cancelled) return;
-        setUsers(u.filter((x) => x.role === "user"));
+        if (isProfessional) setUsers((u as any).data ?? []);
+        else setUsers((u as any).filter((x: any) => x.role === "user"));
       } catch {
         toast({
           title: "Não foi possível carregar usuários",
@@ -209,9 +212,9 @@ export default function AdminSpinWheelGameEdit() {
         }
       }
 
-      await api.adminUpdateSpinWheelGame(Number(id), payload);
+      await (isProfessional ? api.professionalUpdateSpinWheelGame : api.adminUpdateSpinWheelGame)(Number(id), payload);
       toast({ title: "Roleta atualizada!" });
-      navigate("/admin/jogos/roleta");
+      navigate(`${base}/roleta`);
     } catch {
       toast({ title: "Erro ao atualizar", variant: "destructive" });
     } finally {

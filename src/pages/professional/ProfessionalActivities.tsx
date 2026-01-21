@@ -11,6 +11,7 @@ import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -76,15 +77,28 @@ export default function ProfessionalActivities(): JSX.Element {
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto" disabled>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  disabled={users.length === 0}
+                  title={users.length === 0 ? "Peça ao admin vincular usuários ao seu perfil" : "Criar jogo"}
+                >
                   <Grid3X3 size={20} className="mr-2" />
                   Criar Jogo
                   <ChevronDown className="h-4 w-4 ml-2 opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel>Novo jogo (em breve)</DropdownMenuLabel>
+                <DropdownMenuLabel>Novo jogo</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria/novo")}>Memória</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria2/novo")}>Memória 2.0</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/fonema/novo")}>Discriminação Fonema</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/auditivo/novo")}>Estimulação Auditiva</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/forca/novo")}>Forca</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/roleta/novo")}>Roleta Musical</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/caca-palavras/novo")}>Caça-palavras</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/cartas/novo")}>Jogo das Cartas</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button

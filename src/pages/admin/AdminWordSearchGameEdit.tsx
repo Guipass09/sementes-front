@@ -11,7 +11,7 @@ import { useAuth } from "@/auth/AuthContext";
 import { cn } from "@/lib/utils";
 import * as api from "@/lib/laravel-api";
 import { isApiError } from "@/lib/laravel-api";
-import type { AdminUserRow, WordSearchGameRow } from "@/lib/laravel-api";
+import type { AdminUserRow, ProfessionalUserRow, WordSearchGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 type WordInput = {
@@ -30,6 +30,8 @@ export default function AdminWordSearchGameEdit() {
   const navigate = useNavigate();
   const auth = useAuth();
   const { toast } = useToast();
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional/jogos" : "/admin/jogos";
 
   const gameId = useMemo(() => {
     const n = Number(id);
@@ -39,7 +41,7 @@ export default function AdminWordSearchGameEdit() {
   const [loading, setLoading] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [game, setGame] = useState<WordSearchGameRow | null>(null);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -56,19 +58,19 @@ export default function AdminWordSearchGameEdit() {
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.user) return navigate("/entrar");
-    if (auth.user.role !== "admin") return navigate("/paciente");
+    if (auth.user.role !== "admin" && auth.user.role !== "professional") return navigate("/paciente");
   }, [auth.loading, auth.user, navigate]);
 
   useEffect(() => {
     if (!gameId) {
-      navigate("/admin/jogos");
+      navigate(base);
       return;
     }
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const g = await api.adminGetWordSearchGame(gameId);
+        const g = await (isProfessional ? api.professionalGetWordSearchGame : api.adminGetWordSearchGame)(gameId);
         if (cancelled) return;
         setGame(g);
         setTitle(g.title);
@@ -88,7 +90,7 @@ export default function AdminWordSearchGameEdit() {
         if (cancelled) return;
         if (isApiError(e) && e.status === 404) {
           toast({ title: "Jogo não encontrado", variant: "destructive" });
-          navigate("/admin/jogos");
+          navigate(base);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -97,16 +99,17 @@ export default function AdminWordSearchGameEdit() {
     return () => {
       cancelled = true;
     };
-  }, [gameId, navigate, toast]);
+  }, [gameId, navigate, toast, base, isProfessional]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoadingUsers(true);
       try {
-        const u = await api.adminListUsers();
+        const u = isProfessional ? await api.professionalListUsers() : await api.adminListUsers();
         if (cancelled) return;
-        setUsers(u.filter((x) => x.role === "user"));
+        if (isProfessional) setUsers((u as any).data ?? []);
+        else setUsers((u as any).filter((x: any) => x.role === "user"));
       } catch {
         if (!cancelled) setUsers([]);
       } finally {
@@ -116,7 +119,7 @@ export default function AdminWordSearchGameEdit() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isProfessional]);
 
   useEffect(() => {
     setWordsCount((prev) => clamp(prev, 1, 9));
@@ -222,7 +225,7 @@ export default function AdminWordSearchGameEdit() {
 
     setSaving(true);
     try {
-      const updated = await api.adminUpdateWordSearchGame(gameId, {
+      const updated = await (isProfessional ? api.professionalUpdateWordSearchGame : api.adminUpdateWordSearchGame)(gameId, {
         title: title.trim(),
         description: description.trim(),
         assigned_to: selectedUserIds,
@@ -231,7 +234,7 @@ export default function AdminWordSearchGameEdit() {
         images: slice.map((w) => w.imageFile).filter((f): f is File => f !== null),
       });
       toast({ title: "Jogo atualizado!", description: `"${updated.title}" atualizado com sucesso.` });
-      navigate(`/jogos/caca-palavras/${updated.id}`);
+      navigate(`${base}/caca-palavras`);
     } catch (err: any) {
       const apiMessage = err?.data?.message || err?.data?.error || err?.message;
       console.error("Erro ao atualizar Caça-palavras:", err);

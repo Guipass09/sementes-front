@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow, HangmanGameRow } from "@/lib/laravel-api";
+import type { AdminUserRow, HangmanGameRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import { useAuth } from "@/auth/AuthContext";
 
 type SupportInput = { file: File | null; previewUrl: string | null; existingUrl?: string | null };
 
@@ -28,12 +29,15 @@ export default function AdminHangmanGameEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const auth = useAuth();
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
 
   const gameId = useMemo(() => Number(id), [id]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [game, setGame] = useState<HangmanGameRow | null>(null);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -60,14 +64,18 @@ export default function AdminHangmanGameEdit() {
     (async () => {
       setLoading(true);
       try {
-        const [g, u] = await Promise.all([api.adminGetHangmanGame(gameId), api.adminListUsers()]);
+        const [g, u] = await Promise.all([
+          isProfessional ? api.professionalGetHangmanGame(gameId) : api.adminGetHangmanGame(gameId),
+          isProfessional ? api.professionalListUsers() : api.adminListUsers(),
+        ]);
         if (cancelled) return;
         setGame(g);
         setTitle(g.title);
         setDescription(g.description);
         setSecretWordInput(g.secret_word ?? "");
         setSelectedUserIds((g.assigned_to ?? []).map((x) => x.id));
-        setUsers(u.filter((x) => x.role === "user"));
+        if (isProfessional) setUsers((u as any).data ?? []);
+        else setUsers((u as any).filter((x: any) => x.role === "user"));
         setSupport((g.support_images ?? []).map((it) => ({ file: null, previewUrl: normalizeMediaUrl(it.url), existingUrl: normalizeMediaUrl(it.url) })));
       } finally {
         if (!cancelled) setLoading(false);
@@ -129,7 +137,7 @@ export default function AdminHangmanGameEdit() {
 
     setSaving(true);
     try {
-      const updated = await api.adminUpdateHangmanGame(game.id, {
+      const updated = await (isProfessional ? api.professionalUpdateHangmanGame : api.adminUpdateHangmanGame)(game.id, {
         title: title.trim(),
         description: description.trim(),
         secret_word: secretWordInput,
@@ -139,7 +147,7 @@ export default function AdminHangmanGameEdit() {
       });
       setGame(updated);
       toast({ title: "Jogo atualizado!" });
-      navigate(`/admin/jogos/forca`);
+      navigate(`${base}/jogos/forca`);
     } catch {
       toast({ title: "Não foi possível salvar", variant: "destructive" });
     } finally {
@@ -155,9 +163,9 @@ export default function AdminHangmanGameEdit() {
   const confirmDelete = async () => {
     if (!game) return;
     try {
-      await api.adminDeleteHangmanGame(game.id);
+      await (isProfessional ? api.professionalDeleteHangmanGame(game.id) : api.adminDeleteHangmanGame(game.id));
       toast({ title: "Jogo excluído" });
-      navigate("/admin/jogos/forca");
+      navigate(`${base}/jogos/forca`);
     } catch {
       toast({ title: "Não foi possível excluir", variant: "destructive" });
     }

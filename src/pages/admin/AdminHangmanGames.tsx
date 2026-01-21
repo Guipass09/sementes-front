@@ -6,27 +6,43 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow, HangmanGameRow } from "@/lib/laravel-api";
+import type { HangmanGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 
 export default function AdminHangmanGames() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [games, setGames] = useState<HangmanGameRow[]>([]);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string; profile_photo_url?: string | null }>>([]);
   const [search, setSearch] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<HangmanGameRow | null>(null);
 
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
+
   const refresh = async () => {
     setLoading(true);
     try {
-      const [res, u] = await Promise.all([api.adminListHangmanGames(), api.adminListUsers()]);
+      const [res, u] = await Promise.all([
+        isProfessional ? api.professionalListHangmanGames() : api.adminListHangmanGames(),
+        isProfessional ? api.professionalListUsers() : api.adminListUsers(),
+      ]);
       setGames(res);
-      setUsers(u.filter((x) => x.role === "user"));
+      const list = isProfessional ? (u as any).data ?? [] : (u as any).filter((x: any) => x.role === "user");
+      setUsers(
+        (list as any[]).map((x) => ({
+          id: x.id,
+          name: x.name,
+          email: x.email,
+          profile_photo_url: x.profile_photo_url ?? null,
+        }))
+      );
     } finally {
       setLoading(false);
     }
@@ -69,7 +85,7 @@ export default function AdminHangmanGames() {
             </h1>
             <p className="text-muted-foreground">Crie, edite e envie jogos da forca para usuários</p>
           </div>
-          <Button onClick={() => navigate("/admin/jogos/forca/novo")} className="w-full sm:w-auto bg-brand-orange text-white hover:bg-brand-orange/90">
+          <Button onClick={() => navigate(`${base}/jogos/forca/novo`)} className="w-full sm:w-auto bg-brand-orange text-white hover:bg-brand-orange/90">
             <Plus size={20} className="mr-2" />
             Criar Jogo
           </Button>
@@ -179,7 +195,7 @@ export default function AdminHangmanGames() {
                                   variant="outline"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate(`/admin/jogos/forca/${g.id}/editar`);
+                                    navigate(`${base}/jogos/forca/${g.id}/editar`);
                                   }}
                                 >
                                   <Pencil className="h-4 w-4 mr-2" />
@@ -226,7 +242,7 @@ export default function AdminHangmanGames() {
         variant="danger"
         onConfirm={() => {
           if (!deleteTarget) return;
-          void api.adminDeleteHangmanGame(deleteTarget.id).then(() => {
+          void (isProfessional ? api.professionalDeleteHangmanGame(deleteTarget.id) : api.adminDeleteHangmanGame(deleteTarget.id)).then(() => {
             toast({ title: "Jogo excluído" });
             void refresh();
           });

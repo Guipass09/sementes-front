@@ -599,22 +599,24 @@ export default function CardGameView() {
               height: 46vh;
             }
             .cg-deck{
-              left: 3% !important;
+              /* margens maiores para não encostar nas bordas e não sobrepor com a pilha da direita */
+              left: 4% !important;
               top: 56% !important;
-              width: 44% !important;
+              width: 41% !important;
               max-width: none !important;
               transform: translateY(-50%) !important;
             }
             .cg-open-stack{
-              right: 3% !important;
+              right: 4% !important;
               top: 56% !important;
-              width: 52% !important;
+              width: 49% !important;
               max-width: none !important;
               transform: translateY(-50%) !important;
             }
             .cg-open-card{
-              width: 96% !important;
-              height: 96% !important;
+              /* um pouco menor para nunca cortar/encostar na borda */
+              width: 94% !important;
+              height: 94% !important;
             }
           }
         `}</style>

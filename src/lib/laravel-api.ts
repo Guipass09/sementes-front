@@ -804,6 +804,7 @@ export async function adminDeleteCustomPackage(id: number): Promise<void> {
 export async function adminCreateRecurringAppointments(payload: {
   user_id: number;
   professional_name: string;
+  professional_user_id?: number | null;
   start_date: string; // YYYY-MM-DD (define o dia da semana)
   session_time: string; // HH:mm
   quantity: number; // quantidade de sessões a criar
@@ -813,6 +814,35 @@ export async function adminCreateRecurringAppointments(payload: {
     method: "POST",
     json: payload,
   });
+}
+
+export async function adminGetUserProfessionals(userId: number): Promise<{ professional_ids: number[] }> {
+  return await request<{ professional_ids: number[] }>(`/api/admin/users/${userId}/professionals`);
+}
+
+export async function adminSetUserProfessionals(userId: number, professional_ids: number[]): Promise<{ professional_ids: number[] }> {
+  await ensureCsrfCookie();
+  return await request<{ professional_ids: number[] }>(`/api/admin/users/${userId}/professionals`, {
+    method: "PUT",
+    json: { professional_ids },
+  });
+}
+
+export type ProfessionalPatientRow = {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  child_age?: number | null;
+};
+
+export async function professionalListPatients(): Promise<ProfessionalPatientRow[]> {
+  const res = await request<{ data: ProfessionalPatientRow[] }>("/api/professional/patients");
+  return res.data ?? [];
+}
+
+export async function professionalGetPatientOverview(userId: number): Promise<any> {
+  return await request(`/api/professional/patients/${userId}/overview`);
 }
 
 export async function adminDeleteAppointment(id: number): Promise<void> {

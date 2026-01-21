@@ -11,6 +11,7 @@ import {
   FileText,
   Shield,
   ShieldOff,
+  Share2,
   Trash2,
   CheckCircle2,
   Package,
@@ -30,6 +31,7 @@ import {
   adminDeleteAllAppointmentsForUser,
   adminDeleteCustomPackage,
   adminGetUserProgressSummary,
+  adminGetUserProfessionals,
   adminListCustomPackages,
   adminListProfessionals,
   adminListUsers,
@@ -38,6 +40,7 @@ import {
   adminUpdateUser,
   adminUpdateProfessional,
   adminDeleteProfessional,
+  adminSetUserProfessionals,
   isApiError,
 } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -114,6 +117,11 @@ const AdminUsers = () => {
   const [deleteProfessionalTarget, setDeleteProfessionalTarget] = useState<ProfessionalData | null>(null);
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isProfessionalDialogOpen, setIsProfessionalDialogOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignTarget, setAssignTarget] = useState<UserData | null>(null);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignPros, setAssignPros] = useState<Array<{ id: number; name: string; email: string }>>([]);
+  const [assignSelected, setAssignSelected] = useState<number[]>([]);
   const [progressSummary, setProgressSummary] = useState<null | {
     activities: { total: number; disponivel: number; em_andamento: number; concluida: number };
     memory_games: { total: number; disponivel: number; concluido: number };
@@ -548,6 +556,43 @@ const AdminUsers = () => {
     void reloadCustomPackages(user.id);
   };
 
+  const openAssignProfessionals = async (u: UserData) => {
+    setAssignTarget(u);
+    setAssignOpen(true);
+    setAssignLoading(true);
+    try {
+      const [pros, current] = await Promise.all([adminListProfessionals(), adminGetUserProfessionals(u.id)]);
+      setAssignPros((pros ?? []).map((p) => ({ id: p.id, name: p.name, email: p.email })));
+      setAssignSelected(current.professional_ids ?? []);
+    } catch {
+      setAssignPros([]);
+      setAssignSelected([]);
+      toast({ title: "Erro", description: "Não foi possível carregar profissionais.", variant: "destructive" });
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const toggleAssignPro = (pid: number) => {
+    setAssignSelected((prev) => (prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]));
+  };
+
+  const saveAssign = async () => {
+    if (!assignTarget) return;
+    setAssignLoading(true);
+    try {
+      await adminSetUserProfessionals(assignTarget.id, assignSelected);
+      toast({ title: "Paciente encaminhado", description: "Vínculos atualizados com sucesso." });
+      setAssignOpen(false);
+      setAssignTarget(null);
+    } catch (e) {
+      const msg = isApiError(e) ? e.message : "Não foi possível salvar.";
+      toast({ title: "Erro", description: msg, variant: "destructive" });
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
   const openProfessionalProfile = (p: ProfessionalData) => {
     setSelectedProfessional(p);
     setIsProfessionalDialogOpen(true);
@@ -778,6 +823,14 @@ const AdminUsers = () => {
                   >
                     <Eye size={16} className="mr-2" />
                     Ver Perfil
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void openAssignProfessionals(user)}
+                  >
+                    <Share2 size={16} className="mr-2" />
+                    Encaminhar
                   </Button>
                   <Button
                     variant="outline"
@@ -1741,6 +1794,59 @@ const AdminUsers = () => {
           variant="danger"
           onConfirm={() => void confirmDeleteUser()}
         />
+
+        <Dialog
+          open={assignOpen}
+          onOpenChange={(open) => {
+            setAssignOpen(open);
+            if (!open) {
+              setAssignTarget(null);
+              setAssignPros([]);
+              setAssignSelected([]);
+            }
+          }}
+        >
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Encaminhar paciente para profissionais</DialogTitle>
+              <DialogDescription>
+                {assignTarget ? `Paciente: ${assignTarget.name}` : "Selecione profissionais para este paciente."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {assignLoading ? (
+                <div className="text-sm text-muted-foreground">Carregando...</div>
+              ) : assignPros.length === 0 ? (
+                <div className="text-sm text-muted-foreground">Nenhum profissional cadastrado.</div>
+              ) : (
+                <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                  {assignPros.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => toggleAssignPro(p.id)}
+                      className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${
+                        assignSelected.includes(p.id) ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+                      }`}
+                    >
+                      <div className="font-medium text-foreground">{p.name}</div>
+                      <div className="text-xs text-muted-foreground">{p.email}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setAssignOpen(false)} disabled={assignLoading}>
+                  Cancelar
+                </Button>
+                <Button onClick={() => void saveAssign()} disabled={assignLoading || !assignTarget}>
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <BrandedConfirmDialog
           open={deleteProfessionalOpen}

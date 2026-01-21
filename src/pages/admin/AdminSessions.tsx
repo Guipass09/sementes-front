@@ -15,6 +15,7 @@ import {
   adminCreateRecurringAppointments,
   adminDeleteAppointment,
   adminListAppointments,
+  adminListProfessionals,
   adminListUsers,
   adminUpdateAppointmentStatus,
   isApiError,
@@ -22,6 +23,7 @@ import {
 import type { JoinSessionMeta } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { emitAdminDataChanged } from "@/lib/admin-events";
+import { useAuth } from "@/auth/AuthContext";
 
 interface SessionData {
   id: number;
@@ -69,18 +71,21 @@ const formatDate = (dateStr: string) => {
 const AdminSessions = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const auth = useAuth();
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<SessionData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [users, setUsers] = useState<Array<{ id: number; name: string; email: string }>>([]);
+  const [professionals, setProfessionals] = useState<Array<{ id: number; name: string; email: string }>>([]);
   const [formData, setFormData] = useState({
     userId: "",
     date: "",
     time: "",
     type: "",
     professional: "",
+    professionalUserId: "__ADMIN__",
     totalSessions: 1,
     status: "agendada" as SessionData["status"],
     notes: "",
@@ -102,14 +107,16 @@ const AdminSessions = () => {
     let mounted = true;
     (async () => {
       try {
-        const list = await adminListUsers();
+        const [list, pros] = await Promise.all([adminListUsers(), adminListProfessionals()]);
         const onlyUsers = list
           .filter((u) => u.role === "user")
           .map((u) => ({ id: u.id, name: u.name, email: u.email }));
         if (mounted) setUsers(onlyUsers);
+        if (mounted) setProfessionals((pros ?? []).map((p) => ({ id: p.id, name: p.name, email: p.email })));
       } catch {
         // sem fallback fake: se falhar, apenas mantém vazio
         if (mounted) setUsers([]);
+        if (mounted) setProfessionals([]);
       }
     })();
     return () => {
@@ -215,6 +222,7 @@ const AdminSessions = () => {
         time: session.time,
         type: session.type,
         professional: session.professional,
+        professionalUserId: "", // compat: sessões antigas não têm id; admin pode ajustar ao editar
         totalSessions: session.totalSessions ?? 1,
         status: session.status,
         notes: session.notes || "",
@@ -226,7 +234,8 @@ const AdminSessions = () => {
         date: "",
         time: "",
         type: "",
-        professional: "",
+        professional: auth.user?.name ?? "Admin",
+        professionalUserId: "__ADMIN__",
         totalSessions: 1,
         status: "agendada",
         notes: "",
@@ -244,7 +253,8 @@ const AdminSessions = () => {
       date: "",
       time: "",
       type: "",
-      professional: "",
+      professional: auth.user?.name ?? "Admin",
+      professionalUserId: "__ADMIN__",
       totalSessions: 1,
       status: "agendada",
       notes: "",
@@ -268,6 +278,10 @@ const AdminSessions = () => {
       await adminCreateRecurringAppointments({
         user_id: userId,
         professional_name: formData.professional.trim(),
+        professional_user_id:
+          formData.professionalUserId && formData.professionalUserId !== "__ADMIN__"
+            ? Number(formData.professionalUserId)
+            : null,
         start_date: formData.date,
         session_time: formData.time,
         quantity: Math.max(1, Number(formData.totalSessions) || 1),
@@ -605,12 +619,30 @@ const AdminSessions = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="professional">Profissional</Label>
-                <Input
-                  id="professional"
-                  value={formData.professional}
-                  onChange={(e) => setFormData({ ...formData, professional: e.target.value })}
-                  placeholder="Ex: Dra. Maria Silva"
-                />
+                <Select
+                  value={formData.professionalUserId}
+                  onValueChange={(v) => {
+                    if (v === "__ADMIN__") {
+                      setFormData((p) => ({ ...p, professionalUserId: v, professional: auth.user?.name ?? "Admin" }));
+                      return;
+                    }
+                    const pid = Number(v);
+                    const pro = professionals.find((x) => x.id === pid);
+                    setFormData((p) => ({ ...p, professionalUserId: v, professional: pro?.name ?? p.professional }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um profissional" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__ADMIN__">Admin (eu)</SelectItem>
+                    {professionals.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Prévia das datas geradas (semanal) */}

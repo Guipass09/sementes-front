@@ -27,6 +27,7 @@ import ProfessionalDashboard from "./pages/professional/ProfessionalDashboard";
 import ProfessionalActivities from "./pages/professional/ProfessionalActivities";
 import ProfessionalReports from "./pages/professional/ProfessionalReports";
 import ProfessionalSessions from "./pages/professional/ProfessionalSessions";
+import ProfessionalPatients from "./pages/professional/ProfessionalPatients";
 import AdminLayout from "./components/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -139,6 +140,7 @@ const App = () => {
                 }
               >
                 <Route index element={<ProfessionalDashboard />} />
+                <Route path="pacientes" element={<ProfessionalPatients />} />
                 <Route path="atividades" element={<ProfessionalActivities />} />
                 <Route path="jogos" element={<ProfessionalHome />} />
                 <Route path="horarios" element={<ProfessionalSessions />} />

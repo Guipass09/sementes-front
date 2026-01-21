@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { Suspense } from "react";
 import { AuthProvider } from "@/auth/AuthContext";
-import { RequireAdmin, RequireUser } from "@/auth/RequireRole";
+import { RequireAdmin, RequireProfessional, RequireUser } from "@/auth/RequireRole";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
@@ -21,6 +21,8 @@ import PatientActivities from "./pages/patient/PatientActivities";
 import PatientSessions from "./pages/patient/PatientSessions";
 import PatientReports from "./pages/patient/PatientReports";
 import PatientPackages from "./pages/patient/PatientPackages";
+import ProfessionalLayout from "./components/ProfessionalLayout";
+import ProfessionalHome from "./pages/professional/ProfessionalHome";
 import AdminLayout from "./components/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -121,6 +123,18 @@ const App = () => {
                 <Route path="sessoes" element={<PatientSessions />} />
                 <Route path="relatorios" element={<PatientReports />} />
                 <Route path="pacotes" element={<PatientPackages />} />
+              </Route>
+
+              {/* Professional Routes (novo ambiente) */}
+              <Route
+                path="/profissional"
+                element={
+                  <RequireProfessional>
+                    <ProfessionalLayout />
+                  </RequireProfessional>
+                }
+              >
+                <Route index element={<ProfessionalHome />} />
               </Route>
 
               {/* Admin Routes */}

@@ -11,6 +11,16 @@ type AuthContextValue = {
   loadUser: () => Promise<AuthUser | null>;
   login: (params: { email: string; password: string; remember?: boolean }) => Promise<AuthUser>;
   register: (params: { name: string; email: string; phone: string; child_age?: number | null; password: string; password_confirmation: string }) => Promise<AuthUser>;
+  registerProfessional: (params: {
+    name: string;
+    email: string;
+    phone: string;
+    professional_age: number;
+    professional_crfa: string;
+    professional_registration: string;
+    password: string;
+    password_confirmation: string;
+  }) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
 
@@ -18,11 +28,13 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Função auxiliar para normalizar role (mesma lógica do normalizeRole mas sem callback)
-  const normalizeRoleSync = (role: any): "admin" | "user" => {
+  const normalizeRoleSync = (role: any): "admin" | "user" | "professional" => {
     if (!role) return "user";
     const r = String(role).toLowerCase().trim();
     const isAdmin = r === "admin" || r.includes("admin") || r.includes("administrador") || r.includes("administrator");
-    return isAdmin ? "admin" : "user";
+    if (isAdmin) return "admin";
+    const isProfessional = r === "professional" || r.includes("professional") || r.includes("profissional");
+    return isProfessional ? "professional" : "user";
   };
 
   // Inicializar estado a partir do localStorage para evitar chamadas desnecessárias a /api/me
@@ -49,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const didInitialSyncRef = useRef(false);
 
-  const normalizeRole = useCallback((role: any): "admin" | "user" => {
+  const normalizeRole = useCallback((role: any): "admin" | "user" | "professional" => {
     if (!role) {
       console.log("🔍 [normalizeRole] Role vazio/null, retornando 'user'");
       return "user";
@@ -63,6 +75,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isAdmin) {
       return "admin";
     }
+    const isProfessional = r === "professional" || r.includes("professional") || r.includes("profissional");
+    if (isProfessional) return "professional";
     return "user";
   }, []);
 
@@ -223,6 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Verificação definitiva do role para redirecionamento
         const finalRole = String(user.role || "").toLowerCase().trim();
         const isAdmin = finalRole === "admin" || finalRole.includes("admin") || finalRole.includes("administrador");
+        const isProfessional = finalRole === "professional" || finalRole.includes("professional") || finalRole.includes("profissional");
         
         console.log("🔍 [LOGIN DEBUG] Verificação final - finalRole:", finalRole, "isAdmin:", isAdmin);
         
@@ -230,6 +245,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (isAdmin) {
           console.log("✅ [LOGIN] ADMIN detectado! Redirecionando para /admin");
           window.location.href = "/admin";
+        } else if (isProfessional) {
+          console.log("✅ [LOGIN] PROFESSIONAL detectado! Redirecionando para /profissional");
+          window.location.href = "/profissional";
         } else {
           console.log("✅ [LOGIN] USER detectado! Redirecionando para /paciente");
           window.location.href = "/paciente";
@@ -327,6 +345,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return userData as AuthUser;
   }, [setAuthUser, normalizeRole]);
 
+  const registerProfessional = useCallback(
+    async (params: {
+      name: string;
+      email: string;
+      phone: string;
+      professional_age: number;
+      professional_crfa: string;
+      professional_registration: string;
+      password: string;
+      password_confirmation: string;
+    }) => {
+      const res = await api.registerProfessional(params as any);
+
+      if (!(res as any)?.token || !(res as any)?.user) {
+        throw new Error("Resposta de cadastro (profissional) inválida");
+      }
+
+      localStorage.setItem("token", (res as any).token);
+      const userData = { ...(res as any).user } as AuthUser & any;
+      userData.role = normalizeRole(userData.role || "professional");
+      userData.access = userData.access ?? { atividades: false, horarios: false, relatorios: false };
+
+      localStorage.setItem("user", JSON.stringify(userData));
+      setAuthUser(userData as AuthUser);
+
+      window.location.href = "/profissional";
+      return userData as AuthUser;
+    },
+    [setAuthUser, normalizeRole]
+  );
+
   const logout = useCallback(async () => {
     try {
       // attempt to revoke token on backend
@@ -346,8 +395,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [setAuthUser]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, refresh, setAuthUser, loadUser, login, register, logout }),
-    [user, loading, refresh, setAuthUser, loadUser, login, register, logout]
+    () => ({ user, loading, refresh, setAuthUser, loadUser, login, register, registerProfessional, logout }),
+    [user, loading, refresh, setAuthUser, loadUser, login, register, registerProfessional, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

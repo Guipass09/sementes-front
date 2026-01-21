@@ -59,6 +59,24 @@ export function RequireUser({ children }: { children: React.ReactNode }) {
     // If user is admin, redirect to admin area immediately
     return <Navigate to="/admin" replace />;
   }
+  // Se for profissional, vai para ambiente do profissional
+  if (role === "professional" || role.includes("professional") || role.includes("profissional")) {
+    return <Navigate to="/profissional" replace />;
+  }
+  return <>{children}</>;
+}
+
+export function RequireProfessional({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <FullScreenLogoLoader label="Carregando..." />;
+  if (!user) return <Navigate to="/entrar" replace />;
+  const role = String(user.role || "").toLowerCase().trim();
+  if (role === "admin" || role.includes("admin") || role.includes("administrador") || role.includes("administrator")) {
+    return <Navigate to="/admin" replace />;
+  }
+  if (!(role === "professional" || role.includes("professional") || role.includes("profissional"))) {
+    return <Navigate to="/paciente" replace />;
+  }
   return <>{children}</>;
 }
 

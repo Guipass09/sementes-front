@@ -31,19 +31,24 @@ import {
   adminDeleteCustomPackage,
   adminGetUserProgressSummary,
   adminListCustomPackages,
+  adminListProfessionals,
   adminListUsers,
   adminUpdateAppointmentStatus,
   adminUpdateCustomPackage,
   adminUpdateUser,
+  adminUpdateProfessional,
+  adminDeleteProfessional,
   isApiError,
 } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { emitAdminDataChanged, onAdminDataChanged } from "@/lib/admin-events";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { ReportFormModal } from "@/features/reports/ReportFormModal";
-import type { CustomPackageRow, ReportType } from "@/lib/laravel-api";
+import type { AdminProfessionalRow, CustomPackageRow, ReportType } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+
+type AdminUsersMode = "users" | "professionals";
 
 interface UserAccess {
   atividades: boolean;
@@ -65,6 +70,19 @@ interface UserData {
   purchase_intent_at?: string | null;
 }
 
+interface ProfessionalData {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  blocked: boolean;
+  access: UserAccess;
+  professional_age?: number | null;
+  professional_crfa?: string | null;
+  professional_registration?: string | null;
+  assigned_users_count?: number;
+}
+
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr + "T00:00:00");
   return date.toLocaleDateString("pt-BR", {
@@ -83,14 +101,20 @@ const formatMoney = (value: number | string) => {
 
 const AdminUsers = () => {
   const { toast } = useToast();
+  const [mode, setMode] = useState<AdminUsersMode>("users");
   const [users, setUsers] = useState<UserData[]>([]);
+  const [professionals, setProfessionals] = useState<ProfessionalData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [selectedProfessional, setSelectedProfessional] = useState<ProfessionalData | null>(null);
   const [clearPurchaseOpen, setClearPurchaseOpen] = useState(false);
   const [deleteUserOpen, setDeleteUserOpen] = useState(false);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserData | null>(null);
+  const [deleteProfessionalOpen, setDeleteProfessionalOpen] = useState(false);
+  const [deleteProfessionalTarget, setDeleteProfessionalTarget] = useState<ProfessionalData | null>(null);
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
+  const [isProfessionalDialogOpen, setIsProfessionalDialogOpen] = useState(false);
   const [progressSummary, setProgressSummary] = useState<null | {
     activities: { total: number; disponivel: number; em_andamento: number; concluida: number };
     memory_games: { total: number; disponivel: number; concluido: number };
@@ -287,33 +311,72 @@ const AdminUsers = () => {
     setIsLoading(false);
   };
 
+  const reloadProfessionals = async () => {
+    setIsLoading(true);
+    try {
+      const list = await adminListProfessionals();
+      const onlyPros: ProfessionalData[] = (list ?? []).map((p: AdminProfessionalRow) => ({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        phone: p.phone ?? null,
+        blocked: !!p.blocked,
+        access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
+        professional_age: (p as any).professional_age ?? null,
+        professional_crfa: (p as any).professional_crfa ?? null,
+        professional_registration: (p as any).professional_registration ?? null,
+        assigned_users_count: (p as any).assigned_users_count ?? 0,
+      }));
+      setProfessionals(onlyPros);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     (async () => {
       setIsLoading(true);
       try {
-        const list = await adminListUsers();
-        const onlyUsers = list
-          .filter((u) => u.role === "user")
-          .map((u) => ({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            phone: u.phone ?? null,
-            child_age: u.child_age ?? null,
-            blocked: u.blocked,
-            access: u.access,
-            profile_description: u.profile_description ?? null,
-            profile_photo_url: u.profile_photo_url ?? null,
-            purchase_intent_message: u.purchase_intent_message ?? null,
-            purchase_intent_at: u.purchase_intent_at ?? null,
+        if (mode === "professionals") {
+          const list = await adminListProfessionals();
+          const onlyPros: ProfessionalData[] = (list ?? []).map((p: AdminProfessionalRow) => ({
+            id: p.id,
+            name: p.name,
+            email: p.email,
+            phone: p.phone ?? null,
+            blocked: !!p.blocked,
+            access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
+            professional_age: (p as any).professional_age ?? null,
+            professional_crfa: (p as any).professional_crfa ?? null,
+            professional_registration: (p as any).professional_registration ?? null,
+            assigned_users_count: (p as any).assigned_users_count ?? 0,
           }));
-        if (mounted) setUsers(onlyUsers);
+          if (mounted) setProfessionals(onlyPros);
+        } else {
+          const list = await adminListUsers();
+          const onlyUsers = list
+            .filter((u) => u.role === "user")
+            .map((u) => ({
+              id: u.id,
+              name: u.name,
+              email: u.email,
+              phone: u.phone ?? null,
+              child_age: u.child_age ?? null,
+              blocked: u.blocked,
+              access: u.access,
+              profile_description: u.profile_description ?? null,
+              profile_photo_url: u.profile_photo_url ?? null,
+              purchase_intent_message: u.purchase_intent_message ?? null,
+              purchase_intent_at: u.purchase_intent_at ?? null,
+            }));
+          if (mounted) setUsers(onlyUsers);
+        }
       } catch (e) {
         if (mounted) {
           toast({
-            title: "Erro ao carregar usuários",
-            description: "Não foi possível buscar a lista de usuários.",
+            title: mode === "professionals" ? "Erro ao carregar profissionais" : "Erro ao carregar usuários",
+            description: mode === "professionals" ? "Não foi possível buscar a lista de profissionais." : "Não foi possível buscar a lista de usuários.",
             variant: "destructive",
           });
         }
@@ -324,7 +387,7 @@ const AdminUsers = () => {
     return () => {
       mounted = false;
     };
-  }, [toast]);
+  }, [toast, mode]);
 
   const handleDeleteUser = async (user: UserData) => {
     setDeleteUserTarget(user);
@@ -366,6 +429,12 @@ const AdminUsers = () => {
     );
   }, [users, searchTerm]);
 
+  const filteredProfessionals = useMemo(() => {
+    return professionals.filter(
+      (p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [professionals, searchTerm]);
+
   const handleSetBlocked = (userId: number, blocked: boolean) => {
     const current = users.find((u) => u.id === userId);
     if (!current) return;
@@ -395,6 +464,29 @@ const AdminUsers = () => {
       });
   };
 
+  const handleSetBlockedProfessional = (id: number, blocked: boolean) => {
+    const current = professionals.find((p) => p.id === id);
+    if (!current) return;
+    if (current.blocked === blocked) return;
+
+    setProfessionals((prev) => prev.map((p) => (p.id === id ? { ...p, blocked } : p)));
+    if (selectedProfessional?.id === id) setSelectedProfessional({ ...selectedProfessional, blocked });
+
+    void adminUpdateProfessional(id, { blocked })
+      .then((updated) => {
+        setProfessionals((prev) => prev.map((p) => (p.id === id ? { ...p, blocked: !!updated.blocked, access: (updated as any).access ?? p.access } : p)));
+        if (selectedProfessional?.id === id) {
+          setSelectedProfessional((prev) => (prev ? { ...prev, blocked: !!updated.blocked, access: (updated as any).access ?? prev.access } : prev));
+        }
+        emitAdminDataChanged();
+      })
+      .catch(() => {
+        setProfessionals((prev) => prev.map((p) => (p.id === id ? current : p)));
+        if (selectedProfessional?.id === id) setSelectedProfessional(current);
+        toast({ title: "Erro", description: "Não foi possível atualizar este profissional.", variant: "destructive" });
+      });
+  };
+
   const handleSetAccess = (userId: number, access: UserAccess) => {
     const current = users.find((u) => u.id === userId);
     if (!current) return;
@@ -419,6 +511,28 @@ const AdminUsers = () => {
       });
   };
 
+  const handleSetAccessProfessional = (id: number, access: UserAccess) => {
+    const current = professionals.find((p) => p.id === id);
+    if (!current) return;
+
+    setProfessionals((prev) => prev.map((p) => (p.id === id ? { ...p, access } : p)));
+    if (selectedProfessional?.id === id) setSelectedProfessional({ ...selectedProfessional, access });
+
+    void adminUpdateProfessional(id, { access })
+      .then((updated) => {
+        setProfessionals((prev) => prev.map((p) => (p.id === id ? { ...p, blocked: !!updated.blocked, access: (updated as any).access ?? access } : p)));
+        if (selectedProfessional?.id === id) {
+          setSelectedProfessional((prev) => (prev ? { ...prev, blocked: !!updated.blocked, access: (updated as any).access ?? access } : prev));
+        }
+        emitAdminDataChanged();
+      })
+      .catch(() => {
+        setProfessionals((prev) => prev.map((p) => (p.id === id ? current : p)));
+        if (selectedProfessional?.id === id) setSelectedProfessional(current);
+        toast({ title: "Erro", description: "Não foi possível atualizar o acesso.", variant: "destructive" });
+      });
+  };
+
   const openUserProfile = (user: UserData) => {
     setSelectedUser(user);
     setIsUserDialogOpen(true);
@@ -435,6 +549,32 @@ const AdminUsers = () => {
     // Busca horários/sessões do usuário para exibir alerta (bolinha) no perfil.
     void reloadSelectedUserAppointments(user.id);
     void reloadCustomPackages(user.id);
+  };
+
+  const openProfessionalProfile = (p: ProfessionalData) => {
+    setSelectedProfessional(p);
+    setIsProfessionalDialogOpen(true);
+  };
+
+  const confirmDeleteProfessional = async () => {
+    if (!deleteProfessionalTarget) return;
+    try {
+      await adminDeleteProfessional(deleteProfessionalTarget.id);
+      setProfessionals((prev) => prev.filter((p) => p.id !== deleteProfessionalTarget.id));
+      if (selectedProfessional?.id === deleteProfessionalTarget.id) {
+        setSelectedProfessional(null);
+        setIsProfessionalDialogOpen(false);
+      }
+      emitAdminDataChanged();
+      toast({ title: "Profissional excluído", description: "O profissional foi removido permanentemente." });
+    } catch (e) {
+      const msg = isApiError(e) ? e.message : "Não foi possível excluir este profissional.";
+      toast({ title: "Erro", description: msg, variant: "destructive" });
+    } finally {
+      try {
+        await reloadProfessionals();
+      } catch {}
+    }
   };
 
   const selectedUserTodayAlert = useMemo(() => {
@@ -497,8 +637,42 @@ const AdminUsers = () => {
             Gerenciamento de Usuários
           </h1>
           <p className="text-muted-foreground">
-            Visualize, bloqueie ou libere usuários e seus acessos específicos. Usuários são criados via cadastro público e aparecem automaticamente aqui.
+            Selecione Usuários ou Profissionais para gerenciar bloqueios e permissões.
           </p>
+        </div>
+
+        {/* Mode Toggle */}
+        <div className="mb-4 flex items-center justify-center">
+          <div className="inline-flex rounded-xl border border-border bg-background/70 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("users");
+                setSearchTerm("");
+                setSelectedProfessional(null);
+                setIsProfessionalDialogOpen(false);
+              }}
+              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                mode === "users" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Usuários
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("professionals");
+                setSearchTerm("");
+                setSelectedUser(null);
+                setIsUserDialogOpen(false);
+              }}
+              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                mode === "professionals" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Profissionais
+            </button>
+          </div>
         </div>
 
         {/* Search Bar */}
@@ -515,14 +689,15 @@ const AdminUsers = () => {
           </div>
         </div>
 
-        {/* Users List */}
+        {/* List */}
         <div className="space-y-4">
           {isLoading && (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">Carregando usuários...</p>
+              <p className="text-muted-foreground">{mode === "professionals" ? "Carregando profissionais..." : "Carregando usuários..."}</p>
             </div>
           )}
-          {filteredUsers.map((user, index) => (
+          {mode === "users" &&
+            filteredUsers.map((user, index) => (
             <div
               key={user.id}
               className="bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in"
@@ -637,13 +812,106 @@ const AdminUsers = () => {
               </div>
             </div>
           ))}
+
+          {mode === "professionals" &&
+            filteredProfessionals.map((p, index) => (
+              <div
+                key={p.id}
+                className="bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in"
+                style={{ animationDelay: `${0.05 * index}s` }}
+              >
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-purple to-brand-purple/70 flex items-center justify-center text-white font-semibold">
+                      {p.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-foreground">{p.name}</h3>
+                        {p.blocked && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
+                            Bloqueado
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">{p.email}</p>
+                      {p.phone && <p className="text-xs text-muted-foreground truncate">Celular: {p.phone}</p>}
+                      {(p.professional_crfa || p.professional_registration) && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {p.professional_crfa ? `CRFa: ${p.professional_crfa}` : ""}
+                          {p.professional_crfa && p.professional_registration ? " • " : ""}
+                          {p.professional_registration ? `Registro: ${p.professional_registration}` : ""}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1 text-xs">
+                      <Activity size={14} className={p.access.atividades ? "text-brand-green" : "text-muted-foreground"} />
+                      <span className={p.access.atividades ? "text-brand-green" : "text-muted-foreground"}>Atividades</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs">
+                      <Calendar size={14} className={p.access.horarios ? "text-brand-green" : "text-muted-foreground"} />
+                      <span className={p.access.horarios ? "text-brand-green" : "text-muted-foreground"}>Horários</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs">
+                      <FileText size={14} className={p.access.relatorios ? "text-brand-green" : "text-muted-foreground"} />
+                      <span className={p.access.relatorios ? "text-brand-green" : "text-muted-foreground"}>Relatórios</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openProfessionalProfile(p)}>
+                      <Eye size={16} className="mr-2" />
+                      Ver Perfil
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDeleteProfessionalTarget(p);
+                        setDeleteProfessionalOpen(true);
+                      }}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 size={16} className="mr-2" />
+                      Excluir
+                    </Button>
+                    <Button
+                      variant={p.blocked ? "default" : "destructive"}
+                      size="sm"
+                      onClick={() => handleSetBlockedProfessional(p.id, !p.blocked)}
+                    >
+                      {p.blocked ? (
+                        <>
+                          <Unlock size={16} className="mr-2" />
+                          Liberar
+                        </>
+                      ) : (
+                        <>
+                          <Lock size={16} className="mr-2" />
+                          Bloquear
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
         </div>
 
         {/* Empty State */}
-        {!isLoading && filteredUsers.length === 0 && (
+        {!isLoading && mode === "users" && filteredUsers.length === 0 && (
           <div className="text-center py-12">
             <Users size={48} className="mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">Nenhum usuário encontrado</p>
+          </div>
+        )}
+        {!isLoading && mode === "professionals" && filteredProfessionals.length === 0 && (
+          <div className="text-center py-12">
+            <Users size={48} className="mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">Nenhum profissional encontrado</p>
           </div>
         )}
 
@@ -1125,6 +1393,227 @@ const AdminUsers = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Professional Profile Dialog */}
+        <Dialog open={isProfessionalDialogOpen} onOpenChange={setIsProfessionalDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <User size={24} />
+                Perfil do Profissional
+              </DialogTitle>
+              <DialogDescription>Gerencie bloqueios, permissões e dados do profissional</DialogDescription>
+            </DialogHeader>
+
+            {selectedProfessional && (
+              <div className="space-y-6 mt-4">
+                <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
+                  <div className="w-16 h-16 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-purple to-brand-purple/70 flex items-center justify-center text-white font-semibold text-xl">
+                    {selectedProfessional.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-foreground text-lg">{selectedProfessional.name}</h3>
+                    <p className="text-sm text-muted-foreground">{selectedProfessional.email}</p>
+                    {selectedProfessional.phone && <p className="text-sm text-muted-foreground">Celular: {selectedProfessional.phone}</p>}
+                    {selectedProfessional.professional_age ? (
+                      <p className="text-sm text-muted-foreground">Idade: {selectedProfessional.professional_age} ano(s)</p>
+                    ) : null}
+                    {(selectedProfessional.professional_crfa || selectedProfessional.professional_registration) && (
+                      <p className="text-sm text-muted-foreground">
+                        {selectedProfessional.professional_crfa ? `CRFa: ${selectedProfessional.professional_crfa}` : ""}
+                        {selectedProfessional.professional_crfa && selectedProfessional.professional_registration ? " • " : ""}
+                        {selectedProfessional.professional_registration ? `Registro: ${selectedProfessional.professional_registration}` : ""}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Block Professional */}
+                <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                  <div>
+                    <Label htmlFor="block-pro" className="text-base font-semibold">
+                      Bloquear Profissional
+                    </Label>
+                    <p className="text-sm text-muted-foreground">Quando bloqueado, o profissional não pode acessar o sistema</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedProfessional.blocked ? <ShieldOff className="text-destructive" size={20} /> : <Shield className="text-brand-green" size={20} />}
+                    <Switch
+                      id="block-pro"
+                      checked={selectedProfessional.blocked}
+                      onCheckedChange={(checked) => handleSetBlockedProfessional(selectedProfessional.id, checked)}
+                    />
+                  </div>
+                </div>
+
+                {/* Access Controls */}
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-foreground">Controle de Acessos</h4>
+                    <p className="text-xs text-muted-foreground mt-1">O admin pode bloquear acesso a qualquer aba do profissional.</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Activity size={20} className="text-brand-green" />
+                        <div>
+                          <Label htmlFor="pro-access-atividades" className="text-base font-medium">
+                            Acesso a Atividades
+                          </Label>
+                          <p className="text-xs text-muted-foreground">Permite criar/gerenciar atividades</p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="pro-access-atividades"
+                        checked={selectedProfessional.access.atividades}
+                        onCheckedChange={(checked) =>
+                          handleSetAccessProfessional(selectedProfessional.id, { ...selectedProfessional.access, atividades: checked })
+                        }
+                        disabled={selectedProfessional.blocked}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Calendar size={20} className="text-brand-orange" />
+                        <div>
+                          <Label htmlFor="pro-access-horarios" className="text-base font-medium">
+                            Acesso a Horários
+                          </Label>
+                          <p className="text-xs text-muted-foreground">Permite visualizar sessões agendadas</p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="pro-access-horarios"
+                        checked={selectedProfessional.access.horarios}
+                        onCheckedChange={(checked) =>
+                          handleSetAccessProfessional(selectedProfessional.id, { ...selectedProfessional.access, horarios: checked })
+                        }
+                        disabled={selectedProfessional.blocked}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileText size={20} className="text-brand-purple" />
+                        <div>
+                          <Label htmlFor="pro-access-relatorios" className="text-base font-medium">
+                            Acesso a Relatórios
+                          </Label>
+                          <p className="text-xs text-muted-foreground">Permite criar/gerenciar relatórios</p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="pro-access-relatorios"
+                        checked={selectedProfessional.access.relatorios}
+                        onCheckedChange={(checked) =>
+                          handleSetAccessProfessional(selectedProfessional.id, { ...selectedProfessional.access, relatorios: checked })
+                        }
+                        disabled={selectedProfessional.blocked}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Edit Fields */}
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-foreground">Editar dados</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>Nome</Label>
+                      <Input
+                        value={selectedProfessional.name}
+                        onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Email</Label>
+                      <Input
+                        value={selectedProfessional.email}
+                        onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, email: e.target.value } : prev))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Celular</Label>
+                      <Input
+                        value={selectedProfessional.phone ?? ""}
+                        onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, phone: e.target.value } : prev))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Idade</Label>
+                      <Input
+                        type="number"
+                        min={18}
+                        max={120}
+                        value={selectedProfessional.professional_age ?? ""}
+                        onChange={(e) =>
+                          setSelectedProfessional((prev) =>
+                            prev ? { ...prev, professional_age: e.target.value ? Number(e.target.value) : null } : prev
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>CRFa</Label>
+                      <Input
+                        value={selectedProfessional.professional_crfa ?? ""}
+                        onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, professional_crfa: e.target.value } : prev))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Registro</Label>
+                      <Input
+                        value={selectedProfessional.professional_registration ?? ""}
+                        onChange={(e) =>
+                          setSelectedProfessional((prev) => (prev ? { ...prev, professional_registration: e.target.value } : prev))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsProfessionalDialogOpen(false);
+                      }}
+                    >
+                      Fechar
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const p = selectedProfessional;
+                        if (!p) return;
+                        void adminUpdateProfessional(p.id, {
+                          name: p.name,
+                          email: p.email,
+                          phone: p.phone ?? "",
+                          professional_age: p.professional_age ?? null,
+                          professional_crfa: p.professional_crfa ?? null,
+                          professional_registration: p.professional_registration ?? null,
+                        })
+                          .then(async () => {
+                            await reloadProfessionals();
+                            toast({ title: "Profissional atualizado", description: "Dados salvos com sucesso." });
+                            emitAdminDataChanged();
+                          })
+                          .catch((e) => {
+                            const msg = isApiError(e) ? e.message : "Não foi possível salvar.";
+                            toast({ title: "Erro", description: msg, variant: "destructive" });
+                          });
+                      }}
+                      disabled={selectedProfessional.blocked}
+                    >
+                      <Pencil size={16} className="mr-2" />
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* Modal: criar/editar pacote personalizado */}
         <Dialog open={packageDialogOpen} onOpenChange={setPackageDialogOpen}>
           <DialogContent className="max-w-lg">
@@ -1270,6 +1759,24 @@ const AdminUsers = () => {
           cancelLabel="Cancelar"
           variant="danger"
           onConfirm={() => void confirmDeleteUser()}
+        />
+
+        <BrandedConfirmDialog
+          open={deleteProfessionalOpen}
+          onOpenChange={(open) => {
+            setDeleteProfessionalOpen(open);
+            if (!open) setDeleteProfessionalTarget(null);
+          }}
+          title="Excluir profissional?"
+          description={
+            deleteProfessionalTarget
+              ? `Excluir o profissional "${deleteProfessionalTarget.name}"? Esta ação é permanente.`
+              : "Esta ação é permanente."
+          }
+          confirmLabel="Excluir"
+          cancelLabel="Cancelar"
+          variant="danger"
+          onConfirm={() => void confirmDeleteProfessional()}
         />
       </div>
     </div>

@@ -1,4 +1,4 @@
-export type AuthRole = "admin" | "user";
+export type AuthRole = "admin" | "user" | "professional";
 
 /**
  * Permissões de acesso do usuário.
@@ -29,6 +29,13 @@ export type AuthUser = {
   profile_description?: string | null;
   profile_photo_url?: string | null;
   access: UserAccess;
+};
+
+export type ProfessionalUserRow = {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
 };
 
 export type ReportType = "mensal" | "trimestral" | "avaliacao";
@@ -429,6 +436,27 @@ export async function register(params: {
   });
 }
 
+export async function registerProfessional(params: {
+  name: string;
+  email: string;
+  phone: string;
+  professional_age: number;
+  professional_crfa: string;
+  professional_registration: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<{ token: string; user: AuthUser }> {
+  await ensureCsrfCookie();
+  return await request<{ token: string; user: AuthUser }>("/api/register-professional", {
+    method: "POST",
+    json: params,
+  });
+}
+
+export async function professionalListUsers(): Promise<{ data: ProfessionalUserRow[] }> {
+  return await request<{ data: ProfessionalUserRow[] }>("/api/professional/users");
+}
+
 export async function forgotPassword(email: string): Promise<{ message: string }> {
   await ensureCsrfCookie();
   return await request<{ message: string }>("/api/forgot-password", { method: "POST", json: { email } });
@@ -484,9 +512,28 @@ export type AdminUserRow = {
   created_at?: string | null;
 };
 
+export type AdminProfessionalRow = {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  role: "professional";
+  blocked: boolean;
+  access: UserAccess;
+  professional_age?: number | null;
+  professional_crfa?: string | null;
+  professional_registration?: string | null;
+  assigned_users_count?: number;
+};
+
 export async function adminListUsers(): Promise<AdminUserRow[]> {
   const res = await request<{ data: AdminUserRow[] }>("/api/admin/users");
   return res.data;
+}
+
+export async function adminListProfessionals(): Promise<AdminProfessionalRow[]> {
+  const res = await request<{ data: AdminProfessionalRow[] }>("/api/admin/professionals");
+  return res.data ?? [];
 }
 
 export async function adminUpdateUser(
@@ -500,9 +547,27 @@ export async function adminUpdateUser(
   });
 }
 
+export async function adminUpdateProfessional(
+  id: number,
+  payload: Partial<
+    Pick<
+      AdminProfessionalRow,
+      "blocked" | "access" | "name" | "email" | "phone" | "professional_age" | "professional_crfa" | "professional_registration"
+    >
+  >
+): Promise<AdminProfessionalRow> {
+  await ensureCsrfCookie();
+  return await request<AdminProfessionalRow>(`/api/admin/professionals/${id}`, { method: "PATCH", json: payload });
+}
+
 export async function adminDeleteUser(id: number): Promise<void> {
   await ensureCsrfCookie();
   await request<void>(`/api/admin/users/${id}`, { method: "DELETE" });
+}
+
+export async function adminDeleteProfessional(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/admin/professionals/${id}`, { method: "DELETE" });
 }
 
 export async function adminClearPurchaseIntent(userId: number): Promise<void> {

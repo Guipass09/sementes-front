@@ -1,15 +1,20 @@
 import { useState, useCallback } from "react";
-import { Eye, EyeOff, Mail, Lock, Check, AlertCircle, User, Phone } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Check, AlertCircle, User, Phone, BadgeCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import { isApiError } from "@/lib/laravel-api";
+
+type RegisterMode = "patient" | "professional";
 
 interface FormState {
   name: string;
   email: string;
   phone: string;
   childAge: string;
+  professionalAge: string;
+  professionalCrfa: string;
+  professionalRegistration: string;
   password: string;
   confirmPassword: string;
 }
@@ -19,6 +24,9 @@ interface ValidationState {
   email: { valid: boolean; touched: boolean; message: string };
   phone: { valid: boolean; touched: boolean; message: string };
   childAge: { valid: boolean; touched: boolean; message: string };
+  professionalAge: { valid: boolean; touched: boolean; message: string };
+  professionalCrfa: { valid: boolean; touched: boolean; message: string };
+  professionalRegistration: { valid: boolean; touched: boolean; message: string };
   password: { valid: boolean; touched: boolean; message: string };
   confirmPassword: { valid: boolean; touched: boolean; message: string };
 }
@@ -28,11 +36,16 @@ const RegisterForm = () => {
   const { toast } = useToast();
   const auth = useAuth();
 
+  const [mode, setMode] = useState<RegisterMode>("patient");
+
   const [formData, setFormData] = useState<FormState>({
     name: "",
     email: "",
     phone: "",
     childAge: "",
+    professionalAge: "",
+    professionalCrfa: "",
+    professionalRegistration: "",
     password: "",
     confirmPassword: "",
   });
@@ -42,6 +55,9 @@ const RegisterForm = () => {
     email: { valid: false, touched: false, message: "" },
     phone: { valid: false, touched: false, message: "" },
     childAge: { valid: false, touched: false, message: "" },
+    professionalAge: { valid: false, touched: false, message: "" },
+    professionalCrfa: { valid: false, touched: false, message: "" },
+    professionalRegistration: { valid: false, touched: false, message: "" },
     password: { valid: false, touched: false, message: "" },
     confirmPassword: { valid: false, touched: false, message: "" },
   });
@@ -100,6 +116,32 @@ const RegisterForm = () => {
     return { valid: true, message: "" };
   }, []);
 
+  const validateProfessionalAge = useCallback((age: string): { valid: boolean; message: string } => {
+    const s = String(age ?? "").trim();
+    if (!s) return { valid: false, message: "Idade do profissional é obrigatória" };
+    const n = Number(s);
+    if (!Number.isFinite(n) || !Number.isInteger(n)) {
+      return { valid: false, message: "Informe uma idade válida (número inteiro)" };
+    }
+    if (n < 18) return { valid: false, message: "Idade mínima é 18 anos" };
+    if (n > 120) return { valid: false, message: "Idade inválida" };
+    return { valid: true, message: "" };
+  }, []);
+
+  const validateProfessionalCrfa = useCallback((v: string): { valid: boolean; message: string } => {
+    const s = String(v ?? "").trim();
+    if (!s) return { valid: false, message: "CRFa é obrigatório" };
+    if (s.length < 3) return { valid: false, message: "CRFa inválido" };
+    return { valid: true, message: "" };
+  }, []);
+
+  const validateProfessionalRegistration = useCallback((v: string): { valid: boolean; message: string } => {
+    const s = String(v ?? "").trim();
+    if (!s) return { valid: false, message: "Registro profissional é obrigatório" };
+    if (s.length < 3) return { valid: false, message: "Registro inválido" };
+    return { valid: true, message: "" };
+  }, []);
+
   const validatePassword = useCallback((password: string): { valid: boolean; message: string } => {
     if (!password) {
       return { valid: false, message: "Senha é obrigatória" };
@@ -138,6 +180,15 @@ const RegisterForm = () => {
           break;
         case "childAge":
           result = validateChildAge(value);
+          break;
+        case "professionalAge":
+          result = validateProfessionalAge(value);
+          break;
+        case "professionalCrfa":
+          result = validateProfessionalCrfa(value);
+          break;
+        case "professionalRegistration":
+          result = validateProfessionalRegistration(value);
           break;
         case "password":
           result = validatePassword(value);
@@ -178,6 +229,15 @@ const RegisterForm = () => {
       case "childAge":
         result = validateChildAge(formData.childAge);
         break;
+      case "professionalAge":
+        result = validateProfessionalAge(formData.professionalAge);
+        break;
+      case "professionalCrfa":
+        result = validateProfessionalCrfa(formData.professionalCrfa);
+        break;
+      case "professionalRegistration":
+        result = validateProfessionalRegistration(formData.professionalRegistration);
+        break;
       case "password":
         result = validatePassword(formData.password);
         break;
@@ -200,7 +260,11 @@ const RegisterForm = () => {
     const nameResult = validateName(formData.name);
     const emailResult = validateEmail(formData.email);
     const phoneResult = validatePhone(formData.phone);
-    const childAgeResult = validateChildAge(formData.childAge);
+    const childAgeResult = mode === "patient" ? validateChildAge(formData.childAge) : { valid: true, message: "" };
+    const professionalAgeResult = mode === "professional" ? validateProfessionalAge(formData.professionalAge) : { valid: true, message: "" };
+    const professionalCrfaResult = mode === "professional" ? validateProfessionalCrfa(formData.professionalCrfa) : { valid: true, message: "" };
+    const professionalRegistrationResult =
+      mode === "professional" ? validateProfessionalRegistration(formData.professionalRegistration) : { valid: true, message: "" };
     const passwordResult = validatePassword(formData.password);
     const confirmPasswordResult = validateConfirmPassword(formData.confirmPassword, formData.password);
 
@@ -209,25 +273,51 @@ const RegisterForm = () => {
       email: { ...emailResult, touched: true },
       phone: { ...phoneResult, touched: true },
       childAge: { ...childAgeResult, touched: true },
+      professionalAge: { ...professionalAgeResult, touched: true },
+      professionalCrfa: { ...professionalCrfaResult, touched: true },
+      professionalRegistration: { ...professionalRegistrationResult, touched: true },
       password: { ...passwordResult, touched: true },
       confirmPassword: { ...confirmPasswordResult, touched: true },
     });
 
-    if (!nameResult.valid || !emailResult.valid || !phoneResult.valid || !childAgeResult.valid || !passwordResult.valid || !confirmPasswordResult.valid) {
+    if (
+      !nameResult.valid ||
+      !emailResult.valid ||
+      !phoneResult.valid ||
+      !childAgeResult.valid ||
+      !professionalAgeResult.valid ||
+      !professionalCrfaResult.valid ||
+      !professionalRegistrationResult.valid ||
+      !passwordResult.valid ||
+      !confirmPasswordResult.valid
+    ) {
       return;
     }
 
     setIsButtonClicked(true);
     setIsSubmitting(true);
     try {
-      await auth.register({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        child_age: Number(formData.childAge),
-        password: formData.password,
-        password_confirmation: formData.confirmPassword,
-      });
+      if (mode === "professional") {
+        await auth.registerProfessional({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          professional_age: Number(formData.professionalAge),
+          professional_crfa: formData.professionalCrfa.trim(),
+          professional_registration: formData.professionalRegistration.trim(),
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+        });
+      } else {
+        await auth.register({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          child_age: Number(formData.childAge),
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+        });
+      }
 
       toast({
         title: "Conta criada com sucesso!",
@@ -264,6 +354,29 @@ const RegisterForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <div className="text-center">
+        <div className="text-sm font-semibold text-foreground">Paciente / Profissional</div>
+        <div className="mt-3 inline-flex rounded-xl border border-border bg-background/70 p-1">
+          <button
+            type="button"
+            onClick={() => setMode("patient")}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              mode === "patient" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Paciente
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("professional")}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              mode === "professional" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Profissional
+          </button>
+        </div>
+      </div>
       {/* Register Error Message */}
       {registerError && (
         <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 animate-fade-in">
@@ -398,44 +511,138 @@ const RegisterForm = () => {
         )}
       </div>
 
-      {/* Child Age Field */}
-      <div className="space-y-2">
-        <label htmlFor="childAge" className="block text-sm font-semibold text-foreground">
-          Idade da Criança (anos)
-        </label>
-        <div className="relative">
-          <input
-            type="number"
-            id="childAge"
-            name="childAge"
-            value={formData.childAge}
-            onChange={handleInputChange("childAge")}
-            onBlur={handleInputBlur("childAge")}
-            placeholder="Ex: 7"
-            inputMode="numeric"
-            min={0}
-            max={120}
-            step={1}
-            aria-label="Idade da criança em anos"
-            aria-invalid={validation.childAge.touched && !validation.childAge.valid}
-            className={`${getInputClassName("childAge")} pl-4 pr-10`}
-          />
-          {validation.childAge.touched && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              {validation.childAge.valid ? (
-                <Check size={18} className="text-primary" />
-              ) : (
-                <AlertCircle size={18} className="text-destructive" />
-              )}
-            </div>
+      {mode === "patient" ? (
+        /* Child Age Field */
+        <div className="space-y-2">
+          <label htmlFor="childAge" className="block text-sm font-semibold text-foreground">
+            Idade da Criança (anos)
+          </label>
+          <div className="relative">
+            <input
+              type="number"
+              id="childAge"
+              name="childAge"
+              value={formData.childAge}
+              onChange={handleInputChange("childAge")}
+              onBlur={handleInputBlur("childAge")}
+              placeholder="Ex: 7"
+              inputMode="numeric"
+              min={0}
+              max={120}
+              step={1}
+              aria-label="Idade da criança em anos"
+              aria-invalid={validation.childAge.touched && !validation.childAge.valid}
+              className={`${getInputClassName("childAge")} pl-4 pr-10`}
+            />
+            {validation.childAge.touched && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                {validation.childAge.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
+              </div>
+            )}
+          </div>
+          {validation.childAge.touched && !validation.childAge.valid && (
+            <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.childAge.message}</p>
           )}
         </div>
-        {validation.childAge.touched && !validation.childAge.valid && (
-          <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">
-            {validation.childAge.message}
-          </p>
-        )}
-      </div>
+      ) : (
+        <>
+          {/* Professional Age */}
+          <div className="space-y-2">
+            <label htmlFor="professionalAge" className="block text-sm font-semibold text-foreground">
+              Idade do Profissional (anos)
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                id="professionalAge"
+                name="professionalAge"
+                value={formData.professionalAge}
+                onChange={handleInputChange("professionalAge")}
+                onBlur={handleInputBlur("professionalAge")}
+                placeholder="Ex: 28"
+                inputMode="numeric"
+                min={18}
+                max={120}
+                step={1}
+                aria-label="Idade do profissional em anos"
+                aria-invalid={validation.professionalAge.touched && !validation.professionalAge.valid}
+                className={`${getInputClassName("professionalAge")} pl-4 pr-10`}
+              />
+              {validation.professionalAge.touched && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  {validation.professionalAge.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
+                </div>
+              )}
+            </div>
+            {validation.professionalAge.touched && !validation.professionalAge.valid && (
+              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalAge.message}</p>
+            )}
+          </div>
+
+          {/* CRFa */}
+          <div className="space-y-2">
+            <label htmlFor="professionalCrfa" className="block text-sm font-semibold text-foreground">
+              CRFa
+            </label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <BadgeCheck size={18} />
+              </div>
+              <input
+                type="text"
+                id="professionalCrfa"
+                name="professionalCrfa"
+                value={formData.professionalCrfa}
+                onChange={handleInputChange("professionalCrfa")}
+                onBlur={handleInputBlur("professionalCrfa")}
+                placeholder="Ex: CRFa-2 12345"
+                autoComplete="off"
+                aria-label="CRFa"
+                aria-invalid={validation.professionalCrfa.touched && !validation.professionalCrfa.valid}
+                className={`${getInputClassName("professionalCrfa")} pl-11 pr-10`}
+              />
+              {validation.professionalCrfa.touched && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  {validation.professionalCrfa.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
+                </div>
+              )}
+            </div>
+            {validation.professionalCrfa.touched && !validation.professionalCrfa.valid && (
+              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalCrfa.message}</p>
+            )}
+          </div>
+
+          {/* Registro profissional */}
+          <div className="space-y-2">
+            <label htmlFor="professionalRegistration" className="block text-sm font-semibold text-foreground">
+              Registro do Profissional
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                id="professionalRegistration"
+                name="professionalRegistration"
+                value={formData.professionalRegistration}
+                onChange={handleInputChange("professionalRegistration")}
+                onBlur={handleInputBlur("professionalRegistration")}
+                placeholder="Ex: 123456"
+                autoComplete="off"
+                aria-label="Registro profissional"
+                aria-invalid={validation.professionalRegistration.touched && !validation.professionalRegistration.valid}
+                className={`${getInputClassName("professionalRegistration")} pl-4 pr-10`}
+              />
+              {validation.professionalRegistration.touched && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  {validation.professionalRegistration.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
+                </div>
+              )}
+            </div>
+            {validation.professionalRegistration.touched && !validation.professionalRegistration.valid && (
+              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalRegistration.message}</p>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Password Field */}
       <div className="space-y-2">

@@ -3,7 +3,7 @@ export type ReportType = "mensal" | "trimestral" | "avaliacao";
 export type ReportAuthor = {
   id?: number;
   name: string;
-  role: "admin" | "user";
+  role: "admin" | "user" | "professional";
 };
 
 export type ReportPatient = {

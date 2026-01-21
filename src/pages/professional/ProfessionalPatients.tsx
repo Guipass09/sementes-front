@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Skeleton } from "@/components/ui/skeleton";
 import * as api from "@/lib/laravel-api";
 import type { ProfessionalPatientRow } from "@/lib/laravel-api";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 type PatientOverview = {
   user: ProfessionalPatientRow;
@@ -96,7 +97,11 @@ export default function ProfessionalPatients(): JSX.Element {
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                   <div className="flex items-center gap-4 flex-1">
                     <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold">
-                      {p.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                      {p.profile_photo_url ? (
+                        <img src={normalizeMediaUrl(p.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        p.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-foreground">{p.name}</div>
@@ -137,8 +142,19 @@ export default function ProfessionalPatients(): JSX.Element {
             ) : overview ? (
               <div className="space-y-6 mt-4">
                 <div className="rounded-lg border border-border p-4 bg-muted/20">
-                  <div className="font-semibold text-foreground">{overview.user.name}</div>
-                  <div className="text-sm text-muted-foreground">{overview.user.email}</div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold">
+                      {overview.user.profile_photo_url ? (
+                        <img src={normalizeMediaUrl(overview.user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        overview.user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-foreground">{overview.user.name}</div>
+                      <div className="text-sm text-muted-foreground">{overview.user.email}</div>
+                    </div>
+                  </div>
                   {overview.user.phone ? <div className="text-sm text-muted-foreground">Celular: {overview.user.phone}</div> : null}
                 </div>
 

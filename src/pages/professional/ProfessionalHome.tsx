@@ -1,4 +1,4 @@
-import ProfessionalDashboard from "./ProfessionalDashboard";
+import ProfessionalGamesHub from "./ProfessionalGamesHub";
 
-export default ProfessionalDashboard;
+export default ProfessionalGamesHub;
 

@@ -9,19 +9,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow, MemoryGameRow } from "@/lib/laravel-api";
+import type { AdminUserRow, MemoryGameRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import { useAuth } from "@/auth/AuthContext";
 
 export default function AdminMemoryGameEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const auth = useAuth();
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
 
   const gameId = useMemo(() => Number(id), [id]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [game, setGame] = useState<MemoryGameRow | null>(null);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -44,13 +48,17 @@ export default function AdminMemoryGameEdit() {
     (async () => {
       setLoading(true);
       try {
-        const [g, u] = await Promise.all([api.adminGetMemoryGame(gameId), api.adminListUsers()]);
+        const [g, u] = await Promise.all([
+          isProfessional ? api.professionalGetMemoryGame(gameId) : api.adminGetMemoryGame(gameId),
+          isProfessional ? api.professionalListUsers() : api.adminListUsers(),
+        ]);
         if (cancelled) return;
         setGame(g);
         setTitle(g.title);
         setDescription(g.description);
         setSelectedUserIds((g.assigned_to ?? []).map((x) => x.id));
-        setUsers(u.filter((x) => x.role === "user"));
+        if (isProfessional) setUsers((u as any).data ?? []);
+        else setUsers((u as any).filter((x: any) => x.role === "user"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -73,7 +81,7 @@ export default function AdminMemoryGameEdit() {
 
     setSaving(true);
     try {
-      const updated = await api.adminUpdateMemoryGame(game.id, {
+      const updated = await (isProfessional ? api.professionalUpdateMemoryGame : api.adminUpdateMemoryGame)(game.id, {
         title: title.trim(),
         description: description.trim(),
         assigned_to: selectedUserIds,
@@ -81,7 +89,7 @@ export default function AdminMemoryGameEdit() {
       });
       setGame(updated);
       toast({ title: "Jogo atualizado!" });
-      navigate(`/admin/jogos/memoria`);
+      navigate(`${base}/jogos/memoria`);
     } catch {
       toast({ title: "Não foi possível salvar", variant: "destructive" });
     } finally {

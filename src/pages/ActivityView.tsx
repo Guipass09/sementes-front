@@ -125,7 +125,9 @@ const ActivityView = () => {
         const a =
           user.role === "admin"
             ? await api.adminGetActivity(activityId)
-            : await api.userGetActivity(activityId, inSession ? { session_id: sessionId } : undefined);
+            : user.role === "professional"
+              ? await api.professionalGetActivity(activityId)
+              : await api.userGetActivity(activityId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setActivity(a);
       } catch (e) {

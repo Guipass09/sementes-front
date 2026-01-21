@@ -167,7 +167,9 @@ export default function HangmanGameView() {
         const g =
           auth.user?.role === "admin"
             ? await api.adminGetHangmanGame(gameId)
-            : await api.userGetHangmanGame(gameId, inSession ? { session_id: sessionId } : undefined);
+            : auth.user?.role === "professional"
+              ? await api.professionalGetHangmanGame(gameId)
+              : await api.userGetHangmanGame(gameId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
 

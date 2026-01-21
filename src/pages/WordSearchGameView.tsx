@@ -98,7 +98,9 @@ export default function WordSearchGameView() {
         const g =
           user.role === "admin"
             ? await api.adminGetWordSearchGame(gameId)
-            : await api.userGetWordSearchGame(gameId, inSession && sessionId ? { session_id: sessionId } : undefined);
+            : user.role === "professional"
+              ? await api.professionalGetWordSearchGame(gameId)
+              : await api.userGetWordSearchGame(gameId, inSession && sessionId ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
         // Restaura progresso se existir

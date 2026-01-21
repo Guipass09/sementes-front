@@ -176,7 +176,9 @@ export default function MemoryGameView() {
         const g =
           user.role === "admin"
             ? await api.adminGetMemoryGame(gameId)
-            : await api.userGetMemoryGame(gameId, inSession ? { session_id: sessionId } : undefined);
+            : user.role === "professional"
+              ? await api.professionalGetMemoryGame(gameId)
+              : await api.userGetMemoryGame(gameId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
       } catch (e) {

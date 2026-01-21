@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import { cn } from "@/lib/utils";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow } from "@/lib/laravel-api";
+import type { AdminUserRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 export default function AdminAuditoryStimulationCreate() {
@@ -19,7 +19,7 @@ export default function AdminAuditoryStimulationCreate() {
   const { toast } = useToast();
 
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
   const [saving, setSaving] = useState(false);
 
   const [title, setTitle] = useState("");
@@ -36,7 +36,7 @@ export default function AdminAuditoryStimulationCreate() {
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.user) return navigate("/entrar");
-    if (auth.user.role !== "admin") return navigate("/paciente");
+    if (auth.user.role !== "admin" && auth.user.role !== "professional") return navigate("/paciente");
   }, [auth.loading, auth.user, navigate]);
 
   useEffect(() => {
@@ -44,9 +44,13 @@ export default function AdminAuditoryStimulationCreate() {
     (async () => {
       setLoadingUsers(true);
       try {
-        const u = await api.adminListUsers();
+        const u = auth.user?.role === "professional" ? await api.professionalListUsers() : await api.adminListUsers();
         if (cancelled) return;
-        setUsers(u.filter((x) => x.role === "user"));
+        if (auth.user?.role === "professional") {
+          setUsers((u as any).data ?? []);
+        } else {
+          setUsers((u as any).filter((x: any) => x.role === "user"));
+        }
       } catch {
         toast({
           title: "Não foi possível carregar usuários",
@@ -159,7 +163,7 @@ export default function AdminAuditoryStimulationCreate() {
 
     setSaving(true);
     try {
-      const created = await api.adminCreateAuditoryGame({
+      const created = await (auth.user?.role === "professional" ? api.professionalCreateAuditoryGame : api.adminCreateAuditoryGame)({
         title: title.trim(),
         description: description.trim(),
         items_count: itemsCount,

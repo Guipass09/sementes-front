@@ -6,27 +6,43 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
-import type { AdminUserRow, MemoryGameRow } from "@/lib/laravel-api";
+import type { MemoryGameRow } from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 
 export default function AdminMemoryGames() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [games, setGames] = useState<MemoryGameRow[]>([]);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string; profile_photo_url?: string | null }>>([]);
   const [search, setSearch] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MemoryGameRow | null>(null);
 
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
+
   const refresh = async () => {
     setLoading(true);
     try {
-      const [res, u] = await Promise.all([api.adminListMemoryGames({ variant: "classic" }), api.adminListUsers()]);
+      const [res, u] = await Promise.all([
+        isProfessional ? api.professionalListMemoryGames({ variant: "classic" }) : api.adminListMemoryGames({ variant: "classic" }),
+        isProfessional ? api.professionalListUsers() : api.adminListUsers(),
+      ]);
       setGames(res);
-      setUsers(u.filter((x) => x.role === "user"));
+      const usersList = isProfessional ? (u as any).data ?? [] : (u as any).filter((x: any) => x.role === "user");
+      setUsers(
+        (usersList as any[]).map((x) => ({
+          id: x.id,
+          name: x.name,
+          email: x.email,
+          profile_photo_url: x.profile_photo_url ?? null,
+        }))
+      );
     } finally {
       setLoading(false);
     }
@@ -70,7 +86,7 @@ export default function AdminMemoryGames() {
             </h1>
             <p className="text-muted-foreground">Crie, edite e envie jogos para usuários</p>
           </div>
-          <Button onClick={() => navigate("/admin/jogos/memoria/novo")} className="w-full sm:w-auto">
+          <Button onClick={() => navigate(`${base}/jogos/memoria/novo`)} className="w-full sm:w-auto">
             <Plus size={20} className="mr-2" />
             Criar Jogo
           </Button>
@@ -185,7 +201,7 @@ export default function AdminMemoryGames() {
                                   variant="outline"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate(`/admin/jogos/memoria/${g.id}/editar`);
+                                    navigate(`${base}/jogos/memoria/${g.id}/editar`);
                                   }}
                                 >
                                   <Pencil className="h-4 w-4 mr-2" />
@@ -232,7 +248,7 @@ export default function AdminMemoryGames() {
         variant="danger"
         onConfirm={() => {
           if (!deleteTarget) return;
-          void api.adminDeleteMemoryGame(deleteTarget.id).then(() => {
+          void (isProfessional ? api.professionalDeleteMemoryGame(deleteTarget.id) : api.adminDeleteMemoryGame(deleteTarget.id)).then(() => {
             toast({ title: "Jogo excluído" });
             void refresh();
           });

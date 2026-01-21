@@ -106,7 +106,9 @@ export default function PhonemeGameView() {
         const g =
           user.role === "admin"
             ? await api.adminGetPhonemeGame(gameId)
-            : await api.userGetPhonemeGame(gameId, inSession ? { session_id: sessionId } : undefined);
+            : user.role === "professional"
+              ? await api.professionalGetPhonemeGame(gameId)
+              : await api.userGetPhonemeGame(gameId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
         setIdx(0);

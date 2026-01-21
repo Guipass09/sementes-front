@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow, AuditoryGameRow } from "@/lib/laravel-api";
+import type { AdminUserRow, AuditoryGameRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
 import { isApiError } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
@@ -21,6 +21,8 @@ export default function AdminAuditoryGameEdit() {
   const navigate = useNavigate();
   const auth = useAuth();
   const { toast } = useToast();
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
 
   const [loadingGame, setLoadingGame] = useState(true);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -29,7 +31,7 @@ export default function AdminAuditoryGameEdit() {
   const [forbidden, setForbidden] = useState(false);
 
   const [game, setGame] = useState<AuditoryGameRow | null>(null);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -51,7 +53,7 @@ export default function AdminAuditoryGameEdit() {
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.user) return navigate("/entrar");
-    if (auth.user.role !== "admin") return navigate("/paciente");
+    if (auth.user.role !== "admin" && auth.user.role !== "professional") return navigate("/paciente");
   }, [auth.loading, auth.user, navigate]);
 
   useEffect(() => {
@@ -66,7 +68,7 @@ export default function AdminAuditoryGameEdit() {
       setNotFound(false);
       setForbidden(false);
       try {
-        const g = await api.adminGetAuditoryGame(gameId);
+        const g = await (isProfessional ? api.professionalGetAuditoryGame(gameId) : api.adminGetAuditoryGame(gameId));
         if (cancelled) return;
         setGame(g);
         setTitle(g.title);
@@ -102,9 +104,10 @@ export default function AdminAuditoryGameEdit() {
     (async () => {
       setLoadingUsers(true);
       try {
-        const u = await api.adminListUsers();
+        const u = isProfessional ? await api.professionalListUsers() : await api.adminListUsers();
         if (cancelled) return;
-        setUsers(u.filter((x) => x.role === "user"));
+        if (isProfessional) setUsers((u as any).data ?? []);
+        else setUsers((u as any).filter((x: any) => x.role === "user"));
       } catch {
         toast({
           title: "Erro ao carregar usuários",
@@ -218,9 +221,9 @@ export default function AdminAuditoryGameEdit() {
       if (backgroundFile) payload.background = backgroundFile;
       if (allItemsAreNew) payload.items = items.map((it) => it.file!).filter(Boolean);
 
-      await api.adminUpdateAuditoryGame(gameId, payload);
+      await (isProfessional ? api.professionalUpdateAuditoryGame(gameId, payload as any) : api.adminUpdateAuditoryGame(gameId, payload));
       toast({ title: "Jogo atualizado", description: "Alterações salvas com sucesso." });
-      navigate("/admin/jogos/auditivo");
+      navigate(`${base}/jogos/auditivo`);
     } catch (e) {
       const msg = isApiError(e) ? e.data?.message || "Erro ao salvar." : "Erro ao salvar.";
       toast({ title: "Erro ao salvar", description: msg, variant: "destructive" });
@@ -248,7 +251,7 @@ export default function AdminAuditoryGameEdit() {
         <div className="text-center">
           <h1 className="text-2xl font-display font-bold text-foreground mb-2">Jogo não encontrado</h1>
           <p className="text-muted-foreground mb-4">O jogo que você tentou editar não existe.</p>
-          <Button onClick={() => navigate("/admin/jogos/auditivo")}>Voltar</Button>
+          <Button onClick={() => navigate(`${base}/jogos/auditivo`)}>Voltar</Button>
         </div>
       </div>
     );
@@ -260,7 +263,7 @@ export default function AdminAuditoryGameEdit() {
         <div className="text-center">
           <h1 className="text-2xl font-display font-bold text-foreground mb-2">Acesso negado</h1>
           <p className="text-muted-foreground mb-4">Você não tem permissão para editar este jogo.</p>
-          <Button onClick={() => navigate("/admin/jogos/auditivo")}>Voltar</Button>
+          <Button onClick={() => navigate(`${base}/jogos/auditivo`)}>Voltar</Button>
         </div>
       </div>
     );

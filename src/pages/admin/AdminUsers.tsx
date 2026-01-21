@@ -78,6 +78,7 @@ interface ProfessionalData {
   name: string;
   email: string;
   phone?: string | null;
+  profile_photo_url?: string | null;
   blocked: boolean;
   access: UserAccess;
   professional_age?: number | null;
@@ -327,6 +328,7 @@ const AdminUsers = () => {
         name: p.name,
         email: p.email,
         phone: p.phone ?? null,
+        profile_photo_url: (p as any).profile_photo_url ?? null,
         blocked: !!p.blocked,
         access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
         professional_age: (p as any).professional_age ?? null,
@@ -351,6 +353,7 @@ const AdminUsers = () => {
             name: p.name,
             email: p.email,
             phone: p.phone ?? null,
+            profile_photo_url: (p as any).profile_photo_url ?? null,
             blocked: !!p.blocked,
             access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
             professional_age: (p as any).professional_age ?? null,
@@ -873,7 +876,11 @@ const AdminUsers = () => {
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                   <div className="flex items-center gap-4 flex-1">
                     <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-purple to-brand-purple/70 flex items-center justify-center text-white font-semibold">
-                      {p.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                      {p.profile_photo_url ? (
+                        <img src={normalizeMediaUrl(p.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        p.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -1463,7 +1470,11 @@ const AdminUsers = () => {
               <div className="space-y-6 mt-4">
                 <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-lg">
                   <div className="w-16 h-16 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-purple to-brand-purple/70 flex items-center justify-center text-white font-semibold text-xl">
-                    {selectedProfessional.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                    {selectedProfessional.profile_photo_url ? (
+                      <img src={normalizeMediaUrl(selectedProfessional.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      selectedProfessional.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                    )}
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-semibold text-foreground text-lg">{selectedProfessional.name}</h3>

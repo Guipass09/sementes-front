@@ -36,6 +36,7 @@ export type ProfessionalUserRow = {
   name: string;
   email: string;
   phone?: string | null;
+  profile_photo_url?: string | null;
 };
 
 export type ReportType = "mensal" | "trimestral" | "avaliacao";
@@ -465,6 +466,10 @@ export async function professionalListActivities(): Promise<ActivityRow[]> {
   return res.data ?? [];
 }
 
+export async function professionalGetActivity(id: number): Promise<ActivityRow> {
+  return await request<ActivityRow>(`/api/professional/activities/${id}`);
+}
+
 export async function professionalCreateActivity(payload: {
   title: string;
   description: string;
@@ -635,6 +640,7 @@ export type AdminProfessionalRow = {
   role: "professional";
   blocked: boolean;
   access: UserAccess;
+  profile_photo_url?: string | null;
   professional_age?: number | null;
   professional_crfa?: string | null;
   professional_registration?: string | null;
@@ -834,6 +840,7 @@ export type ProfessionalPatientRow = {
   email: string;
   phone?: string | null;
   child_age?: number | null;
+  profile_photo_url?: string | null;
 };
 
 export async function professionalListPatients(): Promise<ProfessionalPatientRow[]> {
@@ -843,6 +850,425 @@ export async function professionalListPatients(): Promise<ProfessionalPatientRow
 
 export async function professionalGetPatientOverview(userId: number): Promise<any> {
   return await request(`/api/professional/patients/${userId}/overview`);
+}
+
+// ---------------------------
+// PROFESSIONAL GAMES
+// ---------------------------
+
+export async function professionalListMemoryGames(opts?: { variant?: "classic" | "v2" }): Promise<MemoryGameRow[]> {
+  const qs = opts?.variant ? `?variant=${encodeURIComponent(opts.variant)}` : "";
+  const res = await request<{ data: MemoryGameRow[] }>(`/api/professional/memory-games${qs}`);
+  return res.data;
+}
+
+export async function professionalGetMemoryGame(id: number): Promise<MemoryGameRow> {
+  return await request<MemoryGameRow>(`/api/professional/memory-games/${id}`);
+}
+
+export async function professionalCreateMemoryGame(payload: {
+  title: string;
+  description: string;
+  pairs_count: number;
+  variant?: "classic" | "v2";
+  assigned_to: number[];
+  pair_images: File[];
+}): Promise<MemoryGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("pairs_count", String(payload.pairs_count));
+  if (payload.variant) fd.set("variant", payload.variant);
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  payload.pair_images.forEach((f) => fd.append("pair_images[]", f));
+  return await request<MemoryGameRow>("/api/professional/memory-games", { method: "POST", formData: fd });
+}
+
+export async function professionalUpdateMemoryGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    assigned_to: number[];
+    pair_images: File[];
+  }>
+): Promise<MemoryGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.pair_images !== undefined) payload.pair_images.forEach((f) => fd.append("pair_images[]", f));
+  fd.set("_method", "PATCH");
+  return await request<MemoryGameRow>(`/api/professional/memory-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function professionalDeleteMemoryGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/memory-games/${id}`, { method: "DELETE" });
+}
+
+export async function professionalListAuditoryGames(): Promise<AuditoryGameRow[]> {
+  const res = await request<{ data: AuditoryGameRow[] }>("/api/professional/auditory-games");
+  return res.data;
+}
+
+export async function professionalGetAuditoryGame(id: number): Promise<AuditoryGameRow> {
+  return await request<AuditoryGameRow>(`/api/professional/auditory-games/${id}`);
+}
+
+export async function professionalCreateAuditoryGame(payload: {
+  title: string;
+  description: string;
+  items_count: 4 | 6 | 10;
+  assigned_to: number[];
+  background: File;
+  items: File[];
+  items_sides: Array<"certo" | "errado">;
+}): Promise<AuditoryGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("items_count", String(payload.items_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  fd.set("background", payload.background);
+  payload.items.forEach((f) => fd.append("items[]", f));
+  fd.set("items_sides_json", JSON.stringify(payload.items_sides));
+  return await request<AuditoryGameRow>("/api/professional/auditory-games", { method: "POST", formData: fd });
+}
+
+export async function professionalUpdateAuditoryGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    assigned_to: number[];
+    background: File;
+    items: File[];
+    items_sides: Array<"certo" | "errado">;
+  }>
+): Promise<AuditoryGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background !== undefined) fd.set("background", payload.background);
+  if (payload.items !== undefined) payload.items.forEach((f) => fd.append("items[]", f));
+  if (payload.items_sides !== undefined) fd.set("items_sides_json", JSON.stringify(payload.items_sides));
+  fd.set("_method", "PATCH");
+  return await request<AuditoryGameRow>(`/api/professional/auditory-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function professionalDeleteAuditoryGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/auditory-games/${id}`, { method: "DELETE" });
+}
+
+export async function professionalListPhonemeGames(): Promise<PhonemeGameRow[]> {
+  const res = await request<{ data: PhonemeGameRow[] }>("/api/professional/phoneme-games");
+  return res.data;
+}
+
+export async function professionalGetPhonemeGame(id: number): Promise<PhonemeGameRow> {
+  return await request<PhonemeGameRow>(`/api/professional/phoneme-games/${id}`);
+}
+
+export async function professionalCreatePhonemeGame(payload: {
+  title: string;
+  description: string;
+  sessions_count: number;
+  assigned_to: number[];
+  background: File;
+  words: string[];
+  correct_sides: Array<"left" | "right">;
+  left_images: File[];
+  right_images: File[];
+}): Promise<PhonemeGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("sessions_count", String(payload.sessions_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  fd.set("background", payload.background);
+  fd.set("words_json", JSON.stringify(payload.words || []));
+  fd.set("correct_sides_json", JSON.stringify(payload.correct_sides || []));
+  payload.left_images.forEach((f) => fd.append("left_images[]", f));
+  payload.right_images.forEach((f) => fd.append("right_images[]", f));
+  return await request<PhonemeGameRow>("/api/professional/phoneme-games", { method: "POST", formData: fd });
+}
+
+export async function professionalUpdatePhonemeGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    assigned_to: number[];
+    background: File;
+    words: string[];
+    correct_sides: Array<"left" | "right">;
+    left_images: File[];
+    right_images: File[];
+  }>
+): Promise<PhonemeGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background !== undefined) fd.set("background", payload.background);
+  if (payload.words !== undefined) fd.set("words_json", JSON.stringify(payload.words || []));
+  if (payload.correct_sides !== undefined) fd.set("correct_sides_json", JSON.stringify(payload.correct_sides || []));
+  if (payload.left_images !== undefined) payload.left_images.forEach((f) => fd.append("left_images[]", f));
+  if (payload.right_images !== undefined) payload.right_images.forEach((f) => fd.append("right_images[]", f));
+  fd.set("_method", "PATCH");
+  return await request<PhonemeGameRow>(`/api/professional/phoneme-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function professionalDeletePhonemeGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/phoneme-games/${id}`, { method: "DELETE" });
+}
+
+export async function professionalListHangmanGames(): Promise<HangmanGameRow[]> {
+  const res = await request<{ data: HangmanGameRow[] }>("/api/professional/hangman-games");
+  return res.data;
+}
+
+export async function professionalGetHangmanGame(id: number): Promise<HangmanGameRow> {
+  return await request<HangmanGameRow>(`/api/professional/hangman-games/${id}`);
+}
+
+export async function professionalCreateHangmanGame(payload: {
+  title: string;
+  description: string;
+  secret_word: string;
+  assigned_to: number[];
+  support_images?: File[];
+}): Promise<HangmanGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("secret_word", payload.secret_word);
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  (payload.support_images || []).forEach((f) => fd.append("support_images[]", f));
+  return await request<HangmanGameRow>("/api/professional/hangman-games", { method: "POST", formData: fd });
+}
+
+export async function professionalUpdateHangmanGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    secret_word: string;
+    assigned_to: number[];
+    clear_images: boolean;
+    support_images: File[];
+  }>
+): Promise<HangmanGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.secret_word !== undefined) fd.set("secret_word", payload.secret_word);
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.clear_images !== undefined) fd.set("clear_images", payload.clear_images ? "1" : "0");
+  if (payload.support_images !== undefined) payload.support_images.forEach((f) => fd.append("support_images[]", f));
+  fd.set("_method", "PATCH");
+  return await request<HangmanGameRow>(`/api/professional/hangman-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function professionalDeleteHangmanGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/hangman-games/${id}`, { method: "DELETE" });
+}
+
+export async function professionalListWordSearchGames(): Promise<WordSearchGameRow[]> {
+  const res = await request<{ data: WordSearchGameRow[] }>("/api/professional/word-search-games");
+  return res.data;
+}
+
+export async function professionalGetWordSearchGame(id: number): Promise<WordSearchGameRow> {
+  return await request<WordSearchGameRow>(`/api/professional/word-search-games/${id}`);
+}
+
+export async function professionalCreateWordSearchGame(payload: {
+  title: string;
+  description: string;
+  words_count: number;
+  assigned_to: number[];
+  background: File;
+  words: string[];
+  directions?: Array<"horizontal" | "vertical">;
+  images: File[];
+  letter_color?: string;
+  grid_background_color?: string;
+}): Promise<WordSearchGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("words_count", String(payload.words_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  fd.set("background", payload.background);
+  fd.set("words_json", JSON.stringify(payload.words || []));
+  if (payload.directions) fd.set("directions_json", JSON.stringify(payload.directions));
+  payload.images.forEach((f) => fd.append("images[]", f));
+  if (payload.letter_color) fd.set("letter_color", payload.letter_color);
+  if (payload.grid_background_color) fd.set("grid_background_color", payload.grid_background_color);
+  return await request<WordSearchGameRow>("/api/professional/word-search-games", { method: "POST", formData: fd });
+}
+
+export async function professionalUpdateWordSearchGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    assigned_to: number[];
+    background: File;
+    words: string[];
+    directions: Array<"horizontal" | "vertical">;
+    images: File[];
+    letter_color: string;
+    grid_background_color: string;
+  }>
+): Promise<WordSearchGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background !== undefined) fd.set("background", payload.background);
+  if (payload.words !== undefined) fd.set("words_json", JSON.stringify(payload.words || []));
+  if (payload.directions !== undefined) fd.set("directions_json", JSON.stringify(payload.directions));
+  if (payload.images !== undefined) payload.images.forEach((f) => fd.append("images[]", f));
+  if (payload.letter_color !== undefined) fd.set("letter_color", payload.letter_color);
+  if (payload.grid_background_color !== undefined) fd.set("grid_background_color", payload.grid_background_color);
+  fd.set("_method", "PATCH");
+  return await request<WordSearchGameRow>(`/api/professional/word-search-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function professionalDeleteWordSearchGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/word-search-games/${id}`, { method: "DELETE" });
+}
+
+export async function professionalListCardGames(): Promise<CardGameRow[]> {
+  const res = await request<{ data: CardGameRow[] }>("/api/professional/card-games");
+  return res.data ?? [];
+}
+
+export async function professionalGetCardGame(id: number): Promise<CardGameRow> {
+  return await request<CardGameRow>(`/api/professional/card-games/${id}`);
+}
+
+export async function professionalCreateCardGame(payload: {
+  title: string;
+  description: string;
+  cards_count: number;
+  assigned_to: number[];
+  background?: File | null;
+  card_images: File[];
+}): Promise<CardGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("cards_count", String(payload.cards_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background) fd.set("background", payload.background);
+  payload.card_images.forEach((f) => fd.append("card_images[]", f));
+  return await request<CardGameRow>("/api/professional/card-games", { method: "POST", formData: fd });
+}
+
+export async function professionalUpdateCardGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    cards_count: number;
+    assigned_to: number[];
+    background: File | null;
+    card_images: File[];
+  }>
+): Promise<CardGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.cards_count !== undefined) fd.set("cards_count", String(payload.cards_count));
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background !== undefined && payload.background) fd.set("background", payload.background);
+  if (payload.card_images !== undefined) payload.card_images.forEach((f) => fd.append("card_images[]", f));
+  fd.set("_method", "PATCH");
+  return await request<CardGameRow>(`/api/professional/card-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function professionalDeleteCardGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/card-games/${id}`, { method: "DELETE" });
+}
+
+export async function professionalListSpinWheelGames(): Promise<SpinWheelGameRow[]> {
+  const res = await request<{ data: SpinWheelGameRow[] }>("/api/professional/spin-wheel-games");
+  return res.data;
+}
+
+export async function professionalGetSpinWheelGame(id: number): Promise<SpinWheelGameRow> {
+  return await request<SpinWheelGameRow>(`/api/professional/spin-wheel-games/${id}`);
+}
+
+export async function professionalCreateSpinWheelGame(payload: {
+  title: string;
+  center_title?: string | null;
+  items_count: number;
+  assigned_to: number[];
+  background?: File | null;
+  item_images: File[];
+  item_labels: string[];
+}): Promise<SpinWheelGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  if (payload.center_title) fd.set("center_title", payload.center_title);
+  fd.set("items_count", String(payload.items_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background) fd.set("background", payload.background);
+  payload.item_images.forEach((f) => fd.append("item_images[]", f));
+  payload.item_labels.forEach((l) => fd.append("item_labels[]", l));
+  return await request<SpinWheelGameRow>("/api/professional/spin-wheel-games", { method: "POST", formData: fd });
+}
+
+export async function professionalUpdateSpinWheelGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    center_title: string | null;
+    assigned_to: number[];
+    background: File | null;
+    item_images: File[];
+    item_labels: string[];
+  }>
+): Promise<SpinWheelGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.center_title !== undefined) fd.set("center_title", payload.center_title ?? "");
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.background !== undefined && payload.background) fd.set("background", payload.background);
+  if (payload.item_images !== undefined) payload.item_images.forEach((f) => fd.append("item_images[]", f));
+  if (payload.item_labels !== undefined) payload.item_labels.forEach((l) => fd.append("item_labels[]", l));
+  fd.set("_method", "PATCH");
+  return await request<SpinWheelGameRow>(`/api/professional/spin-wheel-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function professionalDeleteSpinWheelGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/spin-wheel-games/${id}`, { method: "DELETE" });
 }
 
 export async function adminDeleteAppointment(id: number): Promise<void> {

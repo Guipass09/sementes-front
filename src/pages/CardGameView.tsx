@@ -143,10 +143,13 @@ export default function CardGameView() {
     (async () => {
       setLoading(true);
       try {
-        const isAdmin = auth.user?.role === "admin";
-        const data = isAdmin
-          ? await api.adminGetCardGame(Number(id))
-          : await api.userGetCardGame(Number(id), inSession ? { session_id: sessionId } : undefined);
+        const role = auth.user?.role;
+        const data =
+          role === "admin"
+            ? await api.adminGetCardGame(Number(id))
+            : role === "professional"
+              ? await api.professionalGetCardGame(Number(id))
+              : await api.userGetCardGame(Number(id), inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(data);
         resetDeck(Math.max(1, Math.min(15, Number(data.cards_count) || 10)), sessionSeed);

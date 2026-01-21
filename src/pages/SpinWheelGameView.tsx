@@ -185,10 +185,13 @@ export default function SpinWheelGameView() {
     (async () => {
       setLoading(true);
       try {
-        const isAdmin = auth.user?.role === "admin";
-        const data = isAdmin
-          ? await api.adminGetSpinWheelGame(Number(id))
-          : await api.userGetSpinWheelGame(Number(id), inSession ? { session_id: sessionId } : undefined);
+        const role = auth.user?.role;
+        const data =
+          role === "admin"
+            ? await api.adminGetSpinWheelGame(Number(id))
+            : role === "professional"
+              ? await api.professionalGetSpinWheelGame(Number(id))
+              : await api.userGetSpinWheelGame(Number(id), inSession ? { session_id: sessionId } : undefined);
         if (!cancelled) {
           setGame(data);
           setActiveOrder(Array.from({ length: data.items.length }, (_, i) => i));

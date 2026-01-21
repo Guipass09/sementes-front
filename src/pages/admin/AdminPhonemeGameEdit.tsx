@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { AdminUserRow, PhonemeGameRow } from "@/lib/laravel-api";
+import type { AdminUserRow, PhonemeGameRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
 import { isApiError } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
@@ -45,6 +45,8 @@ export default function AdminPhonemeGameEdit() {
   const navigate = useNavigate();
   const auth = useAuth();
   const { toast } = useToast();
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
 
   const gameId = useMemo(() => {
     const n = Number(id);
@@ -58,7 +60,7 @@ export default function AdminPhonemeGameEdit() {
   const [forbidden, setForbidden] = useState(false);
 
   const [game, setGame] = useState<PhonemeGameRow | null>(null);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -74,7 +76,7 @@ export default function AdminPhonemeGameEdit() {
   useEffect(() => {
     if (auth.loading) return;
     if (!auth.user) return navigate("/entrar");
-    if (auth.user.role !== "admin") return navigate("/paciente");
+    if (auth.user.role !== "admin" && auth.user.role !== "professional") return navigate("/paciente");
   }, [auth.loading, auth.user, navigate]);
 
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function AdminPhonemeGameEdit() {
       setNotFound(false);
       setForbidden(false);
       try {
-        const g = await api.adminGetPhonemeGame(gameId);
+        const g = await (isProfessional ? api.professionalGetPhonemeGame(gameId) : api.adminGetPhonemeGame(gameId));
         if (cancelled) return;
         setGame(g);
         setTitle(g.title);
@@ -133,9 +135,10 @@ export default function AdminPhonemeGameEdit() {
     (async () => {
       setLoadingUsers(true);
       try {
-        const u = await api.adminListUsers();
+        const u = isProfessional ? await api.professionalListUsers() : await api.adminListUsers();
         if (cancelled) return;
-        setUsers(u.filter((x) => x.role === "user"));
+        if (isProfessional) setUsers((u as any).data ?? []);
+        else setUsers((u as any).filter((x: any) => x.role === "user"));
       } catch {
         toast({
           title: "Erro ao carregar usuários",
@@ -248,10 +251,10 @@ export default function AdminPhonemeGameEdit() {
         payload.right_images = sessions.map((s) => s.rightFile!) as File[];
       }
 
-      const updated = await api.adminUpdatePhonemeGame(gameId, payload);
+      const updated = await (isProfessional ? api.professionalUpdatePhonemeGame(gameId, payload as any) : api.adminUpdatePhonemeGame(gameId, payload));
       setGame(updated);
       toast({ title: "Jogo atualizado!" });
-      navigate("/admin/jogos/fonema");
+      navigate(`${base}/jogos/fonema`);
     } catch (e: any) {
       const msg = e?.data?.message || e?.message || "Não foi possível salvar.";
       toast({ title: "Erro", description: msg, variant: "destructive" });

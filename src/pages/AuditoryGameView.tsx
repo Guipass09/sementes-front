@@ -159,7 +159,9 @@ export default function AuditoryGameView() {
         const g =
           auth.user?.role === "admin"
             ? await api.adminGetAuditoryGame(gameId)
-            : await api.userGetAuditoryGame(gameId, inSession ? { session_id: sessionId } : undefined);
+            : auth.user?.role === "professional"
+              ? await api.professionalGetAuditoryGame(gameId)
+              : await api.userGetAuditoryGame(gameId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
 

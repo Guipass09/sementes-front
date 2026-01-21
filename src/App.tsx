@@ -28,6 +28,7 @@ import ProfessionalActivities from "./pages/professional/ProfessionalActivities"
 import ProfessionalReports from "./pages/professional/ProfessionalReports";
 import ProfessionalSessions from "./pages/professional/ProfessionalSessions";
 import ProfessionalPatients from "./pages/professional/ProfessionalPatients";
+import ProfessionalGamesHub from "./pages/professional/ProfessionalGamesHub";
 import AdminLayout from "./components/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -142,7 +143,31 @@ const App = () => {
                 <Route index element={<ProfessionalDashboard />} />
                 <Route path="pacientes" element={<ProfessionalPatients />} />
                 <Route path="atividades" element={<ProfessionalActivities />} />
-                <Route path="jogos" element={<ProfessionalHome />} />
+                <Route path="jogos" element={<ProfessionalGamesHub />} />
+                <Route path="jogos/memoria" element={<AdminMemoryGames />} />
+                <Route path="jogos/memoria/novo" element={<AdminMemoryGameCreate />} />
+                <Route path="jogos/memoria/:id/editar" element={<AdminMemoryGameEdit />} />
+                <Route path="jogos/memoria2" element={<AdminMemoryGames2 />} />
+                <Route path="jogos/memoria2/novo" element={<AdminMemoryGame2Create />} />
+                <Route path="jogos/memoria2/:id/editar" element={<AdminMemoryGame2Edit />} />
+                <Route path="jogos/fonema" element={<AdminPhonemeGames />} />
+                <Route path="jogos/fonema/novo" element={<AdminPhonemeGameCreate />} />
+                <Route path="jogos/fonema/:id/editar" element={<AdminPhonemeGameEdit />} />
+                <Route path="jogos/auditivo" element={<AdminAuditoryGames />} />
+                <Route path="jogos/auditivo/novo" element={<AdminAuditoryStimulationCreate />} />
+                <Route path="jogos/auditivo/:id/editar" element={<AdminAuditoryGameEdit />} />
+                <Route path="jogos/forca" element={<AdminHangmanGames />} />
+                <Route path="jogos/forca/novo" element={<AdminHangmanGameCreate />} />
+                <Route path="jogos/forca/:id/editar" element={<AdminHangmanGameEdit />} />
+                <Route path="jogos/roleta" element={<AdminSpinWheelGames />} />
+                <Route path="jogos/roleta/novo" element={<AdminSpinWheelGameCreate />} />
+                <Route path="jogos/roleta/:id/editar" element={<AdminSpinWheelGameEdit />} />
+                <Route path="jogos/caca-palavras" element={<AdminWordSearchGames />} />
+                <Route path="jogos/caca-palavras/novo" element={<AdminWordSearchGameCreate />} />
+                <Route path="jogos/caca-palavras/:id/editar" element={<AdminWordSearchGameEdit />} />
+                <Route path="jogos/cartas" element={<AdminCardGames />} />
+                <Route path="jogos/cartas/novo" element={<AdminCardGameCreate />} />
+                <Route path="jogos/cartas/:id/editar" element={<AdminCardGameEdit />} />
                 <Route path="horarios" element={<ProfessionalSessions />} />
                 <Route path="relatorios" element={<ProfessionalReports />} />
               </Route>

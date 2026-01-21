@@ -6,27 +6,43 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
-import type { AdminUserRow, MemoryGameRow } from "@/lib/laravel-api";
+import type { MemoryGameRow } from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 
 export default function AdminMemoryGames2() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [games, setGames] = useState<MemoryGameRow[]>([]);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string; profile_photo_url?: string | null }>>([]);
   const [search, setSearch] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MemoryGameRow | null>(null);
 
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
+
   const refresh = async () => {
     setLoading(true);
     try {
-      const [res, u] = await Promise.all([api.adminListMemoryGames({ variant: "v2" }), api.adminListUsers()]);
+      const [res, u] = await Promise.all([
+        isProfessional ? api.professionalListMemoryGames({ variant: "v2" }) : api.adminListMemoryGames({ variant: "v2" }),
+        isProfessional ? api.professionalListUsers() : api.adminListUsers(),
+      ]);
       setGames(res);
-      setUsers(u.filter((x) => x.role === "user"));
+      const usersList = isProfessional ? (u as any).data ?? [] : (u as any).filter((x: any) => x.role === "user");
+      setUsers(
+        (usersList as any[]).map((x) => ({
+          id: x.id,
+          name: x.name,
+          email: x.email,
+          profile_photo_url: x.profile_photo_url ?? null,
+        }))
+      );
     } finally {
       setLoading(false);
     }
@@ -61,7 +77,7 @@ export default function AdminMemoryGames2() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await api.adminDeleteMemoryGame(deleteTarget.id);
+      await (isProfessional ? api.professionalDeleteMemoryGame(deleteTarget.id) : api.adminDeleteMemoryGame(deleteTarget.id));
       toast({ title: "Jogo excluído", description: "O jogo foi removido com sucesso." });
       setDeleteOpen(false);
       setDeleteTarget(null);
@@ -82,7 +98,7 @@ export default function AdminMemoryGames2() {
             </h1>
             <p className="text-muted-foreground">Crie, edite e envie jogos (pares definidos manualmente) para usuários</p>
           </div>
-          <Button onClick={() => navigate("/admin/jogos/memoria2/novo")} className="w-full sm:w-auto">
+          <Button onClick={() => navigate(`${base}/jogos/memoria2/novo`)} className="w-full sm:w-auto">
             <Plus size={20} className="mr-2" />
             Criar Jogo
           </Button>
@@ -159,7 +175,7 @@ export default function AdminMemoryGames2() {
                                 <Play className="h-4 w-4 mr-2" />
                                 Abrir
                               </Button>
-                              <Button variant="outline" onClick={() => navigate(`/admin/jogos/memoria2/${g.id}/editar`)}>
+                              <Button variant="outline" onClick={() => navigate(`${base}/jogos/memoria2/${g.id}/editar`)}>
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Editar
                               </Button>

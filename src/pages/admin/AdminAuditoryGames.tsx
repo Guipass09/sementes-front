@@ -6,28 +6,44 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { AuditoryGameRow, AdminUserRow } from "@/lib/laravel-api";
+import type { AuditoryGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 
 export default function AdminAuditoryGames() {
   const navigate = useNavigate();
+  const auth = useAuth();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [games, setGames] = useState<AuditoryGameRow[]>([]);
-  const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string; profile_photo_url?: string | null }>>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AuditoryGameRow | null>(null);
 
+  const isProfessional = auth.user?.role === "professional";
+  const base = isProfessional ? "/profissional" : "/admin";
+
   const refresh = async () => {
     setLoading(true);
     try {
-      const [gamesData, usersData] = await Promise.all([api.adminListAuditoryGames(), api.adminListUsers()]);
+      const [gamesData, usersData] = await Promise.all([
+        isProfessional ? api.professionalListAuditoryGames() : api.adminListAuditoryGames(),
+        isProfessional ? api.professionalListUsers() : api.adminListUsers(),
+      ]);
       setGames(gamesData);
-      setUsers(usersData.filter((u) => u.role === "user"));
+      const list = isProfessional ? (usersData as any).data ?? [] : (usersData as any).filter((u: any) => u.role === "user");
+      setUsers(
+        (list as any[]).map((u) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          profile_photo_url: u.profile_photo_url ?? null,
+        }))
+      );
     } catch {
       toast({
         title: "Erro ao carregar jogos",
@@ -81,7 +97,7 @@ export default function AdminAuditoryGames() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await api.adminDeleteAuditoryGame(deleteTarget.id);
+      await (isProfessional ? api.professionalDeleteAuditoryGame(deleteTarget.id) : api.adminDeleteAuditoryGame(deleteTarget.id));
       toast({ title: "Jogo excluído", description: "O jogo foi removido com sucesso." });
       await refresh();
     } catch {
@@ -100,7 +116,7 @@ export default function AdminAuditoryGames() {
             </h1>
             <p className="text-muted-foreground">Editar, excluir e enviar jogos auditivos para usuários.</p>
           </div>
-          <Button onClick={() => navigate("/admin/jogos/auditivo/novo")} className="w-full sm:w-auto bg-brand-blue text-white hover:bg-brand-blue/90">
+          <Button onClick={() => navigate(`${base}/jogos/auditivo/novo`)} className="w-full sm:w-auto bg-brand-blue text-white hover:bg-brand-blue/90">
             Novo jogo
           </Button>
         </div>
@@ -181,7 +197,7 @@ export default function AdminAuditoryGames() {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/admin/jogos/auditivo/${g.id}/editar`);
+                                  navigate(`${base}/jogos/auditivo/${g.id}/editar`);
                                 }}
                               >
                                 <Edit size={14} className="mr-2" /> Editar

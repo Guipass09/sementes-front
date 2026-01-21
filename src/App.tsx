@@ -23,6 +23,10 @@ import PatientReports from "./pages/patient/PatientReports";
 import PatientPackages from "./pages/patient/PatientPackages";
 import ProfessionalLayout from "./components/ProfessionalLayout";
 import ProfessionalHome from "./pages/professional/ProfessionalHome";
+import ProfessionalDashboard from "./pages/professional/ProfessionalDashboard";
+import ProfessionalActivities from "./pages/professional/ProfessionalActivities";
+import ProfessionalReports from "./pages/professional/ProfessionalReports";
+import ProfessionalSessions from "./pages/professional/ProfessionalSessions";
 import AdminLayout from "./components/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -134,7 +138,11 @@ const App = () => {
                   </RequireProfessional>
                 }
               >
-                <Route index element={<ProfessionalHome />} />
+                <Route index element={<ProfessionalDashboard />} />
+                <Route path="atividades" element={<ProfessionalActivities />} />
+                <Route path="jogos" element={<ProfessionalHome />} />
+                <Route path="horarios" element={<ProfessionalSessions />} />
+                <Route path="relatorios" element={<ProfessionalReports />} />
               </Route>
 
               {/* Admin Routes */}

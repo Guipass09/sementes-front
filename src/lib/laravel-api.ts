@@ -456,6 +456,122 @@ export async function professionalListUsers(): Promise<{ data: ProfessionalUserR
   return await request<{ data: ProfessionalUserRow[] }>("/api/professional/users");
 }
 
+export async function professionalListAppointments(): Promise<{ data: any[] }> {
+  return await request<{ data: any[] }>("/api/professional/appointments");
+}
+
+export async function professionalListActivities(): Promise<ActivityRow[]> {
+  const res = await request<{ data: ActivityRow[] }>("/api/professional/activities");
+  return res.data ?? [];
+}
+
+export async function professionalCreateActivity(payload: {
+  title: string;
+  description: string;
+  category?: string;
+  estimated_time?: string;
+  assigned_to: number[];
+  media: Array<{ file: File; media_type: ActivityMediaType; caption: string; thumbnail?: File | null }>;
+}): Promise<ActivityRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  if (payload.category) fd.set("category", payload.category);
+  if (payload.estimated_time) fd.set("estimated_time", payload.estimated_time);
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  payload.media.forEach((m, idx) => {
+    fd.append("media_files[]", m.file);
+    fd.append("media_types[]", m.media_type);
+    fd.append("media_captions[]", m.caption ?? "");
+    fd.append("media_positions[]", String(idx));
+    if (m.media_type === "video" && m.thumbnail) {
+      fd.append(`media_thumbnails[${idx}]`, m.thumbnail);
+    }
+  });
+  return await request<ActivityRow>("/api/professional/activities", { method: "POST", formData: fd });
+}
+
+export async function professionalUpdateActivity(
+  id: number,
+  payload: Partial<{ title: string; description: string; category: string; estimated_time: string; assigned_to: number[] }>
+): Promise<ActivityRow> {
+  await ensureCsrfCookie();
+  const json: any = { ...payload };
+  if (payload.assigned_to) {
+    json.assigned_to_json = JSON.stringify(payload.assigned_to);
+    delete json.assigned_to;
+  }
+  return await request<ActivityRow>(`/api/professional/activities/${id}`, { method: "PATCH", json });
+}
+
+export async function professionalAddActivityMedia(params: {
+  activity_id: number;
+  file: File;
+  media_type: ActivityMediaType;
+  caption?: string;
+  position?: number;
+  thumbnail?: File | null;
+}): Promise<ActivityMediaRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("file", params.file);
+  fd.set("media_type", params.media_type);
+  if (params.caption) fd.set("caption", params.caption);
+  if (params.position !== undefined) fd.set("position", String(params.position));
+  if (params.media_type === "video" && params.thumbnail) fd.set("thumbnail", params.thumbnail);
+  return await request<ActivityMediaRow>(`/api/professional/activities/${params.activity_id}/media`, { method: "POST", formData: fd });
+}
+
+export async function professionalDeleteActivity(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/activities/${id}`, { method: "DELETE" });
+}
+
+export async function professionalDeleteActivityMedia(params: { activity_id: number; media_id: number }): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/activities/${params.activity_id}/media/${params.media_id}`, { method: "DELETE" });
+}
+
+export async function professionalListReports(): Promise<ReportRow[]> {
+  const res = await request<{ data: ReportRow[] }>("/api/professional/reports");
+  return res.data ?? [];
+}
+
+export async function professionalCreateReport(payload: {
+  user_id: number;
+  patient_name: string;
+  professional_name: string;
+  title: string;
+  report_date: string;
+  type: ReportType;
+  content: string;
+}): Promise<ReportRow> {
+  await ensureCsrfCookie();
+  return await request<ReportRow>("/api/professional/reports", { method: "POST", json: payload });
+}
+
+export async function professionalUpdateReport(
+  id: number,
+  payload: Partial<{
+    user_id: number;
+    patient_name: string;
+    professional_name: string;
+    title: string;
+    report_date: string;
+    type: ReportType;
+    content: string;
+  }>
+): Promise<ReportRow> {
+  await ensureCsrfCookie();
+  return await request<ReportRow>(`/api/professional/reports/${id}`, { method: "PATCH", json: payload });
+}
+
+export async function professionalDeleteReport(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/reports/${id}`, { method: "DELETE" });
+}
+
 export async function forgotPassword(email: string): Promise<{ message: string }> {
   await ensureCsrfCookie();
   return await request<{ message: string }>("/api/forgot-password", { method: "POST", json: { email } });

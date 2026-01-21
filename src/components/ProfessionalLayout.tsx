@@ -1,27 +1,212 @@
-import { Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
+import { LayoutDashboard, Activity, Calendar, FileText, Menu, X, LogOut, Grid3X3 } from "lucide-react";
+import logoImage from "@/assets/logo-sementes-da-fala.jpg";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { useAuth } from "@/auth/AuthContext";
-import { Button } from "@/components/ui/button";
+import EditProfileModal from "@/components/EditProfileModal";
+import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
+import NotificationsBell from "@/components/NotificationsBell";
+import PwaInstallButton from "@/components/PwaInstallButton";
 
-export default function ProfessionalLayout(): JSX.Element {
-  const { user, logout } = useAuth();
+interface UserData {
+  name: string;
+  email: string;
+  role: string;
+  profile_photo_url?: string | null;
+}
+
+const navItems = [
+  { path: "/profissional", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/profissional/atividades", label: "Atividades", icon: Activity },
+  { path: "/profissional/jogos", label: "Jogos", icon: Grid3X3 },
+  { path: "/profissional/horarios", label: "Horários", icon: Calendar },
+  { path: "/profissional/relatorios", label: "Relatórios", icon: FileText },
+];
+
+const ProfessionalLayout = () => {
+  const [user, setUser] = useState<UserData | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const auth = useAuth();
+
+  useEffect(() => {
+    if (auth.loading) return;
+    if (!auth.user) {
+      navigate("/entrar");
+      return;
+    }
+
+    const role = String(auth.user.role || "").toLowerCase().trim();
+    const isProfessional = role === "professional" || role.includes("professional") || role.includes("profissional");
+    if (!isProfessional) {
+      // admin vai para /admin; user vai para /paciente
+      const isAdmin = role === "admin" || role.includes("admin") || role.includes("administrador") || role.includes("administrator");
+      navigate(isAdmin ? "/admin" : "/paciente");
+      return;
+    }
+
+    setUser({
+      name: auth.user.name,
+      email: auth.user.email,
+      role: auth.user.role,
+      profile_photo_url: auth.user.profile_photo_url ?? null,
+    });
+  }, [navigate, auth.loading, auth.user]);
+
+  const handleLogout = () => {
+    void auth.logout().finally(() => navigate("/"));
+  };
+
+  const isActivePath = (path: string) => {
+    const currentPath = location.pathname;
+    if (path === "/profissional") return currentPath === path;
+    return currentPath.startsWith(path);
+  };
+
+  if (!user) return <FullScreenLogoLoader label="Carregando..." />;
 
   return (
-    <div className="min-h-[100svh]">
-      <header className="sticky top-0 z-20 bg-background/80 backdrop-blur border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-foreground">Ambiente do Profissional</div>
-            <div className="text-xs text-muted-foreground truncate">{user?.name ?? ""}</div>
+    <div className="min-h-screen bg-background">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-2 max-w-[1920px]">
+          <Link to="/profissional" className="flex items-center gap-1.5 flex-shrink-0">
+            <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain" />
+            <span className="hidden lg:block font-display font-bold text-base">
+              <span className="text-brand-green">Sementes</span>{" "}
+              <span className="text-brand-brown">da Fala</span>
+              <span className="text-[10px] ml-1.5 text-muted-foreground">Profissional</span>
+            </span>
+          </Link>
+
+          <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 justify-center">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = isActivePath(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-2 rounded-lg font-medium transition-all duration-200 flex-shrink-0 text-sm ${
+                    isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  }`}
+                >
+                  <Icon size={16} />
+                  <span className="hidden lg:inline whitespace-nowrap">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <NotificationsBell />
+            <PwaInstallButton />
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              className="hidden md:flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-muted/50 transition-colors"
+              aria-label="Perfil"
+            >
+              <div className="text-right hidden xl:block">
+                <p className="text-sm font-semibold text-foreground leading-tight">{user.name}</p>
+                <p className="text-xs text-muted-foreground leading-tight">Profissional</p>
+              </div>
+              <div className="w-10 h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                {user.profile_photo_url ? (
+                  <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                )}
+              </div>
+            </button>
+
+            <button onClick={handleLogout} className="hidden md:flex items-center gap-1.5 px-1.5 py-2 text-sm text-muted-foreground hover:text-destructive transition-colors">
+              <LogOut size={16} />
+            </button>
+
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+              aria-label="Menu"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
-          <Button variant="outline" onClick={() => void logout()}>
-            Sair
-          </Button>
+        </div>
+
+        <div
+          className={`md:hidden absolute top-full left-0 right-0 bg-background border-b border-border shadow-xl transition-all duration-300 overflow-hidden ${
+            mobileMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="container mx-auto px-4 py-4">
+            <button
+              type="button"
+              onClick={() => {
+                setProfileOpen(true);
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-3 pb-4 mb-4 border-b border-border text-left"
+              aria-label="Perfil"
+            >
+              <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center text-white font-semibold text-lg">
+                {user.profile_photo_url ? (
+                  <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground">{user.name}</p>
+                <p className="text-sm text-muted-foreground">Toque para editar perfil</p>
+              </div>
+            </button>
+
+            <nav className="space-y-1">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = isActivePath(item.path);
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                      isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <Icon size={20} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 mt-4 text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
+              <LogOut size={20} />
+              <span className="font-medium">Sair</span>
+            </button>
+          </div>
         </div>
       </header>
-      <main>
+
+      <main className="pt-16 min-h-screen">
         <Outlet />
       </main>
+
+      {auth.user && (
+        <EditProfileModal
+          open={profileOpen}
+          onOpenChange={setProfileOpen}
+          user={auth.user}
+          onSaved={(u) => auth.setAuthUser(u)}
+        />
+      )}
     </div>
   );
-}
+};
+
+export default ProfessionalLayout;
 

@@ -1608,13 +1608,49 @@ export default function SessionCall() {
       // Evita addTrack duplicado (pode disparar exceções e "quebrar" a sessão em iOS)
       const pc = pcRef.current;
       if (pc) {
-        const hasSenders = pc.getSenders().some((s) => !!s.track);
-        if (!hasSenders) {
-          for (const track of stream.getTracks()) {
+        const localAudio = stream.getAudioTracks?.()?.[0] ?? null;
+        const localVideo = stream.getVideoTracks?.()?.[0] ?? null;
+
+        // Garante que SEMPRE exista sender de mic/câmera (e que não seja confundido com screen share)
+        const pickSender = (kind: "audio" | "video") => {
+          const senders = pc.getSenders().filter((s) => s?.track?.kind === kind);
+          if (kind === "video") return senders.find((s) => s !== screenSenderRef.current) ?? null;
+          return senders.find((s) => s !== screenAudioSenderRef.current) ?? null;
+        };
+
+        const micSender = pickSender("audio");
+        const camSender = pickSender("video");
+
+        // Mic
+        if (localAudio) {
+          if (micSender?.replaceTrack) {
             try {
-              pc.addTrack(track, stream);
+              if (micSender.track !== localAudio) await micSender.replaceTrack(localAudio);
             } catch (e) {
-              console.warn("[WebRTC] addTrack falhou (ignorado)", e);
+              console.warn("[WebRTC] replaceTrack mic falhou (ignorado)", e);
+            }
+          } else if (!micSender) {
+            try {
+              pc.addTrack(localAudio, stream);
+            } catch (e) {
+              console.warn("[WebRTC] addTrack mic falhou (ignorado)", e);
+            }
+          }
+        }
+
+        // Câmera
+        if (localVideo) {
+          if (camSender?.replaceTrack) {
+            try {
+              if (camSender.track !== localVideo) await camSender.replaceTrack(localVideo);
+            } catch (e) {
+              console.warn("[WebRTC] replaceTrack câmera falhou (ignorado)", e);
+            }
+          } else if (!camSender) {
+            try {
+              pc.addTrack(localVideo, stream);
+            } catch (e) {
+              console.warn("[WebRTC] addTrack câmera falhou (ignorado)", e);
             }
           }
         }

@@ -25,15 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
-import type {
-  ActivityRow,
-  MemoryGameRow,
-  AuditoryGameRow,
-  HangmanGameRow,
-  SpinWheelGameRow,
-  WordSearchGameRow,
-  CardGameRow,
-} from "@/lib/laravel-api";
+import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, WordSearchGameRow } from "@/lib/laravel-api";
 import type { PhonemeGameRow } from "@/lib/laravel-api";
 import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinResponse, type VideoPollMessage } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -76,8 +68,6 @@ export default function SessionCall() {
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
   const pendingIceRef = useRef<any[]>([]);
   const pendingOfferRef = useRef<any | null>(null);
-  const makingOfferRef = useRef(false);
-  const ignoreOfferRef = useRef(false);
   const peerReadyRef = useRef(false);
   const ensurePeerRef = useRef<Promise<void> | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
@@ -107,7 +97,6 @@ export default function SessionCall() {
   const [hangGames, setHangGames] = useState<HangmanGameRow[]>([]);
   const [spinGames, setSpinGames] = useState<SpinWheelGameRow[]>([]);
   const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
-  const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [pendingShare, setPendingShare] = useState<null | { path: string; title: string; kind: string }>(null);
   const [pendingPayment, setPendingPayment] = useState<null | { sessions: number; url: string }>(null);
@@ -148,7 +137,6 @@ export default function SessionCall() {
   const screenStreamRef = useRef<MediaStream | null>(null);
   const [screenSharing, setScreenSharing] = useState(false);
   const [screenShareActive, setScreenShareActive] = useState(false);
-  const screenShareActiveRef = useRef(false);
   const contentScreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const lastContentRef = useRef<{ path: string | null; title: string | null; kind: string | null; seed: number | null } | null>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
@@ -158,7 +146,6 @@ export default function SessionCall() {
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const contentFrameRef = useRef<HTMLIFrameElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const joiningRef = useRef(false);
@@ -318,10 +305,6 @@ export default function SessionCall() {
   // - admin mostra o próprio display stream no painel grande
   // - user mostra o remoteScreenStream (2º track de vídeo)
   useEffect(() => {
-    screenShareActiveRef.current = screenShareActive;
-  }, [screenShareActive]);
-
-  useEffect(() => {
     if (!screenShareActive) return;
     const el = contentScreenVideoRef.current;
     if (!el) return;
@@ -351,28 +334,6 @@ export default function SessionCall() {
       remoteScreenStream.removeEventListener("removetrack", onAdd as any);
     };
   }, [remoteScreenStream, screenShareActive, role]);
-
-  // Alguns browsers também não atualizam o <video> quando o stream de câmera remota ganha track depois.
-  // Forçamos re-attach quando o track remoto chega (resolve "conecta mas fica preto").
-  useEffect(() => {
-    const s = remoteCamStream || remoteStream;
-    if (!s) return;
-    const el = remoteVideoRef.current;
-    if (!el) return;
-    const onAdd = () => {
-      const stream = remoteCamStream || remoteStream;
-      if (!stream) return;
-      el.srcObject = stream;
-      el.muted = false;
-      void el.play().catch(() => {});
-    };
-    s.addEventListener("addtrack", onAdd as any);
-    s.addEventListener("removetrack", onAdd as any);
-    return () => {
-      s.removeEventListener("addtrack", onAdd as any);
-      s.removeEventListener("removetrack", onAdd as any);
-    };
-  }, [remoteCamStream, remoteStream]);
 
   // Temporizador simples da chamada (não depende do relógio do servidor)
   useEffect(() => {
@@ -495,22 +456,10 @@ export default function SessionCall() {
     const s = remoteCamStream || remoteStream;
     if (s) {
       el.srcObject = s;
-      // iOS/Safari: vídeo com áudio e muted=false frequentemente bloqueia autoplay e fica "preto".
-      // No lado do USER, mantemos o vídeo remoto muted e tocamos o áudio em um <audio> separado.
-      el.muted = role === "user";
+      // Não mutar: o áudio remoto deve passar sempre.
+      el.muted = false;
       void el.play().catch(() => {});
     }
-  }, [remoteCamStream, remoteStream, role]);
-
-  // Attach remote audio to a dedicated <audio> element (especialmente importante no iOS/PWA)
-  useEffect(() => {
-    const a = remoteAudioRef.current;
-    if (!a) return;
-    const s = remoteCamStream || remoteStream;
-    if (!s) return;
-    a.srcObject = s;
-    a.muted = false;
-    void a.play().catch(() => {});
   }, [remoteCamStream, remoteStream]);
 
   // Timeout de segurança: remove contentLoading se iframe não carregar em 15 segundos
@@ -544,9 +493,8 @@ export default function SessionCall() {
       };
 
       await kick(localVideoRef.current, { muted: true });
-      await kick(remoteVideoRef.current, { muted: role === "user" });
+      await kick(remoteVideoRef.current, { muted: false });
       if (screenShareActive) await kick(contentScreenVideoRef.current, { muted: true });
-      await kick(remoteAudioRef.current as any, { muted: false } as any);
 
       // 2) Se WebAudio foi suspenso ao perder foco, tenta resumir
       try {
@@ -647,16 +595,8 @@ export default function SessionCall() {
     const handler = () => {
       const el = remoteVideoRef.current;
       if (!el) return;
-      // User: mantém vídeo muted e destrava áudio no <audio>. Admin: destrava vídeo+áudio normal.
-      if (role !== "user") {
-        el.muted = false;
-        void el.play().catch(() => {});
-      }
-      const a = remoteAudioRef.current;
-      if (a) {
-        a.muted = false;
-        void a.play().catch(() => {});
-      }
+      el.muted = false;
+      void el.play().catch(() => {});
     };
     window.addEventListener("pointerdown", handler, { passive: true } as any);
     window.addEventListener("touchstart", handler, { passive: true } as any);
@@ -666,7 +606,7 @@ export default function SessionCall() {
       window.removeEventListener("touchstart", handler as any);
       window.removeEventListener("keydown", handler as any);
     };
-  }, [role]);
+  }, []);
 
   const send = async (kind: string, payload?: any) => {
     if (!joinInfo) return;
@@ -861,19 +801,7 @@ export default function SessionCall() {
         setRemoteStream(inbound); // mantém compat (útil para áudio/VAD)
         setRemoteCamStream(inboundCam);
         setRemoteScreenStream(inboundScreen);
-        const setSingleVideoTrack = (stream: MediaStream, track: MediaStreamTrack) => {
-          try {
-            for (const t of stream.getVideoTracks()) {
-              try { stream.removeTrack(t); } catch {}
-            }
-            stream.addTrack(track);
-          } catch {}
-        };
         let camVideoTrackId: string | null = null;
-
-        // Não criamos transceiver recvonly/sendonly extra aqui.
-        // A lógica de screen share é baseada na presença do 2º track de vídeo,
-        // o que evita interferir na câmera.
 
         pc.ontrack = (ev) => {
           try {
@@ -888,43 +816,35 @@ export default function SessionCall() {
             } catch {}
           }
           if (ev.track.kind === "video") {
-            // Regra estável:
-            // - Primeiro vídeo remoto => câmera
-            // - Se screen share estiver ativo, o próximo vídeo remoto => tela
+            // 1) Preferência: classifica pelo transceiver dedicado de tela (mais confiável).
+            if (screenTransceiverRef.current && ev.transceiver === screenTransceiverRef.current) {
+              try {
+                inboundScreen.addTrack(ev.track);
+              } catch {}
+              return;
+            }
+
+            // 2) Fallback: heurística (1º vídeo = câmera; 2º vídeo = tela)
             if (!camVideoTrackId) {
               camVideoTrackId = ev.track.id;
-              setSingleVideoTrack(inboundCam, ev.track);
+              try {
+                inboundCam.addTrack(ev.track);
+              } catch {}
               return;
             }
-
-            if (screenShareActiveRef.current && ev.track.id !== camVideoTrackId) {
-              setSingleVideoTrack(inboundScreen, ev.track);
+            if (ev.track.id !== camVideoTrackId) {
+              try {
+                // garante que o stream de tela tenha só o track atual
+                for (const t of inboundScreen.getVideoTracks()) {
+                  try { inboundScreen.removeTrack(t); } catch {}
+                }
+                inboundScreen.addTrack(ev.track);
+              } catch {}
               return;
             }
-
-            // fallback: mantém câmera (ex.: renegociação/reattach do track)
-            setSingleVideoTrack(inboundCam, ev.track);
-          }
-        };
-
-        // Quando alguém adiciona tracks depois do handshake inicial (ex.: admin inicia câmera após já estar conectado),
-        // o WebRTC precisa renegociar. Alguns fluxos anteriores dependiam de "createOffer" manual e às vezes pulavam
-        // quando o signalingState não estava "stable". Usamos onnegotiationneeded + perfect negotiation.
-        pc.onnegotiationneeded = async () => {
-          const pc2 = pcRef.current;
-          if (!pc2) return;
-          try {
-            makingOfferRef.current = true;
-            const offer = await pc2.createOffer();
-            if (pc2.signalingState !== "stable") return;
-            await pc2.setLocalDescription(offer);
-            await send("webrtc_offer", {
-              sdp: { type: pc2.localDescription?.type, sdp: pc2.localDescription?.sdp },
-            });
-          } catch (e) {
-            console.warn("[WebRTC] onnegotiationneeded falhou", e);
-          } finally {
-            makingOfferRef.current = false;
+            try {
+              inboundCam.addTrack(ev.track);
+            } catch {}
           }
         };
 
@@ -995,45 +915,23 @@ export default function SessionCall() {
 
     const pc = pcRef.current;
 
-    if (m.kind === "webrtc_offer") {
+    if (m.kind === "webrtc_offer" && role === "user") {
       if (!pc) return;
       const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
-      // Guardar o offer até iniciar câmera/microfone (garante 2-way)
+      // Guardar o offer até o usuário iniciar câmera/microfone (garante 2-way)
       if (mediaState !== "ready") {
         pendingOfferRef.current = sdp;
         return;
       }
-
-      // Perfect negotiation (evita "glare" quando ambos podem criar offer)
-      const offerCollision = makingOfferRef.current || pc.signalingState !== "stable";
-      // Determinístico: user é "polite", admin é "impolite"
-      const polite = role === "user";
-      ignoreOfferRef.current = !polite && offerCollision;
-      if (ignoreOfferRef.current) return;
-
-      try {
-        // Se houve colisão e somos "polite", faz rollback do offer local antes de aceitar o remoto.
-        if (offerCollision && polite) {
-          try {
-            await pc.setLocalDescription({ type: "rollback" } as any);
-          } catch {
-            // Alguns browsers podem não suportar rollback; segue tentando aplicar o remote.
-          }
-        }
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      } catch (e) {
-        // Se falhar por corrida, não derruba a chamada.
-        console.warn("[WebRTC] setRemoteDescription falhou", e);
-        return;
-      }
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       await flushPendingIce();
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       await send("webrtc_answer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
     }
 
-    if (m.kind === "webrtc_answer") {
+    if (m.kind === "webrtc_answer" && role === "admin") {
       if (!pc) return;
       const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
@@ -1651,49 +1549,13 @@ export default function SessionCall() {
       // Evita addTrack duplicado (pode disparar exceções e "quebrar" a sessão em iOS)
       const pc = pcRef.current;
       if (pc) {
-        const localAudio = stream.getAudioTracks?.()?.[0] ?? null;
-        const localVideo = stream.getVideoTracks?.()?.[0] ?? null;
-
-        // Garante que SEMPRE exista sender de mic/câmera (e que não seja confundido com screen share)
-        const pickSender = (kind: "audio" | "video") => {
-          const senders = pc.getSenders().filter((s) => s?.track?.kind === kind);
-          if (kind === "video") return senders.find((s) => s !== screenSenderRef.current) ?? null;
-          return senders.find((s) => s !== screenAudioSenderRef.current) ?? null;
-        };
-
-        const micSender = pickSender("audio");
-        const camSender = pickSender("video");
-
-        // Mic
-        if (localAudio) {
-          if (micSender?.replaceTrack) {
+        const hasSenders = pc.getSenders().some((s) => !!s.track);
+        if (!hasSenders) {
+          for (const track of stream.getTracks()) {
             try {
-              if (micSender.track !== localAudio) await micSender.replaceTrack(localAudio);
+              pc.addTrack(track, stream);
             } catch (e) {
-              console.warn("[WebRTC] replaceTrack mic falhou (ignorado)", e);
-            }
-          } else if (!micSender) {
-            try {
-              pc.addTrack(localAudio, stream);
-            } catch (e) {
-              console.warn("[WebRTC] addTrack mic falhou (ignorado)", e);
-            }
-          }
-        }
-
-        // Câmera
-        if (localVideo) {
-          if (camSender?.replaceTrack) {
-            try {
-              if (camSender.track !== localVideo) await camSender.replaceTrack(localVideo);
-            } catch (e) {
-              console.warn("[WebRTC] replaceTrack câmera falhou (ignorado)", e);
-            }
-          } else if (!camSender) {
-            try {
-              pc.addTrack(localVideo, stream);
-            } catch (e) {
-              console.warn("[WebRTC] addTrack câmera falhou (ignorado)", e);
+              console.warn("[WebRTC] addTrack falhou (ignorado)", e);
             }
           }
         }
@@ -1724,37 +1586,12 @@ export default function SessionCall() {
         if (audioCtxRef.current.state === "suspended") await audioCtxRef.current.resume();
       } catch {}
 
-      // Se já existe offer pendente (o outro entrou antes), responde primeiro para evitar glare.
-      if (pendingOfferRef.current && pcRef.current) {
-        const sdp = normalizeSdpInit(pendingOfferRef.current);
-        pendingOfferRef.current = null;
-        if (!sdp) throw new Error("SDP inválido (offer pendente).");
-        const offerCollision = makingOfferRef.current || pcRef.current.signalingState !== "stable";
-        const polite = role === "user";
-        ignoreOfferRef.current = !polite && offerCollision;
-        if (!ignoreOfferRef.current) {
-          // rollback do lado "polite" (se necessário)
-          if (offerCollision && polite) {
-            try {
-              await pcRef.current.setLocalDescription({ type: "rollback" } as any);
-            } catch {}
-          }
-          await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
-          await flushPendingIce();
-          const answer = await pcRef.current.createAnswer();
-          await pcRef.current.setLocalDescription(answer);
-          await send("webrtc_answer", {
-            sdp: { type: pcRef.current.localDescription?.type, sdp: pcRef.current.localDescription?.sdp },
-          });
-        }
-        return; // já respondeu, não cria offer agora
-      }
-
-      // Inicia offer ao ficar pronto (qualquer lado pode iniciar)
-      const pc2 = pcRef.current;
-      if (pc2) {
-        // Admin: mantém preparação de senders dedicados para screen share antes do primeiro offer.
-        if (role === "admin") {
+      // Admin inicia offer ao ficar pronto
+      if (role === "admin") {
+        const pc2 = pcRef.current;
+        if (pc2) {
+          // Prepara sender dedicado para screen share (vídeo + áudio) ANTES do primeiro offer do admin.
+          // Assim, quando compartilhar, usamos replaceTrack sem substituir a câmera e sem renegociar.
           if (!screenSenderRef.current) {
             try {
               const tr = pc2.addTransceiver("video", { direction: "sendonly" });
@@ -1773,22 +1610,24 @@ export default function SessionCall() {
               // ignore
             }
           }
-        }
-
-        try {
-          makingOfferRef.current = true;
           const offer = await pc2.createOffer();
-          if (pc2.signalingState !== "stable") {
-            // corrida: deixa o outro lado iniciar
-            return;
-          }
           await pc2.setLocalDescription(offer);
-          await send("webrtc_offer", { sdp: { type: pc2.localDescription?.type, sdp: pc2.localDescription?.sdp } });
-        } catch (e) {
-          console.warn("[WebRTC] createOffer falhou", e);
-        } finally {
-          makingOfferRef.current = false;
+        await send("webrtc_offer", { sdp: { type: pc2.localDescription?.type, sdp: pc2.localDescription?.sdp } });
         }
+      }
+
+      // Se o usuário já recebeu offer antes, responde agora
+      if (role === "user" && pendingOfferRef.current && pcRef.current) {
+        const sdp = normalizeSdpInit(pendingOfferRef.current);
+        pendingOfferRef.current = null;
+        if (!sdp) throw new Error("SDP inválido (offer pendente).");
+        await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+        await flushPendingIce();
+        const answer = await pcRef.current.createAnswer();
+        await pcRef.current.setLocalDescription(answer);
+        await send("webrtc_answer", {
+          sdp: { type: pcRef.current.localDescription?.type, sdp: pcRef.current.localDescription?.sdp },
+        });
       }
     } catch (e: any) {
       console.error("[WebRTC] falha ao iniciar sessão (mídia/webrtc)", e);
@@ -1890,24 +1729,13 @@ export default function SessionCall() {
     if (!catalogOpen) return;
     if (role !== "admin") return;
     if (catalogLoading) return;
-    if (
-      activities.length ||
-      memGames.length ||
-      memGames2.length ||
-      phonemeGames.length ||
-      audGames.length ||
-      hangGames.length ||
-      spinGames.length ||
-      wordSearchGames.length ||
-      cardGames.length
-    )
-      return;
+    if (activities.length || memGames.length || memGames2.length || phonemeGames.length || audGames.length || hangGames.length || spinGames.length || wordSearchGames.length) return;
 
     let cancelled = false;
     (async () => {
       setCatalogLoading(true);
       try {
-        const [a, memClassic, memV2, phon, aud, hang, spin, ws, cards] = await Promise.all([
+        const [a, memClassic, memV2, phon, aud, hang, spin, ws] = await Promise.all([
           api.adminListActivities().catch(() => [] as ActivityRow[]),
           api.adminListMemoryGames({ variant: "classic" }).catch(() => [] as MemoryGameRow[]),
           api.adminListMemoryGames({ variant: "v2" }).catch(() => [] as MemoryGameRow[]),
@@ -1916,7 +1744,6 @@ export default function SessionCall() {
           api.adminListHangmanGames().catch(() => [] as HangmanGameRow[]),
           api.adminListSpinWheelGames().catch(() => [] as SpinWheelGameRow[]),
           api.adminListWordSearchGames().catch(() => [] as WordSearchGameRow[]),
-          api.adminListCardGames().catch(() => [] as CardGameRow[]),
         ]);
         if (cancelled) return;
         setActivities(a);
@@ -1927,7 +1754,6 @@ export default function SessionCall() {
         setHangGames(hang);
         setSpinGames(spin);
         setWordSearchGames(ws);
-        setCardGames(cards);
       } finally {
         if (!cancelled) setCatalogLoading(false);
       }
@@ -2132,11 +1958,8 @@ export default function SessionCall() {
                     ref={remoteVideoRef}
                     autoPlay
                     playsInline
-                    muted={role === "user"}
                     className="h-full w-full object-cover"
                   />
-                  {/* Áudio remoto separado (garante vídeo no iOS mesmo quando autoplay com áudio é bloqueado) */}
-                  <audio ref={remoteAudioRef} autoPlay className="hidden" />
                   {!remotePresent && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white">
                       <img
@@ -2543,31 +2366,6 @@ export default function SessionCall() {
                     </AccordionItem>
                   )}
 
-                  {/* Jogo das Cartas */}
-                  {cardGames.length > 0 && (
-                    <AccordionItem value="cards" className="border border-border rounded-xl px-4">
-                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
-                        Jogo das Cartas ({cardGames.length})
-                      </AccordionTrigger>
-                      <AccordionContent className="pb-3">
-                        <div className="space-y-2">
-                          {cardGames.map((g) => (
-                            <button
-                              key={`cards-${g.id}`}
-                              onClick={() => {
-                                setPendingShare({ path: `/jogos/cartas/${g.id}`, title: g.title, kind: "card_game" });
-                                setShareConfirmOpen(true);
-                              }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
-                            >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )}
-
                   {/* Mensagem se não houver jogos */}
                   {memGames.length === 0 &&
                     memGames2.length === 0 &&
@@ -2575,8 +2373,7 @@ export default function SessionCall() {
                     audGames.length === 0 &&
                     hangGames.length === 0 &&
                     spinGames.length === 0 &&
-                    wordSearchGames.length === 0 &&
-                    cardGames.length === 0 && (
+                    wordSearchGames.length === 0 && (
                       <div className="text-sm text-muted-foreground py-2">Nenhum jogo disponível</div>
                     )}
                 </Accordion>

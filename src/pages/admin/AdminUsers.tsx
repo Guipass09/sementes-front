@@ -1003,6 +1003,13 @@ const AdminUsers = () => {
                   </div>
                 </div>
 
+                <div className="flex items-center justify-end">
+                  <Button variant="outline" onClick={() => void openAssignProfessionals(selectedUser)}>
+                    <Share2 size={16} className="mr-2" />
+                    Encaminhar para profissional
+                  </Button>
+                </div>
+
                 {/* Resumo de Sessões (contratadas / utilizadas / restantes) */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="bg-card rounded-xl border border-border p-4">

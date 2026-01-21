@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Grid3X3, Plus, Search, Trash2, Pencil, Image as ImageIcon, Play } from "lucide-react";
+import { Grid3X3, Plus, Search, Trash2, Pencil, Image as ImageIcon, Play, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +11,7 @@ import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import type { MemoryGameRow } from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import { ShareGameModal } from "@/features/games/ShareGameModal";
 
 export default function AdminMemoryGames2() {
   const navigate = useNavigate();
@@ -22,9 +23,12 @@ export default function AdminMemoryGames2() {
   const [search, setSearch] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MemoryGameRow | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<MemoryGameRow | null>(null);
 
   const isProfessional = auth.user?.role === "professional";
   const base = isProfessional ? "/profissional" : "/admin";
+  const myId = auth.user?.id ?? 0;
 
   const refresh = async () => {
     setLoading(true);
@@ -170,14 +174,34 @@ export default function AdminMemoryGames2() {
                               </div>
                             </div>
 
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 justify-end">
                               <Button variant="outline" onClick={() => navigate(`/jogos/memoria2/${g.id}`)}>
                                 <Play className="h-4 w-4 mr-2" />
                                 Abrir
                               </Button>
-                              <Button variant="outline" onClick={() => navigate(`${base}/jogos/memoria2/${g.id}/editar`)}>
+                              <Button
+                                variant="outline"
+                                onClick={() => navigate(`${base}/jogos/memoria2/${g.id}/editar`)}
+                                disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
+                              >
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Editar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setShareTarget(g);
+                                  setShareOpen(true);
+                                }}
+                                disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
+                                title={
+                                  isProfessional && (g.created_by?.id ?? 0) !== myId
+                                    ? "Apenas o criador pode compartilhar este jogo"
+                                    : "Compartilhar com profissionais"
+                                }
+                              >
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Compartilhar
                               </Button>
                               <Button
                                 variant="destructive"
@@ -185,6 +209,7 @@ export default function AdminMemoryGames2() {
                                   setDeleteTarget(g);
                                   setDeleteOpen(true);
                                 }}
+                                disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
                               >
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Excluir
@@ -211,6 +236,20 @@ export default function AdminMemoryGames2() {
         onConfirm={() => void confirmDelete()}
         destructive
       />
+
+      {shareTarget ? (
+        <ShareGameModal
+          open={shareOpen}
+          onOpenChange={(o) => {
+            setShareOpen(o);
+            if (!o) setShareTarget(null);
+          }}
+          mode={isProfessional ? "professional" : "admin"}
+          gameType="memory_game"
+          gameId={shareTarget.id}
+          title={shareTarget.title}
+        />
+      ) : null}
     </div>
   );
 }

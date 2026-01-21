@@ -3,6 +3,7 @@ import { Activity, Calendar, FileText, Grid3X3, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { professionalListUsers } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/auth/AuthContext";
 
 type StatCard = {
   label: string;
@@ -14,7 +15,14 @@ type StatCard = {
 
 export default function ProfessionalDashboard(): JSX.Element {
   const { toast } = useToast();
+  const auth = useAuth();
   const [assignedUsersCount, setAssignedUsersCount] = useState(0);
+
+  const firstName = useMemo(() => {
+    const name = String(auth.user?.name ?? "").trim();
+    if (!name) return "Profissional";
+    return name.split(/\s+/)[0] || "Profissional";
+  }, [auth.user?.name]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,12 +106,18 @@ export default function ProfessionalDashboard(): JSX.Element {
   return (
     <div className="min-h-full py-8 lg:py-12">
       <div className="container mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Seu ambiente de trabalho. Você só verá usuários e conteúdos permitidos pelo admin.
-          </p>
-        </div>
+        <section className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-brand-mint via-background to-brand-green/10 p-6 lg:p-10 mb-8">
+          <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-brand-green/10 blur-3xl" />
+          <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-brand-purple/10 blur-3xl" />
+          <div className="relative">
+            <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">
+              Bem-vindo, {firstName}
+            </h1>
+            <p className="text-muted-foreground">
+              Seu ambiente de trabalho. Você só verá usuários e conteúdos permitidos pelo admin.
+            </p>
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {stats.map((s) => {

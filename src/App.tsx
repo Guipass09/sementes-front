@@ -29,6 +29,7 @@ import ProfessionalReports from "./pages/professional/ProfessionalReports";
 import ProfessionalSessions from "./pages/professional/ProfessionalSessions";
 import ProfessionalPatients from "./pages/professional/ProfessionalPatients";
 import ProfessionalGamesHub from "./pages/professional/ProfessionalGamesHub";
+import ProfessionalHistory from "./pages/professional/ProfessionalHistory";
 import AdminLayout from "./components/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -169,6 +170,7 @@ const App = () => {
                 <Route path="jogos/cartas/novo" element={<AdminCardGameCreate />} />
                 <Route path="jogos/cartas/:id/editar" element={<AdminCardGameEdit />} />
                 <Route path="horarios" element={<ProfessionalSessions />} />
+                <Route path="historico" element={<ProfessionalHistory />} />
                 <Route path="relatorios" element={<ProfessionalReports />} />
               </Route>
 

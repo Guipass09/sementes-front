@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CircleDot, Plus, Search, ArrowLeft, Play, Edit2, Trash2 } from "lucide-react";
+import { CircleDot, Plus, Search, ArrowLeft, Play, Edit2, Trash2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +11,7 @@ import type { SpinWheelGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ShareGameModal } from "@/features/games/ShareGameModal";
 
 export default function AdminSpinWheelGames() {
   const navigate = useNavigate();
@@ -22,9 +23,12 @@ export default function AdminSpinWheelGames() {
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SpinWheelGameRow | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<SpinWheelGameRow | null>(null);
 
   const isProfessional = auth.user?.role === "professional";
   const base = isProfessional ? "/profissional" : "/admin";
+  const myId = auth.user?.id ?? 0;
 
   const refresh = async () => {
     setLoading(true);
@@ -199,7 +203,7 @@ export default function AdminSpinWheelGames() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -211,10 +215,28 @@ export default function AdminSpinWheelGames() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => navigate(`/admin/jogos/roleta/${game.id}/editar`)}
+                                onClick={() => navigate(`${base}/jogos/roleta/${game.id}/editar`)}
+                                disabled={isProfessional && (game.created_by?.id ?? 0) !== myId}
                               >
                                 <Edit2 className="h-4 w-4 mr-1" />
                                 Editar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setShareTarget(game);
+                                  setShareOpen(true);
+                                }}
+                                disabled={isProfessional && (game.created_by?.id ?? 0) !== myId}
+                                title={
+                                  isProfessional && (game.created_by?.id ?? 0) !== myId
+                                    ? "Apenas o criador pode compartilhar este jogo"
+                                    : "Compartilhar com profissionais"
+                                }
+                              >
+                                <Share2 className="h-4 w-4 mr-1" />
+                                Compartilhar
                               </Button>
                               <Button
                                 variant="destructive"
@@ -223,6 +245,7 @@ export default function AdminSpinWheelGames() {
                                   setDeleteTarget(game);
                                   setDeleteOpen(true);
                                 }}
+                                disabled={isProfessional && (game.created_by?.id ?? 0) !== myId}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -255,6 +278,20 @@ export default function AdminSpinWheelGames() {
           variant="danger"
           onConfirm={handleDelete}
         />
+
+        {shareTarget ? (
+          <ShareGameModal
+            open={shareOpen}
+            onOpenChange={(o) => {
+              setShareOpen(o);
+              if (!o) setShareTarget(null);
+            }}
+            mode={isProfessional ? "professional" : "admin"}
+            gameType="spin_wheel_game"
+            gameId={shareTarget.id}
+            title={shareTarget.title}
+          />
+        ) : null}
       </div>
     </div>
   );

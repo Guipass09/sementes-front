@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Type, Plus, Search, Trash2, Pencil, Play, Image as ImageIcon } from "lucide-react";
+import { Type, Plus, Search, Trash2, Pencil, Play, Image as ImageIcon, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +11,7 @@ import * as api from "@/lib/laravel-api";
 import type { HangmanGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import { ShareGameModal } from "@/features/games/ShareGameModal";
 
 export default function AdminHangmanGames() {
   const navigate = useNavigate();
@@ -22,9 +23,12 @@ export default function AdminHangmanGames() {
   const [search, setSearch] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<HangmanGameRow | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<HangmanGameRow | null>(null);
 
   const isProfessional = auth.user?.role === "professional";
   const base = isProfessional ? "/profissional" : "/admin";
+  const myId = auth.user?.id ?? 0;
 
   const refresh = async () => {
     setLoading(true);
@@ -180,7 +184,7 @@ export default function AdminHangmanGames() {
                                 <p className="text-sm text-muted-foreground line-clamp-2">{g.description}</p>
                               </div>
 
-                              <div className="flex flex-wrap items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2 justify-end">
                                 <Button
                                   variant="secondary"
                                   onClick={(e) => {
@@ -195,8 +199,26 @@ export default function AdminHangmanGames() {
                                   variant="outline"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setShareTarget(g);
+                                    setShareOpen(true);
+                                  }}
+                                  disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
+                                  title={
+                                    isProfessional && (g.created_by?.id ?? 0) !== myId
+                                      ? "Apenas o criador pode compartilhar este jogo"
+                                      : "Compartilhar com profissionais"
+                                  }
+                                >
+                                  <Share2 className="h-4 w-4 mr-2" />
+                                  Compartilhar
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     navigate(`${base}/jogos/forca/${g.id}/editar`);
                                   }}
+                                  disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
                                 >
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Editar
@@ -208,6 +230,7 @@ export default function AdminHangmanGames() {
                                     setDeleteTarget(g);
                                     setDeleteOpen(true);
                                   }}
+                                  disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Excluir
@@ -248,6 +271,20 @@ export default function AdminHangmanGames() {
           });
         }}
       />
+
+      {shareTarget ? (
+        <ShareGameModal
+          open={shareOpen}
+          onOpenChange={(o) => {
+            setShareOpen(o);
+            if (!o) setShareTarget(null);
+          }}
+          mode={isProfessional ? "professional" : "admin"}
+          gameType="hangman_game"
+          gameId={shareTarget.id}
+          title={shareTarget.title}
+        />
+      ) : null}
     </div>
   );
 }

@@ -457,6 +457,21 @@ export async function professionalListUsers(): Promise<{ data: ProfessionalUserR
   return await request<{ data: ProfessionalUserRow[] }>("/api/professional/users");
 }
 
+export type ProfessionalDirectoryRow = {
+  id: number;
+  name: string;
+  email: string;
+  profile_photo_url?: string | null;
+};
+
+export type ActivityShares = { activity_id: number; professional_ids: number[] };
+export type GameShares = { game_type: string; game_id: number; professional_ids: number[] };
+
+export async function professionalListProfessionals(): Promise<ProfessionalDirectoryRow[]> {
+  const res = await request<{ data: ProfessionalDirectoryRow[] }>("/api/professional/professionals");
+  return res.data ?? [];
+}
+
 export async function professionalListAppointments(): Promise<{ data: any[] }> {
   return await request<{ data: any[] }>("/api/professional/appointments");
 }
@@ -495,6 +510,30 @@ export async function professionalCreateActivity(payload: {
     }
   });
   return await request<ActivityRow>("/api/professional/activities", { method: "POST", formData: fd });
+}
+
+export async function professionalGetActivityShares(activityId: number): Promise<ActivityShares> {
+  return await request<ActivityShares>(`/api/professional/activities/${activityId}/shares`);
+}
+
+export async function professionalShareActivity(activityId: number, professionalIds: number[]): Promise<ActivityShares> {
+  await ensureCsrfCookie();
+  return await request<ActivityShares>(`/api/professional/activities/${activityId}/shares`, {
+    method: "POST",
+    json: { professional_ids: professionalIds },
+  });
+}
+
+export async function professionalGetGameShares(type: string, gameId: number): Promise<GameShares> {
+  return await request<GameShares>(`/api/professional/game-shares/${encodeURIComponent(type)}/${gameId}`);
+}
+
+export async function professionalShareGame(type: string, gameId: number, professionalIds: number[]): Promise<GameShares> {
+  await ensureCsrfCookie();
+  return await request<GameShares>(`/api/professional/game-shares/${encodeURIComponent(type)}/${gameId}`, {
+    method: "POST",
+    json: { professional_ids: professionalIds },
+  });
 }
 
 export async function professionalUpdateActivity(
@@ -655,6 +694,30 @@ export async function adminListUsers(): Promise<AdminUserRow[]> {
 export async function adminListProfessionals(): Promise<AdminProfessionalRow[]> {
   const res = await request<{ data: AdminProfessionalRow[] }>("/api/admin/professionals");
   return res.data ?? [];
+}
+
+export async function adminGetActivityShares(activityId: number): Promise<ActivityShares> {
+  return await request<ActivityShares>(`/api/admin/activities/${activityId}/shares`);
+}
+
+export async function adminShareActivity(activityId: number, professionalIds: number[]): Promise<ActivityShares> {
+  await ensureCsrfCookie();
+  return await request<ActivityShares>(`/api/admin/activities/${activityId}/shares`, {
+    method: "POST",
+    json: { professional_ids: professionalIds },
+  });
+}
+
+export async function adminGetGameShares(type: string, gameId: number): Promise<GameShares> {
+  return await request<GameShares>(`/api/admin/game-shares/${encodeURIComponent(type)}/${gameId}`);
+}
+
+export async function adminShareGame(type: string, gameId: number, professionalIds: number[]): Promise<GameShares> {
+  await ensureCsrfCookie();
+  return await request<GameShares>(`/api/admin/game-shares/${encodeURIComponent(type)}/${gameId}`, {
+    method: "POST",
+    json: { professional_ids: professionalIds },
+  });
 }
 
 export async function adminUpdateUser(
@@ -1282,6 +1345,17 @@ export async function adminUpdateAppointmentStatus(id: number, status: "active" 
     method: "PATCH",
     json: { status },
   });
+}
+
+export async function professionalUpdateAppointmentStatus(
+  id: number,
+  status: "active" | "completed" | "canceled"
+): Promise<{ id: number; user_id: number; professional_name: string; session_date: string | null; session_time: string; total_sessions: number; status: string }> {
+  await ensureCsrfCookie();
+  return await request<{ id: number; user_id: number; professional_name: string; session_date: string | null; session_time: string; total_sessions: number; status: string }>(
+    `/api/professional/appointments/${id}`,
+    { method: "PATCH", json: { status } }
+  );
 }
 
 export async function adminDeleteAllAppointmentsForUser(userId: number): Promise<{ message: string; deleted: number }> {

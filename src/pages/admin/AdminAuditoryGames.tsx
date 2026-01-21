@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Ear, Edit, Trash2, Search, Play } from "lucide-react";
+import { Ear, Edit, Trash2, Search, Play, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -11,6 +11,7 @@ import * as api from "@/lib/laravel-api";
 import type { AuditoryGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import { ShareGameModal } from "@/features/games/ShareGameModal";
 
 export default function AdminAuditoryGames() {
   const navigate = useNavigate();
@@ -23,9 +24,12 @@ export default function AdminAuditoryGames() {
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AuditoryGameRow | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<AuditoryGameRow | null>(null);
 
   const isProfessional = auth.user?.role === "professional";
   const base = isProfessional ? "/profissional" : "/admin";
+  const myId = auth.user?.id ?? 0;
 
   const refresh = async () => {
     setLoading(true);
@@ -191,7 +195,7 @@ export default function AdminAuditoryGames() {
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -199,8 +203,26 @@ export default function AdminAuditoryGames() {
                                   e.stopPropagation();
                                   navigate(`${base}/jogos/auditivo/${g.id}/editar`);
                                 }}
+                                disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
                               >
                                 <Edit size={14} className="mr-2" /> Editar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShareTarget(g);
+                                  setShareOpen(true);
+                                }}
+                                disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
+                                title={
+                                  isProfessional && (g.created_by?.id ?? 0) !== myId
+                                    ? "Apenas o criador pode compartilhar este jogo"
+                                    : "Compartilhar com profissionais"
+                                }
+                              >
+                                <Share2 size={14} className="mr-2" /> Compartilhar
                               </Button>
                               <Button
                                 variant="destructive"
@@ -209,6 +231,7 @@ export default function AdminAuditoryGames() {
                                   e.stopPropagation();
                                   void handleDelete(g.id);
                                 }}
+                                disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
                               >
                                 <Trash2 size={14} className="mr-2" /> Excluir
                               </Button>
@@ -258,6 +281,20 @@ export default function AdminAuditoryGames() {
         variant="danger"
         onConfirm={() => void confirmDelete()}
       />
+
+      {shareTarget ? (
+        <ShareGameModal
+          open={shareOpen}
+          onOpenChange={(o) => {
+            setShareOpen(o);
+            if (!o) setShareTarget(null);
+          }}
+          mode={isProfessional ? "professional" : "admin"}
+          gameType="auditory_game"
+          gameId={shareTarget.id}
+          title={shareTarget.title}
+        />
+      ) : null}
     </div>
   );
 }

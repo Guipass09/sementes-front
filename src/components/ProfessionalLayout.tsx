@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { LayoutDashboard, Activity, Calendar, FileText, Menu, X, LogOut, Grid3X3, Users } from "lucide-react";
+import { LayoutDashboard, Activity, Calendar, FileText, Menu, X, LogOut, Grid3X3, Users, History } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { useAuth } from "@/auth/AuthContext";
@@ -22,6 +22,7 @@ const navItems = [
   { path: "/profissional/atividades", label: "Atividades", icon: Activity },
   { path: "/profissional/jogos", label: "Jogos", icon: Grid3X3 },
   { path: "/profissional/horarios", label: "Horários", icon: Calendar },
+  { path: "/profissional/historico", label: "Histórico", icon: History },
   { path: "/profissional/relatorios", label: "Relatórios", icon: FileText },
 ];
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Plus, Search, Grid3X3, ChevronDown } from "lucide-react";
+import { Activity, Plus, Search, Grid3X3, ChevronDown, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +17,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ProfessionalActivityFormModal } from "@/features/activities/ProfessionalActivityFormModal";
+import { ShareActivityModal } from "@/features/activities/ShareActivityModal";
+import { useAuth } from "@/auth/AuthContext";
 
 export default function ProfessionalActivities(): JSX.Element {
   const [loading, setLoading] = useState(true);
@@ -27,6 +29,9 @@ export default function ProfessionalActivities(): JSX.Element {
   const [editing, setEditing] = useState<ActivityRow | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ActivityRow | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<ActivityRow | null>(null);
+  const auth = useAuth();
   const navigate = useNavigate();
 
   const refresh = async () => {
@@ -65,6 +70,18 @@ export default function ProfessionalActivities(): JSX.Element {
     }
     return byUser;
   }, [filteredActivities]);
+
+  const unassignedActivities = useMemo(() => {
+    const myId = auth.user?.id ?? 0;
+    return filteredActivities
+      .filter((a) => (a.assigned_to?.length ?? 0) === 0)
+      .sort((a, b) => {
+        const aMine = (a.created_by?.id ?? 0) === myId ? 1 : 0;
+        const bMine = (b.created_by?.id ?? 0) === myId ? 1 : 0;
+        if (aMine !== bMine) return bMine - aMine;
+        return (b.id ?? 0) - (a.id ?? 0);
+      });
+  }, [filteredActivities, auth.user?.id]);
 
   return (
     <div className="min-h-full py-8 lg:py-12">
@@ -148,6 +165,87 @@ export default function ProfessionalActivities(): JSX.Element {
             </div>
           ) : (
             <Accordion type="multiple" className="w-full">
+              {unassignedActivities.length > 0 && (
+                <AccordionItem value="__unassigned__" className="border-b border-border/60">
+                  <AccordionTrigger className="text-left">
+                    <div className="flex items-center justify-between w-full pr-2">
+                      <div>
+                        <div className="font-semibold text-foreground">Biblioteca (não atribuídas)</div>
+                        <div className="text-xs text-muted-foreground">Inclui atividades compartilhadas</div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">{unassignedActivities.length} atividade(s)</div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 pt-2">
+                      {unassignedActivities.map((activity) => {
+                        const canEdit = (activity.created_by?.id ?? 0) === (auth.user?.id ?? 0);
+                        return (
+                          <div key={`unassigned-${activity.id}`} className="w-full text-left bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200">
+                            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                              <div className="flex items-center gap-3 flex-1">
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                  <Activity size={20} className="text-primary" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-foreground truncate">{activity.title}</div>
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {activity.category || "—"}
+                                    {!canEdit ? " • Compartilhada" : ""}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap justify-end">
+                                <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)}>
+                                  Abrir
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setShareTarget(activity);
+                                    setShareOpen(true);
+                                  }}
+                                  disabled={!canEdit}
+                                  title={!canEdit ? "Apenas o criador pode compartilhar esta atividade" : "Compartilhar com outros profissionais"}
+                                >
+                                  <Share2 className="h-4 w-4 mr-2" />
+                                  Compartilhar
+                                </Button>
+                                {canEdit ? (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditing(activity);
+                                        setFormOpen(true);
+                                      }}
+                                    >
+                                      Editar
+                                    </Button>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() => {
+                                        setDeleteTarget(activity);
+                                        setDeleteOpen(true);
+                                      }}
+                                    >
+                                      Excluir
+                                    </Button>
+                                  </>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
               {users
                 .map((u) => ({ user: u, activities: groupedByUser.get(u.id) ?? [] }))
                 .filter((x) => x.activities.length > 0)
@@ -180,7 +278,7 @@ export default function ProfessionalActivities(): JSX.Element {
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap justify-end">
                                 <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)}>
                                   Abrir
                                 </Button>
@@ -188,22 +286,42 @@ export default function ProfessionalActivities(): JSX.Element {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    setEditing(activity);
-                                    setFormOpen(true);
+                                    setShareTarget(activity);
+                                    setShareOpen(true);
                                   }}
+                                  title="Compartilhar com outros profissionais"
                                 >
-                                  Editar
+                                  <Share2 className="h-4 w-4 mr-2" />
+                                  Compartilhar
                                 </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => {
-                                    setDeleteTarget(activity);
-                                    setDeleteOpen(true);
-                                  }}
-                                >
-                                  Excluir
-                                </Button>
+                                {(() => {
+                                  const canEdit = (activity.created_by?.id ?? 0) === (auth.user?.id ?? 0);
+                                  if (!canEdit) return null;
+                                  return (
+                                    <>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setEditing(activity);
+                                          setFormOpen(true);
+                                        }}
+                                      >
+                                        Editar
+                                      </Button>
+                                      <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => {
+                                          setDeleteTarget(activity);
+                                          setDeleteOpen(true);
+                                        }}
+                                      >
+                                        Excluir
+                                      </Button>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             </div>
                           </div>
@@ -246,6 +364,16 @@ export default function ProfessionalActivities(): JSX.Element {
             if (!deleteTarget) return;
             void api.professionalDeleteActivity(deleteTarget.id).then(() => refresh());
           }}
+        />
+
+        <ShareActivityModal
+          open={shareOpen}
+          onOpenChange={(open) => {
+            setShareOpen(open);
+            if (!open) setShareTarget(null);
+          }}
+          activity={shareTarget}
+          mode="professional"
         />
       </div>
     </div>

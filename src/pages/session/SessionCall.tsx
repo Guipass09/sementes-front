@@ -23,6 +23,7 @@ import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
 import type {
@@ -61,6 +62,13 @@ export default function SessionCall() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
+  const appRole = useMemo(() => {
+    const raw = String(user?.role ?? "").toLowerCase().trim();
+    if (raw.includes("professional") || raw.includes("profissional")) return "professional" as const;
+    if (raw.includes("admin")) return "admin" as const;
+    return "user" as const;
+  }, [user?.role]);
+
   const appointmentId = useMemo(() => {
     const n = Number(id);
     return Number.isFinite(n) ? n : null;
@@ -97,6 +105,7 @@ export default function SessionCall() {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [packagesOpen, setPackagesOpen] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogTab, setCatalogTab] = useState<"meu" | "compartilhados">("meu");
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [memGames, setMemGames] = useState<MemoryGameRow[]>([]);
   const [memGames2, setMemGames2] = useState<MemoryGameRow[]>([]);
@@ -120,6 +129,61 @@ export default function SessionCall() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDraft, setReportDraft] = useState<ReportFormDraft | null>(null);
   const reportMinimizedRef = useRef(false);
+
+  const catalogView = useMemo(() => {
+    const myId = user?.id ?? 0;
+    const mk = (rows: any[]) => {
+      if (appRole !== "professional") return { mine: rows, shared: [] as any[] };
+      return {
+        mine: rows.filter((r) => (r?.created_by?.id ?? 0) === myId),
+        shared: rows.filter((r) => (r?.created_by?.id ?? 0) !== myId),
+      };
+    };
+    const acts = mk(activities as any[]);
+    const mem = mk(memGames as any[]);
+    const mem2 = mk(memGames2 as any[]);
+    const phon = mk(phonemeGames as any[]);
+    const aud = mk(audGames as any[]);
+    const hang = mk(hangGames as any[]);
+    const spin = mk(spinGames as any[]);
+    const ws = mk(wordSearchGames as any[]);
+    const cards = mk(cardGames as any[]);
+    return {
+      mine: {
+        activities: acts.mine as ActivityRow[],
+        memGames: mem.mine as MemoryGameRow[],
+        memGames2: mem2.mine as MemoryGameRow[],
+        phonemeGames: phon.mine as PhonemeGameRow[],
+        audGames: aud.mine as AuditoryGameRow[],
+        hangGames: hang.mine as HangmanGameRow[],
+        spinGames: spin.mine as SpinWheelGameRow[],
+        wordSearchGames: ws.mine as WordSearchGameRow[],
+        cardGames: cards.mine as CardGameRow[],
+      },
+      shared: {
+        activities: acts.shared as ActivityRow[],
+        memGames: mem.shared as MemoryGameRow[],
+        memGames2: mem2.shared as MemoryGameRow[],
+        phonemeGames: phon.shared as PhonemeGameRow[],
+        audGames: aud.shared as AuditoryGameRow[],
+        hangGames: hang.shared as HangmanGameRow[],
+        spinGames: spin.shared as SpinWheelGameRow[],
+        wordSearchGames: ws.shared as WordSearchGameRow[],
+        cardGames: cards.shared as CardGameRow[],
+      },
+    };
+  }, [appRole, user?.id, activities, memGames, memGames2, phonemeGames, audGames, hangGames, spinGames, wordSearchGames, cardGames]);
+
+  const activeCatalog = appRole === "professional" ? (catalogTab === "compartilhados" ? catalogView.shared : catalogView.mine) : catalogView.mine;
+  const catActivities = activeCatalog.activities;
+  const catMemGames = activeCatalog.memGames;
+  const catMemGames2 = activeCatalog.memGames2;
+  const catPhonemeGames = activeCatalog.phonemeGames;
+  const catAudGames = activeCatalog.audGames;
+  const catHangGames = activeCatalog.hangGames;
+  const catSpinGames = activeCatalog.spinGames;
+  const catWordSearchGames = activeCatalog.wordSearchGames;
+  const catCardGames = activeCatalog.cardGames;
   const [fixedUser, setFixedUser] = useState<null | { id: number; name: string }>(null);
 
   const [callStartedAtMs, setCallStartedAtMs] = useState<number | null>(null);
@@ -160,9 +224,16 @@ export default function SessionCall() {
   const joiningRef = useRef(false);
   const resumeInFlightRef = useRef(false);
 
-  const goBack = (r: Role | null) => {
-    if (r === "admin") navigate("/admin/horarios");
-    else navigate("/paciente/sessoes");
+  const goBack = (markCompleted?: boolean) => {
+    if (appRole === "admin") {
+      navigate("/admin/horarios");
+      return;
+    }
+    if (appRole === "professional") {
+      navigate(markCompleted ? "/profissional/historico" : "/profissional/horarios");
+      return;
+    }
+    navigate("/paciente/sessoes");
   };
 
   const packageCatalog = useMemo(() => {
@@ -691,7 +762,9 @@ export default function SessionCall() {
     setContentSeed(seed);
     setContentLoading(true);
     try {
-      await send("content_select", { path, title, kind, seed });
+      if (role === "admin") {
+        await send("content_select", { path, title, kind, seed });
+      }
     } catch {
       // se falhar, mantém estado local (admin ainda vê)
     }
@@ -1035,6 +1108,11 @@ export default function SessionCall() {
         setPaymentSessions(Number.isFinite(Number(sessions)) ? Number(sessions) : null);
         setPaymentDialogOpen(true);
       }
+    }
+
+    if (m.kind === "catalog_open" && role === "user") {
+      setCatalogOpen(true);
+      return;
     }
 
     if (m.kind === "draw_event") {
@@ -1424,14 +1502,22 @@ export default function SessionCall() {
       sessionStorage.setItem(`call_force_reload:${appointmentId}`, String(Date.now()));
     }
     cleanup();
-    goBack(role);
+    goBack(false);
   };
 
   const handleEndSession = async (markCompleted: boolean) => {
     setEndingSession(true);
     if (markCompleted && role === "admin" && appointmentId) {
       try {
-        await api.adminUpdateAppointmentStatus(appointmentId, "completed");
+        if (appRole === "professional") {
+          await api.professionalUpdateAppointmentStatus(appointmentId, "completed");
+          // Abre o catálogo para o paciente escolher conteúdos (sem precisar de controle).
+          try {
+            await send("catalog_open", {});
+          } catch {}
+        } else {
+          await api.adminUpdateAppointmentStatus(appointmentId, "completed");
+        }
       } catch (e) {
         const msg = isApiError(e) ? e.message : "Não foi possível marcar como realizada.";
         toast({ title: "Sessão", description: msg, variant: "destructive" });
@@ -1439,7 +1525,11 @@ export default function SessionCall() {
     }
     setEndingSession(false);
     setEndSessionOpen(false);
-    await hangup();
+    if (appointmentId) {
+      sessionStorage.setItem(`call_force_reload:${appointmentId}`, String(Date.now()));
+    }
+    cleanup();
+    goBack(markCompleted);
   };
 
   // Doodle (rabisco) sobre a área de conteúdo (não interrompe a ligação)
@@ -1754,10 +1844,11 @@ export default function SessionCall() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remoteStream]);
 
-  // Carregar catálogo apenas quando admin abrir (lazy)
+  // Carregar catálogo quando o controlador (admin/professional) abrir (lazy)
   useEffect(() => {
     if (!catalogOpen) return;
     if (role !== "admin") return;
+    if (appRole !== "admin" && appRole !== "professional") return;
     if (catalogLoading) return;
     if (
       activities.length ||
@@ -1777,15 +1868,19 @@ export default function SessionCall() {
       setCatalogLoading(true);
       try {
         const [a, memClassic, memV2, phon, aud, hang, spin, ws, cards] = await Promise.all([
-          api.adminListActivities().catch(() => [] as ActivityRow[]),
-          api.adminListMemoryGames({ variant: "classic" }).catch(() => [] as MemoryGameRow[]),
-          api.adminListMemoryGames({ variant: "v2" }).catch(() => [] as MemoryGameRow[]),
-          api.adminListPhonemeGames().catch(() => [] as PhonemeGameRow[]),
-          api.adminListAuditoryGames().catch(() => [] as AuditoryGameRow[]),
-          api.adminListHangmanGames().catch(() => [] as HangmanGameRow[]),
-          api.adminListSpinWheelGames().catch(() => [] as SpinWheelGameRow[]),
-          api.adminListWordSearchGames().catch(() => [] as WordSearchGameRow[]),
-          api.adminListCardGames().catch(() => [] as CardGameRow[]),
+          (appRole === "admin" ? api.adminListActivities() : api.professionalListActivities()).catch(() => [] as ActivityRow[]),
+          (appRole === "admin" ? api.adminListMemoryGames({ variant: "classic" }) : api.professionalListMemoryGames({ variant: "classic" })).catch(
+            () => [] as MemoryGameRow[]
+          ),
+          (appRole === "admin" ? api.adminListMemoryGames({ variant: "v2" }) : api.professionalListMemoryGames({ variant: "v2" })).catch(
+            () => [] as MemoryGameRow[]
+          ),
+          (appRole === "admin" ? api.adminListPhonemeGames() : api.professionalListPhonemeGames()).catch(() => [] as PhonemeGameRow[]),
+          (appRole === "admin" ? api.adminListAuditoryGames() : api.professionalListAuditoryGames()).catch(() => [] as AuditoryGameRow[]),
+          (appRole === "admin" ? api.adminListHangmanGames() : api.professionalListHangmanGames()).catch(() => [] as HangmanGameRow[]),
+          (appRole === "admin" ? api.adminListSpinWheelGames() : api.professionalListSpinWheelGames()).catch(() => [] as SpinWheelGameRow[]),
+          (appRole === "admin" ? api.adminListWordSearchGames() : api.professionalListWordSearchGames()).catch(() => [] as WordSearchGameRow[]),
+          (appRole === "admin" ? api.adminListCardGames() : api.professionalListCardGames()).catch(() => [] as CardGameRow[]),
         ]);
         if (cancelled) return;
         setActivities(a);
@@ -1806,7 +1901,7 @@ export default function SessionCall() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalogOpen, role]);
+  }, [catalogOpen, role, appRole]);
 
   if (authLoading || joining) {
     return <FullScreenLogoLoader label={statusLabel} />;
@@ -2206,19 +2301,36 @@ export default function SessionCall() {
             <div className="text-sm text-muted-foreground">Carregando…</div>
           ) : (
             <div className="space-y-6">
+              {appRole === "professional" ? (
+                <Tabs value={catalogTab} onValueChange={(v) => setCatalogTab(v as any)}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="meu" className="flex-1">
+                      Meu catálogo
+                    </TabsTrigger>
+                    <TabsTrigger value="compartilhados" className="flex-1">
+                      Compartilhados
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              ) : null}
               {/* Seção: Atividades */}
               <div>
                 <div className="text-base font-semibold text-foreground mb-3">Atividades</div>
                 <div className="space-y-2">
-                  {activities.length === 0 ? (
+                  {catActivities.length === 0 ? (
                     <div className="text-sm text-muted-foreground py-2">Nenhuma atividade disponível</div>
                   ) : (
-                    activities.map((a) => (
+                    catActivities.map((a) => (
                       <button
                         key={`act-${a.id}`}
                         onClick={() => {
-                          setPendingShare({ path: `/atividades/${a.id}`, title: a.title, kind: "activity" });
-                          setShareConfirmOpen(true);
+                          const path = `/atividades/${a.id}`;
+                          if (role === "admin") {
+                            setPendingShare({ path, title: a.title, kind: "activity" });
+                            setShareConfirmOpen(true);
+                          } else {
+                            void selectContent(path, a.title, "activity");
+                          }
                         }}
                         className="w-full text-left rounded-xl border border-border bg-card hover:bg-accent hover:border-brand-green transition-colors px-4 py-3"
                       >
@@ -2235,19 +2347,24 @@ export default function SessionCall() {
                 <div className="text-base font-semibold text-foreground mb-3">Jogos</div>
                 <Accordion type="multiple" className="w-full space-y-2">
                   {/* Jogo da Memória */}
-                  {memGames.length > 0 && (
+                  {catMemGames.length > 0 && (
                     <AccordionItem value="memory" className="border border-border rounded-xl px-4">
                       <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
-                        Jogo da Memória ({memGames.length})
+                        Jogo da Memória ({catMemGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
                         <div className="space-y-2">
-                          {memGames.map((g) => (
+                          {catMemGames.map((g) => (
                             <button
                               key={`mem-${g.id}`}
                               onClick={() => {
-                                setPendingShare({ path: `/jogos/${g.id}`, title: g.title, kind: "memory_game" });
-                                setShareConfirmOpen(true);
+                                const path = `/jogos/${g.id}`;
+                                if (role === "admin") {
+                                  setPendingShare({ path, title: g.title, kind: "memory_game" });
+                                  setShareConfirmOpen(true);
+                                } else {
+                                  void selectContent(path, g.title, "memory_game");
+                                }
                               }}
                               className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
                             >
@@ -2260,19 +2377,24 @@ export default function SessionCall() {
                   )}
 
                   {/* Memória 2.0 */}
-                  {memGames2.length > 0 && (
+                  {catMemGames2.length > 0 && (
                     <AccordionItem value="memory-v2" className="border border-border rounded-xl px-4">
                       <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
-                        Jogo da Memória 2.0 ({memGames2.length})
+                        Jogo da Memória 2.0 ({catMemGames2.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
                         <div className="space-y-2">
-                          {memGames2.map((g) => (
+                          {catMemGames2.map((g) => (
                             <button
                               key={`mem2-${g.id}`}
                               onClick={() => {
-                                setPendingShare({ path: `/jogos/${g.id}`, title: g.title, kind: "memory_game_v2" });
-                                setShareConfirmOpen(true);
+                                const path = `/jogos/${g.id}`;
+                                if (role === "admin") {
+                                  setPendingShare({ path, title: g.title, kind: "memory_game_v2" });
+                                  setShareConfirmOpen(true);
+                                } else {
+                                  void selectContent(path, g.title, "memory_game_v2");
+                                }
                               }}
                               className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
                             >
@@ -2285,19 +2407,24 @@ export default function SessionCall() {
                   )}
 
                   {/* Discriminação de Fonemas */}
-                  {phonemeGames.length > 0 && (
+                  {catPhonemeGames.length > 0 && (
                     <AccordionItem value="phoneme" className="border border-border rounded-xl px-4">
                       <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
-                        Discriminação de Fonemas ({phonemeGames.length})
+                        Discriminação de Fonemas ({catPhonemeGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
                         <div className="space-y-2">
-                          {phonemeGames.map((g) => (
+                          {catPhonemeGames.map((g) => (
                             <button
                               key={`phon-${g.id}`}
                               onClick={() => {
-                                setPendingShare({ path: `/jogos/fonema/${g.id}`, title: g.title, kind: "phoneme_game" });
-                                setShareConfirmOpen(true);
+                                const path = `/jogos/fonema/${g.id}`;
+                                if (role === "admin") {
+                                  setPendingShare({ path, title: g.title, kind: "phoneme_game" });
+                                  setShareConfirmOpen(true);
+                                } else {
+                                  void selectContent(path, g.title, "phoneme_game");
+                                }
                               }}
                               className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
                             >
@@ -2310,19 +2437,24 @@ export default function SessionCall() {
                   )}
 
                   {/* Estimulação Auditiva */}
-                  {audGames.length > 0 && (
+                  {catAudGames.length > 0 && (
                     <AccordionItem value="auditory" className="border border-border rounded-xl px-4">
                       <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
-                        Estimulação Auditiva ({audGames.length})
+                        Estimulação Auditiva ({catAudGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
                         <div className="space-y-2">
-                          {audGames.map((g) => (
+                          {catAudGames.map((g) => (
                             <button
                               key={`aud-${g.id}`}
                               onClick={() => {
-                                setPendingShare({ path: `/jogos/auditivo/${g.id}`, title: g.title, kind: "auditory_game" });
-                                setShareConfirmOpen(true);
+                                const path = `/jogos/auditivo/${g.id}`;
+                                if (role === "admin") {
+                                  setPendingShare({ path, title: g.title, kind: "auditory_game" });
+                                  setShareConfirmOpen(true);
+                                } else {
+                                  void selectContent(path, g.title, "auditory_game");
+                                }
                               }}
                               className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
                             >
@@ -2335,19 +2467,24 @@ export default function SessionCall() {
                   )}
 
                   {/* Jogo da Forca */}
-                  {hangGames.length > 0 && (
+                  {catHangGames.length > 0 && (
                     <AccordionItem value="hangman" className="border border-border rounded-xl px-4">
                       <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
-                        Jogo da Forca ({hangGames.length})
+                        Jogo da Forca ({catHangGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
                         <div className="space-y-2">
-                          {hangGames.map((g) => (
+                          {catHangGames.map((g) => (
                             <button
                               key={`hang-${g.id}`}
                               onClick={() => {
-                                setPendingShare({ path: `/jogos/forca/${g.id}`, title: g.title, kind: "hangman_game" });
-                                setShareConfirmOpen(true);
+                                const path = `/jogos/forca/${g.id}`;
+                                if (role === "admin") {
+                                  setPendingShare({ path, title: g.title, kind: "hangman_game" });
+                                  setShareConfirmOpen(true);
+                                } else {
+                                  void selectContent(path, g.title, "hangman_game");
+                                }
                               }}
                               className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
                             >
@@ -2360,19 +2497,24 @@ export default function SessionCall() {
                   )}
 
                   {/* Roleta */}
-                  {spinGames.length > 0 && (
+                  {catSpinGames.length > 0 && (
                     <AccordionItem value="spin" className="border border-border rounded-xl px-4">
                       <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
-                        Roleta ({spinGames.length})
+                        Roleta ({catSpinGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
                         <div className="space-y-2">
-                          {spinGames.map((g) => (
+                          {catSpinGames.map((g) => (
                             <button
                               key={`spin-${g.id}`}
                               onClick={() => {
-                                setPendingShare({ path: `/jogos/roleta/${g.id}`, title: g.title, kind: "spin_wheel_game" });
-                                setShareConfirmOpen(true);
+                                const path = `/jogos/roleta/${g.id}`;
+                                if (role === "admin") {
+                                  setPendingShare({ path, title: g.title, kind: "spin_wheel_game" });
+                                  setShareConfirmOpen(true);
+                                } else {
+                                  void selectContent(path, g.title, "spin_wheel_game");
+                                }
                               }}
                               className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
                             >
@@ -2385,19 +2527,24 @@ export default function SessionCall() {
                   )}
 
                   {/* Caça-palavras */}
-                  {wordSearchGames.length > 0 && (
+                  {catWordSearchGames.length > 0 && (
                     <AccordionItem value="wordsearch" className="border border-border rounded-xl px-4">
                       <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
-                        Caça-palavras ({wordSearchGames.length})
+                        Caça-palavras ({catWordSearchGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
                         <div className="space-y-2">
-                          {wordSearchGames.map((g) => (
+                          {catWordSearchGames.map((g) => (
                             <button
                               key={`ws-${g.id}`}
                               onClick={() => {
-                                setPendingShare({ path: `/jogos/caca-palavras/${g.id}`, title: g.title, kind: "word_search_game" });
-                                setShareConfirmOpen(true);
+                                const path = `/jogos/caca-palavras/${g.id}`;
+                                if (role === "admin") {
+                                  setPendingShare({ path, title: g.title, kind: "word_search_game" });
+                                  setShareConfirmOpen(true);
+                                } else {
+                                  void selectContent(path, g.title, "word_search_game");
+                                }
                               }}
                               className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
                             >
@@ -2410,19 +2557,24 @@ export default function SessionCall() {
                   )}
 
                   {/* Jogo das Cartas */}
-                  {cardGames.length > 0 && (
+                  {catCardGames.length > 0 && (
                     <AccordionItem value="cards" className="border border-border rounded-xl px-4">
                       <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
-                        Jogo das Cartas ({cardGames.length})
+                        Jogo das Cartas ({catCardGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
                         <div className="space-y-2">
-                          {cardGames.map((g) => (
+                          {catCardGames.map((g) => (
                             <button
                               key={`cards-${g.id}`}
                               onClick={() => {
-                                setPendingShare({ path: `/jogos/cartas/${g.id}`, title: g.title, kind: "card_game" });
-                                setShareConfirmOpen(true);
+                                const path = `/jogos/cartas/${g.id}`;
+                                if (role === "admin") {
+                                  setPendingShare({ path, title: g.title, kind: "card_game" });
+                                  setShareConfirmOpen(true);
+                                } else {
+                                  void selectContent(path, g.title, "card_game");
+                                }
                               }}
                               className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
                             >
@@ -2435,14 +2587,14 @@ export default function SessionCall() {
                   )}
 
                   {/* Mensagem se não houver jogos */}
-                  {memGames.length === 0 &&
-                    memGames2.length === 0 &&
-                    phonemeGames.length === 0 &&
-                    audGames.length === 0 &&
-                    hangGames.length === 0 &&
-                    spinGames.length === 0 &&
-                    wordSearchGames.length === 0 &&
-                    cardGames.length === 0 && (
+                  {catMemGames.length === 0 &&
+                    catMemGames2.length === 0 &&
+                    catPhonemeGames.length === 0 &&
+                    catAudGames.length === 0 &&
+                    catHangGames.length === 0 &&
+                    catSpinGames.length === 0 &&
+                    catWordSearchGames.length === 0 &&
+                    catCardGames.length === 0 && (
                       <div className="text-sm text-muted-foreground py-2">Nenhum jogo disponível</div>
                     )}
                 </Accordion>

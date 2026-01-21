@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Plus, Search, FileText, Clock, Tag, Grid3X3, ChevronDown, Ear, Type, CircleDot, Layers } from "lucide-react";
+import { Activity, Plus, Search, FileText, Clock, Tag, Grid3X3, ChevronDown, Ear, Type, CircleDot, Layers, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,6 +10,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useNavigate } from "react-router-dom";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import { ShareActivityModal } from "@/features/activities/ShareActivityModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,8 @@ const AdminActivities = () => {
   const [editing, setEditing] = useState<ActivityRow | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ActivityRow | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<ActivityRow | null>(null);
   const navigate = useNavigate();
 
   const refresh = async () => {
@@ -55,6 +58,11 @@ const AdminActivities = () => {
       );
     });
   }, [activities, searchTerm]);
+
+  const unassignedActivities = useMemo(
+    () => filteredActivities.filter((a) => (a.assigned_to?.length ?? 0) === 0),
+    [filteredActivities]
+  );
 
   const groupedByUser = useMemo(() => {
     const byUser = new Map<number, ActivityRow[]>();
@@ -179,6 +187,102 @@ const AdminActivities = () => {
             </div>
           ) : (
             <Accordion type="multiple" className="w-full">
+              {unassignedActivities.length > 0 && (
+                <AccordionItem value="__unassigned__" className="border-b border-border/60">
+                  <AccordionTrigger className="text-left">
+                    <div className="flex items-center justify-between w-full pr-2">
+                      <div>
+                        <div className="font-semibold text-foreground">Biblioteca (não atribuídas)</div>
+                        <div className="text-xs text-muted-foreground">Atividades sem paciente</div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">{unassignedActivities.length} atividade(s)</div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3 pt-2">
+                      {unassignedActivities.map((activity) => (
+                        <div
+                          key={`unassigned-${activity.id}`}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => navigate(`/atividades/${activity.id}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              navigate(`/atividades/${activity.id}`);
+                            }
+                          }}
+                          className="w-full text-left bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                        >
+                          <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              {activity.thumbnail?.media_type === "image" ? (
+                                <img src={normalizeMediaUrl(activity.thumbnail.url)} alt="" className="w-full h-full object-cover" />
+                              ) : activity.thumbnail?.media_type === "video" && activity.thumbnail.thumbnail_url ? (
+                                <img
+                                  src={normalizeMediaUrl(activity.thumbnail.thumbnail_url)}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <FileText size={24} className="text-primary" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <h3 className="font-semibold text-foreground">{activity.title}</h3>
+                                {activity.category && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground inline-flex items-center gap-1">
+                                    <Tag size={12} />
+                                    {activity.category}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{activity.description}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShareTarget(activity);
+                                  setShareOpen(true);
+                                }}
+                              >
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Compartilhar
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditing(activity);
+                                  setFormOpen(true);
+                                }}
+                              >
+                                Editar
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteTarget(activity);
+                                  setDeleteOpen(true);
+                                }}
+                              >
+                                Excluir
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
               {users
                 .map((u) => ({
                   user: u,
@@ -271,6 +375,18 @@ const AdminActivities = () => {
                                   size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    setShareTarget(activity);
+                                    setShareOpen(true);
+                                  }}
+                                >
+                                  <Share2 className="h-4 w-4 mr-2" />
+                                  Compartilhar
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     setEditing(activity);
                                     setFormOpen(true);
                                   }}
@@ -338,6 +454,16 @@ const AdminActivities = () => {
             if (!deleteTarget) return;
             void api.adminDeleteActivity(deleteTarget.id).then(() => refresh());
           }}
+        />
+
+        <ShareActivityModal
+          open={shareOpen}
+          onOpenChange={(open) => {
+            setShareOpen(open);
+            if (!open) setShareTarget(null);
+          }}
+          activity={shareTarget}
+          mode="admin"
         />
 
         {/* Preview modal removed: activity now opens in dedicated page /atividades/:id */}

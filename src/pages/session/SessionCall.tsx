@@ -25,7 +25,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
-import type { ActivityRow, MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, WordSearchGameRow } from "@/lib/laravel-api";
+import type {
+  ActivityRow,
+  MemoryGameRow,
+  AuditoryGameRow,
+  HangmanGameRow,
+  SpinWheelGameRow,
+  WordSearchGameRow,
+  CardGameRow,
+} from "@/lib/laravel-api";
 import type { PhonemeGameRow } from "@/lib/laravel-api";
 import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinResponse, type VideoPollMessage } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -97,6 +105,7 @@ export default function SessionCall() {
   const [hangGames, setHangGames] = useState<HangmanGameRow[]>([]);
   const [spinGames, setSpinGames] = useState<SpinWheelGameRow[]>([]);
   const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
+  const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [pendingShare, setPendingShare] = useState<null | { path: string; title: string; kind: string }>(null);
   const [pendingPayment, setPendingPayment] = useState<null | { sessions: number; url: string }>(null);
@@ -1729,13 +1738,24 @@ export default function SessionCall() {
     if (!catalogOpen) return;
     if (role !== "admin") return;
     if (catalogLoading) return;
-    if (activities.length || memGames.length || memGames2.length || phonemeGames.length || audGames.length || hangGames.length || spinGames.length || wordSearchGames.length) return;
+    if (
+      activities.length ||
+      memGames.length ||
+      memGames2.length ||
+      phonemeGames.length ||
+      audGames.length ||
+      hangGames.length ||
+      spinGames.length ||
+      wordSearchGames.length ||
+      cardGames.length
+    )
+      return;
 
     let cancelled = false;
     (async () => {
       setCatalogLoading(true);
       try {
-        const [a, memClassic, memV2, phon, aud, hang, spin, ws] = await Promise.all([
+        const [a, memClassic, memV2, phon, aud, hang, spin, ws, cards] = await Promise.all([
           api.adminListActivities().catch(() => [] as ActivityRow[]),
           api.adminListMemoryGames({ variant: "classic" }).catch(() => [] as MemoryGameRow[]),
           api.adminListMemoryGames({ variant: "v2" }).catch(() => [] as MemoryGameRow[]),
@@ -1744,6 +1764,7 @@ export default function SessionCall() {
           api.adminListHangmanGames().catch(() => [] as HangmanGameRow[]),
           api.adminListSpinWheelGames().catch(() => [] as SpinWheelGameRow[]),
           api.adminListWordSearchGames().catch(() => [] as WordSearchGameRow[]),
+          api.adminListCardGames().catch(() => [] as CardGameRow[]),
         ]);
         if (cancelled) return;
         setActivities(a);
@@ -1754,6 +1775,7 @@ export default function SessionCall() {
         setHangGames(hang);
         setSpinGames(spin);
         setWordSearchGames(ws);
+        setCardGames(cards);
       } finally {
         if (!cancelled) setCatalogLoading(false);
       }
@@ -2366,6 +2388,31 @@ export default function SessionCall() {
                     </AccordionItem>
                   )}
 
+                  {/* Jogo das Cartas */}
+                  {cardGames.length > 0 && (
+                    <AccordionItem value="cards" className="border border-border rounded-xl px-4">
+                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
+                        Jogo das Cartas ({cardGames.length})
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2">
+                          {cardGames.map((g) => (
+                            <button
+                              key={`cards-${g.id}`}
+                              onClick={() => {
+                                setPendingShare({ path: `/jogos/cartas/${g.id}`, title: g.title, kind: "card_game" });
+                                setShareConfirmOpen(true);
+                              }}
+                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                            >
+                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+
                   {/* Mensagem se não houver jogos */}
                   {memGames.length === 0 &&
                     memGames2.length === 0 &&
@@ -2373,7 +2420,8 @@ export default function SessionCall() {
                     audGames.length === 0 &&
                     hangGames.length === 0 &&
                     spinGames.length === 0 &&
-                    wordSearchGames.length === 0 && (
+                    wordSearchGames.length === 0 &&
+                    cardGames.length === 0 && (
                       <div className="text-sm text-muted-foreground py-2">Nenhum jogo disponível</div>
                     )}
                 </Accordion>

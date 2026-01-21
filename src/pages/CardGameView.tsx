@@ -364,7 +364,7 @@ export default function CardGameView() {
       ref={fsRef as any}
       className={cn(
         "min-h-[100svh] bg-transparent",
-        inSession ? "p-0" : "py-6"
+        inSession ? "p-0 cg-in-session" : "py-6 cg-not-session"
       )}
     >
       <div className={cn("container mx-auto px-4", inSession ? "py-3" : "py-4")}>
@@ -401,7 +401,12 @@ export default function CardGameView() {
         {/* Tabuleiro grande (igual estilo do auditivo): fundo + baralho + carta aberta */}
         <div
           className={cn(
-            "cg-board mt-4 relative w-full h-[55vh] sm:h-[62vh] lg:h-[70vh] rounded-2xl overflow-hidden bg-black/5",
+            "cg-board mt-4 relative w-full rounded-2xl overflow-hidden bg-black/5",
+            // Dentro da transmissão (iframe), usar a altura do viewport do iframe para preencher bem a área,
+            // sem depender de vh "aninhado" (que pode deixar o tabuleiro minúsculo em iPad/iPhone/Android).
+            inSession
+              ? "h-[calc(100svh-120px)] sm:h-[calc(100svh-132px)] lg:h-[calc(100svh-144px)] max-h-[880px] min-h-[380px]"
+              : "h-[55vh] sm:h-[62vh] lg:h-[70vh]",
             shuffleAnim ? "cg-shuffling" : ""
           )}
         >
@@ -588,10 +593,9 @@ export default function CardGameView() {
             100% { transform: rotate(0deg) translateX(0px); }
           }
 
-          /* Mobile dentro da transmissão: layout vertical (baralho em cima, cartas embaixo) */
           /* Mobile: mantém lado a lado (baralho à esquerda, cartas à direita), com tamanhos fixos */
           @media (max-width: 640px) {
-            .cg-board{
+            .cg-not-session .cg-board{
               height: 46vh;
             }
             .cg-deck{

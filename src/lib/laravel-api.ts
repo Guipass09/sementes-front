@@ -442,7 +442,6 @@ export async function registerProfessional(params: {
   phone: string;
   professional_age: number;
   professional_crfa: string;
-  professional_registration: string;
   password: string;
   password_confirmation: string;
 }): Promise<{ token: string; user: AuthUser }> {

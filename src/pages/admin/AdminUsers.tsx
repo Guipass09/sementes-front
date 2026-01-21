@@ -79,7 +79,6 @@ interface ProfessionalData {
   access: UserAccess;
   professional_age?: number | null;
   professional_crfa?: string | null;
-  professional_registration?: string | null;
   assigned_users_count?: number;
 }
 
@@ -324,7 +323,6 @@ const AdminUsers = () => {
         access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
         professional_age: (p as any).professional_age ?? null,
         professional_crfa: (p as any).professional_crfa ?? null,
-        professional_registration: (p as any).professional_registration ?? null,
         assigned_users_count: (p as any).assigned_users_count ?? 0,
       }));
       setProfessionals(onlyPros);
@@ -349,7 +347,6 @@ const AdminUsers = () => {
             access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
             professional_age: (p as any).professional_age ?? null,
             professional_crfa: (p as any).professional_crfa ?? null,
-            professional_registration: (p as any).professional_registration ?? null,
             assigned_users_count: (p as any).assigned_users_count ?? 0,
           }));
           if (mounted) setProfessionals(onlyPros);
@@ -836,11 +833,9 @@ const AdminUsers = () => {
                       </div>
                       <p className="text-sm text-muted-foreground truncate">{p.email}</p>
                       {p.phone && <p className="text-xs text-muted-foreground truncate">Celular: {p.phone}</p>}
-                      {(p.professional_crfa || p.professional_registration) && (
+                      {!!p.professional_crfa && (
                         <p className="text-xs text-muted-foreground truncate">
-                          {p.professional_crfa ? `CRFa: ${p.professional_crfa}` : ""}
-                          {p.professional_crfa && p.professional_registration ? " • " : ""}
-                          {p.professional_registration ? `Registro: ${p.professional_registration}` : ""}
+                          CRFa: {p.professional_crfa}
                         </p>
                       )}
                     </div>
@@ -1417,13 +1412,9 @@ const AdminUsers = () => {
                     {selectedProfessional.professional_age ? (
                       <p className="text-sm text-muted-foreground">Idade: {selectedProfessional.professional_age} ano(s)</p>
                     ) : null}
-                    {(selectedProfessional.professional_crfa || selectedProfessional.professional_registration) && (
-                      <p className="text-sm text-muted-foreground">
-                        {selectedProfessional.professional_crfa ? `CRFa: ${selectedProfessional.professional_crfa}` : ""}
-                        {selectedProfessional.professional_crfa && selectedProfessional.professional_registration ? " • " : ""}
-                        {selectedProfessional.professional_registration ? `Registro: ${selectedProfessional.professional_registration}` : ""}
-                      </p>
-                    )}
+                    {selectedProfessional.professional_crfa ? (
+                      <p className="text-sm text-muted-foreground">CRFa: {selectedProfessional.professional_crfa}</p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -1561,15 +1552,6 @@ const AdminUsers = () => {
                         onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, professional_crfa: e.target.value } : prev))}
                       />
                     </div>
-                    <div className="space-y-1">
-                      <Label>Registro</Label>
-                      <Input
-                        value={selectedProfessional.professional_registration ?? ""}
-                        onChange={(e) =>
-                          setSelectedProfessional((prev) => (prev ? { ...prev, professional_registration: e.target.value } : prev))
-                        }
-                      />
-                    </div>
                   </div>
                   <div className="flex items-center justify-end gap-2">
                     <Button
@@ -1590,7 +1572,6 @@ const AdminUsers = () => {
                           phone: p.phone ?? "",
                           professional_age: p.professional_age ?? null,
                           professional_crfa: p.professional_crfa ?? null,
-                          professional_registration: p.professional_registration ?? null,
                         })
                           .then(async () => {
                             await reloadProfessionals();

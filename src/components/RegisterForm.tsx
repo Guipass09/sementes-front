@@ -14,7 +14,6 @@ interface FormState {
   childAge: string;
   professionalAge: string;
   professionalCrfa: string;
-  professionalRegistration: string;
   password: string;
   confirmPassword: string;
 }
@@ -26,7 +25,6 @@ interface ValidationState {
   childAge: { valid: boolean; touched: boolean; message: string };
   professionalAge: { valid: boolean; touched: boolean; message: string };
   professionalCrfa: { valid: boolean; touched: boolean; message: string };
-  professionalRegistration: { valid: boolean; touched: boolean; message: string };
   password: { valid: boolean; touched: boolean; message: string };
   confirmPassword: { valid: boolean; touched: boolean; message: string };
 }
@@ -45,7 +43,6 @@ const RegisterForm = () => {
     childAge: "",
     professionalAge: "",
     professionalCrfa: "",
-    professionalRegistration: "",
     password: "",
     confirmPassword: "",
   });
@@ -57,7 +54,6 @@ const RegisterForm = () => {
     childAge: { valid: false, touched: false, message: "" },
     professionalAge: { valid: false, touched: false, message: "" },
     professionalCrfa: { valid: false, touched: false, message: "" },
-    professionalRegistration: { valid: false, touched: false, message: "" },
     password: { valid: false, touched: false, message: "" },
     confirmPassword: { valid: false, touched: false, message: "" },
   });
@@ -135,13 +131,6 @@ const RegisterForm = () => {
     return { valid: true, message: "" };
   }, []);
 
-  const validateProfessionalRegistration = useCallback((v: string): { valid: boolean; message: string } => {
-    const s = String(v ?? "").trim();
-    if (!s) return { valid: false, message: "Registro profissional é obrigatório" };
-    if (s.length < 3) return { valid: false, message: "Registro inválido" };
-    return { valid: true, message: "" };
-  }, []);
-
   const validatePassword = useCallback((password: string): { valid: boolean; message: string } => {
     if (!password) {
       return { valid: false, message: "Senha é obrigatória" };
@@ -186,9 +175,6 @@ const RegisterForm = () => {
           break;
         case "professionalCrfa":
           result = validateProfessionalCrfa(value);
-          break;
-        case "professionalRegistration":
-          result = validateProfessionalRegistration(value);
           break;
         case "password":
           result = validatePassword(value);
@@ -235,9 +221,6 @@ const RegisterForm = () => {
       case "professionalCrfa":
         result = validateProfessionalCrfa(formData.professionalCrfa);
         break;
-      case "professionalRegistration":
-        result = validateProfessionalRegistration(formData.professionalRegistration);
-        break;
       case "password":
         result = validatePassword(formData.password);
         break;
@@ -263,8 +246,6 @@ const RegisterForm = () => {
     const childAgeResult = mode === "patient" ? validateChildAge(formData.childAge) : { valid: true, message: "" };
     const professionalAgeResult = mode === "professional" ? validateProfessionalAge(formData.professionalAge) : { valid: true, message: "" };
     const professionalCrfaResult = mode === "professional" ? validateProfessionalCrfa(formData.professionalCrfa) : { valid: true, message: "" };
-    const professionalRegistrationResult =
-      mode === "professional" ? validateProfessionalRegistration(formData.professionalRegistration) : { valid: true, message: "" };
     const passwordResult = validatePassword(formData.password);
     const confirmPasswordResult = validateConfirmPassword(formData.confirmPassword, formData.password);
 
@@ -275,7 +256,6 @@ const RegisterForm = () => {
       childAge: { ...childAgeResult, touched: true },
       professionalAge: { ...professionalAgeResult, touched: true },
       professionalCrfa: { ...professionalCrfaResult, touched: true },
-      professionalRegistration: { ...professionalRegistrationResult, touched: true },
       password: { ...passwordResult, touched: true },
       confirmPassword: { ...confirmPasswordResult, touched: true },
     });
@@ -287,7 +267,6 @@ const RegisterForm = () => {
       !childAgeResult.valid ||
       !professionalAgeResult.valid ||
       !professionalCrfaResult.valid ||
-      !professionalRegistrationResult.valid ||
       !passwordResult.valid ||
       !confirmPasswordResult.valid
     ) {
@@ -304,7 +283,6 @@ const RegisterForm = () => {
           phone: formData.phone,
           professional_age: Number(formData.professionalAge),
           professional_crfa: formData.professionalCrfa.trim(),
-          professional_registration: formData.professionalRegistration.trim(),
           password: formData.password,
           password_confirmation: formData.confirmPassword,
         });
@@ -609,36 +587,6 @@ const RegisterForm = () => {
             </div>
             {validation.professionalCrfa.touched && !validation.professionalCrfa.valid && (
               <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalCrfa.message}</p>
-            )}
-          </div>
-
-          {/* Registro profissional */}
-          <div className="space-y-2">
-            <label htmlFor="professionalRegistration" className="block text-sm font-semibold text-foreground">
-              Registro do Profissional
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                id="professionalRegistration"
-                name="professionalRegistration"
-                value={formData.professionalRegistration}
-                onChange={handleInputChange("professionalRegistration")}
-                onBlur={handleInputBlur("professionalRegistration")}
-                placeholder="Ex: 123456"
-                autoComplete="off"
-                aria-label="Registro profissional"
-                aria-invalid={validation.professionalRegistration.touched && !validation.professionalRegistration.valid}
-                className={`${getInputClassName("professionalRegistration")} pl-4 pr-10`}
-              />
-              {validation.professionalRegistration.touched && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  {validation.professionalRegistration.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
-                </div>
-              )}
-            </div>
-            {validation.professionalRegistration.touched && !validation.professionalRegistration.valid && (
-              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalRegistration.message}</p>
             )}
           </div>
         </>

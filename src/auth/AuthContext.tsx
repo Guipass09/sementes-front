@@ -17,7 +17,6 @@ type AuthContextValue = {
     phone: string;
     professional_age: number;
     professional_crfa: string;
-    professional_registration: string;
     password: string;
     password_confirmation: string;
   }) => Promise<AuthUser>;
@@ -352,7 +351,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       phone: string;
       professional_age: number;
       professional_crfa: string;
-      professional_registration: string;
       password: string;
       password_confirmation: string;
     }) => {

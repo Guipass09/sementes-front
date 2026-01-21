@@ -918,6 +918,10 @@ export default function SessionCall() {
         // Adota o novo epoch e limpa filas pendentes do epoch antigo (evita misturar)
         epochRef.current = msgEpoch;
         setEpoch(msgEpoch);
+        // Importante: alguns backends reiniciam o cursor/IDs quando o epoch muda.
+        // Se mantivermos after_id alto, podemos "pular" as novas mensagens e exigir refresh.
+        cursorRef.current = 0;
+        setCursor(0);
         pendingWebrtcRef.current = [];
         pendingIceRef.current = [];
         pendingOfferRef.current = null;

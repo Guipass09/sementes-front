@@ -158,6 +158,7 @@ export default function SessionCall() {
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const contentFrameRef = useRef<HTMLIFrameElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const joiningRef = useRef(false);
@@ -494,10 +495,22 @@ export default function SessionCall() {
     const s = remoteCamStream || remoteStream;
     if (s) {
       el.srcObject = s;
-      // Não mutar: o áudio remoto deve passar sempre.
-      el.muted = false;
+      // iOS/Safari: vídeo com áudio e muted=false frequentemente bloqueia autoplay e fica "preto".
+      // No lado do USER, mantemos o vídeo remoto muted e tocamos o áudio em um <audio> separado.
+      el.muted = role === "user";
       void el.play().catch(() => {});
     }
+  }, [remoteCamStream, remoteStream, role]);
+
+  // Attach remote audio to a dedicated <audio> element (especialmente importante no iOS/PWA)
+  useEffect(() => {
+    const a = remoteAudioRef.current;
+    if (!a) return;
+    const s = remoteCamStream || remoteStream;
+    if (!s) return;
+    a.srcObject = s;
+    a.muted = false;
+    void a.play().catch(() => {});
   }, [remoteCamStream, remoteStream]);
 
   // Timeout de segurança: remove contentLoading se iframe não carregar em 15 segundos
@@ -531,8 +544,9 @@ export default function SessionCall() {
       };
 
       await kick(localVideoRef.current, { muted: true });
-      await kick(remoteVideoRef.current, { muted: false });
+      await kick(remoteVideoRef.current, { muted: role === "user" });
       if (screenShareActive) await kick(contentScreenVideoRef.current, { muted: true });
+      await kick(remoteAudioRef.current as any, { muted: false } as any);
 
       // 2) Se WebAudio foi suspenso ao perder foco, tenta resumir
       try {
@@ -633,8 +647,16 @@ export default function SessionCall() {
     const handler = () => {
       const el = remoteVideoRef.current;
       if (!el) return;
-      el.muted = false;
-      void el.play().catch(() => {});
+      // User: mantém vídeo muted e destrava áudio no <audio>. Admin: destrava vídeo+áudio normal.
+      if (role !== "user") {
+        el.muted = false;
+        void el.play().catch(() => {});
+      }
+      const a = remoteAudioRef.current;
+      if (a) {
+        a.muted = false;
+        void a.play().catch(() => {});
+      }
     };
     window.addEventListener("pointerdown", handler, { passive: true } as any);
     window.addEventListener("touchstart", handler, { passive: true } as any);
@@ -644,7 +666,7 @@ export default function SessionCall() {
       window.removeEventListener("touchstart", handler as any);
       window.removeEventListener("keydown", handler as any);
     };
-  }, []);
+  }, [role]);
 
   const send = async (kind: string, payload?: any) => {
     if (!joinInfo) return;
@@ -2110,8 +2132,11 @@ export default function SessionCall() {
                     ref={remoteVideoRef}
                     autoPlay
                     playsInline
+                    muted={role === "user"}
                     className="h-full w-full object-cover"
                   />
+                  {/* Áudio remoto separado (garante vídeo no iOS mesmo quando autoplay com áudio é bloqueado) */}
+                  <audio ref={remoteAudioRef} autoPlay className="hidden" />
                   {!remotePresent && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white">
                       <img

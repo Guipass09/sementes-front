@@ -908,7 +908,24 @@ export default function SessionCall() {
     const myEpoch = epochRef.current;
     const msgEpoch = (m as any)?.epoch;
     if (myEpoch) {
-      if (typeof msgEpoch !== "string" || msgEpoch !== myEpoch) return;
+      // Se o backend regenerar o epoch quando o outro participante entra depois,
+      // quem já estava aguardando pode ficar "preso" ignorando as novas mensagens e exigindo refresh.
+      // Aqui adotamos o epoch novo AUTOMATICAMENTE enquanto ainda não estamos conectados.
+      if (typeof msgEpoch === "string" && msgEpoch !== myEpoch) {
+        const pc = pcRef.current;
+        const connected = pc?.connectionState === "connected";
+        if (connected) return;
+        // Adota o novo epoch e limpa filas pendentes do epoch antigo (evita misturar)
+        epochRef.current = msgEpoch;
+        setEpoch(msgEpoch);
+        pendingWebrtcRef.current = [];
+        pendingIceRef.current = [];
+        pendingOfferRef.current = null;
+      } else if (typeof msgEpoch !== "string") {
+        // Se vier sem epoch, não bloqueia (compat/backward)
+      } else if (msgEpoch !== myEpoch) {
+        return;
+      }
     }
 
     // WebRTC (sdp/ice) precisa esperar o peer/local tracks estarem prontos

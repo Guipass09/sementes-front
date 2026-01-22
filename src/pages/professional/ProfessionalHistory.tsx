@@ -32,7 +32,11 @@ export default function ProfessionalHistory(): JSX.Element {
         const res = await api.professionalListAppointments();
         if (cancelled) return;
         const all = (res.data ?? []) as any[];
-        const past = all.filter((r) => String(r.status || "") !== "active");
+        // Mostrar apenas sessões realizadas (completed) e canceladas (canceled)
+        const past = all.filter((r) => {
+          const status = String(r.status || "").toLowerCase();
+          return status === "completed" || status === "canceled";
+        });
         setRows(past as any);
       } finally {
         if (!cancelled) setLoading(false);

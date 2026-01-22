@@ -1507,7 +1507,7 @@ export default function SessionCall() {
 
   const handleEndSession = async (markCompleted: boolean) => {
     setEndingSession(true);
-    if (markCompleted && role === "admin" && appointmentId) {
+    if (markCompleted && appointmentId) {
       try {
         if (appRole === "professional") {
           await api.professionalUpdateAppointmentStatus(appointmentId, "completed");
@@ -1515,7 +1515,7 @@ export default function SessionCall() {
           try {
             await send("catalog_open", {});
           } catch {}
-        } else {
+        } else if (appRole === "admin") {
           await api.adminUpdateAppointmentStatus(appointmentId, "completed");
         }
       } catch (e) {

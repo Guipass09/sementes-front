@@ -34,20 +34,35 @@ export default function ProfessionalSessions(): JSX.Element {
     return () => window.clearInterval(id);
   }, []);
 
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const res = await api.professionalListAppointments();
+      // Filtrar apenas sessões agendadas (active) - excluir realizadas (completed) e canceladas (canceled)
+      const all = (res.data ?? []) as any[];
+      const activeOnly = all.filter((r) => String(r.status || "").toLowerCase() === "active");
+      setRows(activeOnly as any);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await api.professionalListAppointments();
-        if (cancelled) return;
-        setRows((res.data ?? []) as any);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+    void refresh();
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // Atualizar lista quando a página ganha foco (ex: quando volta do histórico após marcar como realizada)
+  useEffect(() => {
+    const handleFocus = () => {
+      void refresh();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
     };
   }, []);
 

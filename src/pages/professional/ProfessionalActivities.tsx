@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Plus, Search, Grid3X3, ChevronDown, Share2 } from "lucide-react";
+import { Activity, Plus, Search, Grid3X3, ChevronDown, Share2, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +19,7 @@ import {
 import { ProfessionalActivityFormModal } from "@/features/activities/ProfessionalActivityFormModal";
 import { ShareActivityModal } from "@/features/activities/ShareActivityModal";
 import { useAuth } from "@/auth/AuthContext";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 export default function ProfessionalActivities(): JSX.Element {
   const [loading, setLoading] = useState(true);
@@ -179,19 +180,32 @@ export default function ProfessionalActivities(): JSX.Element {
                   <AccordionContent>
                     <div className="space-y-3 pt-2">
                       {unassignedActivities.map((activity) => {
-                        const canEdit = (activity.created_by?.id ?? 0) === (auth.user?.id ?? 0);
+                        const createdByMe = (activity.created_by?.id ?? 0) === (auth.user?.id ?? 0);
+                        const hasAssignedPatients = (activity.assigned_to?.length ?? 0) > 0;
+                        // Pode editar se criou OU se está atribuída a algum paciente do profissional
+                        const canEdit = createdByMe || hasAssignedPatients;
                         return (
                           <div key={`unassigned-${activity.id}`} className="w-full text-left bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200">
                             <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                               <div className="flex items-center gap-3 flex-1">
-                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                  <Activity size={20} className="text-primary" />
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                  {activity.thumbnail?.media_type === "image" ? (
+                                    <img src={normalizeMediaUrl(activity.thumbnail.url)} alt="" className="w-full h-full object-cover" />
+                                  ) : activity.thumbnail?.media_type === "video" && activity.thumbnail.thumbnail_url ? (
+                                    <img
+                                      src={normalizeMediaUrl(activity.thumbnail.thumbnail_url)}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <Activity size={20} className="text-primary" />
+                                  )}
                                 </div>
                                 <div className="min-w-0">
                                   <div className="font-semibold text-foreground truncate">{activity.title}</div>
                                   <div className="text-xs text-muted-foreground truncate">
                                     {activity.category || "—"}
-                                    {!canEdit ? " • Compartilhada" : ""}
+                                    {!createdByMe && !hasAssignedPatients ? " • Compartilhada" : ""}
                                   </div>
                                 </div>
                               </div>
@@ -207,8 +221,8 @@ export default function ProfessionalActivities(): JSX.Element {
                                     setShareTarget(activity);
                                     setShareOpen(true);
                                   }}
-                                  disabled={!canEdit}
-                                  title={!canEdit ? "Apenas o criador pode compartilhar esta atividade" : "Compartilhar com outros profissionais"}
+                                  disabled={!createdByMe}
+                                  title={!createdByMe ? "Apenas o criador pode compartilhar esta atividade" : "Compartilhar com outros profissionais"}
                                 >
                                   <Share2 className="h-4 w-4 mr-2" />
                                   Compartilhar
@@ -262,42 +276,55 @@ export default function ProfessionalActivities(): JSX.Element {
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
-                        {list.map((activity) => (
-                          <div
-                            key={activity.id}
-                            className="w-full text-left bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200"
-                          >
-                            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                              <div className="flex items-center gap-3 flex-1">
-                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                  <Activity size={20} className="text-primary" />
+                        {list.map((activity) => {
+                          const createdByMe = (activity.created_by?.id ?? 0) === (auth.user?.id ?? 0);
+                          const hasAssignedPatients = (activity.assigned_to?.length ?? 0) > 0;
+                          // Pode editar se criou OU se está atribuída a algum paciente do profissional
+                          const canEdit = createdByMe || hasAssignedPatients;
+                          return (
+                            <div
+                              key={activity.id}
+                              className="w-full text-left bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200"
+                            >
+                              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                                <div className="flex items-center gap-3 flex-1">
+                                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                    {activity.thumbnail?.media_type === "image" ? (
+                                      <img src={normalizeMediaUrl(activity.thumbnail.url)} alt="" className="w-full h-full object-cover" />
+                                    ) : activity.thumbnail?.media_type === "video" && activity.thumbnail.thumbnail_url ? (
+                                      <img
+                                        src={normalizeMediaUrl(activity.thumbnail.thumbnail_url)}
+                                        alt=""
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <Activity size={20} className="text-primary" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-foreground truncate">{activity.title}</div>
+                                    <div className="text-xs text-muted-foreground truncate">{activity.category || "—"}</div>
+                                  </div>
                                 </div>
-                                <div className="min-w-0">
-                                  <div className="font-semibold text-foreground truncate">{activity.title}</div>
-                                  <div className="text-xs text-muted-foreground truncate">{activity.category || "—"}</div>
-                                </div>
-                              </div>
 
-                              <div className="flex items-center gap-2 flex-wrap justify-end">
-                                <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)}>
-                                  Abrir
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setShareTarget(activity);
-                                    setShareOpen(true);
-                                  }}
-                                  title="Compartilhar com outros profissionais"
-                                >
-                                  <Share2 className="h-4 w-4 mr-2" />
-                                  Compartilhar
-                                </Button>
-                                {(() => {
-                                  const canEdit = (activity.created_by?.id ?? 0) === (auth.user?.id ?? 0);
-                                  if (!canEdit) return null;
-                                  return (
+                                <div className="flex items-center gap-2 flex-wrap justify-end">
+                                  <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)}>
+                                    Abrir
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setShareTarget(activity);
+                                      setShareOpen(true);
+                                    }}
+                                    disabled={!createdByMe}
+                                    title={!createdByMe ? "Apenas o criador pode compartilhar esta atividade" : "Compartilhar com outros profissionais"}
+                                  >
+                                    <Share2 className="h-4 w-4 mr-2" />
+                                    Compartilhar
+                                  </Button>
+                                  {canEdit ? (
                                     <>
                                       <Button
                                         variant="outline"
@@ -320,12 +347,12 @@ export default function ProfessionalActivities(): JSX.Element {
                                         Excluir
                                       </Button>
                                     </>
-                                  );
-                                })()}
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </AccordionContent>
                   </AccordionItem>

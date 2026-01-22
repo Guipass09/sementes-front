@@ -79,7 +79,7 @@ export default function ProfessionalSessions(): JSX.Element {
   const groupedByUser = useMemo(() => {
     const map = new Map<
       number,
-      { userId: number; userName: string; userEmail?: string; profile_photo_url?: string | null; items: ProAppointmentRow[] }
+      { userId: number; userName: string; userEmail?: string; profile_photo_url?: string | null; items: ProAppointmentRow[]; hasTodaySession: boolean; earliestTodayTime: string | null }
     >();
     for (const r of filtered) {
       const userId = r.user?.id ?? r.user_id ?? 0;
@@ -89,15 +89,44 @@ export default function ProfessionalSessions(): JSX.Element {
         userEmail: r.user?.email ?? undefined,
         profile_photo_url: r.user?.profile_photo_url ?? null,
         items: [],
+        hasTodaySession: false,
+        earliestTodayTime: null,
       };
       entry.items.push(r);
       map.set(userId, entry);
     }
+    
+    // Ordenar sessões de cada paciente e verificar se tem sessão hoje
     for (const entry of map.values()) {
       entry.items.sort((a, b) => `${a.session_date}T${a.session_time}`.localeCompare(`${b.session_date}T${b.session_time}`));
+      
+      // Verificar se tem sessão hoje e pegar o horário mais cedo
+      const todaySessions = entry.items.filter((s) => s.session_date === todayYMD);
+      if (todaySessions.length > 0) {
+        entry.hasTodaySession = true;
+        // Pegar o horário mais cedo do dia
+        const sortedToday = [...todaySessions].sort((a, b) => a.session_time.localeCompare(b.session_time));
+        entry.earliestTodayTime = sortedToday[0].session_time;
+      }
     }
-    return Array.from(map.values()).sort((a, b) => a.userName.localeCompare(b.userName));
-  }, [filtered]);
+    
+    // Ordenar: pacientes com sessão hoje primeiro (por horário), depois os demais (alfabético)
+    return Array.from(map.values()).sort((a, b) => {
+      // Se ambos têm sessão hoje, ordenar por horário mais cedo
+      if (a.hasTodaySession && b.hasTodaySession) {
+        if (a.earliestTodayTime && b.earliestTodayTime) {
+          return a.earliestTodayTime.localeCompare(b.earliestTodayTime);
+        }
+        return 0;
+      }
+      // Se só 'a' tem sessão hoje, vem primeiro
+      if (a.hasTodaySession && !b.hasTodaySession) return -1;
+      // Se só 'b' tem sessão hoje, vem primeiro
+      if (!a.hasTodaySession && b.hasTodaySession) return 1;
+      // Se nenhum tem sessão hoje, ordem alfabética
+      return a.userName.localeCompare(b.userName);
+    });
+  }, [filtered, todayYMD]);
 
   const todayYMD = useMemo(() => getTodayYMD(nowMs), [nowMs]);
   const goToCall = (appointmentId: number) => navigate(`/sessao/${appointmentId}/chamada`);
@@ -164,7 +193,30 @@ export default function ProfessionalSessions(): JSX.Element {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-semibold text-sm sm:text-base text-foreground truncate">{u.userName}</div>
+                        <div className="font-semibold text-sm sm:text-base text-foreground truncate flex items-center gap-1.5 sm:gap-2">
+                          {u.userName}
+                          {u.hasTodaySession && (() => {
+                            // Verificar se alguma sessão está no período de blink
+                            const hasBlinkingSession = u.items.some((s) => {
+                              if (s.session_date !== todayYMD) return false;
+                              const startMs = parseLocalDateTime(s.session_date, s.session_time);
+                              return (
+                                startMs !== null &&
+                                nowMs >= startMs - BLINK_BEFORE_MINUTES * 60_000 &&
+                                nowMs <= startMs + BLINK_AFTER_MINUTES * 60_000
+                              );
+                            });
+                            return (
+                              <span
+                                className={[
+                                  "inline-block h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-brand-orange flex-shrink-0",
+                                  hasBlinkingSession ? "animate-pulse" : "",
+                                ].join(" ")}
+                                title="Atendimento hoje"
+                              />
+                            );
+                          })()}
+                        </div>
                         {u.userEmail ? <div className="text-xs text-muted-foreground truncate">{u.userEmail}</div> : null}
                       </div>
                     </div>

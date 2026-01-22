@@ -231,7 +231,7 @@ export default function AdminAuditoryGames() {
                                   e.stopPropagation();
                                   void handleDelete(g.id);
                                 }}
-                                disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
+                                disabled={isProfessional && (g.created_by?.id ?? 0) !== myId && (g.assigned_to?.length ?? 0) === 0}
                               >
                                 <Trash2 size={14} className="mr-2" /> Excluir
                               </Button>

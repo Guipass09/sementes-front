@@ -245,7 +245,7 @@ export default function AdminSpinWheelGames() {
                                   setDeleteTarget(game);
                                   setDeleteOpen(true);
                                 }}
-                                disabled={isProfessional && (game.created_by?.id ?? 0) !== myId}
+                                disabled={isProfessional && (game.created_by?.id ?? 0) !== myId && (game.assigned_to?.length ?? 0) === 0}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

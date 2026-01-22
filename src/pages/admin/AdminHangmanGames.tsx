@@ -230,7 +230,7 @@ export default function AdminHangmanGames() {
                                     setDeleteTarget(g);
                                     setDeleteOpen(true);
                                   }}
-                                  disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
+                                  disabled={isProfessional && (g.created_by?.id ?? 0) !== myId && (g.assigned_to?.length ?? 0) === 0}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Excluir

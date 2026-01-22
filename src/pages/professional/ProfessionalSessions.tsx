@@ -76,6 +76,8 @@ export default function ProfessionalSessions(): JSX.Element {
     });
   }, [rows, search]);
 
+  const todayYMD = useMemo(() => getTodayYMD(nowMs), [nowMs]);
+
   const groupedByUser = useMemo(() => {
     const map = new Map<
       number,
@@ -128,7 +130,6 @@ export default function ProfessionalSessions(): JSX.Element {
     });
   }, [filtered, todayYMD]);
 
-  const todayYMD = useMemo(() => getTodayYMD(nowMs), [nowMs]);
   const goToCall = (appointmentId: number) => navigate(`/sessao/${appointmentId}/chamada`);
 
   const statusConfig = {

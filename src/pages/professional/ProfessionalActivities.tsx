@@ -85,12 +85,12 @@ export default function ProfessionalActivities(): JSX.Element {
   }, [filteredActivities, auth.user?.id]);
 
   return (
-    <div className="min-h-full py-8 lg:py-12">
-      <div className="container mx-auto px-4">
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
+      <div className="container mx-auto px-3 sm:px-4">
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Atividades</h1>
-            <p className="text-muted-foreground">Crie, edite e envie atividades para seus usuários.</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Atividades</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Crie, edite e envie atividades para seus usuários.</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <DropdownMenu>
@@ -134,20 +134,20 @@ export default function ProfessionalActivities(): JSX.Element {
           </div>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-[18px] h-[18px] sm:w-5 sm:h-5" />
             <Input
               type="text"
               placeholder="Buscar atividades..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-11"
+              className="pl-9 sm:pl-11 text-sm sm:text-base"
             />
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {loading ? (
             <div className="space-y-4">
               {[0, 1, 2].map((i) => (
@@ -185,10 +185,10 @@ export default function ProfessionalActivities(): JSX.Element {
                         // Pode editar se criou OU se está atribuída a algum paciente do profissional
                         const canEdit = createdByMe || hasAssignedPatients;
                         return (
-                          <div key={`unassigned-${activity.id}`} className="w-full text-left bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200">
-                            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                              <div className="flex items-center gap-3 flex-1">
-                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          <div key={`unassigned-${activity.id}`} className="w-full text-left bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                   {activity.thumbnail?.media_type === "image" ? (
                                     <img src={normalizeMediaUrl(activity.thumbnail.url)} alt="" className="w-full h-full object-cover" />
                                   ) : activity.thumbnail?.media_type === "video" && activity.thumbnail.thumbnail_url ? (
@@ -198,11 +198,11 @@ export default function ProfessionalActivities(): JSX.Element {
                                       className="w-full h-full object-cover"
                                     />
                                   ) : (
-                                    <Activity size={20} className="text-primary" />
+                                    <Activity size={18} className="sm:w-5 sm:h-5 text-primary" />
                                   )}
                                 </div>
-                                <div className="min-w-0">
-                                  <div className="font-semibold text-foreground truncate">{activity.title}</div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-semibold text-sm sm:text-base text-foreground truncate">{activity.title}</div>
                                   <div className="text-xs text-muted-foreground truncate">
                                     {activity.category || "—"}
                                     {!createdByMe && !hasAssignedPatients ? " • Compartilhada" : ""}
@@ -210,8 +210,8 @@ export default function ProfessionalActivities(): JSX.Element {
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-2 flex-wrap justify-end">
-                                <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)}>
+                              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-start sm:justify-end">
+                                <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)} className="text-xs sm:text-sm">
                                   Abrir
                                 </Button>
                                 <Button
@@ -223,9 +223,10 @@ export default function ProfessionalActivities(): JSX.Element {
                                   }}
                                   disabled={!createdByMe}
                                   title={!createdByMe ? "Apenas o criador pode compartilhar esta atividade" : "Compartilhar com outros profissionais"}
+                                  className="text-xs sm:text-sm"
                                 >
-                                  <Share2 className="h-4 w-4 mr-2" />
-                                  Compartilhar
+                                  <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                  <span className="hidden sm:inline">Compartilhar</span>
                                 </Button>
                                 {canEdit ? (
                                   <>
@@ -236,6 +237,7 @@ export default function ProfessionalActivities(): JSX.Element {
                                         setEditing(activity);
                                         setFormOpen(true);
                                       }}
+                                      className="text-xs sm:text-sm"
                                     >
                                       Editar
                                     </Button>
@@ -246,6 +248,7 @@ export default function ProfessionalActivities(): JSX.Element {
                                         setDeleteTarget(activity);
                                         setDeleteOpen(true);
                                       }}
+                                      className="text-xs sm:text-sm"
                                     >
                                       Excluir
                                     </Button>
@@ -284,11 +287,11 @@ export default function ProfessionalActivities(): JSX.Element {
                           return (
                             <div
                               key={activity.id}
-                              className="w-full text-left bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200"
+                              className="w-full text-left bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200"
                             >
-                              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                                <div className="flex items-center gap-3 flex-1">
-                                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                                     {activity.thumbnail?.media_type === "image" ? (
                                       <img src={normalizeMediaUrl(activity.thumbnail.url)} alt="" className="w-full h-full object-cover" />
                                     ) : activity.thumbnail?.media_type === "video" && activity.thumbnail.thumbnail_url ? (
@@ -298,17 +301,17 @@ export default function ProfessionalActivities(): JSX.Element {
                                         className="w-full h-full object-cover"
                                       />
                                     ) : (
-                                      <Activity size={20} className="text-primary" />
+                                      <Activity size={18} className="sm:w-5 sm:h-5 text-primary" />
                                     )}
                                   </div>
-                                  <div className="min-w-0">
-                                    <div className="font-semibold text-foreground truncate">{activity.title}</div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-semibold text-sm sm:text-base text-foreground truncate">{activity.title}</div>
                                     <div className="text-xs text-muted-foreground truncate">{activity.category || "—"}</div>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 flex-wrap justify-end">
-                                  <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)}>
+                                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-start sm:justify-end">
+                                  <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)} className="text-xs sm:text-sm">
                                     Abrir
                                   </Button>
                                   <Button
@@ -320,9 +323,10 @@ export default function ProfessionalActivities(): JSX.Element {
                                     }}
                                     disabled={!createdByMe}
                                     title={!createdByMe ? "Apenas o criador pode compartilhar esta atividade" : "Compartilhar com outros profissionais"}
+                                    className="text-xs sm:text-sm"
                                   >
-                                    <Share2 className="h-4 w-4 mr-2" />
-                                    Compartilhar
+                                    <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                                    <span className="hidden sm:inline">Compartilhar</span>
                                   </Button>
                                   {canEdit ? (
                                     <>
@@ -333,6 +337,7 @@ export default function ProfessionalActivities(): JSX.Element {
                                           setEditing(activity);
                                           setFormOpen(true);
                                         }}
+                                        className="text-xs sm:text-sm"
                                       >
                                         Editar
                                       </Button>
@@ -343,6 +348,7 @@ export default function ProfessionalActivities(): JSX.Element {
                                           setDeleteTarget(activity);
                                           setDeleteOpen(true);
                                         }}
+                                        className="text-xs sm:text-sm"
                                       >
                                         Excluir
                                       </Button>

@@ -105,40 +105,40 @@ export default function ProfessionalDashboard(): JSX.Element {
   ];
 
   return (
-    <div className="min-h-full py-8 lg:py-12">
-      <div className="container mx-auto px-4">
+    <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
+      <div className="container mx-auto px-3 sm:px-4">
         {/* Welcome Section - Landing Page Style */}
-        <section className="relative overflow-hidden rounded-2xl mb-8 bg-gradient-to-br from-green-50 via-amber-50 to-green-100 dark:from-green-950/20 dark:via-amber-950/20 dark:to-green-900/20 p-8 lg:p-12">
-          <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-green-200/30 dark:bg-green-800/20 blur-3xl" />
-          <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-amber-200/30 dark:bg-amber-800/20 blur-3xl" />
+        <section className="relative overflow-hidden rounded-xl sm:rounded-2xl mb-6 sm:mb-8 bg-gradient-to-br from-green-50 via-amber-50 to-green-100 dark:from-green-950/20 dark:via-amber-950/20 dark:to-green-900/20 p-4 sm:p-6 md:p-8 lg:p-12">
+          <div className="absolute -top-12 sm:-top-24 -right-12 sm:-right-24 h-32 w-32 sm:h-64 sm:w-64 rounded-full bg-green-200/30 dark:bg-green-800/20 blur-3xl" />
+          <div className="absolute -bottom-12 sm:-bottom-24 -left-12 sm:-left-24 h-32 w-32 sm:h-64 sm:w-64 rounded-full bg-amber-200/30 dark:bg-amber-800/20 blur-3xl" />
           <div className="relative flex flex-col items-center text-center">
             {/* Logo */}
-            <div className="mb-6">
-              <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-xl overflow-hidden shadow-lg border-2 border-white/50 dark:border-gray-800/50 bg-white dark:bg-gray-900">
+            <div className="mb-4 sm:mb-6">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-xl overflow-hidden shadow-lg border-2 border-white/50 dark:border-gray-800/50 bg-white dark:bg-gray-900">
                 <img src={logoImage} alt="Sementes da Fala" className="w-full h-full object-cover" />
               </div>
             </div>
             
             {/* Title */}
-            <h1 className="text-3xl lg:text-4xl font-display font-bold mb-3">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold mb-2 sm:mb-3">
               <span className="text-stone-700 dark:text-stone-300">Painel</span>{" "}
               <span className="text-brand-green dark:text-green-400">Profissional</span>
             </h1>
             
             {/* Subtitle */}
-            <p className="text-stone-600 dark:text-stone-400 text-base lg:text-lg max-w-2xl mb-6">
+            <p className="text-stone-600 dark:text-stone-400 text-sm sm:text-base lg:text-lg max-w-2xl mb-4 sm:mb-6 px-2">
               Gerencie seus pacientes, atividades, horários e relatórios do sistema Sementes da Fala
             </p>
             
             {/* Welcome Message */}
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-lg text-stone-700 dark:text-stone-300">
-              <Shield size={16} className="text-amber-600 dark:text-amber-400" />
-              <span className="text-sm font-medium">Bem-vindo(a), {firstName}!</span>
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-lg text-stone-700 dark:text-stone-300">
+              <Shield size={14} className="sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
+              <span className="text-xs sm:text-sm font-medium">Bem-vindo(a), {firstName}!</span>
             </div>
           </div>
         </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {stats.map((s) => {
             const Icon = s.icon;
             return (
@@ -161,9 +161,9 @@ export default function ProfessionalDashboard(): JSX.Element {
           })}
         </div>
 
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold text-foreground mb-3">Ações rápidas</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mt-6 sm:mt-8">
+          <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3">Ações rápidas</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {quickActions.map((a) => {
               const Icon = a.icon;
               return (

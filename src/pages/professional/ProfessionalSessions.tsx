@@ -111,17 +111,17 @@ export default function ProfessionalSessions(): JSX.Element {
   const mapStatus = (raw: string) => (raw === "completed" ? "realizada" : raw === "canceled" ? "cancelada" : "agendada") as const;
 
   return (
-    <div className="min-h-full py-8 lg:py-12">
-      <div className="container mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Sessões</h1>
-          <p className="text-muted-foreground">Visualize suas sessões agendadas e entre na transmissão ao vivo.</p>
+    <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
+      <div className="container mx-auto px-3 sm:px-4">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Sessões</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Visualize suas sessões agendadas e entre na transmissão ao vivo.</p>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por paciente (nome ou email)..." className="pl-11" />
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-[18px] h-[18px] sm:w-5 sm:h-5" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por paciente (nome ou email)..." className="pl-9 sm:pl-11 text-sm sm:text-base" />
           </div>
         </div>
 
@@ -151,26 +151,26 @@ export default function ProfessionalSessions(): JSX.Element {
               <p className="text-muted-foreground">Nenhum resultado para essa busca.</p>
             </div>
           ) : (
-            <Accordion type="multiple" className="space-y-4">
+            <Accordion type="multiple" className="space-y-3 sm:space-y-4">
               {groupedByUser.map((u) => (
-                <AccordionItem key={u.userId} value={String(u.userId)} className="bg-card rounded-xl border border-border px-5">
-                  <AccordionTrigger className="py-4">
-                    <div className="flex items-center gap-3 text-left">
-                      <div className="w-10 h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold">
+                <AccordionItem key={u.userId} value={String(u.userId)} className="bg-card rounded-xl border border-border px-3 sm:px-4 md:px-5">
+                  <AccordionTrigger className="py-3 sm:py-4">
+                    <div className="flex items-center gap-2 sm:gap-3 text-left w-full">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
                         {u.profile_photo_url ? (
                           <img src={normalizeMediaUrl(u.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                         ) : (
                           u.userName.split(" ").map((n) => n[0]).join("").slice(0, 2)
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <div className="font-semibold text-foreground">{u.userName}</div>
-                        {u.userEmail ? <div className="text-xs text-muted-foreground">{u.userEmail}</div> : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-sm sm:text-base text-foreground truncate">{u.userName}</div>
+                        {u.userEmail ? <div className="text-xs text-muted-foreground truncate">{u.userEmail}</div> : null}
                       </div>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pb-5">
-                    <div className="space-y-3">
+                  <AccordionContent className="pb-4 sm:pb-5">
+                    <div className="space-y-2 sm:space-y-3">
                       {u.items.map((s) => {
                         const st = mapStatus(s.status);
                         const StatusIcon = statusConfig[st].icon;
@@ -182,36 +182,36 @@ export default function ProfessionalSessions(): JSX.Element {
                           nowMs <= startMs + BLINK_AFTER_MINUTES * 60_000;
 
                         return (
-                          <div key={s.id} className="rounded-lg border border-border p-4 bg-background/60">
-                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="font-semibold text-foreground flex items-center gap-2">
+                          <div key={s.id} className="rounded-lg border border-border p-3 sm:p-4 bg-background/60">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-semibold text-sm sm:text-base text-foreground flex items-center gap-1.5 sm:gap-2">
                                   Sessão
                                   {showDot && (
                                     <span
                                       className={[
-                                        "inline-block h-2.5 w-2.5 rounded-full bg-brand-orange",
+                                        "inline-block h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-brand-orange",
                                         shouldRevealBlink ? "animate-pulse" : "",
                                       ].join(" ")}
                                       title={s.session_time ? `Sessão hoje às ${s.session_time}` : "Sessão hoje"}
                                     />
                                   )}
                                 </div>
-                                <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-4 mt-1">
+                                <div className="text-xs sm:text-sm text-muted-foreground flex flex-wrap items-center gap-2 sm:gap-4 mt-1">
                                   <span className="flex items-center gap-1">
-                                    <Calendar size={14} />
+                                    <Calendar size={12} className="sm:w-3.5 sm:h-3.5" />
                                     {s.session_date}
                                   </span>
                                   <span className="flex items-center gap-1">
-                                    <Clock size={14} />
+                                    <Clock size={12} className="sm:w-3.5 sm:h-3.5" />
                                     {s.session_time}
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-2 flex-wrap justify-end">
-                                <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${statusConfig[st].color}`}>
-                                  <StatusIcon size={14} />
+                              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-start sm:justify-end">
+                                <div className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium border ${statusConfig[st].color}`}>
+                                  <StatusIcon size={12} className="sm:w-3.5 sm:h-3.5" />
                                   {statusConfig[st].label}
                                 </div>
                                 <JoinSessionButton
@@ -230,7 +230,7 @@ export default function ProfessionalSessions(): JSX.Element {
                                   const showCountdown = s.join_session ? s.join_session.visible : countdown.active;
                                   if (!showCountdown || !countdown.label) return null;
                                   return (
-                                    <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                                    <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full bg-muted text-muted-foreground">
                                       {countdown.label}
                                     </span>
                                   );

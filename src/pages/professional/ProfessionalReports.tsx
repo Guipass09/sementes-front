@@ -60,40 +60,40 @@ export default function ProfessionalReports(): JSX.Element {
   }, [reports, searchTerm]);
 
   return (
-    <div className="min-h-full py-8 lg:py-12">
-      <div className="container mx-auto px-4">
-        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
+      <div className="container mx-auto px-3 sm:px-4">
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Relatórios</h1>
-            <p className="text-muted-foreground">Crie e gerencie relatórios para seus usuários.</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Relatórios</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Crie e gerencie relatórios para seus usuários.</p>
           </div>
           <Button
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto text-xs sm:text-sm"
             disabled={loading || !auth.user}
             onClick={() => {
               setEditing(null);
               setFormOpen(true);
             }}
           >
-            <Plus size={18} className="mr-2" />
+            <Plus size={16} className="sm:w-[18px] sm:h-[18px] mr-1.5 sm:mr-2" />
             Novo Relatório
           </Button>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-[18px] h-[18px] sm:w-5 sm:h-5" />
             <Input
               type="text"
               placeholder="Buscar por título, paciente ou tipo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-11"
+              className="pl-9 sm:pl-11 text-sm sm:text-base"
             />
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {loading ? (
             <div className="space-y-4">
               {[0, 1, 2].map((i) => (

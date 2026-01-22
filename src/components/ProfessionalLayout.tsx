@@ -73,17 +73,17 @@ const ProfessionalLayout = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-2 max-w-[1920px]">
+        <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2 max-w-[1920px]">
           <Link to="/profissional" className="flex items-center gap-1.5 flex-shrink-0">
-            <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain" />
-            <span className="hidden lg:block font-display font-bold text-base">
+            <img src={logoImage} alt="Sementes da Fala" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-contain" />
+            <span className="hidden sm:block font-display font-bold text-sm sm:text-base">
               <span className="text-brand-green">Sementes</span>{" "}
               <span className="text-brand-brown">da Fala</span>
-              <span className="text-[10px] ml-1.5 text-muted-foreground">Profissional</span>
+              <span className="text-[9px] sm:text-[10px] ml-1 text-muted-foreground hidden md:inline">Profissional</span>
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 justify-center">
+          <nav className="hidden md:flex items-center gap-0.5 sm:gap-1 flex-1 min-w-0 justify-center overflow-x-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = isActivePath(item.path);
@@ -91,31 +91,31 @@ const ProfessionalLayout = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-1.5 px-2.5 lg:px-3 py-2 rounded-lg font-medium transition-all duration-200 flex-shrink-0 text-sm ${
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 rounded-lg font-medium transition-all duration-200 flex-shrink-0 text-xs sm:text-sm ${
                     isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   }`}
                 >
-                  <Icon size={16} />
+                  <Icon size={14} className="sm:w-4 sm:h-4" />
                   <span className="hidden lg:inline whitespace-nowrap">{item.label}</span>
                 </Link>
               );
             })}
           </nav>
 
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             <NotificationsBell />
             <PwaInstallButton />
             <button
               type="button"
               onClick={() => setProfileOpen(true)}
-              className="hidden md:flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-muted/50 transition-colors"
+              className="hidden md:flex items-center gap-1.5 sm:gap-2 rounded-xl px-1.5 sm:px-2 py-1 hover:bg-muted/50 transition-colors"
               aria-label="Perfil"
             >
-              <div className="text-right hidden xl:block">
-                <p className="text-sm font-semibold text-foreground leading-tight">{user.name}</p>
-                <p className="text-xs text-muted-foreground leading-tight">Profissional</p>
+              <div className="text-right hidden lg:block">
+                <p className="text-xs sm:text-sm font-semibold text-foreground leading-tight truncate max-w-[120px]">{user.name}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Profissional</p>
               </div>
-              <div className="w-10 h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
                 {user.profile_photo_url ? (
                   <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                 ) : (
@@ -124,16 +124,16 @@ const ProfessionalLayout = () => {
               </div>
             </button>
 
-            <button onClick={handleLogout} className="hidden md:flex items-center gap-1.5 px-1.5 py-2 text-sm text-muted-foreground hover:text-destructive transition-colors">
-              <LogOut size={16} />
+            <button onClick={handleLogout} className="hidden md:flex items-center gap-1 px-1 sm:px-1.5 py-1.5 sm:py-2 text-xs sm:text-sm text-muted-foreground hover:text-destructive transition-colors">
+              <LogOut size={14} className="sm:w-4 sm:h-4" />
             </button>
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-foreground hover:bg-muted/50 rounded-lg transition-colors"
+              className="md:hidden p-1.5 sm:p-2 text-foreground hover:bg-muted/50 rounded-lg transition-colors"
               aria-label="Menu"
             >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {mobileMenuOpen ? <X size={20} className="sm:w-6 sm:h-6" /> : <Menu size={20} className="sm:w-6 sm:h-6" />}
             </button>
           </div>
         </div>
@@ -194,7 +194,7 @@ const ProfessionalLayout = () => {
         </div>
       </header>
 
-      <main className="pt-16 min-h-screen">
+      <main className="pt-14 sm:pt-16 min-h-screen">
         <Outlet />
       </main>
 

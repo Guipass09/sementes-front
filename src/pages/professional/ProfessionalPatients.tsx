@@ -57,21 +57,21 @@ export default function ProfessionalPatients(): JSX.Element {
   };
 
   return (
-    <div className="min-h-full py-8 lg:py-12">
-      <div className="container mx-auto px-4">
-        <div className="mb-8">
-          <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Pacientes</h1>
-          <p className="text-muted-foreground">Você verá apenas pacientes que o admin vinculou a você.</p>
+    <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
+      <div className="container mx-auto px-3 sm:px-4">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Pacientes</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Você verá apenas pacientes que o admin vinculou a você.</p>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4 sm:mb-6">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome ou email..." className="pl-11" />
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-[18px] h-[18px] sm:w-5 sm:h-5" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome ou email..." className="pl-9 sm:pl-11 text-sm sm:text-base" />
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {loading ? (
             <div className="space-y-4">
               {[0, 1, 2].map((i) => (
@@ -93,10 +93,10 @@ export default function ProfessionalPatients(): JSX.Element {
             </div>
           ) : (
             filtered.map((p) => (
-              <div key={p.id} className="bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold">
+              <div key={p.id} className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
                       {p.profile_photo_url ? (
                         <img src={normalizeMediaUrl(p.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -104,15 +104,15 @@ export default function ProfessionalPatients(): JSX.Element {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-foreground">{p.name}</div>
-                      <div className="text-sm text-muted-foreground truncate">{p.email}</div>
+                      <div className="font-semibold text-sm sm:text-base text-foreground truncate">{p.name}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground truncate">{p.email}</div>
                       {p.phone ? <div className="text-xs text-muted-foreground">Celular: {p.phone}</div> : null}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => void openPatient(p)}>
-                      <Eye size={16} className="mr-2" />
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Button variant="outline" size="sm" onClick={() => void openPatient(p)} className="w-full sm:w-auto text-xs sm:text-sm">
+                      <Eye size={14} className="sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                       Ver Perfil
                     </Button>
                   </div>
@@ -131,10 +131,10 @@ export default function ProfessionalPatients(): JSX.Element {
             }
           }}
         >
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto px-3 sm:px-6">
             <DialogHeader>
-              <DialogTitle>Perfil do Paciente</DialogTitle>
-              <DialogDescription>Visualização somente leitura (edição/bloqueio é apenas pelo admin).</DialogDescription>
+              <DialogTitle className="text-lg sm:text-xl">Perfil do Paciente</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">Visualização somente leitura (edição/bloqueio é apenas pelo admin).</DialogDescription>
             </DialogHeader>
 
             {overviewLoading ? (
@@ -158,21 +158,21 @@ export default function ProfessionalPatients(): JSX.Element {
                   {overview.user.phone ? <div className="text-sm text-muted-foreground">Celular: {overview.user.phone}</div> : null}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-card rounded-xl border border-border p-4">
-                    <div className="text-sm text-muted-foreground flex items-center gap-2"><Activity size={16} /> Atividades</div>
-                    <div className="text-2xl font-bold text-foreground">{overview.summary?.activities?.total ?? 0}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                  <div className="bg-card rounded-xl border border-border p-3 sm:p-4">
+                    <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 sm:gap-2"><Activity size={14} className="sm:w-4 sm:h-4" /> Atividades</div>
+                    <div className="text-xl sm:text-2xl font-bold text-foreground mt-1">{overview.summary?.activities?.total ?? 0}</div>
+                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">
                       {overview.summary?.activities?.concluida ?? 0} concluída(s) • {overview.summary?.activities?.em_andamento ?? 0} em andamento
                     </div>
                   </div>
-                  <div className="bg-card rounded-xl border border-border p-4">
-                    <div className="text-sm text-muted-foreground flex items-center gap-2"><FileText size={16} /> Relatórios</div>
-                    <div className="text-2xl font-bold text-foreground">{overview.summary?.reports_total ?? 0}</div>
+                  <div className="bg-card rounded-xl border border-border p-3 sm:p-4">
+                    <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 sm:gap-2"><FileText size={14} className="sm:w-4 sm:h-4" /> Relatórios</div>
+                    <div className="text-xl sm:text-2xl font-bold text-foreground mt-1">{overview.summary?.reports_total ?? 0}</div>
                   </div>
-                  <div className="bg-card rounded-xl border border-border p-4">
-                    <div className="text-sm text-muted-foreground flex items-center gap-2"><Calendar size={16} /> Horários</div>
-                    <div className="text-2xl font-bold text-foreground">{overview.appointments?.length ?? 0}</div>
+                  <div className="bg-card rounded-xl border border-border p-3 sm:p-4">
+                    <div className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 sm:gap-2"><Calendar size={14} className="sm:w-4 sm:h-4" /> Horários</div>
+                    <div className="text-xl sm:text-2xl font-bold text-foreground mt-1">{overview.appointments?.length ?? 0}</div>
                   </div>
                 </div>
 

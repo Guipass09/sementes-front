@@ -150,101 +150,109 @@ export default function AdminMemoryGames() {
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-3 pt-2">
-                        {list.map((g) => (
-                          <div
-                            key={g.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => navigate(`/jogos/${g.id}`)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                navigate(`/jogos/${g.id}`);
-                              }
-                            }}
-                            className="bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                          >
-                            <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-                              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                {g.thumbnail ? (
-                                  <img
-                                    src={normalizeMediaUrl(g.thumbnail.url)}
-                                    alt=""
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.currentTarget.src = "/placeholder.svg";
-                                    }}
-                                  />
-                                ) : (
-                                  <ImageIcon size={24} className="text-primary" />
-                                )}
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-2 mb-1">
-                                  <h3 className="font-semibold text-foreground">{g.title}</h3>
-                                  <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                    {g.pairs_count} pares
-                                  </span>
+                        {list.map((g) => {
+                          const createdByMe = isProfessional && (g.created_by?.id ?? 0) === myId;
+                          const hasAssignedPatients = isProfessional && (g.assigned_to?.length ?? 0) > 0;
+                          // Pode editar/excluir se criou OU se está atribuído a algum paciente do profissional
+                          const canEdit = !isProfessional || createdByMe || hasAssignedPatients;
+                          return (
+                            <div
+                              key={g.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => navigate(`/jogos/${g.id}`)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  navigate(`/jogos/${g.id}`);
+                                }
+                              }}
+                              className="bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                            >
+                              <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                  {g.thumbnail ? (
+                                    <img
+                                      src={normalizeMediaUrl(g.thumbnail.url)}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.currentTarget.src = "/placeholder.svg";
+                                      }}
+                                    />
+                                  ) : (
+                                    <ImageIcon size={24} className="text-primary" />
+                                  )}
                                 </div>
-                                <p className="text-sm text-muted-foreground line-clamp-2">{g.description}</p>
-                              </div>
 
-                              <div className="flex flex-wrap items-center gap-2 justify-end">
-                                <Button
-                                  variant="secondary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/jogos/${g.id}`);
-                                  }}
-                                >
-                                  <Play className="h-4 w-4 mr-2" />
-                                  Ver
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShareTarget(g);
-                                    setShareOpen(true);
-                                  }}
-                                  disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
-                                  title={
-                                    isProfessional && (g.created_by?.id ?? 0) !== myId
-                                      ? "Apenas o criador pode compartilhar este jogo"
-                                      : "Compartilhar com profissionais"
-                                  }
-                                >
-                                  <Share2 className="h-4 w-4 mr-2" />
-                                  Compartilhar
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`${base}/jogos/memoria/${g.id}/editar`);
-                                  }}
-                                  disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
-                                >
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Editar
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    setDeleteTarget(g);
-                                    setDeleteOpen(true);
-                                  }}
-                                  disabled={isProfessional && (g.created_by?.id ?? 0) !== myId}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Excluir
-                                </Button>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                                    <h3 className="font-semibold text-foreground">{g.title}</h3>
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                      {g.pairs_count} pares
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground line-clamp-2">{g.description}</p>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 justify-end">
+                                  <Button
+                                    variant="secondary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/jogos/${g.id}`);
+                                    }}
+                                  >
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Ver
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setShareTarget(g);
+                                      setShareOpen(true);
+                                    }}
+                                    disabled={isProfessional && !createdByMe}
+                                    title={
+                                      isProfessional && !createdByMe
+                                        ? "Apenas o criador pode compartilhar este jogo"
+                                        : "Compartilhar com profissionais"
+                                    }
+                                  >
+                                    <Share2 className="h-4 w-4 mr-2" />
+                                    Compartilhar
+                                  </Button>
+                                  {canEdit ? (
+                                    <>
+                                      <Button
+                                        variant="outline"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`${base}/jogos/memoria/${g.id}/editar`);
+                                        }}
+                                      >
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Editar
+                                      </Button>
+                                      <Button
+                                        variant="destructive"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          setDeleteTarget(g);
+                                          setDeleteOpen(true);
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Excluir
+                                      </Button>
+                                    </>
+                                  ) : null}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </AccordionContent>
                   </AccordionItem>

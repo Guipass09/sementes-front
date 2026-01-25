@@ -90,6 +90,19 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
   const cardMountedRef = useRef(false);
   const brickContainerId = useMemo(() => `cardPaymentBrick_container_${appointmentId}`, [appointmentId]);
 
+  const payerNameRef = useRef("");
+  const payerEmailRef = useRef("");
+  const payerCpfDigitsRef = useRef("");
+  useEffect(() => {
+    payerNameRef.current = payerName;
+  }, [payerName]);
+  useEffect(() => {
+    payerEmailRef.current = payerEmail;
+  }, [payerEmail]);
+  useEffect(() => {
+    payerCpfDigitsRef.current = payerCpfDigits;
+  }, [payerCpfDigits]);
+
   const reset = useCallback(() => {
     setBusy(false);
     setError("");
@@ -145,14 +158,16 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
         const bricksBuilder = mp.bricks();
 
         const init: any = { amount };
-        const email = payerEmail.trim();
+        // Preenche no Brick apenas uma vez (no mount), para evitar "recarregar infinito" enquanto o usuário digita.
+        const email = payerEmailRef.current.trim();
         if (email) {
           init.payer = { ...(init.payer || {}), email };
         }
-        if (payerCpfDigits) {
+        const cpfDigits = payerCpfDigitsRef.current;
+        if (cpfDigits) {
           init.payer = {
             ...(init.payer || {}),
-            identification: { type: "CPF", number: payerCpfDigits },
+            identification: { type: "CPF", number: cpfDigits },
           };
         }
 
@@ -189,9 +204,9 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
                     appointment_id: appointmentId,
                     method: "card",
                     payer: {
-                      name: payerName.trim() || null,
-                      email: payerEmail.trim() || null,
-                      identification: payerCpfDigits ? { type: "CPF", number: payerCpfDigits } : null,
+                      name: payerNameRef.current.trim() || null,
+                      email: payerEmailRef.current.trim() || null,
+                      identification: payerCpfDigitsRef.current ? { type: "CPF", number: payerCpfDigitsRef.current } : null,
                     },
                     card: cardPayload,
                     idempotency_key: idempotencyKey,
@@ -236,7 +251,7 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
       } catch {}
       cardMountedRef.current = false;
     };
-  }, [open, tab, publicKey, appointmentId, brickContainerId, amount, payerCpfDigits, payerEmail]);
+  }, [open, tab, publicKey, appointmentId, brickContainerId, amount]);
 
   const createPix = useCallback(async () => {
     setBusy(true);
@@ -248,9 +263,9 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
         appointment_id: appointmentId,
         method: "pix",
         payer: {
-          name: payerName.trim() || null,
-          email: payerEmail.trim() || null,
-          identification: payerCpfDigits ? { type: "CPF", number: payerCpfDigits } : null,
+          name: payerNameRef.current.trim() || null,
+          email: payerEmailRef.current.trim() || null,
+          identification: payerCpfDigitsRef.current ? { type: "CPF", number: payerCpfDigitsRef.current } : null,
         },
         idempotency_key: idempotencyKey,
       });
@@ -267,7 +282,7 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
     } finally {
       setBusy(false);
     }
-  }, [appointmentId, payerCpfDigits, payerEmail, payerName]);
+  }, [appointmentId]);
 
   useEffect(() => {
     if (!open) {
@@ -303,7 +318,7 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
           <DialogTitle>Pagamento</DialogTitle>
         </DialogHeader>
 
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] flex-1 min-h-0 overflow-y-auto">
           <div className="rounded-2xl border border-border bg-card shadow-sm p-4">
             <div className="flex items-center gap-3">
               <img src={logoImage} alt="Sementes da Fala" className="h-10 w-10 rounded-xl border border-border object-cover" />
@@ -343,13 +358,9 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
             {providerPaymentId ? (
               <div className="mt-2 text-xs text-muted-foreground">ID do pagamento: {providerPaymentId}</div>
             ) : null}
-          </div>
-        </div>
 
-        {error ? <div className="px-4 pb-3 text-sm text-destructive">{error}</div> : null}
+            <Separator className="my-4" />
 
-        <div className="px-4 pb-3">
-          <div className="rounded-2xl border border-border bg-card shadow-sm p-4">
             <div className="text-sm font-semibold text-foreground">Dados do pagador</div>
             <div className="mt-1 text-xs text-muted-foreground">Preencha para tornar o pagamento mais rápido e evitar erros.</div>
 
@@ -360,12 +371,7 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
               </div>
               <div className="space-y-1.5">
                 <Label>CPF</Label>
-                <Input
-                  inputMode="numeric"
-                  value={payerCpfMasked}
-                  onChange={(e) => setPayerCpfRaw(e.target.value)}
-                  placeholder="000.000.000-00"
-                />
+                <Input inputMode="numeric" value={payerCpfMasked} onChange={(e) => setPayerCpfRaw(e.target.value)} placeholder="000.000.000-00" />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>E-mail</Label>
@@ -379,10 +385,11 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
                 />
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] flex-1 min-h-0 overflow-y-auto">
+            {error ? <div className="mt-3 text-sm text-destructive">{error}</div> : null}
+
+            <Separator className="my-4" />
+
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="pix" className="gap-2">
@@ -397,7 +404,7 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
 
             <TabsContent value="pix" className="mt-3 space-y-3">
               {!pix ? (
-                <div className="rounded-2xl border border-border bg-card shadow-sm p-4">
+                <div className="rounded-xl border border-border bg-muted/10 p-4">
                   <div className="text-sm font-semibold text-foreground">Pix</div>
                   <div className="mt-1 text-sm text-muted-foreground">
                     Gere o QR Code e pague pelo app do seu banco. A sessão será liberada automaticamente após a confirmação.
@@ -410,7 +417,7 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="rounded-2xl border border-border bg-card shadow-sm p-4">
+                  <div className="rounded-xl border border-border bg-muted/10 p-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                       <div className="flex items-center justify-center">
                         <img
@@ -457,12 +464,12 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
 
             <TabsContent value="card" className="mt-3 space-y-3">
               {!publicKey ? (
-                <div className="rounded-2xl border border-border bg-card shadow-sm p-4">
+                <div className="rounded-xl border border-border bg-muted/10 p-4">
                   <div className="text-sm font-semibold text-foreground">Cartão</div>
                   <div className="mt-2 text-sm text-destructive">VITE_MP_PUBLIC_KEY não configurada no frontend.</div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-border bg-card shadow-sm p-4">
+                <div className="rounded-xl border border-border bg-muted/10 p-4">
                   <div className="text-sm font-semibold text-foreground">Cartão</div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     Até <strong>12x</strong> no cartão • <strong>até 6x sem juros</strong> (conforme configuração do Mercado Pago)
@@ -476,10 +483,11 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
             </TabsContent>
           </Tabs>
 
-          <div className="mt-4 flex items-center justify-end gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={() => onOpenChange(false)} disabled={busy}>
-              Voltar
-            </Button>
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => onOpenChange(false)} disabled={busy}>
+                Fechar
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

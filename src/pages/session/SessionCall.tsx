@@ -2735,8 +2735,6 @@ export default function SessionCall() {
         <RtcPaymentModal
           open={rtcPaymentOpen}
           onOpenChange={(open) => {
-            // Se o pagamento foi exigido, não deixa fechar "sem querer"
-            if (!open && rtcPaymentLocked) return;
             setRtcPaymentOpen(open);
           }}
           appointmentId={appointmentId}

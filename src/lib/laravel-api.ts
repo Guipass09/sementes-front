@@ -2194,6 +2194,57 @@ export function isApiError(e: unknown): e is ApiError {
 }
 
 // ---------------------------
+// PAYMENTS (Mercado Pago)
+// ---------------------------
+
+export type RtcPaymentRow = {
+  id: number;
+  appointment_id: number;
+  status: string | null;
+  status_detail: string | null;
+  provider_payment_id: string | null;
+  payment_method_id: string | null;
+  payment_type_id: string | null;
+  transaction_amount: number;
+  currency_id: string;
+  description: string | null;
+  pix: { qr_code: string | null; qr_code_base64: string | null; ticket_url: string | null };
+  paid_at: string | null;
+  created_at: string | null;
+};
+
+export async function paymentsCreate(payload: {
+  appointment_id: number;
+  method: "pix" | "card";
+  card?: {
+    token: string;
+    installments: number;
+    payment_method_id: string;
+    issuer_id?: any;
+    identification_type?: string | null;
+    identification_number?: string | null;
+  };
+  idempotency_key: string;
+}): Promise<{ data: RtcPaymentRow }> {
+  const { idempotency_key, ...json } = payload;
+  return await request<{ data: RtcPaymentRow }>("/api/payments/create", {
+    method: "POST",
+    json,
+    headers: { "X-Idempotency-Key": idempotency_key },
+  });
+}
+
+export async function paymentsStatus(appointment_id: number): Promise<{
+  appointment_id: number;
+  payment_required: boolean;
+  paid: boolean;
+  paid_at: string | null;
+}> {
+  const q = new URLSearchParams({ appointment_id: String(appointment_id) }).toString();
+  return await request(`/api/payments/status?${q}`);
+}
+
+// ---------------------------
 // ROLETA (admin)
 // ---------------------------
 

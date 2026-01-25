@@ -39,6 +39,7 @@ import type { PhonemeGameRow } from "@/lib/laravel-api";
 import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinResponse, type VideoPollMessage } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { playFanfare } from "@/lib/sfx";
+import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
 
 const ReportFormModalLazy = lazy(async () => {
   const mod = await import("@/features/reports/ReportFormModal");
@@ -117,7 +118,7 @@ export default function SessionCall() {
   const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [pendingShare, setPendingShare] = useState<null | { path: string; title: string; kind: string }>(null);
-  const [pendingPayment, setPendingPayment] = useState<null | { sessions: number; url: string }>(null);
+  const [pendingPayment, setPendingPayment] = useState<null | { sessions: number; amount: number; url?: string }>(null);
   const [paymentConfirmOpen, setPaymentConfirmOpen] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [paymentSessions, setPaymentSessions] = useState<number | null>(null);
@@ -125,6 +126,11 @@ export default function SessionCall() {
   const [paymentIframeOpen, setPaymentIframeOpen] = useState(false);
   const [endSessionOpen, setEndSessionOpen] = useState(false);
   const [endingSession, setEndingSession] = useState(false);
+
+  // Checkout embutido (Pix/Cartão) dentro da sessão
+  const [rtcPaymentOpen, setRtcPaymentOpen] = useState(false);
+  const [rtcPaymentMeta, setRtcPaymentMeta] = useState<null | { sessions: number | null; amount: number }>(null);
+  const [rtcPaymentLocked, setRtcPaymentLocked] = useState(false);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDraft, setReportDraft] = useState<ReportFormDraft | null>(null);
@@ -493,6 +499,24 @@ export default function SessionCall() {
         if (cancelled) return;
         if (timeoutId) clearTimeout(timeoutId);
         joiningRef.current = false; // Reset em caso de erro
+
+        // Pagamento obrigatório (402): mantém o usuário na tela e abre o checkout embutido
+        if (isApiError(e) && e.status === 402 && ((e as any).data?.payment_required || (e as any).data?.message === "payment_required")) {
+          const pay = (e as any).data?.payment || {};
+          const sessions = Number.isFinite(Number(pay.sessions)) ? Number(pay.sessions) : null;
+          const amount = Number.isFinite(Number(pay.amount)) ? Number(pay.amount) : 0;
+          if (amount > 0) {
+            setRtcPaymentLocked(true);
+            setRtcPaymentMeta({ sessions, amount });
+            setRtcPaymentOpen(true);
+            setStatusLabel("Pagamento pendente. Finalize para liberar a sessão.");
+            setJoinInfo(null);
+            setRole(null);
+            setJoining(false);
+            return;
+          }
+        }
+
         const msg =
           isApiError(e) && e.status === 403
             ? "Essa sessão ainda não está disponível. Tente mais perto do horário."
@@ -774,6 +798,11 @@ export default function SessionCall() {
   const sendPayment = async (sessions: number, url: string) => {
     if (role !== "admin") return;
     await send("payment_link", { sessions, url });
+  };
+
+  const sendPaymentRequest = async (sessions: number, amount: number) => {
+    if (role !== "admin") return;
+    await send("payment_request", { sessions, amount });
   };
 
   const copyPaymentLink = async () => {
@@ -1100,6 +1129,14 @@ export default function SessionCall() {
       return;
     }
 
+    if (m.kind === "session_paid") {
+      setRtcPaymentLocked(false);
+      setRtcPaymentMeta(null);
+      setRtcPaymentOpen(false);
+      toast({ title: "Pagamento", description: "Pagamento aprovado. Sessão liberada." });
+      return;
+    }
+
     if (m.kind === "payment_link" && role === "user") {
       const url = m.payload?.url;
       const sessions = m.payload?.sessions;
@@ -1108,6 +1145,26 @@ export default function SessionCall() {
         setPaymentSessions(Number.isFinite(Number(sessions)) ? Number(sessions) : null);
         setPaymentDialogOpen(true);
       }
+    }
+
+    if (m.kind === "payment_request" && role === "user") {
+      const sessions = Number.isFinite(Number(m.payload?.sessions)) ? Number(m.payload?.sessions) : null;
+      const amount = Number.isFinite(Number(m.payload?.amount)) ? Number(m.payload?.amount) : 0;
+      if (amount > 0) {
+        // Bloqueia a sessão até pagamento: para "não continuar a chamada" sem pagar,
+        // desligamos câmera/mic local (mantém a sala ativa para receber confirmação).
+        try {
+          safeStopStream(localStream);
+        } catch {}
+        setLocalStream(null);
+        setMicOn(false);
+        setCamOn(false);
+
+        setRtcPaymentLocked(true);
+        setRtcPaymentMeta({ sessions, amount });
+        setRtcPaymentOpen(true);
+      }
+      return;
     }
 
     if (m.kind === "catalog_open" && role === "user") {
@@ -2625,18 +2682,18 @@ export default function SessionCall() {
                     variant="outline"
                     className="rounded-lg"
                     onClick={() => {
-                      setPendingPayment({ sessions: p.sessions, url: p.url });
+                      setPendingPayment({ sessions: p.sessions, amount: p.price, url: p.url });
                       setPaymentConfirmOpen(true);
                     }}
                   >
-                    Enviar link
+                    Cobrar no app
                   </Button>
                 </div>
               </div>
             ))}
           </div>
           <div className="mt-2 text-xs text-muted-foreground">
-            O link abre apenas para o paciente (ele confirma com um clique, sem interromper a ligação).
+            O pagamento abre no próprio app (Pix ou cartão) sem sair da chamada.
           </div>
         </DialogContent>
       </Dialog>
@@ -2650,16 +2707,40 @@ export default function SessionCall() {
             if (!open) setPendingPayment(null);
           }}
           title="Pagamento"
-          description={`Enviar link do Mercado Pago (${pendingPayment.sessions} sessões) para o paciente agora?`}
+          description={`Solicitar pagamento (${pendingPayment.sessions} sessões) para o paciente agora?`}
           confirmText="Enviar"
           cancelText="Cancelar"
           onConfirm={() =>
-            void sendPayment(pendingPayment.sessions, pendingPayment.url).finally(() => {
+            void sendPaymentRequest(pendingPayment.sessions, pendingPayment.amount).finally(() => {
               setPaymentConfirmOpen(false);
               setPendingPayment(null);
               setPackagesOpen(false);
             })
           }
+        />
+      ) : null}
+
+      {/* Pagamento embutido (Pix/Cartão) */}
+      {appointmentId && rtcPaymentMeta ? (
+        <RtcPaymentModal
+          open={rtcPaymentOpen}
+          onOpenChange={(open) => {
+            // Se o pagamento foi exigido, não deixa fechar "sem querer"
+            if (!open && rtcPaymentLocked) return;
+            setRtcPaymentOpen(open);
+          }}
+          appointmentId={appointmentId}
+          sessions={rtcPaymentMeta.sessions}
+          amount={rtcPaymentMeta.amount}
+          onPaid={() => {
+            setRtcPaymentLocked(false);
+            setRtcPaymentOpen(false);
+            setRtcPaymentMeta(null);
+            // Se ainda não conseguiu fazer join (402), recarrega para tentar entrar já liberado
+            if (!joinInfo) {
+              refreshPage();
+            }
+          }}
         />
       ) : null}
 

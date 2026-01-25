@@ -16,6 +16,15 @@ type PatientOverview = {
   appointments: any[];
 };
 
+const formatYmd = (ymd?: string | null) => {
+  if (!ymd) return "";
+  const dt = new Date(ymd + "T00:00:00");
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toLocaleDateString("pt-BR");
+};
+
+const patientDisplayName = (p: ProfessionalPatientRow) => (p.child_name?.trim() ? p.child_name.trim() : p.name);
+
 export default function ProfessionalPatients(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState<ProfessionalPatientRow[]>([]);
@@ -41,7 +50,11 @@ export default function ProfessionalPatients(): JSX.Element {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return patients;
-    return patients.filter((p) => p.name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q));
+    return patients.filter((p) => {
+      const name = patientDisplayName(p).toLowerCase();
+      const resp = (p.responsible_name ?? "").toLowerCase();
+      return name.includes(q) || resp.includes(q) || p.email.toLowerCase().includes(q);
+    });
   }, [patients, search]);
 
   const openPatient = async (p: ProfessionalPatientRow) => {
@@ -100,13 +113,21 @@ export default function ProfessionalPatients(): JSX.Element {
                       {p.profile_photo_url ? (
                         <img src={normalizeMediaUrl(p.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        p.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                        patientDisplayName(p).split(" ").map((n) => n[0]).join("").slice(0, 2)
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm sm:text-base text-foreground truncate">{p.name}</div>
+                      <div className="font-semibold text-sm sm:text-base text-foreground truncate">{patientDisplayName(p)}</div>
                       <div className="text-xs sm:text-sm text-muted-foreground truncate">{p.email}</div>
                       {p.phone ? <div className="text-xs text-muted-foreground">Celular: {p.phone}</div> : null}
+                      {p.child_name?.trim() ? (
+                        <div className="text-xs text-muted-foreground truncate">Responsável: {p.responsible_name?.trim() || p.name}</div>
+                      ) : null}
+                      {p.child_birthdate ? (
+                        <div className="text-xs text-muted-foreground truncate">Nascimento: {formatYmd(p.child_birthdate)}</div>
+                      ) : p.child_age !== null && p.child_age !== undefined ? (
+                        <div className="text-xs text-muted-foreground truncate">Idade: {p.child_age} ano(s)</div>
+                      ) : null}
                     </div>
                   </div>
 
@@ -147,15 +168,23 @@ export default function ProfessionalPatients(): JSX.Element {
                       {overview.user.profile_photo_url ? (
                         <img src={normalizeMediaUrl(overview.user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        overview.user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                        patientDisplayName(overview.user).split(" ").map((n) => n[0]).join("").slice(0, 2)
                       )}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-semibold text-foreground">{overview.user.name}</div>
+                      <div className="font-semibold text-foreground">{patientDisplayName(overview.user)}</div>
                       <div className="text-sm text-muted-foreground">{overview.user.email}</div>
                     </div>
                   </div>
                   {overview.user.phone ? <div className="text-sm text-muted-foreground">Celular: {overview.user.phone}</div> : null}
+                  {overview.user.child_name?.trim() ? (
+                    <div className="text-sm text-muted-foreground">Responsável: {overview.user.responsible_name?.trim() || overview.user.name}</div>
+                  ) : null}
+                  {overview.user.child_birthdate ? (
+                    <div className="text-sm text-muted-foreground">Nascimento: {formatYmd(overview.user.child_birthdate)}</div>
+                  ) : overview.user.child_age !== null && overview.user.child_age !== undefined ? (
+                    <div className="text-sm text-muted-foreground">Idade: {overview.user.child_age} ano(s)</div>
+                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">

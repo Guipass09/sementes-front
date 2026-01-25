@@ -17,12 +17,15 @@ import {
   Package,
   Plus,
   Pencil,
+  MessageSquareText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { computeTodaySessionAlert, getTodayYMD } from "@/lib/session-alert";
 import {
   adminClearPurchaseIntent,
@@ -41,6 +44,7 @@ import {
   adminUpdateProfessional,
   adminDeleteProfessional,
   adminSetUserProfessionals,
+  adminUpsertUserComment,
   isApiError,
 } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +69,9 @@ interface UserData {
   email: string;
   phone?: string | null;
   child_age?: number | null;
+  responsible_name?: string | null;
+  child_name?: string | null;
+  child_birthdate?: string | null; // YYYY-MM-DD
   blocked: boolean;
   access: UserAccess;
   profile_description?: string | null;
@@ -82,6 +89,8 @@ interface ProfessionalData {
   blocked: boolean;
   access: UserAccess;
   professional_age?: number | null;
+  professional_birthdate?: string | null; // YYYY-MM-DD
+  professional_attestation?: boolean | null;
   professional_crfa?: string | null;
   assigned_users_count?: number;
 }
@@ -95,6 +104,15 @@ const formatDate = (dateStr: string) => {
     year: "numeric",
   });
 };
+
+const formatYmd = (ymd?: string | null) => {
+  if (!ymd) return "";
+  const dt = new Date(ymd + "T00:00:00");
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toLocaleDateString("pt-BR");
+};
+
+const userDisplayName = (u: { name: string; child_name?: string | null }) => (u.child_name?.trim() ? u.child_name.trim() : u.name);
 
 const formatMoney = (value: number | string) => {
   const num = Number(value);
@@ -111,6 +129,12 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState<ProfessionalData | null>(null);
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [commentUserId, setCommentUserId] = useState<string>("");
+  const [commentProfessionalId, setCommentProfessionalId] = useState<string>("");
+  const [commentText, setCommentText] = useState("");
+  const [commentSaving, setCommentSaving] = useState(false);
+  const [commentAllowedPros, setCommentAllowedPros] = useState<ProfessionalData[]>([]);
   const [clearPurchaseOpen, setClearPurchaseOpen] = useState(false);
   const [deleteUserOpen, setDeleteUserOpen] = useState(false);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserData | null>(null);
@@ -308,6 +332,9 @@ const AdminUsers = () => {
         email: u.email,
         phone: u.phone ?? null,
         child_age: u.child_age ?? null,
+        responsible_name: u.responsible_name ?? null,
+        child_name: u.child_name ?? null,
+        child_birthdate: u.child_birthdate ?? null,
         blocked: u.blocked,
         access: u.access,
         profile_description: u.profile_description ?? null,
@@ -332,6 +359,8 @@ const AdminUsers = () => {
         blocked: !!p.blocked,
         access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
         professional_age: (p as any).professional_age ?? null,
+        professional_birthdate: (p as any).professional_birthdate ?? null,
+        professional_attestation: (p as any).professional_attestation ?? null,
         professional_crfa: (p as any).professional_crfa ?? null,
         assigned_users_count: (p as any).assigned_users_count ?? 0,
       }));
@@ -357,6 +386,8 @@ const AdminUsers = () => {
             blocked: !!p.blocked,
             access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
             professional_age: (p as any).professional_age ?? null,
+            professional_birthdate: (p as any).professional_birthdate ?? null,
+            professional_attestation: (p as any).professional_attestation ?? null,
             professional_crfa: (p as any).professional_crfa ?? null,
             assigned_users_count: (p as any).assigned_users_count ?? 0,
           }));
@@ -371,6 +402,9 @@ const AdminUsers = () => {
               email: u.email,
               phone: u.phone ?? null,
               child_age: u.child_age ?? null,
+              responsible_name: u.responsible_name ?? null,
+              child_name: u.child_name ?? null,
+              child_birthdate: u.child_birthdate ?? null,
               blocked: u.blocked,
               access: u.access,
               profile_description: u.profile_description ?? null,
@@ -396,6 +430,77 @@ const AdminUsers = () => {
       mounted = false;
     };
   }, [toast, mode]);
+
+  const openCommentModal = async () => {
+    setCommentOpen(true);
+    setCommentUserId("");
+    setCommentProfessionalId("");
+    setCommentText("");
+    setCommentAllowedPros([]);
+    try {
+      // garante listas carregadas (usadas nos selects)
+      await reloadUsers();
+      await reloadProfessionals();
+    } catch {}
+  };
+
+  useEffect(() => {
+    // quando seleciona usuário, filtra profissionais apenas para os vinculados a ele (encaminhados)
+    const uid = Number(commentUserId);
+    if (!Number.isFinite(uid) || uid <= 0) {
+      setCommentAllowedPros([]);
+      setCommentProfessionalId("");
+      return;
+    }
+    let mounted = true;
+    void adminGetUserProfessionals(uid)
+      .then((res) => {
+        if (!mounted) return;
+        const ids = new Set((res.professional_ids ?? []).map((n) => Number(n)));
+        const allowed = professionals.filter((p) => ids.has(p.id));
+        setCommentAllowedPros(allowed);
+        // se profissional selecionado não estiver mais permitido, limpa
+        const pid = Number(commentProfessionalId);
+        if (pid && !ids.has(pid)) setCommentProfessionalId("");
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setCommentAllowedPros([]);
+        setCommentProfessionalId("");
+      });
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [commentUserId]);
+
+  const handleSaveComment = async () => {
+    const uid = Number(commentUserId);
+    const pid = Number(commentProfessionalId);
+    if (!Number.isFinite(uid) || uid <= 0) {
+      toast({ title: "Selecione o usuário", description: "Escolha o paciente/usuário alvo do comentário.", variant: "destructive" });
+      return;
+    }
+    if (!Number.isFinite(pid) || pid <= 0) {
+      toast({ title: "Selecione o profissional", description: "Escolha o profissional que poderá ver este comentário.", variant: "destructive" });
+      return;
+    }
+    if (!commentText.trim()) {
+      toast({ title: "Texto obrigatório", description: "Digite o comentário do admin.", variant: "destructive" });
+      return;
+    }
+    setCommentSaving(true);
+    try {
+      await adminUpsertUserComment({ user_id: uid, professional_user_id: pid, comment: commentText.trim() });
+      toast({ title: "Comentário salvo", description: "O profissional selecionado já pode visualizar." });
+      setCommentOpen(false);
+    } catch (e) {
+      const msg = isApiError(e) ? e.message : "Não foi possível salvar o comentário.";
+      toast({ title: "Erro", description: msg, variant: "destructive" });
+    } finally {
+      setCommentSaving(false);
+    }
+  };
 
   const handleDeleteUser = async (user: UserData) => {
     setDeleteUserTarget(user);
@@ -432,7 +537,8 @@ const AdminUsers = () => {
   const filteredUsers = useMemo(() => {
     return users.filter(
       (user) =>
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        userDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.responsible_name ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [users, searchTerm]);
@@ -677,13 +783,21 @@ const AdminUsers = () => {
     <div className="min-h-full py-8 lg:py-12">
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">
-            Gerenciamento de Usuários
-          </h1>
-          <p className="text-muted-foreground">
-            Selecione Usuários ou Profissionais para gerenciar bloqueios e permissões.
-          </p>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">
+              Gerenciamento de Usuários
+            </h1>
+            <p className="text-muted-foreground">
+              Selecione Usuários ou Profissionais para gerenciar bloqueios e permissões.
+            </p>
+          </div>
+          <div className="flex items-center justify-end">
+            <Button onClick={() => void openCommentModal()} className="bg-brand-green hover:bg-brand-green-dark text-white">
+              <MessageSquareText size={16} className="mr-2" />
+              Criar comentário
+            </Button>
+          </div>
         </div>
 
         {/* Mode Toggle */}
@@ -734,6 +848,81 @@ const AdminUsers = () => {
           </div>
         </div>
 
+        {/* Admin comment modal */}
+        <Dialog open={commentOpen} onOpenChange={setCommentOpen}>
+          <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageSquareText size={20} />
+                Comentário do admin
+              </DialogTitle>
+              <DialogDescription>Este comentário será visível apenas para o profissional selecionado.</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-3">
+              <div className="space-y-2">
+                <Label>Usuário (paciente)</Label>
+                <Select value={commentUserId} onValueChange={(v) => setCommentUserId(v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um usuário..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {userDisplayName(u)} • {u.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {commentUserId && commentAllowedPros.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">
+                    Nenhum profissional vinculado a este usuário. Use “Encaminhar” no usuário antes de criar o comentário.
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Profissional</Label>
+                <Select
+                  value={commentProfessionalId}
+                  onValueChange={(v) => setCommentProfessionalId(v)}
+                  disabled={!commentUserId || commentAllowedPros.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o profissional..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {commentAllowedPros.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name} • {p.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Comentário</Label>
+                <Textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Digite aqui o comentário do admin..."
+                  className="min-h-[140px]"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" onClick={() => setCommentOpen(false)} disabled={commentSaving}>
+                  Cancelar
+                </Button>
+                <Button onClick={() => void handleSaveComment()} disabled={commentSaving}>
+                  {commentSaving ? "Salvando..." : "Salvar comentário"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* List */}
         <div className="space-y-4">
           {isLoading && (
@@ -755,12 +944,12 @@ const AdminUsers = () => {
                     {user.profile_photo_url ? (
                       <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      user.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                      userDisplayName(user).split(" ").map((n) => n[0]).join("").slice(0, 2)
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-foreground">{user.name}</h3>
+                      <h3 className="font-semibold text-foreground">{userDisplayName(user)}</h3>
                       {user.blocked && (
                         <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
                           Bloqueado
@@ -778,11 +967,18 @@ const AdminUsers = () => {
                         Celular: {user.phone}
                       </p>
                     )}
-                    {user.child_age !== null && user.child_age !== undefined && (
+                    {user.child_name?.trim() && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        Responsável: {user.responsible_name?.trim() || user.name}
+                      </p>
+                    )}
+                    {user.child_birthdate ? (
+                      <p className="text-xs text-muted-foreground truncate">Nascimento: {formatYmd(user.child_birthdate)}</p>
+                    ) : user.child_age !== null && user.child_age !== undefined ? (
                       <p className="text-xs text-muted-foreground truncate">
                         Idade da criança: {user.child_age} ano(s)
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -991,22 +1187,25 @@ const AdminUsers = () => {
                     {selectedUser.profile_photo_url ? (
                       <img src={normalizeMediaUrl(selectedUser.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      selectedUser.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                      userDisplayName(selectedUser).split(" ").map((n) => n[0]).join("").slice(0, 2)
                     )}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground text-lg">{selectedUser.name}</h3>
+                    <h3 className="font-semibold text-foreground text-lg">{userDisplayName(selectedUser)}</h3>
                     <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
                     {selectedUser.phone && (
                       <p className="text-sm text-muted-foreground">
                         Celular: {selectedUser.phone}
                       </p>
                     )}
-                    {selectedUser.child_age !== null && selectedUser.child_age !== undefined && (
-                      <p className="text-sm text-muted-foreground">
-                        Idade da criança: {selectedUser.child_age} ano(s)
-                      </p>
+                    {selectedUser.child_name?.trim() && (
+                      <p className="text-sm text-muted-foreground">Responsável: {selectedUser.responsible_name?.trim() || selectedUser.name}</p>
                     )}
+                    {selectedUser.child_birthdate ? (
+                      <p className="text-sm text-muted-foreground">Nascimento: {formatYmd(selectedUser.child_birthdate)}</p>
+                    ) : selectedUser.child_age !== null && selectedUser.child_age !== undefined ? (
+                      <p className="text-sm text-muted-foreground">Idade da criança: {selectedUser.child_age} ano(s)</p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -1480,11 +1679,18 @@ const AdminUsers = () => {
                     <h3 className="font-semibold text-foreground text-lg">{selectedProfessional.name}</h3>
                     <p className="text-sm text-muted-foreground">{selectedProfessional.email}</p>
                     {selectedProfessional.phone && <p className="text-sm text-muted-foreground">Celular: {selectedProfessional.phone}</p>}
-                    {selectedProfessional.professional_age ? (
+                    {selectedProfessional.professional_birthdate ? (
+                      <p className="text-sm text-muted-foreground">Nascimento: {formatYmd(selectedProfessional.professional_birthdate)}</p>
+                    ) : selectedProfessional.professional_age ? (
                       <p className="text-sm text-muted-foreground">Idade: {selectedProfessional.professional_age} ano(s)</p>
                     ) : null}
                     {selectedProfessional.professional_crfa ? (
                       <p className="text-sm text-muted-foreground">CRFa: {selectedProfessional.professional_crfa}</p>
+                    ) : null}
+                    {selectedProfessional.professional_attestation !== null && selectedProfessional.professional_attestation !== undefined ? (
+                      <p className="text-sm text-muted-foreground">
+                        Responsabilidade: {selectedProfessional.professional_attestation ? "confirmada" : "não confirmada"}
+                      </p>
                     ) : null}
                   </div>
                 </div>

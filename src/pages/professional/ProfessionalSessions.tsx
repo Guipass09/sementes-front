@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Search, Clock, CalendarClock, CheckCircle2 } from "lucide-react";
+import { Calendar, Search, Clock, CalendarClock, CheckCircle2, MessageSquareText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -19,8 +19,19 @@ type ProAppointmentRow = {
   total_sessions: number;
   status: string;
   join_session?: JoinSessionMeta | null;
-  user?: { id: number; name: string; email: string; profile_photo_url?: string | null } | null;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    profile_photo_url?: string | null;
+    responsible_name?: string | null;
+    child_name?: string | null;
+    child_birthdate?: string | null;
+    child_age?: number | null;
+  } | null;
 };
+
+const patientDisplayName = (u: { name: string; child_name?: string | null }) => (u.child_name?.trim() ? u.child_name.trim() : u.name);
 
 export default function ProfessionalSessions(): JSX.Element {
   const navigate = useNavigate();
@@ -87,7 +98,7 @@ export default function ProfessionalSessions(): JSX.Element {
       const userId = r.user?.id ?? r.user_id ?? 0;
       const entry = map.get(userId) || {
         userId,
-        userName: r.user?.name ?? `Usuário #${r.user_id}`,
+        userName: r.user ? patientDisplayName(r.user) : `Usuário #${r.user_id}`,
         userEmail: r.user?.email ?? undefined,
         profile_photo_url: r.user?.profile_photo_url ?? null,
         items: [],
@@ -196,6 +207,18 @@ export default function ProfessionalSessions(): JSX.Element {
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-sm sm:text-base text-foreground truncate flex items-center gap-1.5 sm:gap-2">
                           {u.userName}
+                          <button
+                            type="button"
+                            className="ml-1 inline-flex items-center justify-center rounded-md border border-border bg-background/70 p-1.5 text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                            title="Ver comentário do admin"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              navigate(`/profissional/pacientes/${u.userId}/comentario`);
+                            }}
+                          >
+                            <MessageSquareText className="h-4 w-4" />
+                          </button>
                           {u.hasTodaySession && (() => {
                             // Verificar se alguma sessão está no período de blink
                             const hasBlinkingSession = u.items.some((s) => {

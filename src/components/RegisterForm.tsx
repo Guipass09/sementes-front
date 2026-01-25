@@ -8,23 +8,29 @@ import { isApiError } from "@/lib/laravel-api";
 type RegisterMode = "patient" | "professional";
 
 interface FormState {
-  name: string;
+  name: string; // profissional
+  responsibleName: string; // paciente
+  childName: string; // paciente
+  childBirthdate: string; // YYYY-MM-DD
   email: string;
   phone: string;
-  childAge: string;
-  professionalAge: string;
+  professionalBirthdate: string; // YYYY-MM-DD
   professionalCrfa: string;
+  professionalAttestation: boolean;
   password: string;
   confirmPassword: string;
 }
 
 interface ValidationState {
   name: { valid: boolean; touched: boolean; message: string };
+  responsibleName: { valid: boolean; touched: boolean; message: string };
+  childName: { valid: boolean; touched: boolean; message: string };
+  childBirthdate: { valid: boolean; touched: boolean; message: string };
   email: { valid: boolean; touched: boolean; message: string };
   phone: { valid: boolean; touched: boolean; message: string };
-  childAge: { valid: boolean; touched: boolean; message: string };
-  professionalAge: { valid: boolean; touched: boolean; message: string };
+  professionalBirthdate: { valid: boolean; touched: boolean; message: string };
   professionalCrfa: { valid: boolean; touched: boolean; message: string };
+  professionalAttestation: { valid: boolean; touched: boolean; message: string };
   password: { valid: boolean; touched: boolean; message: string };
   confirmPassword: { valid: boolean; touched: boolean; message: string };
 }
@@ -38,22 +44,28 @@ const RegisterForm = () => {
 
   const [formData, setFormData] = useState<FormState>({
     name: "",
+    responsibleName: "",
+    childName: "",
+    childBirthdate: "",
     email: "",
     phone: "",
-    childAge: "",
-    professionalAge: "",
+    professionalBirthdate: "",
     professionalCrfa: "",
+    professionalAttestation: false,
     password: "",
     confirmPassword: "",
   });
 
   const [validation, setValidation] = useState<ValidationState>({
     name: { valid: false, touched: false, message: "" },
+    responsibleName: { valid: false, touched: false, message: "" },
+    childName: { valid: false, touched: false, message: "" },
+    childBirthdate: { valid: false, touched: false, message: "" },
     email: { valid: false, touched: false, message: "" },
     phone: { valid: false, touched: false, message: "" },
-    childAge: { valid: false, touched: false, message: "" },
-    professionalAge: { valid: false, touched: false, message: "" },
+    professionalBirthdate: { valid: false, touched: false, message: "" },
     professionalCrfa: { valid: false, touched: false, message: "" },
+    professionalAttestation: { valid: false, touched: false, message: "" },
     password: { valid: false, touched: false, message: "" },
     confirmPassword: { valid: false, touched: false, message: "" },
   });
@@ -64,13 +76,20 @@ const RegisterForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registerError, setRegisterError] = useState("");
 
-  const validateName = useCallback((name: string): { valid: boolean; message: string } => {
+  const validateName = useCallback((name: string, label = "Nome"): { valid: boolean; message: string } => {
     if (!name.trim()) {
-      return { valid: false, message: "Nome é obrigatório" };
+      return { valid: false, message: `${label} é obrigatório` };
     }
     if (name.trim().length < 3) {
-      return { valid: false, message: "Nome deve ter no mínimo 3 caracteres" };
+      return { valid: false, message: `${label} deve ter no mínimo 3 caracteres` };
     }
+    return { valid: true, message: "" };
+  }, []);
+
+  const validateChildName = useCallback((name: string): { valid: boolean; message: string } => {
+    const s = String(name ?? "").trim();
+    if (!s) return { valid: false, message: "Nome da criança é obrigatório" };
+    if (s.length < 2) return { valid: false, message: "Nome da criança inválido" };
     return { valid: true, message: "" };
   }, []);
 
@@ -100,34 +119,50 @@ const RegisterForm = () => {
     return { valid: true, message: "" };
   }, []);
 
-  const validateChildAge = useCallback((age: string): { valid: boolean; message: string } => {
-    const s = String(age ?? "").trim();
-    if (!s) return { valid: false, message: "Idade da criança é obrigatória" };
-    const n = Number(s);
-    if (!Number.isFinite(n) || !Number.isInteger(n)) {
-      return { valid: false, message: "Informe uma idade válida (número inteiro)" };
-    }
-    if (n < 0) return { valid: false, message: "Idade não pode ser negativa" };
-    if (n > 120) return { valid: false, message: "Idade inválida" };
-    return { valid: true, message: "" };
-  }, []);
+  const validateBirthdate = useCallback(
+    (value: string, opts?: { label?: string; minAgeYears?: number }): { valid: boolean; message: string } => {
+      const label = opts?.label ?? "Data de nascimento";
+      const s = String(value ?? "").trim();
+      if (!s) return { valid: false, message: `${label} é obrigatória` };
+      // Esperado: YYYY-MM-DD (input type="date")
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return { valid: false, message: "Informe uma data válida" };
+      const [yy, mm, dd] = s.split("-").map((n) => Number(n));
+      if (!yy || !mm || !dd) return { valid: false, message: "Informe uma data válida" };
+      const dt = new Date(yy, mm - 1, dd);
+      if (Number.isNaN(dt.getTime()) || dt.getFullYear() !== yy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) {
+        return { valid: false, message: "Informe uma data válida" };
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (dt.getTime() > today.getTime()) return { valid: false, message: "A data não pode ser no futuro" };
 
-  const validateProfessionalAge = useCallback((age: string): { valid: boolean; message: string } => {
-    const s = String(age ?? "").trim();
-    if (!s) return { valid: false, message: "Idade do profissional é obrigatória" };
-    const n = Number(s);
-    if (!Number.isFinite(n) || !Number.isInteger(n)) {
-      return { valid: false, message: "Informe uma idade válida (número inteiro)" };
-    }
-    if (n < 18) return { valid: false, message: "Idade mínima é 18 anos" };
-    if (n > 120) return { valid: false, message: "Idade inválida" };
-    return { valid: true, message: "" };
-  }, []);
+      if (typeof opts?.minAgeYears === "number") {
+        const age = (() => {
+          let a = today.getFullYear() - yy;
+          const m = today.getMonth() + 1;
+          const d = today.getDate();
+          if (m < mm || (m === mm && d < dd)) a--;
+          return a;
+        })();
+        if (age < opts.minAgeYears) return { valid: false, message: `Idade mínima é ${opts.minAgeYears} anos` };
+      }
+
+      return { valid: true, message: "" };
+    },
+    []
+  );
 
   const validateProfessionalCrfa = useCallback((v: string): { valid: boolean; message: string } => {
     const s = String(v ?? "").trim();
     if (!s) return { valid: false, message: "CRFa é obrigatório" };
     if (s.length < 3) return { valid: false, message: "CRFa inválido" };
+    return { valid: true, message: "" };
+  }, []);
+
+  const validateAttestation = useCallback((checked: boolean): { valid: boolean; message: string } => {
+    if (!checked) {
+      return { valid: false, message: "Você precisa confirmar a responsabilidade pelas informações" };
+    }
     return { valid: true, message: "" };
   }, []);
 
@@ -152,35 +187,44 @@ const RegisterForm = () => {
   }, []);
 
   const handleInputChange = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    const value = field === "professionalAttestation" ? (e.target as HTMLInputElement).checked : e.target.value;
+    setFormData((prev) => ({ ...prev, [field]: value as any }));
 
     if (validation[field].touched) {
       let result;
       switch (field) {
         case "name":
-          result = validateName(value);
+          result = validateName(String(value), "Nome");
+          break;
+        case "responsibleName":
+          result = validateName(String(value), "Nome do responsável");
+          break;
+        case "childName":
+          result = validateChildName(String(value));
+          break;
+        case "childBirthdate":
+          result = validateBirthdate(String(value), { label: "Data de nascimento da criança" });
           break;
         case "email":
-          result = validateEmail(value);
+          result = validateEmail(String(value));
           break;
         case "phone":
-          result = validatePhone(value);
+          result = validatePhone(String(value));
           break;
-        case "childAge":
-          result = validateChildAge(value);
-          break;
-        case "professionalAge":
-          result = validateProfessionalAge(value);
+        case "professionalBirthdate":
+          result = validateBirthdate(String(value), { label: "Data de nascimento", minAgeYears: 18 });
           break;
         case "professionalCrfa":
-          result = validateProfessionalCrfa(value);
+          result = validateProfessionalCrfa(String(value));
+          break;
+        case "professionalAttestation":
+          result = validateAttestation(Boolean(value));
           break;
         case "password":
-          result = validatePassword(value);
+          result = validatePassword(String(value));
           // Also revalidate confirm password when password changes
           if (validation.confirmPassword.touched) {
-            const confirmResult = validateConfirmPassword(formData.confirmPassword, value);
+            const confirmResult = validateConfirmPassword(formData.confirmPassword, String(value));
             setValidation((prev) => ({
               ...prev,
               confirmPassword: { ...confirmResult, touched: true },
@@ -188,7 +232,7 @@ const RegisterForm = () => {
           }
           break;
         case "confirmPassword":
-          result = validateConfirmPassword(value, formData.password);
+          result = validateConfirmPassword(String(value), formData.password);
           break;
         default:
           return;
@@ -204,7 +248,16 @@ const RegisterForm = () => {
     let result;
     switch (field) {
       case "name":
-        result = validateName(formData.name);
+        result = validateName(formData.name, "Nome");
+        break;
+      case "responsibleName":
+        result = validateName(formData.responsibleName, "Nome do responsável");
+        break;
+      case "childName":
+        result = validateChildName(formData.childName);
+        break;
+      case "childBirthdate":
+        result = validateBirthdate(formData.childBirthdate, { label: "Data de nascimento da criança" });
         break;
       case "email":
         result = validateEmail(formData.email);
@@ -212,14 +265,14 @@ const RegisterForm = () => {
       case "phone":
         result = validatePhone(formData.phone);
         break;
-      case "childAge":
-        result = validateChildAge(formData.childAge);
-        break;
-      case "professionalAge":
-        result = validateProfessionalAge(formData.professionalAge);
+      case "professionalBirthdate":
+        result = validateBirthdate(formData.professionalBirthdate, { label: "Data de nascimento", minAgeYears: 18 });
         break;
       case "professionalCrfa":
         result = validateProfessionalCrfa(formData.professionalCrfa);
+        break;
+      case "professionalAttestation":
+        result = validateAttestation(formData.professionalAttestation);
         break;
       case "password":
         result = validatePassword(formData.password);
@@ -240,33 +293,44 @@ const RegisterForm = () => {
     e.preventDefault();
     setRegisterError("");
 
-    const nameResult = validateName(formData.name);
+    const nameResult = mode === "professional" ? validateName(formData.name, "Nome") : { valid: true, message: "" };
+    const responsibleResult = mode === "patient" ? validateName(formData.responsibleName, "Nome do responsável") : { valid: true, message: "" };
+    const childNameResult = mode === "patient" ? validateChildName(formData.childName) : { valid: true, message: "" };
+    const childBirthdateResult =
+      mode === "patient" ? validateBirthdate(formData.childBirthdate, { label: "Data de nascimento da criança" }) : { valid: true, message: "" };
     const emailResult = validateEmail(formData.email);
     const phoneResult = validatePhone(formData.phone);
-    const childAgeResult = mode === "patient" ? validateChildAge(formData.childAge) : { valid: true, message: "" };
-    const professionalAgeResult = mode === "professional" ? validateProfessionalAge(formData.professionalAge) : { valid: true, message: "" };
+    const professionalBirthdateResult =
+      mode === "professional" ? validateBirthdate(formData.professionalBirthdate, { label: "Data de nascimento", minAgeYears: 18 }) : { valid: true, message: "" };
     const professionalCrfaResult = mode === "professional" ? validateProfessionalCrfa(formData.professionalCrfa) : { valid: true, message: "" };
+    const professionalAttestationResult = mode === "professional" ? validateAttestation(formData.professionalAttestation) : { valid: true, message: "" };
     const passwordResult = validatePassword(formData.password);
     const confirmPasswordResult = validateConfirmPassword(formData.confirmPassword, formData.password);
 
     setValidation({
       name: { ...nameResult, touched: true },
+      responsibleName: { ...responsibleResult, touched: true },
+      childName: { ...childNameResult, touched: true },
+      childBirthdate: { ...childBirthdateResult, touched: true },
       email: { ...emailResult, touched: true },
       phone: { ...phoneResult, touched: true },
-      childAge: { ...childAgeResult, touched: true },
-      professionalAge: { ...professionalAgeResult, touched: true },
+      professionalBirthdate: { ...professionalBirthdateResult, touched: true },
       professionalCrfa: { ...professionalCrfaResult, touched: true },
+      professionalAttestation: { ...professionalAttestationResult, touched: true },
       password: { ...passwordResult, touched: true },
       confirmPassword: { ...confirmPasswordResult, touched: true },
     });
 
     if (
       !nameResult.valid ||
+      !responsibleResult.valid ||
+      !childNameResult.valid ||
+      !childBirthdateResult.valid ||
       !emailResult.valid ||
       !phoneResult.valid ||
-      !childAgeResult.valid ||
-      !professionalAgeResult.valid ||
+      !professionalBirthdateResult.valid ||
       !professionalCrfaResult.valid ||
+      !professionalAttestationResult.valid ||
       !passwordResult.valid ||
       !confirmPasswordResult.valid
     ) {
@@ -281,17 +345,20 @@ const RegisterForm = () => {
           name: formData.name,
           email: formData.email,
           phone: formData.phone,
-          professional_age: Number(formData.professionalAge),
+          professional_birthdate: formData.professionalBirthdate,
           professional_crfa: formData.professionalCrfa.trim(),
+          professional_attestation: formData.professionalAttestation,
           password: formData.password,
           password_confirmation: formData.confirmPassword,
         });
       } else {
         await auth.register({
-          name: formData.name,
+          name: formData.responsibleName,
+          responsible_name: formData.responsibleName,
+          child_name: formData.childName,
+          child_birthdate: formData.childBirthdate,
           email: formData.email,
           phone: formData.phone,
-          child_age: Number(formData.childAge),
           password: formData.password,
           password_confirmation: formData.confirmPassword,
         });
@@ -311,7 +378,11 @@ const RegisterForm = () => {
           e.data?.message ||
           e.data?.errors?.email?.[0] ||
           e.data?.errors?.phone?.[0] ||
-          e.data?.errors?.child_age?.[0] ||
+          e.data?.errors?.responsible_name?.[0] ||
+          e.data?.errors?.child_name?.[0] ||
+          e.data?.errors?.child_birthdate?.[0] ||
+          e.data?.errors?.professional_birthdate?.[0] ||
+          e.data?.errors?.professional_attestation?.[0] ||
           e.data?.errors?.password?.[0] ||
           "Verifique os campos e tente novamente.";
         setRegisterError(msg);
@@ -365,47 +436,140 @@ const RegisterForm = () => {
         </div>
       )}
 
-      {/* Name Field */}
-      <div className="space-y-2">
-        <label 
-          htmlFor="name" 
-          className="block text-sm font-semibold text-foreground"
-        >
-          Nome
-        </label>
-        <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-            <User size={18} />
-          </div>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange("name")}
-            onBlur={handleInputBlur("name")}
-            placeholder="Seu nome completo"
-            autoComplete="name"
-            aria-label="Nome completo"
-            aria-invalid={validation.name.touched && !validation.name.valid}
-            className={`${getInputClassName("name")} pl-11 pr-10`}
-          />
-          {validation.name.touched && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              {validation.name.valid ? (
-                <Check size={18} className="text-primary" />
-              ) : (
-                <AlertCircle size={18} className="text-destructive" />
+      {mode === "patient" ? (
+        <>
+          {/* Responsible Name */}
+          <div className="space-y-2">
+            <label htmlFor="responsibleName" className="block text-sm font-semibold text-foreground">
+              Nome do Responsável
+            </label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <User size={18} />
+              </div>
+              <input
+                type="text"
+                id="responsibleName"
+                name="responsibleName"
+                value={formData.responsibleName}
+                onChange={handleInputChange("responsibleName")}
+                onBlur={handleInputBlur("responsibleName")}
+                placeholder="Nome completo do responsável"
+                autoComplete="name"
+                aria-label="Nome do responsável"
+                aria-invalid={validation.responsibleName.touched && !validation.responsibleName.valid}
+                className={`${getInputClassName("responsibleName")} pl-11 pr-10`}
+              />
+              {validation.responsibleName.touched && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  {validation.responsibleName.valid ? (
+                    <Check size={18} className="text-primary" />
+                  ) : (
+                    <AlertCircle size={18} className="text-destructive" />
+                  )}
+                </div>
               )}
             </div>
+            {validation.responsibleName.touched && !validation.responsibleName.valid && (
+              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.responsibleName.message}</p>
+            )}
+          </div>
+
+          {/* Child Name */}
+          <div className="space-y-2">
+            <label htmlFor="childName" className="block text-sm font-semibold text-foreground">
+              Nome da Criança
+            </label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <User size={18} />
+              </div>
+              <input
+                type="text"
+                id="childName"
+                name="childName"
+                value={formData.childName}
+                onChange={handleInputChange("childName")}
+                onBlur={handleInputBlur("childName")}
+                placeholder="Nome completo da criança"
+                autoComplete="off"
+                aria-label="Nome da criança"
+                aria-invalid={validation.childName.touched && !validation.childName.valid}
+                className={`${getInputClassName("childName")} pl-11 pr-10`}
+              />
+              {validation.childName.touched && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  {validation.childName.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
+                </div>
+              )}
+            </div>
+            {validation.childName.touched && !validation.childName.valid && (
+              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.childName.message}</p>
+            )}
+          </div>
+
+          {/* Child Birthdate */}
+          <div className="space-y-2">
+            <label htmlFor="childBirthdate" className="block text-sm font-semibold text-foreground">
+              Data de Nascimento da Criança
+            </label>
+            <div className="relative">
+              <input
+                type="date"
+                id="childBirthdate"
+                name="childBirthdate"
+                value={formData.childBirthdate}
+                onChange={handleInputChange("childBirthdate")}
+                onBlur={handleInputBlur("childBirthdate")}
+                aria-label="Data de nascimento da criança"
+                aria-invalid={validation.childBirthdate.touched && !validation.childBirthdate.valid}
+                className={`${getInputClassName("childBirthdate")} pl-4 pr-10`}
+              />
+              {validation.childBirthdate.touched && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  {validation.childBirthdate.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
+                </div>
+              )}
+            </div>
+            {validation.childBirthdate.touched && !validation.childBirthdate.valid && (
+              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.childBirthdate.message}</p>
+            )}
+          </div>
+        </>
+      ) : (
+        /* Professional Name */
+        <div className="space-y-2">
+          <label htmlFor="name" className="block text-sm font-semibold text-foreground">
+            Nome
+          </label>
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <User size={18} />
+            </div>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange("name")}
+              onBlur={handleInputBlur("name")}
+              placeholder="Seu nome completo"
+              autoComplete="name"
+              aria-label="Nome completo"
+              aria-invalid={validation.name.touched && !validation.name.valid}
+              className={`${getInputClassName("name")} pl-11 pr-10`}
+            />
+            {validation.name.touched && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                {validation.name.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
+              </div>
+            )}
+          </div>
+          {validation.name.touched && !validation.name.valid && (
+            <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.name.message}</p>
           )}
         </div>
-        {validation.name.touched && !validation.name.valid && (
-          <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">
-            {validation.name.message}
-          </p>
-        )}
-      </div>
+      )}
 
       {/* Email Field */}
       <div className="space-y-2">
@@ -490,70 +654,34 @@ const RegisterForm = () => {
       </div>
 
       {mode === "patient" ? (
-        /* Child Age Field */
-        <div className="space-y-2">
-          <label htmlFor="childAge" className="block text-sm font-semibold text-foreground">
-            Idade da Criança (anos)
-          </label>
-          <div className="relative">
-            <input
-              type="number"
-              id="childAge"
-              name="childAge"
-              value={formData.childAge}
-              onChange={handleInputChange("childAge")}
-              onBlur={handleInputBlur("childAge")}
-              placeholder="Ex: 7"
-              inputMode="numeric"
-              min={0}
-              max={120}
-              step={1}
-              aria-label="Idade da criança em anos"
-              aria-invalid={validation.childAge.touched && !validation.childAge.valid}
-              className={`${getInputClassName("childAge")} pl-4 pr-10`}
-            />
-            {validation.childAge.touched && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                {validation.childAge.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
-              </div>
-            )}
-          </div>
-          {validation.childAge.touched && !validation.childAge.valid && (
-            <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.childAge.message}</p>
-          )}
-        </div>
+        null
       ) : (
         <>
-          {/* Professional Age */}
+          {/* Professional Birthdate */}
           <div className="space-y-2">
-            <label htmlFor="professionalAge" className="block text-sm font-semibold text-foreground">
-              Idade do Profissional (anos)
+            <label htmlFor="professionalBirthdate" className="block text-sm font-semibold text-foreground">
+              Data de Nascimento
             </label>
             <div className="relative">
               <input
-                type="number"
-                id="professionalAge"
-                name="professionalAge"
-                value={formData.professionalAge}
-                onChange={handleInputChange("professionalAge")}
-                onBlur={handleInputBlur("professionalAge")}
-                placeholder="Ex: 28"
-                inputMode="numeric"
-                min={18}
-                max={120}
-                step={1}
-                aria-label="Idade do profissional em anos"
-                aria-invalid={validation.professionalAge.touched && !validation.professionalAge.valid}
-                className={`${getInputClassName("professionalAge")} pl-4 pr-10`}
+                type="date"
+                id="professionalBirthdate"
+                name="professionalBirthdate"
+                value={formData.professionalBirthdate}
+                onChange={handleInputChange("professionalBirthdate")}
+                onBlur={handleInputBlur("professionalBirthdate")}
+                aria-label="Data de nascimento do profissional"
+                aria-invalid={validation.professionalBirthdate.touched && !validation.professionalBirthdate.valid}
+                className={`${getInputClassName("professionalBirthdate")} pl-4 pr-10`}
               />
-              {validation.professionalAge.touched && (
+              {validation.professionalBirthdate.touched && (
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  {validation.professionalAge.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
+                  {validation.professionalBirthdate.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
                 </div>
               )}
             </div>
-            {validation.professionalAge.touched && !validation.professionalAge.valid && (
-              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalAge.message}</p>
+            {validation.professionalBirthdate.touched && !validation.professionalBirthdate.valid && (
+              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalBirthdate.message}</p>
             )}
           </div>
 
@@ -588,6 +716,28 @@ const RegisterForm = () => {
             {validation.professionalCrfa.touched && !validation.professionalCrfa.valid && (
               <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalCrfa.message}</p>
             )}
+          </div>
+
+          {/* Attestation */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-foreground">Responsabilidade</label>
+            <label className="flex items-start gap-3 rounded-lg border border-border bg-background/70 p-3">
+              <input
+                type="checkbox"
+                checked={formData.professionalAttestation}
+                onChange={handleInputChange("professionalAttestation")}
+                aria-label="Confirmo a responsabilidade pelas informações"
+                className="mt-1 h-4 w-4"
+              />
+              <div className="min-w-0">
+                <div className="text-sm text-foreground">
+                  Declaro que as informações fornecidas são verdadeiras e me responsabilizo por elas.
+                </div>
+                {validation.professionalAttestation.touched && !validation.professionalAttestation.valid && (
+                  <div className="text-sm text-destructive mt-1">{validation.professionalAttestation.message}</div>
+                )}
+              </div>
+            </label>
           </div>
         </>
       )}

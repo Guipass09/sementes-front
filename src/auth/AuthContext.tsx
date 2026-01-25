@@ -10,12 +10,28 @@ type AuthContextValue = {
   setAuthUser: (u: AuthUser | null) => void;
   loadUser: () => Promise<AuthUser | null>;
   login: (params: { email: string; password: string; remember?: boolean }) => Promise<AuthUser>;
-  register: (params: { name: string; email: string; phone: string; child_age?: number | null; password: string; password_confirmation: string }) => Promise<AuthUser>;
+  register: (params: {
+    name: string;
+    email: string;
+    phone: string;
+    // novos campos (cadastro paciente)
+    responsible_name?: string;
+    child_name?: string;
+    child_birthdate?: string; // YYYY-MM-DD
+    // legado (não usar no front novo, mas mantemos compatibilidade)
+    child_age?: number | null;
+    password: string;
+    password_confirmation: string;
+  }) => Promise<AuthUser>;
   registerProfessional: (params: {
     name: string;
     email: string;
     phone: string;
-    professional_age: number;
+    // novo campo
+    professional_birthdate?: string; // YYYY-MM-DD
+    professional_attestation?: boolean;
+    // legado (compat)
+    professional_age?: number;
     professional_crfa: string;
     password: string;
     password_confirmation: string;
@@ -262,7 +278,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [setAuthUser, normalizeRole]
   );
 
-  const register = useCallback(async (params: { name: string; email: string; phone?: string; child_age?: number | null; password: string; password_confirmation: string }) => {
+  const register = useCallback(async (params: {
+    name: string;
+    email: string;
+    phone?: string;
+    responsible_name?: string;
+    child_name?: string;
+    child_birthdate?: string;
+    child_age?: number | null;
+    password: string;
+    password_confirmation: string;
+  }) => {
     // Backend pode retornar token+user ou apenas user
     const res = await api.register(params as any);
     
@@ -349,7 +375,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name: string;
       email: string;
       phone: string;
-      professional_age: number;
+      professional_birthdate?: string;
+      professional_attestation?: boolean;
+      professional_age?: number;
       professional_crfa: string;
       password: string;
       password_confirmation: string;

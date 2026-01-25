@@ -24,11 +24,21 @@ export type AuthUser = {
   email: string;
   phone?: string | null;
   child_age?: number | null;
+  // novos campos (paciente)
+  responsible_name?: string | null;
+  child_name?: string | null;
+  child_birthdate?: string | null; // YYYY-MM-DD
   role: AuthRole;
   blocked: boolean;
   profile_description?: string | null;
   profile_photo_url?: string | null;
   access: UserAccess;
+  // novos campos (profissional)
+  professional_birthdate?: string | null; // YYYY-MM-DD
+  professional_attestation?: boolean | null;
+  professional_age?: number | null;
+  professional_crfa?: string | null;
+  professional_registration?: string | null;
 };
 
 export type ProfessionalUserRow = {
@@ -427,6 +437,9 @@ export async function register(params: {
   email: string;
   phone: string;
   child_age?: number | null;
+  responsible_name?: string;
+  child_name?: string;
+  child_birthdate?: string; // YYYY-MM-DD
   password: string;
   password_confirmation: string;
 }): Promise<AuthUser> {
@@ -441,7 +454,9 @@ export async function registerProfessional(params: {
   name: string;
   email: string;
   phone: string;
-  professional_age: number;
+  professional_birthdate?: string; // YYYY-MM-DD
+  professional_attestation?: boolean;
+  professional_age?: number;
   professional_crfa: string;
   password: string;
   password_confirmation: string;
@@ -474,6 +489,53 @@ export async function professionalListProfessionals(): Promise<ProfessionalDirec
 
 export async function professionalListAppointments(): Promise<{ data: any[] }> {
   return await request<{ data: any[] }>("/api/professional/appointments");
+}
+
+// ---------------------------
+// ADMIN USER COMMENTS (por usuário+profissional)
+// ---------------------------
+
+export type AdminUserProfessionalCommentRow = {
+  id: number;
+  user_id: number;
+  professional_user_id: number;
+  comment: string;
+  created_by_admin_user_id?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export async function adminGetUserComment(params: {
+  user_id: number;
+  professional_user_id: number;
+}): Promise<{ data: AdminUserProfessionalCommentRow | null }> {
+  const qs = new URLSearchParams({
+    user_id: String(params.user_id),
+    professional_user_id: String(params.professional_user_id),
+  });
+  return await request<{ data: AdminUserProfessionalCommentRow | null }>(`/api/admin/user-comments?${qs.toString()}`);
+}
+
+export async function adminUpsertUserComment(payload: {
+  user_id: number;
+  professional_user_id: number;
+  comment: string;
+}): Promise<{ data: AdminUserProfessionalCommentRow }> {
+  await ensureCsrfCookie();
+  return await request<{ data: AdminUserProfessionalCommentRow }>("/api/admin/user-comments", { method: "POST", json: payload });
+}
+
+// ---------------------------
+// PROFESSIONAL - ver comentário do admin
+// ---------------------------
+
+export type ProfessionalPatientAdminComment = {
+  user: ProfessionalPatientRow;
+  comment: null | { id: number; comment: string; created_at?: string | null; updated_at?: string | null };
+};
+
+export async function professionalGetPatientAdminComment(userId: number): Promise<ProfessionalPatientAdminComment> {
+  return await request<ProfessionalPatientAdminComment>(`/api/professional/patients/${userId}/admin-comment`);
 }
 
 export async function professionalListActivities(): Promise<ActivityRow[]> {
@@ -661,6 +723,9 @@ export type AdminUserRow = {
   email: string;
   phone?: string | null;
   child_age?: number | null;
+  responsible_name?: string | null;
+  child_name?: string | null;
+  child_birthdate?: string | null; // YYYY-MM-DD
   role: AuthRole;
   blocked: boolean;
   access: UserAccess;
@@ -681,6 +746,8 @@ export type AdminProfessionalRow = {
   access: UserAccess;
   profile_photo_url?: string | null;
   professional_age?: number | null;
+  professional_birthdate?: string | null; // YYYY-MM-DD
+  professional_attestation?: boolean | null;
   professional_crfa?: string | null;
   professional_registration?: string | null;
   assigned_users_count?: number;
@@ -903,6 +970,9 @@ export type ProfessionalPatientRow = {
   email: string;
   phone?: string | null;
   child_age?: number | null;
+  responsible_name?: string | null;
+  child_name?: string | null;
+  child_birthdate?: string | null; // YYYY-MM-DD
   profile_photo_url?: string | null;
 };
 

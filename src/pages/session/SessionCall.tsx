@@ -132,6 +132,16 @@ export default function SessionCall() {
   const [rtcPaymentMeta, setRtcPaymentMeta] = useState<null | { sessions: number | null; amount: number }>(null);
   const [rtcPaymentLocked, setRtcPaymentLocked] = useState(false);
 
+  const handleRtcPaid = useCallback(() => {
+    setRtcPaymentLocked(false);
+    setRtcPaymentOpen(false);
+    setRtcPaymentMeta(null);
+    // Se ainda não conseguiu fazer join (402), recarrega para tentar entrar já liberado
+    if (!joinInfo) {
+      refreshPage();
+    }
+  }, [joinInfo, refreshPage]);
+
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDraft, setReportDraft] = useState<ReportFormDraft | null>(null);
   const reportMinimizedRef = useRef(false);
@@ -2732,15 +2742,7 @@ export default function SessionCall() {
           appointmentId={appointmentId}
           sessions={rtcPaymentMeta.sessions}
           amount={rtcPaymentMeta.amount}
-          onPaid={() => {
-            setRtcPaymentLocked(false);
-            setRtcPaymentOpen(false);
-            setRtcPaymentMeta(null);
-            // Se ainda não conseguiu fazer join (402), recarrega para tentar entrar já liberado
-            if (!joinInfo) {
-              refreshPage();
-            }
-          }}
+          onPaid={handleRtcPaid}
         />
       ) : null}
 

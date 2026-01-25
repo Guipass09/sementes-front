@@ -32,7 +32,8 @@ async function ensureMercadoPagoSdk(): Promise<void> {
     const t0 = Date.now();
     const tick = () => {
       if (window.MercadoPago) return resolve();
-      if (Date.now() - t0 > 6000) return reject(new Error("sdk_timeout"));
+      // Em mobile (Safari/iOS), pode demorar mais para expor window.MercadoPago
+      if (Date.now() - t0 > 15000) return reject(new Error("sdk_timeout"));
       setTimeout(tick, 120);
     };
     tick();
@@ -42,6 +43,17 @@ async function ensureMercadoPagoSdk(): Promise<void> {
 export default function RtcPaymentModal({ open, onOpenChange, appointmentId, sessions, amount, onPaid }: Props) {
   const { toast } = useToast();
   const publicKey = String((import.meta as any).env?.VITE_MP_PUBLIC_KEY ?? "").trim();
+
+  // Evita remount infinito do Brick por re-render da chamada (timer/RTC).
+  // Guardamos callbacks em refs para não precisar reinicializar o Brick quando o componente pai renderiza.
+  const toastRef = useRef(toast);
+  const onPaidRef = useRef(onPaid);
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+  useEffect(() => {
+    onPaidRef.current = onPaid;
+  }, [onPaid]);
 
   const [tab, setTab] = useState<"pix" | "card">("pix");
   const [busy, setBusy] = useState(false);
@@ -72,8 +84,8 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
         .then((s) => {
           if (cancelled) return;
           if (s.paid) {
-            toast({ title: "Pagamento", description: "Pagamento confirmado. Liberando a sessão..." });
-            onPaid();
+            toastRef.current({ title: "Pagamento", description: "Pagamento confirmado. Liberando a sessão..." });
+            onPaidRef.current();
           }
         })
         .catch(() => {});
@@ -82,7 +94,7 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [open, waiting, appointmentId, onPaid, toast]);
+  }, [open, waiting, appointmentId]);
 
   // Card Brick mount/unmount
   useEffect(() => {
@@ -140,10 +152,10 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
                     const p = res.data;
                     setProviderPaymentId(p.provider_payment_id ?? null);
                     if (p.status === "approved") {
-                      toast({ title: "Pagamento", description: "Pagamento aprovado." });
-                      onPaid();
+                      toastRef.current({ title: "Pagamento", description: "Pagamento aprovado." });
+                      onPaidRef.current();
                     } else {
-                      toast({ title: "Pagamento", description: "Pagamento enviado. Aguardando confirmação..." });
+                      toastRef.current({ title: "Pagamento", description: "Pagamento enviado. Aguardando confirmação..." });
                       setWaiting(true);
                     }
                     resolve();
@@ -176,7 +188,7 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
       } catch {}
       cardMountedRef.current = false;
     };
-  }, [open, tab, publicKey, appointmentId, brickContainerId, amount, onPaid, toast]);
+  }, [open, tab, publicKey, appointmentId, brickContainerId, amount]);
 
   const createPix = useCallback(async () => {
     setBusy(true);

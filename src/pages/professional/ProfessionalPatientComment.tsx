@@ -104,16 +104,27 @@ export default function ProfessionalPatientComment(): JSX.Element {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-foreground text-lg truncate">{patientDisplayName(data.user)}</div>
-                  <div className="text-sm text-muted-foreground truncate">{data.user.email}</div>
-                  {data.user.phone ? <div className="text-sm text-muted-foreground">Celular: {data.user.phone}</div> : null}
+                  <div className="text-sm text-muted-foreground truncate">Email: {data.user.email}</div>
+                  <div className="text-sm text-muted-foreground">Celular: {data.user.phone ?? "-"}</div>
+
                   {data.user.child_name?.trim() ? (
-                    <div className="text-sm text-muted-foreground">Responsável: {data.user.responsible_name?.trim() || data.user.name}</div>
-                  ) : null}
+                    <>
+                      <div className="text-sm text-muted-foreground">Nome da criança: {data.user.child_name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Nome do responsável: {data.user.responsible_name?.trim() || data.user.name}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Nome do usuário: {data.user.name}</div>
+                  )}
+
                   {data.user.child_birthdate ? (
-                    <div className="text-sm text-muted-foreground">Nascimento: {formatYmd(data.user.child_birthdate)}</div>
+                    <div className="text-sm text-muted-foreground">Data de nascimento: {formatYmd(data.user.child_birthdate)}</div>
                   ) : data.user.child_age !== null && data.user.child_age !== undefined ? (
                     <div className="text-sm text-muted-foreground">Idade: {data.user.child_age} ano(s)</div>
-                  ) : null}
+                  ) : (
+                    <div className="text-sm text-muted-foreground">Data de nascimento: -</div>
+                  )}
                 </div>
               </div>
             </div>

@@ -105,38 +105,54 @@ export default function ProfessionalDashboard(): JSX.Element {
   ];
 
   return (
-    <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
-      <div className="container mx-auto px-3 sm:px-4">
-        {/* Welcome Section - Landing Page Style */}
-        <section className="relative overflow-hidden rounded-xl sm:rounded-2xl mb-6 sm:mb-8 bg-gradient-to-br from-green-50 via-amber-50 to-green-100 dark:from-green-950/20 dark:via-amber-950/20 dark:to-green-900/20 p-4 sm:p-6 md:p-8 lg:p-12">
-          <div className="absolute -top-12 sm:-top-24 -right-12 sm:-right-24 h-32 w-32 sm:h-64 sm:w-64 rounded-full bg-green-200/30 dark:bg-green-800/20 blur-3xl" />
-          <div className="absolute -bottom-12 sm:-bottom-24 -left-12 sm:-left-24 h-32 w-32 sm:h-64 sm:w-64 rounded-full bg-amber-200/30 dark:bg-amber-800/20 blur-3xl" />
-          <div className="relative flex flex-col items-center text-center">
+    <div className="min-h-full">
+      {/* Hero Section (mesmo estilo do Admin) */}
+      <section className="relative bg-gradient-to-br from-brand-mint via-background to-brand-green/5 py-16 lg:py-24 overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-green/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-brand-orange/10 rounded-full blur-3xl" />
+
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-3xl mx-auto text-center">
             {/* Logo */}
-            <div className="mb-4 sm:mb-6">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-xl overflow-hidden shadow-lg border-2 border-white/50 dark:border-gray-800/50 bg-white dark:bg-gray-900">
-                <img src={logoImage} alt="Sementes da Fala" className="w-full h-full object-cover" />
+            <div className="inline-block mb-6 animate-float">
+              <div className="relative">
+                <div className="absolute inset-0 bg-brand-green/20 rounded-2xl blur-xl scale-110" />
+                <img
+                  src={logoImage}
+                  alt="Sementes da Fala"
+                  className="relative w-24 h-24 lg:w-32 lg:h-32 object-contain rounded-2xl shadow-lg mx-auto"
+                />
               </div>
             </div>
-            
+
             {/* Title */}
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold mb-2 sm:mb-3">
-              <span className="text-stone-700 dark:text-stone-300">Painel</span>{" "}
-              <span className="text-brand-green dark:text-green-400">Profissional</span>
+            <h1 className="text-3xl lg:text-4xl xl:text-5xl font-display font-bold text-foreground mb-4 animate-fade-in">
+              Painel <span className="text-brand-green">Profissional</span>
             </h1>
-            
-            {/* Subtitle */}
-            <p className="text-stone-600 dark:text-stone-400 text-sm sm:text-base lg:text-lg max-w-2xl mb-4 sm:mb-6 px-2">
+
+            {/* Description */}
+            <p
+              className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in"
+              style={{ animationDelay: "0.1s" }}
+            >
               Gerencie seus pacientes, atividades, horários e relatórios do sistema Sementes da Fala
             </p>
-            
-            {/* Welcome Message */}
-            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/50 rounded-lg text-stone-700 dark:text-stone-300">
-              <Shield size={14} className="sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400" />
-              <span className="text-xs sm:text-sm font-medium">Bem-vindo(a), {firstName}!</span>
+
+            {/* Badge */}
+            <div
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-orange/10 text-brand-orange text-sm font-medium animate-fade-in"
+              style={{ animationDelay: "0.2s" }}
+              title="Acesso Profissional"
+            >
+              <Shield size={16} />
+              <span>Bem-vindo(a), {firstName}!</span>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
+
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 lg:py-12">
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {stats.map((s) => {

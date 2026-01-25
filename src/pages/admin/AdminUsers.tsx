@@ -967,11 +967,14 @@ const AdminUsers = () => {
                         Celular: {user.phone}
                       </p>
                     )}
-                    {user.child_name?.trim() && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        Responsável: {user.responsible_name?.trim() || user.name}
-                      </p>
-                    )}
+                    {user.child_name?.trim() ? (
+                      <>
+                        <p className="text-xs text-muted-foreground truncate">Criança: {user.child_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          Responsável: {user.responsible_name?.trim() || user.name}
+                        </p>
+                      </>
+                    ) : null}
                     {user.child_birthdate ? (
                       <p className="text-xs text-muted-foreground truncate">Nascimento: {formatYmd(user.child_birthdate)}</p>
                     ) : user.child_age !== null && user.child_age !== undefined ? (
@@ -1192,20 +1195,27 @@ const AdminUsers = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground text-lg">{userDisplayName(selectedUser)}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
-                    {selectedUser.phone && (
-                      <p className="text-sm text-muted-foreground">
-                        Celular: {selectedUser.phone}
-                      </p>
+                    <p className="text-sm text-muted-foreground">Email: {selectedUser.email}</p>
+                    <p className="text-sm text-muted-foreground">Celular: {selectedUser.phone ?? "-"}</p>
+
+                    {selectedUser.child_name?.trim() ? (
+                      <>
+                        <p className="text-sm text-muted-foreground">Nome da criança: {selectedUser.child_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Nome do responsável: {selectedUser.responsible_name?.trim() || selectedUser.name}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Nome do usuário: {selectedUser.name}</p>
                     )}
-                    {selectedUser.child_name?.trim() && (
-                      <p className="text-sm text-muted-foreground">Responsável: {selectedUser.responsible_name?.trim() || selectedUser.name}</p>
-                    )}
+
                     {selectedUser.child_birthdate ? (
-                      <p className="text-sm text-muted-foreground">Nascimento: {formatYmd(selectedUser.child_birthdate)}</p>
+                      <p className="text-sm text-muted-foreground">Data de nascimento: {formatYmd(selectedUser.child_birthdate)}</p>
                     ) : selectedUser.child_age !== null && selectedUser.child_age !== undefined ? (
-                      <p className="text-sm text-muted-foreground">Idade da criança: {selectedUser.child_age} ano(s)</p>
-                    ) : null}
+                      <p className="text-sm text-muted-foreground">Idade: {selectedUser.child_age} ano(s)</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Data de nascimento: -</p>
+                    )}
                   </div>
                 </div>
 

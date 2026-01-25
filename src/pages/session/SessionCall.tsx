@@ -2742,6 +2742,7 @@ export default function SessionCall() {
           appointmentId={appointmentId}
           sessions={rtcPaymentMeta.sessions}
           amount={rtcPaymentMeta.amount}
+          payer={{ name: user?.name ?? null, email: user?.email ?? null }}
           onPaid={handleRtcPaid}
         />
       ) : null}

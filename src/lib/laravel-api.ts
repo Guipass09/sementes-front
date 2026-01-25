@@ -2216,6 +2216,11 @@ export type RtcPaymentRow = {
 export async function paymentsCreate(payload: {
   appointment_id: number;
   method: "pix" | "card";
+  payer?: {
+    name?: string | null;
+    email?: string | null;
+    identification?: { type: "CPF"; number: string } | null;
+  };
   card?: {
     token: string;
     installments: number;

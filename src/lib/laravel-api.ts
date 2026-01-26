@@ -1473,6 +1473,17 @@ export async function professionalUpdateAppointmentStatus(
   );
 }
 
+export async function professionalRescheduleAppointment(
+  id: number,
+  payload: { session_date: string; session_time: string } // YYYY-MM-DD + HH:mm
+): Promise<{ id: number; user_id: number; professional_name: string; session_date: string | null; session_time: string; total_sessions: number; status: string; session_kind?: string | null }> {
+  await ensureCsrfCookie();
+  return await request(
+    `/api/professional/appointments/${id}/reschedule`,
+    { method: "PATCH", json: payload }
+  );
+}
+
 export async function adminDeleteAllAppointmentsForUser(userId: number): Promise<{ message: string; deleted: number }> {
   await ensureCsrfCookie();
   return await request<{ message: string; deleted: number }>(`/api/admin/users/${userId}/appointments`, {

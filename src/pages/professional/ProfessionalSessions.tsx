@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Search, Clock, CalendarClock, CheckCircle2, MessageSquareText, Eye, EyeOff, Wallet } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Clock, CalendarClock, CheckCircle2, MessageSquareText, Eye, EyeOff, Wallet, RefreshCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { useToast } from "@/hooks/use-toast";
 import * as api from "@/lib/laravel-api";
 import type { JoinSessionMeta } from "@/lib/laravel-api";
 import { JoinSessionButton } from "@/components/JoinSessionButton";
@@ -36,6 +41,7 @@ const patientDisplayName = (u: { name: string; child_name?: string | null }) => 
 
 export default function ProfessionalSessions(): JSX.Element {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ProAppointmentRow[]>([]);
   const [search, setSearch] = useState("");
@@ -49,6 +55,12 @@ export default function ProfessionalSessions(): JSX.Element {
     amounts: { scheduled: number; evaluation: number };
   }>(null);
   const [earningsHidden, setEarningsHidden] = useState(true);
+
+  const [reschedOpen, setReschedOpen] = useState(false);
+  const [reschedSaving, setReschedSaving] = useState(false);
+  const [reschedAppt, setReschedAppt] = useState<ProAppointmentRow | null>(null);
+  const [reschedDate, setReschedDate] = useState<Date | undefined>(undefined);
+  const [reschedTime, setReschedTime] = useState<string>("");
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -263,13 +275,13 @@ export default function ProfessionalSessions(): JSX.Element {
           </div>
         ) : rows.length === 0 ? (
           <div className="text-center py-12">
-            <Calendar size={48} className="mx-auto text-muted-foreground mb-4" />
+            <CalendarIcon size={48} className="mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">Nenhuma sessão agendada para você ainda.</p>
           </div>
         ) : (
           groupedByUser.length === 0 ? (
             <div className="text-center py-12">
-              <Calendar size={48} className="mx-auto text-muted-foreground mb-4" />
+              <CalendarIcon size={48} className="mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">Nenhum resultado para essa busca.</p>
             </div>
           ) : (
@@ -356,7 +368,7 @@ export default function ProfessionalSessions(): JSX.Element {
                                 </div>
                                 <div className="text-xs sm:text-sm text-muted-foreground flex flex-wrap items-center gap-2 sm:gap-4 mt-1">
                                   <span className="flex items-center gap-1">
-                                    <Calendar size={12} className="sm:w-3.5 sm:h-3.5" />
+                                    <CalendarIcon size={12} className="sm:w-3.5 sm:h-3.5" />
                                     {s.session_date}
                                   </span>
                                   <span className="flex items-center gap-1">
@@ -378,6 +390,21 @@ export default function ProfessionalSessions(): JSX.Element {
                                   nowMs={nowMs}
                                   onClick={() => goToCall(s.id)}
                                 />
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-lg"
+                                  onClick={() => {
+                                    setReschedAppt(s);
+                                    setReschedDate(new Date(`${s.session_date}T00:00:00`));
+                                    setReschedTime((s.session_time || "").slice(0, 5));
+                                    setReschedOpen(true);
+                                  }}
+                                  title="Reagendar sessão"
+                                >
+                                  <RefreshCcw className="h-3.5 w-3.5 mr-2" />
+                                  Reagendar
+                                </Button>
                                 {(() => {
                                   const countdown = getJoinCountdownLabel({
                                     date: s.session_date,
@@ -405,6 +432,79 @@ export default function ProfessionalSessions(): JSX.Element {
           )
         )}
       </div>
+
+      <Dialog
+        open={reschedOpen}
+        onOpenChange={(open) => {
+          setReschedOpen(open);
+          if (!open) {
+            setReschedSaving(false);
+            setReschedAppt(null);
+            setReschedDate(undefined);
+            setReschedTime("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Reagendar</DialogTitle>
+          </DialogHeader>
+
+          <div className="text-sm text-muted-foreground">
+            Escolha a nova data e horário. O horário atual será substituído.
+          </div>
+
+          <div className="mt-3">
+            <Calendar
+              mode="single"
+              selected={reschedDate}
+              onSelect={(d) => setReschedDate(d ?? undefined)}
+              disabled={(d) => d < new Date(new Date().toDateString())}
+            />
+          </div>
+
+          <div className="mt-3 space-y-2">
+            <Label htmlFor="reschedTime">Horário</Label>
+            <Input
+              id="reschedTime"
+              type="time"
+              value={reschedTime}
+              onChange={(e) => setReschedTime(e.target.value)}
+            />
+          </div>
+
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setReschedOpen(false)} disabled={reschedSaving}>
+              Cancelar
+            </Button>
+            <Button
+              className="rounded-xl"
+              disabled={reschedSaving || !reschedAppt || !reschedDate || !reschedTime}
+              onClick={async () => {
+                if (!reschedAppt || !reschedDate || !reschedTime) return;
+                const ymd = reschedDate.toISOString().slice(0, 10);
+                setReschedSaving(true);
+                try {
+                  await api.professionalRescheduleAppointment(reschedAppt.id, {
+                    session_date: ymd,
+                    session_time: reschedTime,
+                  });
+                  toast({ title: "Reagendado", description: "Sessão reagendada com sucesso." });
+                  setReschedOpen(false);
+                  await refresh();
+                } catch (e: any) {
+                  const msg = String(e?.message || "") || "Não foi possível reagendar. Tente novamente.";
+                  toast({ title: "Erro", description: msg.includes("422") ? "Escolha outro horário disponível." : msg, variant: "destructive" });
+                } finally {
+                  setReschedSaving(false);
+                }
+              }}
+            >
+              {reschedSaving ? "Salvando..." : "Reagendar"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

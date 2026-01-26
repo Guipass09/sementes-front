@@ -398,6 +398,20 @@ export async function unregisterPushToken(playerId: string): Promise<{ success: 
   });
 }
 
+// ---------------------------
+// AGENDAMENTO (venda de pacotes)
+// ---------------------------
+
+export async function schedulePurchasedSessions(payload: {
+  patient_id: number;
+  quantity: number;
+  start_date?: string | null; // YYYY-MM-DD
+  slots: Array<{ dayId: "monday" | "tuesday" | "wednesday" | "thursday" | "friday"; time: string }>;
+  professional_user_id?: number | null;
+}): Promise<{ success: true; created: Array<{ date: string; time: string }> } | { message: string; created: Array<{ date: string; time: string }> }> {
+  return await request("/api/schedule/purchased-sessions", { method: "POST", json: payload });
+}
+
 export async function updateMe(payload: {
   name?: string;
   profile_description?: string | null;

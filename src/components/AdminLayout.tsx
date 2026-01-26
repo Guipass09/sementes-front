@@ -8,6 +8,7 @@ import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import NotificationsBell from "@/components/NotificationsBell";
 import PwaInstallButton from "@/components/PwaInstallButton";
+import SaleSchedulerListener from "@/components/SaleSchedulerListener";
 
 interface UserData {
   name: string;
@@ -92,6 +93,7 @@ const AdminLayout = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <SaleSchedulerListener />
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-2 max-w-[1920px]">

@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import * as api from "@/lib/laravel-api";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
-import { CreditCard, LockKeyhole, QrCode, ShieldCheck } from "lucide-react";
 
 type Props = {
   open: boolean;
@@ -324,10 +323,10 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
               <img src={logoImage} alt="Sementes da Fala" className="h-10 w-10 rounded-xl border border-border object-cover" />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold text-foreground truncate">Sementes da Fala</div>
-                <div className="text-xs text-muted-foreground truncate">Pagamento seguro • Mercado Pago</div>
+                <div className="text-xs text-muted-foreground truncate">Seguro</div>
               </div>
               <div className="text-right">
-                <div className="text-sm font-semibold text-foreground">
+                <div className="text-3xl font-extrabold tracking-tight text-foreground">
                   {amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                 </div>
                 <div className="text-xs text-muted-foreground">{sessions ? `${sessions} sessões` : "Pagamento"}</div>
@@ -336,25 +335,6 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
 
             <Separator className="my-3" />
 
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/10 p-2">
-                <ShieldCheck className="h-4 w-4 text-brand-green" />
-                <div className="text-xs text-foreground">Seguro</div>
-              </div>
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/10 p-2">
-                <LockKeyhole className="h-4 w-4 text-brand-green" />
-                <div className="text-xs text-foreground">Criptografado</div>
-              </div>
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/10 p-2">
-                <QrCode className="h-4 w-4 text-brand-green" />
-                <div className="text-xs text-foreground">Pix</div>
-              </div>
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/10 p-2">
-                <CreditCard className="h-4 w-4 text-brand-green" />
-                <div className="text-xs text-foreground">Cartão</div>
-              </div>
-            </div>
-
             {providerPaymentId ? (
               <div className="mt-2 text-xs text-muted-foreground">ID do pagamento: {providerPaymentId}</div>
             ) : null}
@@ -362,7 +342,6 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
             <Separator className="my-4" />
 
             <div className="text-sm font-semibold text-foreground">Dados do pagador</div>
-            <div className="mt-1 text-xs text-muted-foreground">Preencha para tornar o pagamento mais rápido e evitar erros.</div>
 
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -391,13 +370,23 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
             <Separator className="my-4" />
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="pix" className="gap-2">
-                <QrCode className="h-4 w-4" />
+            <TabsList className="grid w-full grid-cols-2 gap-3 bg-transparent p-0">
+              <TabsTrigger
+                value="pix"
+                className={cn(
+                  "h-12 rounded-xl border border-border bg-background data-[state=active]:bg-muted/20",
+                  "data-[state=active]:border-brand-green data-[state=active]:text-foreground",
+                )}
+              >
                 Pix
               </TabsTrigger>
-              <TabsTrigger value="card" className="gap-2">
-                <CreditCard className="h-4 w-4" />
+              <TabsTrigger
+                value="card"
+                className={cn(
+                  "h-12 rounded-xl border border-border bg-background data-[state=active]:bg-muted/20",
+                  "data-[state=active]:border-brand-green data-[state=active]:text-foreground",
+                )}
+              >
                 Cartão
               </TabsTrigger>
             </TabsList>
@@ -405,10 +394,6 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
             <TabsContent value="pix" className="mt-3 space-y-3">
               {!pix ? (
                 <div className="rounded-xl border border-border bg-muted/10 p-4">
-                  <div className="text-sm font-semibold text-foreground">Pix</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    Gere o QR Code e pague pelo app do seu banco. A sessão será liberada automaticamente após a confirmação.
-                  </div>
                   <div className="mt-4 flex items-center justify-end gap-2">
                     <Button className="rounded-xl" onClick={() => void createPix()} disabled={busy}>
                       {busy ? "Gerando..." : "Gerar QR Code"}
@@ -465,19 +450,14 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
             <TabsContent value="card" className="mt-3 space-y-3">
               {!publicKey ? (
                 <div className="rounded-xl border border-border bg-muted/10 p-4">
-                  <div className="text-sm font-semibold text-foreground">Cartão</div>
                   <div className="mt-2 text-sm text-destructive">VITE_MP_PUBLIC_KEY não configurada no frontend.</div>
                 </div>
               ) : (
                 <div className="rounded-xl border border-border bg-muted/10 p-4">
-                  <div className="text-sm font-semibold text-foreground">Cartão</div>
                   <div className="mt-1 text-xs text-muted-foreground">
                     Até <strong>12x</strong> no cartão • <strong>até 6x sem juros</strong> (conforme configuração do Mercado Pago)
                   </div>
                   <div className="mt-4" id={brickContainerId} />
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    Seu cartão é processado com segurança pelo Mercado Pago. O token do cartão não fica salvo no seu app.
-                  </div>
                 </div>
               )}
             </TabsContent>

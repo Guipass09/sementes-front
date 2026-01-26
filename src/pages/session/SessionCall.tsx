@@ -321,6 +321,9 @@ export default function SessionCall() {
 
   // PWA/mobile: "pull to refresh" (puxar além do topo/rodapé recarrega a página)
   useEffect(() => {
+    // Durante pagamentos/modais, não permitir gesto que recarrega a página (interrompe WebRTC/áudio).
+    const gestureRefreshDisabled = rtcPaymentOpen || paymentIframeOpen || paymentDialogOpen;
+
     const se = () => (document.scrollingElement || document.documentElement) as any;
     const stateRef = {
       armed: false,
@@ -344,6 +347,7 @@ export default function SessionCall() {
     const onTouchStart = (e: TouchEvent) => {
       if (!e.touches?.length) return;
       if (drawOn) return;
+      if (gestureRefreshDisabled) return;
       stateRef.armed = false;
       stateRef.fired = false;
       stateRef.mode = "";
@@ -361,6 +365,7 @@ export default function SessionCall() {
       if (!stateRef.armed || stateRef.fired) return;
       if (!e.touches?.length) return;
       if (drawOn) return;
+      if (gestureRefreshDisabled) return;
       const y = e.touches[0].clientY;
       const dy = y - stateRef.startY;
       const threshold = 90; // px
@@ -395,7 +400,7 @@ export default function SessionCall() {
       window.removeEventListener("touchend", onTouchEnd as any);
       window.removeEventListener("touchcancel", onTouchEnd as any);
     };
-  }, [drawOn, refreshPage]);
+  }, [drawOn, refreshPage, rtcPaymentOpen, paymentIframeOpen, paymentDialogOpen]);
 
   // Quando screen share estiver ativo:
   // - admin mostra o próprio display stream no painel grande
@@ -1158,6 +1163,16 @@ export default function SessionCall() {
     }
 
     if (m.kind === "payment_request" && role === "user") {
+      // Evita reabrir o pagamento automaticamente após refresh:
+      // como o poll reinicia com after_id=0, mensagens antigas reaparecem.
+      // Aqui deduplicamos por ID (sempre crescente).
+      const key = appointmentId ? `rtc_payment_request_seen:${appointmentId}` : "";
+      if (key) {
+        const last = Number(sessionStorage.getItem(key) || "0");
+        if (Number.isFinite(last) && last > 0 && m.id <= last) return;
+        sessionStorage.setItem(key, String(m.id));
+      }
+
       const sessions = Number.isFinite(Number(m.payload?.sessions)) ? Number(m.payload?.sessions) : null;
       const amount = Number.isFinite(Number(m.payload?.amount)) ? Number(m.payload?.amount) : 0;
       if (amount > 0) {

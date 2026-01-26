@@ -15,22 +15,42 @@ export default function BrandedConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Confirmar",
-  cancelLabel = "Cancelar",
+  confirmLabel,
+  confirmText,
+  cancelLabel,
+  cancelText,
   onConfirm,
   onCancel,
   variant = "default",
+  confirmDisabled = false,
+  hideClose = false,
+  disableClose = false,
+  confirmClassName,
+  cancelClassName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
   confirmLabel?: string;
-  cancelLabel?: string;
+  /** Compat: uso antigo em alguns lugares do app */
+  confirmText?: string;
+  cancelLabel?: string | null;
+  /** Compat: uso antigo em alguns lugares do app */
+  cancelText?: string | null;
   onConfirm: () => void;
   onCancel?: () => void;
   variant?: "default" | "success" | "danger";
+  confirmDisabled?: boolean;
+  /** Esconde o X do modal (fechar) */
+  hideClose?: boolean;
+  /** Impede fechar por ESC/clicar fora (útil para passos obrigatórios) */
+  disableClose?: boolean;
+  confirmClassName?: string;
+  cancelClassName?: string;
 }) {
+  const resolvedConfirmLabel = confirmLabel ?? confirmText ?? "Confirmar";
+  const resolvedCancelLabel = cancelLabel ?? cancelText ?? "Cancelar";
   const headerBg =
     variant === "success"
       ? "from-brand-green/15 via-background to-background"
@@ -42,6 +62,9 @@ export default function BrandedConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         portalContainer={getFullscreenPortalContainer()}
+        hideClose={hideClose}
+        onEscapeKeyDown={disableClose ? (e) => e.preventDefault() : undefined}
+        onInteractOutside={disableClose ? (e) => e.preventDefault() : undefined}
         className="sm:max-w-xl rounded-3xl p-0 overflow-hidden bg-background/95 backdrop-blur border-border"
       >
         <div className={cn("px-6 sm:px-8 pt-7 pb-5 bg-gradient-to-b", headerBg)}>
@@ -73,30 +96,34 @@ export default function BrandedConfirmDialog({
           </DialogHeader>
 
           <div className="mt-6 flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-            <Button
-              type="button"
-              variant="secondary"
-              className="rounded-xl"
-              onClick={() => {
-                onCancel?.();
-                onOpenChange(false);
-              }}
-            >
-              {cancelLabel}
-            </Button>
+            {resolvedCancelLabel == null ? null : (
+              <Button
+                type="button"
+                variant="secondary"
+                className={cn("rounded-xl", cancelClassName)}
+                onClick={() => {
+                  onCancel?.();
+                  onOpenChange(false);
+                }}
+              >
+                {resolvedCancelLabel}
+              </Button>
+            )}
             <Button
               type="button"
               className={cn(
                 "rounded-xl",
                 variant === "success" && "bg-brand-green text-white hover:bg-brand-green/90",
                 variant === "danger" && "bg-red-600 text-white hover:bg-red-600/90",
+                confirmClassName,
               )}
+              disabled={confirmDisabled}
               onClick={() => {
                 onConfirm();
                 onOpenChange(false);
               }}
             >
-              {confirmLabel}
+              {resolvedConfirmLabel}
             </Button>
           </div>
         </div>

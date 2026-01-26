@@ -2269,15 +2269,6 @@ export default function SessionCall() {
 
         {/* Controles */}
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          {mediaState !== "ready" && (
-            <Button
-              onClick={() => void startMedia()}
-              disabled={mediaState === "requesting"}
-              className="rounded-xl bg-brand-green text-white hover:bg-brand-green/90"
-            >
-              {mediaState === "requesting" ? "Iniciando…" : "Iniciar câmera e microfone"}
-            </Button>
-          )}
           {role === "admin" && (
             <>
               <Button variant="outline" onClick={() => setCatalogOpen(true)} className="rounded-xl">
@@ -2385,6 +2376,28 @@ export default function SessionCall() {
           </Button>
         </div>
       </div>
+
+      {/* Passo obrigatório: iniciar câmera/microfone (fica centralizado e fácil de encontrar) */}
+      <BrandedConfirmDialog
+        open={!!joinInfo && !!role && !rtcPaymentLocked && mediaState !== "ready"}
+        onOpenChange={() => {
+          // Obrigatório: não permite fechar manualmente.
+        }}
+        title="Ativar câmera e microfone"
+        description={
+          mediaError
+            ? mediaError
+            : "Para continuar a sessão, precisamos que você permita o uso da câmera e do microfone."
+        }
+        confirmLabel={mediaState === "requesting" ? "Iniciando…" : "Iniciar câmera e microfone"}
+        cancelLabel={null}
+        variant="success"
+        hideClose
+        disableClose
+        confirmDisabled={mediaState === "requesting"}
+        confirmClassName="h-12 text-base rounded-2xl"
+        onConfirm={() => void startMedia()}
+      />
 
       {/* Encerrar chamada (admin) */}
       <Dialog open={endSessionOpen} onOpenChange={setEndSessionOpen}>

@@ -2914,7 +2914,7 @@ export default function SessionCall() {
           amount={rtcPaymentMeta.amount}
           defaultTab={rtcPaymentMeta.defaultTab}
           maxInstallments={rtcPaymentMeta.maxInstallments ?? 12}
-          payer={{ name: user?.name ?? null, email: user?.email ?? null }}
+          payer={{ name: null, email: user?.email ?? null }}
           onPaid={handleRtcPaid}
         />
       ) : null}

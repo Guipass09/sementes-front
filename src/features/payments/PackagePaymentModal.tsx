@@ -370,7 +370,7 @@ export default function PackagePaymentModal({
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Nome completo</Label>
-                <Input value={payerName} onChange={(e) => setPayerName(e.target.value)} placeholder="Ex.: Maria Santos Pereira" />
+                <Input value={payerName} onChange={(e) => setPayerName(e.target.value)} placeholder="Nome do titular" />
               </div>
               <div className="space-y-1.5">
                 <Label>CPF</Label>

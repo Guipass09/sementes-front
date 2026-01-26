@@ -16,6 +16,8 @@ type Props = {
   appointmentId: number;
   sessions?: number | null;
   amount: number;
+  defaultTab?: "pix" | "card";
+  maxInstallments?: number;
   payer?: { name?: string | null; email?: string | null };
   /** Chamada quando o backend confirmar que está pago */
   onPaid: () => void;
@@ -45,7 +47,17 @@ async function ensureMercadoPagoSdk(): Promise<void> {
   });
 }
 
-export default function RtcPaymentModal({ open, onOpenChange, appointmentId, sessions, amount, payer, onPaid }: Props) {
+export default function RtcPaymentModal({
+  open,
+  onOpenChange,
+  appointmentId,
+  sessions,
+  amount,
+  defaultTab,
+  maxInstallments,
+  payer,
+  onPaid,
+}: Props) {
   const { toast } = useToast();
   const publicKey = String((import.meta as any).env?.VITE_MP_PUBLIC_KEY ?? "").trim();
 
@@ -170,12 +182,17 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
           };
         }
 
+        const maxI =
+          typeof maxInstallments === "number" && Number.isFinite(maxInstallments)
+            ? Math.min(12, Math.max(1, Math.floor(maxInstallments)))
+            : 12;
+
         const settings = {
           initialization: init,
           customization: {
             paymentMethods: {
               minInstallments: 1,
-              maxInstallments: 12,
+              maxInstallments: maxI,
             },
           },
           callbacks: {
@@ -250,7 +267,7 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
       } catch {}
       cardMountedRef.current = false;
     };
-  }, [open, tab, publicKey, appointmentId, brickContainerId, amount]);
+  }, [open, tab, publicKey, appointmentId, brickContainerId, amount, maxInstallments]);
 
   const createPix = useCallback(async () => {
     setBusy(true);
@@ -288,13 +305,13 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
       reset();
       return;
     }
-    // quando abre, começa no Pix
-    setTab("pix");
+    // quando abre, respeita tab sugerida
+    setTab(defaultTab === "card" ? "card" : "pix");
     setError("");
     setPayerName(String(payer?.name ?? "").trim());
     setPayerEmail(String(payer?.email ?? "").trim());
     setPayerCpfRaw("");
-  }, [open, reset, payer?.email, payer?.name]);
+  }, [open, reset, payer?.email, payer?.name, defaultTab]);
 
   return (
     <Dialog
@@ -460,7 +477,8 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
               ) : (
                 <div className="rounded-xl border border-border bg-muted/10 p-4">
                   <div className="mt-1 text-xs text-muted-foreground">
-                    Até <strong>12x</strong> no cartão • <strong>até 6x sem juros</strong> (conforme configuração do Mercado Pago)
+                    Até <strong>{typeof maxInstallments === "number" && maxInstallments >= 1 ? Math.min(12, Math.max(1, Math.floor(maxInstallments))) : 12}x</strong> no cartão •{" "}
+                    <strong>até 6x sem juros</strong> (conforme configuração do Mercado Pago)
                   </div>
                   <div className="mt-4" id={brickContainerId} />
                 </div>

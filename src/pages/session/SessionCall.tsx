@@ -131,12 +131,15 @@ export default function SessionCall() {
 
   // Checkout embutido (Pix/Cartão) dentro da sessão
   const [rtcPaymentOpen, setRtcPaymentOpen] = useState(false);
-  const [rtcPaymentMeta, setRtcPaymentMeta] = useState<null | { sessions: number | null; amount: number }>(null);
+  const [rtcPaymentMeta, setRtcPaymentMeta] = useState<
+    null | { sessions: number | null; amount: number; defaultTab?: "pix" | "card"; maxInstallments?: number }
+  >(null);
   const [rtcPaymentLocked, setRtcPaymentLocked] = useState(false);
 
   const [customPayOpen, setCustomPayOpen] = useState(false);
   const [customPayAmount, setCustomPayAmount] = useState<string>("");
   const [customPaySessions, setCustomPaySessions] = useState<string>("");
+  const [customPayMethod, setCustomPayMethod] = useState<"pix" | "card">("card");
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDraft, setReportDraft] = useState<ReportFormDraft | null>(null);
@@ -821,9 +824,18 @@ export default function SessionCall() {
     await send("payment_link", { sessions, url });
   };
 
-  const sendPaymentRequest = async (sessions: number | null, amount: number) => {
+  const sendPaymentRequest = async (
+    sessions: number | null,
+    amount: number,
+    opts?: { defaultTab?: "pix" | "card"; maxInstallments?: number },
+  ) => {
     if (role !== "admin") return;
-    await send("payment_request", { sessions, amount });
+    await send("payment_request", {
+      sessions,
+      amount,
+      default_tab: opts?.defaultTab ?? null,
+      max_installments: typeof opts?.maxInstallments === "number" ? opts?.maxInstallments : null,
+    });
   };
 
   const copyPaymentLink = async () => {
@@ -1190,6 +1202,11 @@ export default function SessionCall() {
 
       const sessions = Number.isFinite(Number(m.payload?.sessions)) ? Number(m.payload?.sessions) : null;
       const amount = Number.isFinite(Number(m.payload?.amount)) ? Number(m.payload?.amount) : 0;
+      const defaultTab = m.payload?.default_tab === "card" ? "card" : m.payload?.default_tab === "pix" ? "pix" : undefined;
+      const maxInstallments =
+        Number.isFinite(Number(m.payload?.max_installments)) && Number(m.payload?.max_installments) >= 1
+          ? Math.min(12, Math.max(1, Math.floor(Number(m.payload?.max_installments))))
+          : undefined;
       if (amount > 0) {
         // Bloqueia a sessão até pagamento: para "não continuar a chamada" sem pagar,
         // desligamos câmera/mic local (mantém a sala ativa para receber confirmação).
@@ -1201,7 +1218,7 @@ export default function SessionCall() {
         setCamOn(false);
 
         setRtcPaymentLocked(true);
-        setRtcPaymentMeta({ sessions, amount });
+        setRtcPaymentMeta({ sessions, amount, defaultTab, maxInstallments });
         setRtcPaymentOpen(true);
       }
       return;
@@ -2787,6 +2804,28 @@ export default function SessionCall() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
+              <Label>Método sugerido</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={customPayMethod === "pix" ? "default" : "outline"}
+                  className="rounded-xl"
+                  onClick={() => setCustomPayMethod("pix")}
+                >
+                  Pix
+                </Button>
+                <Button
+                  type="button"
+                  variant={customPayMethod === "card" ? "default" : "outline"}
+                  className="rounded-xl"
+                  onClick={() => setCustomPayMethod("card")}
+                >
+                  Cartão (parcelado)
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground">No cartão, o paciente poderá escolher até 12x (conforme regras do Mercado Pago).</div>
+            </div>
+            <div className="space-y-1.5">
               <Label>Valor total (R$)</Label>
               <Input
                 inputMode="decimal"
@@ -2822,7 +2861,7 @@ export default function SessionCall() {
                     toast({ title: "Pagamento", description: "Informe um valor válido.", variant: "destructive" });
                     return;
                   }
-                  void sendPaymentRequest(sessions, amount).finally(() => {
+                  void sendPaymentRequest(sessions, amount, { defaultTab: customPayMethod, maxInstallments: 12 }).finally(() => {
                     setCustomPayOpen(false);
                     setPackagesOpen(false);
                   });
@@ -2845,6 +2884,8 @@ export default function SessionCall() {
           appointmentId={appointmentId}
           sessions={rtcPaymentMeta.sessions}
           amount={rtcPaymentMeta.amount}
+          defaultTab={rtcPaymentMeta.defaultTab}
+          maxInstallments={rtcPaymentMeta.maxInstallments ?? 12}
           payer={{ name: user?.name ?? null, email: user?.email ?? null }}
           onPaid={handleRtcPaid}
         />

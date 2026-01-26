@@ -13,33 +13,28 @@ import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  appointmentId: number;
-  sessions?: number | null;
+  /** Pacote fixo (por sessões) */
+  packageSessions?: number;
+  /** Pacote custom (criado pelo admin para o paciente) */
+  customPackageId?: number;
+  sessionsLabel?: string | null;
   amount: number;
-  defaultTab?: "pix" | "card";
-  maxInstallments?: number;
   payer?: { name?: string | null; email?: string | null };
-  /** Chamada quando o backend confirmar que está pago */
-  onPaid: () => void;
 };
 
 function uuid(): string {
   try {
-    // browsers modernos
     if (typeof crypto !== "undefined" && "randomUUID" in crypto) return (crypto as any).randomUUID();
   } catch {}
-  // fallback simples
   return `idemp_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
 async function ensureMercadoPagoSdk(): Promise<void> {
   if (window.MercadoPago) return;
-  // O script é injetado via index.html; aqui só aguarda.
   await new Promise<void>((resolve, reject) => {
     const t0 = Date.now();
     const tick = () => {
       if (window.MercadoPago) return resolve();
-      // Em mobile (Safari/iOS), pode demorar mais para expor window.MercadoPago
       if (Date.now() - t0 > 15000) return reject(new Error("sdk_timeout"));
       setTimeout(tick, 120);
     };
@@ -47,39 +42,31 @@ async function ensureMercadoPagoSdk(): Promise<void> {
   });
 }
 
-export default function RtcPaymentModal({
+export default function PackagePaymentModal({
   open,
   onOpenChange,
-  appointmentId,
-  sessions,
+  packageSessions,
+  customPackageId,
+  sessionsLabel,
   amount,
-  defaultTab,
-  maxInstallments,
   payer,
-  onPaid,
 }: Props) {
   const { toast } = useToast();
   const publicKey = String((import.meta as any).env?.VITE_MP_PUBLIC_KEY ?? "").trim();
 
-  // Evita remount infinito do Brick por re-render da chamada (timer/RTC).
-  // Guardamos callbacks em refs para não precisar reinicializar o Brick quando o componente pai renderiza.
   const toastRef = useRef(toast);
-  const onPaidRef = useRef(onPaid);
   useEffect(() => {
     toastRef.current = toast;
   }, [toast]);
-  useEffect(() => {
-    onPaidRef.current = onPaid;
-  }, [onPaid]);
 
   const [tab, setTab] = useState<"pix" | "card">("pix");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pix, setPix] = useState<null | { qr_code: string; qr_code_base64: string }>(null);
   const [providerPaymentId, setProviderPaymentId] = useState<string | null>(null);
+  const [paymentId, setPaymentId] = useState<number | null>(null);
   const [waiting, setWaiting] = useState(false);
 
-  // Form simples (independente do método)
   const [payerName, setPayerName] = useState<string>("");
   const [payerEmail, setPayerEmail] = useState<string>("");
   const [payerCpfRaw, setPayerCpfRaw] = useState<string>("");
@@ -98,9 +85,6 @@ export default function RtcPaymentModal({
     return out;
   }, [payerCpfDigits]);
 
-  const cardMountedRef = useRef(false);
-  const brickContainerId = useMemo(() => `cardPaymentBrick_container_${appointmentId}`, [appointmentId]);
-
   const payerNameRef = useRef("");
   const payerEmailRef = useRef("");
   const payerCpfDigitsRef = useRef("");
@@ -114,27 +98,34 @@ export default function RtcPaymentModal({
     payerCpfDigitsRef.current = payerCpfDigits;
   }, [payerCpfDigits]);
 
+  const brickContainerId = useMemo(() => `cardPaymentBrick_container_pkg_${customPackageId ?? "fixed"}_${packageSessions ?? "na"}`, [
+    customPackageId,
+    packageSessions,
+  ]);
+
   const reset = useCallback(() => {
     setBusy(false);
     setError("");
     setPix(null);
     setProviderPaymentId(null);
+    setPaymentId(null);
     setWaiting(false);
   }, []);
 
-  // Poll de status (necessário quando o usuário ainda não conseguiu "join" na sala)
+  // Poll quando já temos um Payment local (pagamento fora do RTC)
   useEffect(() => {
     if (!open) return;
     if (!waiting) return;
+    if (!paymentId) return;
     let cancelled = false;
     const id = window.setInterval(() => {
       void api
-        .paymentsStatus({ appointment_id: appointmentId })
+        .paymentsStatus({ payment_id: paymentId })
         .then((s) => {
           if (cancelled) return;
           if (s.paid) {
-            toastRef.current({ title: "Pagamento", description: "Pagamento confirmado. Liberando a sessão..." });
-            onPaidRef.current();
+            toastRef.current({ title: "Pagamento", description: "Pagamento confirmado." });
+            onOpenChange(false);
           }
         })
         .catch(() => {});
@@ -143,7 +134,7 @@ export default function RtcPaymentModal({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [open, waiting, appointmentId]);
+  }, [open, waiting, paymentId, onOpenChange]);
 
   // Card Brick mount/unmount
   useEffect(() => {
@@ -160,7 +151,6 @@ export default function RtcPaymentModal({
         await ensureMercadoPagoSdk();
         if (cancelled) return;
 
-        // Unmount antigo (se existir)
         try {
           window.cardPaymentBrickController?.unmount?.();
         } catch {}
@@ -169,37 +159,20 @@ export default function RtcPaymentModal({
         const bricksBuilder = mp.bricks();
 
         const init: any = { amount };
-        // Preenche no Brick apenas uma vez (no mount), para evitar "recarregar infinito" enquanto o usuário digita.
         const email = payerEmailRef.current.trim();
-        if (email) {
-          init.payer = { ...(init.payer || {}), email };
-        }
+        if (email) init.payer = { ...(init.payer || {}), email };
         const cpfDigits = payerCpfDigitsRef.current;
         if (cpfDigits) {
-          init.payer = {
-            ...(init.payer || {}),
-            identification: { type: "CPF", number: cpfDigits },
-          };
+          init.payer = { ...(init.payer || {}), identification: { type: "CPF", number: cpfDigits } };
         }
-
-        const maxI =
-          typeof maxInstallments === "number" && Number.isFinite(maxInstallments)
-            ? Math.min(12, Math.max(1, Math.floor(maxInstallments)))
-            : 12;
 
         const settings = {
           initialization: init,
           customization: {
-            paymentMethods: {
-              minInstallments: 1,
-              maxInstallments: maxI,
-            },
+            paymentMethods: { minInstallments: 1, maxInstallments: 12 },
           },
           callbacks: {
-            onReady: () => {
-              if (cancelled) return;
-              cardMountedRef.current = true;
-            },
+            onReady: () => {},
             onSubmit: (formData: any) => {
               return new Promise<void>((resolve, reject) => {
                 const idempotencyKey = uuid();
@@ -217,8 +190,9 @@ export default function RtcPaymentModal({
 
                 void api
                   .paymentsCreate({
-                    appointment_id: appointmentId,
                     method: "card",
+                    package_sessions: packageSessions,
+                    custom_package_id: customPackageId,
                     payer: {
                       name: payerNameRef.current.trim() || null,
                       email: payerEmailRef.current.trim() || null,
@@ -229,10 +203,11 @@ export default function RtcPaymentModal({
                   })
                   .then((res) => {
                     const p = res.data;
+                    setPaymentId(p.id);
                     setProviderPaymentId(p.provider_payment_id ?? null);
                     if (p.status === "approved") {
                       toastRef.current({ title: "Pagamento", description: "Pagamento aprovado." });
-                      onPaidRef.current();
+                      onOpenChange(false);
                     } else {
                       toastRef.current({ title: "Pagamento", description: "Pagamento enviado. Aguardando confirmação..." });
                       setWaiting(true);
@@ -247,7 +222,6 @@ export default function RtcPaymentModal({
               });
             },
             onError: (err: any) => {
-              // Erros do Brick (não expor detalhes sensíveis)
               console.error("[MP Brick]", err);
               setError("Erro no formulário de pagamento. Confira os dados e tente novamente.");
             },
@@ -265,9 +239,8 @@ export default function RtcPaymentModal({
       try {
         window.cardPaymentBrickController?.unmount?.();
       } catch {}
-      cardMountedRef.current = false;
     };
-  }, [open, tab, publicKey, appointmentId, brickContainerId, amount, maxInstallments]);
+  }, [open, tab, publicKey, brickContainerId, amount, packageSessions, customPackageId, onOpenChange]);
 
   const createPix = useCallback(async () => {
     setBusy(true);
@@ -276,8 +249,9 @@ export default function RtcPaymentModal({
     const idempotencyKey = uuid();
     try {
       const res = await api.paymentsCreate({
-        appointment_id: appointmentId,
         method: "pix",
+        package_sessions: packageSessions,
+        custom_package_id: customPackageId,
         payer: {
           name: payerNameRef.current.trim() || null,
           email: payerEmailRef.current.trim() || null,
@@ -286,6 +260,7 @@ export default function RtcPaymentModal({
         idempotency_key: idempotencyKey,
       });
       const p = res.data;
+      setPaymentId(p.id);
       setProviderPaymentId(p.provider_payment_id ?? null);
       if (p.pix?.qr_code_base64 && p.pix?.qr_code) {
         setPix({ qr_code_base64: p.pix.qr_code_base64, qr_code: p.pix.qr_code });
@@ -298,32 +273,24 @@ export default function RtcPaymentModal({
     } finally {
       setBusy(false);
     }
-  }, [appointmentId]);
+  }, [packageSessions, customPackageId]);
 
   useEffect(() => {
     if (!open) {
       reset();
       return;
     }
-    // quando abre, respeita tab sugerida
-    setTab(defaultTab === "card" ? "card" : "pix");
+    setTab("pix");
     setError("");
     setPayerName(String(payer?.name ?? "").trim());
     setPayerEmail(String(payer?.email ?? "").trim());
     setPayerCpfRaw("");
-  }, [open, reset, payer?.email, payer?.name, defaultTab]);
+  }, [open, reset, payer?.email, payer?.name]);
+
+  const sessionText = sessionsLabel ?? (packageSessions ? `${packageSessions} sessões` : "Pacote");
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) {
-          // Evita o usuário fechar "sem querer" quando o pagamento foi exigido.
-          // A tela que chamou decide se permite fechar.
-        }
-        onOpenChange(next);
-      }}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
           "flex flex-col w-[100vw] h-[100svh] max-w-none rounded-none p-0 overflow-hidden",
@@ -332,11 +299,6 @@ export default function RtcPaymentModal({
       >
         <DialogHeader className="px-4 pt-[calc(env(safe-area-inset-top)+16px)] pb-3">
           <DialogTitle>Pagamento</DialogTitle>
-          <div className="mt-1">
-            <span className="inline-flex items-center rounded-full border border-brand-green/30 bg-brand-green/10 px-2.5 py-1 text-xs font-medium text-brand-green">
-              Desconto aplicado
-            </span>
-          </div>
         </DialogHeader>
 
         <div className="px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] flex-1 min-h-0 overflow-y-auto">
@@ -351,20 +313,18 @@ export default function RtcPaymentModal({
                 <div className="text-3xl font-extrabold tracking-tight text-foreground">
                   {amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                 </div>
-                <div className="text-xs text-muted-foreground">{sessions ? `${sessions} sessões` : "Pagamento"}</div>
+                <div className="text-xs text-muted-foreground">{sessionText}</div>
               </div>
             </div>
 
             <Separator className="my-3" />
 
-            {providerPaymentId ? (
-              <div className="mt-2 text-xs text-muted-foreground">ID do pagamento: {providerPaymentId}</div>
-            ) : null}
+            {providerPaymentId ? <div className="mt-2 text-xs text-muted-foreground">ID do pagamento: {providerPaymentId}</div> : null}
+            {error ? <div className="mt-3 text-sm text-destructive">{error}</div> : null}
 
             <Separator className="my-4" />
 
             <div className="text-sm font-semibold text-foreground">Dados do pagador</div>
-
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Nome completo</Label>
@@ -387,104 +347,95 @@ export default function RtcPaymentModal({
               </div>
             </div>
 
-            {error ? <div className="mt-3 text-sm text-destructive">{error}</div> : null}
-
             <Separator className="my-4" />
 
-          <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-            <TabsList className="grid w-full grid-cols-2 gap-3 bg-transparent p-0">
-              <TabsTrigger
-                value="pix"
-                className={cn(
-                  "h-12 rounded-xl border border-border bg-background data-[state=active]:bg-muted/20",
-                  "data-[state=active]:border-brand-green data-[state=active]:text-foreground",
-                )}
-              >
-                Pix
-              </TabsTrigger>
-              <TabsTrigger
-                value="card"
-                className={cn(
-                  "h-12 rounded-xl border border-border bg-background data-[state=active]:bg-muted/20",
-                  "data-[state=active]:border-brand-green data-[state=active]:text-foreground",
-                )}
-              >
-                Cartão
-              </TabsTrigger>
-            </TabsList>
+            <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+              <TabsList className="grid w-full grid-cols-2 gap-3 bg-transparent p-0">
+                <TabsTrigger
+                  value="pix"
+                  className={cn(
+                    "h-12 rounded-xl border border-border bg-background data-[state=active]:bg-muted/20",
+                    "data-[state=active]:border-brand-green data-[state=active]:text-foreground",
+                  )}
+                >
+                  Pix
+                </TabsTrigger>
+                <TabsTrigger
+                  value="card"
+                  className={cn(
+                    "h-12 rounded-xl border border-border bg-background data-[state=active]:bg-muted/20",
+                    "data-[state=active]:border-brand-green data-[state=active]:text-foreground",
+                  )}
+                >
+                  Cartão
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="pix" className="mt-3 space-y-3">
-              {!pix ? (
-                <div className="rounded-xl border border-border bg-muted/10 p-4">
-                  <div className="mt-4 flex items-center justify-end gap-2">
-                    <Button className="rounded-xl" onClick={() => void createPix()} disabled={busy}>
-                      {busy ? "Gerando..." : "Gerar QR Code"}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
+              <TabsContent value="pix" className="mt-3 space-y-3">
+                {!pix ? (
                   <div className="rounded-xl border border-border bg-muted/10 p-4">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                      <div className="flex items-center justify-center">
-                        <img
-                          src={`data:image/png;base64,${pix.qr_code_base64}`}
-                          alt="QR Code Pix"
-                          className="h-48 w-48 rounded-xl border border-border bg-white"
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-semibold text-foreground">Copia e cola</div>
-                        <textarea
-                          className="mt-2 w-full h-28 rounded-xl border border-border bg-background p-2 text-xs"
-                          readOnly
-                          value={pix.qr_code}
-                        />
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <Button
-                            variant="outline"
-                            className="rounded-xl"
-                            onClick={async () => {
-                              try {
-                                await navigator.clipboard.writeText(pix.qr_code);
-                                toastRef.current({ title: "Pix", description: "Código copiado." });
-                              } catch {
-                                toastRef.current({ title: "Pix", description: "Não foi possível copiar.", variant: "destructive" });
-                              }
-                            }}
-                          >
-                            Copiar
-                          </Button>
-                          <Button variant="outline" className="rounded-xl" onClick={() => void createPix()} disabled={busy}>
-                            Gerar novo
-                          </Button>
+                    <div className="mt-4 flex items-center justify-end gap-2">
+                      <Button className="rounded-xl" onClick={() => void createPix()} disabled={busy}>
+                        {busy ? "Gerando..." : "Gerar QR Code"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-xl border border-border bg-muted/10 p-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                        <div className="flex items-center justify-center">
+                          <img
+                            src={`data:image/png;base64,${pix.qr_code_base64}`}
+                            alt="QR Code Pix"
+                            className="h-48 w-48 rounded-xl border border-border bg-white"
+                          />
                         </div>
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          Após pagar, a sessão será liberada automaticamente.
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-foreground">Copia e cola</div>
+                          <textarea className="mt-2 w-full h-28 rounded-xl border border-border bg-background p-2 text-xs" readOnly value={pix.qr_code} />
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <Button
+                              variant="outline"
+                              className="rounded-xl"
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(pix.qr_code);
+                                  toastRef.current({ title: "Pix", description: "Código copiado." });
+                                } catch {
+                                  toastRef.current({ title: "Pix", description: "Não foi possível copiar.", variant: "destructive" });
+                                }
+                              }}
+                            >
+                              Copiar
+                            </Button>
+                            <Button variant="outline" className="rounded-xl" onClick={() => void createPix()} disabled={busy}>
+                              Gerar novo
+                            </Button>
+                          </div>
+                          <div className="mt-2 text-xs text-muted-foreground">Após pagar, a confirmação aparecerá automaticamente.</div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </TabsContent>
+                )}
+              </TabsContent>
 
-            <TabsContent value="card" className="mt-3 space-y-3">
-              {!publicKey ? (
-                <div className="rounded-xl border border-border bg-muted/10 p-4">
-                  <div className="mt-2 text-sm text-destructive">VITE_MP_PUBLIC_KEY não configurada no frontend.</div>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-border bg-muted/10 p-4">
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Até <strong>{typeof maxInstallments === "number" && maxInstallments >= 1 ? Math.min(12, Math.max(1, Math.floor(maxInstallments))) : 12}x</strong> no cartão •{" "}
-                    <strong>até 6x sem juros</strong> (conforme configuração do Mercado Pago)
+              <TabsContent value="card" className="mt-3 space-y-3">
+                {!publicKey ? (
+                  <div className="rounded-xl border border-border bg-muted/10 p-4">
+                    <div className="mt-2 text-sm text-destructive">VITE_MP_PUBLIC_KEY não configurada no frontend.</div>
                   </div>
-                  <div className="mt-4" id={brickContainerId} />
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+                ) : (
+                  <div className="rounded-xl border border-border bg-muted/10 p-4">
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Até <strong>12x</strong> no cartão • <strong>até 6x sem juros</strong> (conforme configuração do Mercado Pago)
+                    </div>
+                    <div className="mt-4" id={brickContainerId} />
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
 
             <div className="mt-4 flex items-center justify-end gap-2">
               <Button variant="outline" className="rounded-xl" onClick={() => onOpenChange(false)} disabled={busy}>

@@ -2199,7 +2199,8 @@ export function isApiError(e: unknown): e is ApiError {
 
 export type RtcPaymentRow = {
   id: number;
-  appointment_id: number;
+  appointment_id: number | null;
+  custom_package_id?: number | null;
   status: string | null;
   status_detail: string | null;
   provider_payment_id: string | null;
@@ -2214,7 +2215,9 @@ export type RtcPaymentRow = {
 };
 
 export async function paymentsCreate(payload: {
-  appointment_id: number;
+  appointment_id?: number;
+  custom_package_id?: number;
+  package_sessions?: number;
   method: "pix" | "card";
   payer?: {
     name?: string | null;
@@ -2239,13 +2242,16 @@ export async function paymentsCreate(payload: {
   });
 }
 
-export async function paymentsStatus(appointment_id: number): Promise<{
-  appointment_id: number;
+export async function paymentsStatus(params: { appointment_id: number } | { payment_id: number }): Promise<{
+  payment_id?: number;
+  appointment_id: number | null;
   payment_required: boolean;
   paid: boolean;
   paid_at: string | null;
 }> {
-  const q = new URLSearchParams({ appointment_id: String(appointment_id) }).toString();
+  const q = new URLSearchParams(
+    "appointment_id" in params ? { appointment_id: String(params.appointment_id) } : { payment_id: String(params.payment_id) }
+  ).toString();
   return await request(`/api/payments/status?${q}`);
 }
 

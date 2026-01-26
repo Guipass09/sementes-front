@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { getWeeklySlotAvailability, userListCustomPackages, userRegisterPurchaseIntent, type CustomPackageRow } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
+import PackagePaymentModal from "@/features/payments/PackagePaymentModal";
 
 interface PackageOption {
   id: number;
@@ -75,6 +76,17 @@ const PatientPackages = () => {
   const [openDays, setOpenDays] = useState<string[]>([]);
   const [unavailableByDay, setUnavailableByDay] = useState<Record<string, string[]>>({});
   const [customPackages, setCustomPackages] = useState<CustomPackageOption[]>([]);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payMeta, setPayMeta] = useState<
+    | null
+    | {
+        packageSessions?: number;
+        customPackageId?: number;
+        sessionsLabel?: string | null;
+        amount: number;
+        fallbackUrl?: string | null;
+      }
+  >(null);
 
   const paymentLinks: Record<number, string> = {
     3: "https://mpago.li/2nyHQAi",
@@ -202,14 +214,19 @@ const PatientPackages = () => {
       } catch {
         // ignore
       } finally {
-    // Fecha o modal antes de redirecionar
-    setIsModalOpen(false);
-    setSelectedPackage(null);
-    setSelectedSlots([]);
-    setOpenDays([]);
+        // Fecha o modal de seleção e abre o checkout integrado
+        setIsModalOpen(false);
+        setSelectedSlots([]);
+        setOpenDays([]);
 
-    // Redireciona para o checkout do Mercado Pago (mesma aba)
-    window.location.href = url;
+        setPayMeta({
+          packageSessions: selectedPackage.sessions,
+          sessionsLabel: `${selectedPackage.sessions} sessões`,
+          amount: selectedPackage.price,
+          fallbackUrl: url,
+        });
+        setPayOpen(true);
+        setSelectedPackage(null);
       }
     })();
   };
@@ -228,7 +245,13 @@ const PatientPackages = () => {
     } catch {
       // ignore
     }
-    window.location.href = pkg.paymentUrl;
+    setPayMeta({
+      customPackageId: pkg.id,
+      sessionsLabel: pkg.title || `${pkg.sessions} sessões`,
+      amount: pkg.totalPrice,
+      fallbackUrl: pkg.paymentUrl,
+    });
+    setPayOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -528,6 +551,22 @@ const PatientPackages = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Checkout integrado (Pix/Cartão) no catálogo do paciente */}
+      {payMeta ? (
+        <PackagePaymentModal
+          open={payOpen}
+          onOpenChange={(open) => {
+            setPayOpen(open);
+            if (!open) setPayMeta(null);
+          }}
+          packageSessions={payMeta.packageSessions}
+          customPackageId={payMeta.customPackageId}
+          sessionsLabel={payMeta.sessionsLabel}
+          amount={payMeta.amount}
+          payer={{ name: auth.user?.name ?? null, email: auth.user?.email ?? null }}
+        />
+      ) : null}
     </div>
   );
 };

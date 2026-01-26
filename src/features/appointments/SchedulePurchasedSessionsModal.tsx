@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { paymentsStatus, schedulePurchasedSessions } from "@/lib/laravel-api";
+import { getWeeklySlotAvailability, paymentsStatus, schedulePurchasedSessions } from "@/lib/laravel-api";
 
 type DayId = "monday" | "tuesday" | "wednesday" | "thursday" | "friday";
 
@@ -64,6 +64,7 @@ export default function SchedulePurchasedSessionsModal({ open, onOpenChange, sal
   const [startDate, setStartDate] = useState<string>("");
   const [selectedSlots, setSelectedSlots] = useState<Array<{ dayId: DayId; time: string }>>([]);
   const [professionalId, setProfessionalId] = useState<number | null>(null);
+  const [unavailableByDay, setUnavailableByDay] = useState<Record<string, string[]>>({});
 
   const professionalOptions = useMemo(() => sale?.professionals ?? [], [sale?.professionals]);
   const canPickProfessional = role === "admin";
@@ -77,6 +78,30 @@ export default function SchedulePurchasedSessionsModal({ open, onOpenChange, sal
     setQuantity(String(sale?.sessions ?? ""));
     setPaymentOk(String(sale?.paymentStatus || "") === "approved");
   }, [open, sale?.sessions, sale?.paymentStatus]);
+
+  // Carrega horários indisponíveis (já agendados)
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await getWeeklySlotAvailability();
+        if (!cancelled) setUnavailableByDay(res.unavailable || {});
+      } catch {
+        if (!cancelled) setUnavailableByDay({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const isUnavailable = useMemo(() => {
+    return (dayId: DayId, time: string) => {
+      const arr = unavailableByDay?.[dayId] ?? [];
+      return arr.includes(time);
+    };
+  }, [unavailableByDay]);
 
   // Se a notificação veio de Pix gerado, aguarda confirmação antes de liberar o "Agendar todas"
   useEffect(() => {
@@ -108,6 +133,7 @@ export default function SchedulePurchasedSessionsModal({ open, onOpenChange, sal
     } else {
       // mantém simples: até 3 combinações (igual ao paciente)
       if (selectedSlots.length >= 3) return;
+      if (isUnavailable(dayId, time)) return;
       setSelectedSlots((prev) => [...prev, { dayId, time }]);
     }
   };
@@ -221,16 +247,20 @@ export default function SchedulePurchasedSessionsModal({ open, onOpenChange, sal
                       {availableTimes.map((t) => {
                         const active = selectedSlots.some((s) => s.dayId === d.id && s.time === t);
                         const blocked = !active && selectedSlots.length >= 3;
+                        const unavailable = !active && isUnavailable(d.id, t);
+                        const disabled = blocked || unavailable;
                         return (
                           <button
                             key={`${d.id}-${t}`}
                             type="button"
-                            disabled={blocked}
+                            disabled={disabled}
                             onClick={() => toggleSlot(d.id, t)}
                             className={cn(
                               "w-full px-2 py-2 rounded-lg text-xs font-medium transition-colors border",
                               active
                                 ? "bg-primary text-primary-foreground border-primary"
+                                : unavailable
+                                ? "bg-destructive/10 text-destructive border-destructive/20 cursor-not-allowed"
                                 : blocked
                                 ? "bg-muted/20 text-muted-foreground border-border cursor-not-allowed"
                                 : "bg-background text-muted-foreground border-border hover:bg-primary/10 hover:text-primary hover:border-primary/30",

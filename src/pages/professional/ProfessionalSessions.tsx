@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Search, Clock, CalendarClock, CheckCircle2, MessageSquareText } from "lucide-react";
+import { Calendar, Search, Clock, CalendarClock, CheckCircle2, MessageSquareText, Eye, EyeOff, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ type ProAppointmentRow = {
   session_time: string;
   total_sessions: number;
   status: string;
+  session_kind?: string | null;
   join_session?: JoinSessionMeta | null;
   user?: {
     id: number;
@@ -39,6 +40,15 @@ export default function ProfessionalSessions(): JSX.Element {
   const [rows, setRows] = useState<ProAppointmentRow[]>([]);
   const [search, setSearch] = useState("");
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [earningsLoading, setEarningsLoading] = useState(true);
+  const [earnings, setEarnings] = useState<null | {
+    from_date: string;
+    to_date: string;
+    total: number;
+    counts: { scheduled: number; evaluation: number };
+    amounts: { scheduled: number; evaluation: number };
+  }>(null);
+  const [earningsHidden, setEarningsHidden] = useState(true);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -58,9 +68,22 @@ export default function ProfessionalSessions(): JSX.Element {
     }
   };
 
+  const refreshEarnings = async () => {
+    setEarningsLoading(true);
+    try {
+      const res = await api.professionalGetEarningsLast30Days();
+      setEarnings(res);
+    } catch {
+      setEarnings(null);
+    } finally {
+      setEarningsLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     void refresh();
+    void refreshEarnings();
     return () => {
       cancelled = true;
     };
@@ -70,6 +93,7 @@ export default function ProfessionalSessions(): JSX.Element {
   useEffect(() => {
     const handleFocus = () => {
       void refresh();
+      void refreshEarnings();
     };
     window.addEventListener("focus", handleFocus);
     return () => {
@@ -146,17 +170,74 @@ export default function ProfessionalSessions(): JSX.Element {
   const statusConfig = {
     realizada: { label: "Realizada", color: "bg-brand-green/10 text-brand-green border-brand-green/20", icon: CheckCircle2 },
     agendada: { label: "Agendada", color: "bg-brand-blue/10 text-brand-blue border-brand-blue/20", icon: CalendarClock },
+    avaliacao: { label: "Avaliação", color: "bg-brand-purple/10 text-brand-purple border-brand-purple/20", icon: CalendarClock },
     cancelada: { label: "Cancelada", color: "bg-destructive/10 text-destructive border-destructive/20", icon: Calendar },
   } as const;
 
-  const mapStatus = (raw: string) => (raw === "completed" ? "realizada" : raw === "canceled" ? "cancelada" : "agendada") as const;
+  const mapStatus = (raw: string, kind?: string | null) =>
+    (raw === "completed"
+      ? "realizada"
+      : raw === "canceled"
+        ? "cancelada"
+        : String(kind || "").toLowerCase() === "evaluation"
+          ? "avaliacao"
+          : "agendada") as const;
+
+  const fmtMoney = (n: number) => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
       <div className="container mx-auto px-3 sm:px-4">
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Sessões</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Visualize suas sessões agendadas e entre na transmissão ao vivo.</p>
+        <div className="mb-6 sm:mb-8 space-y-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Sessões</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Visualize suas sessões agendadas e entre na transmissão ao vivo.</p>
+          </div>
+
+          <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 font-semibold text-foreground">
+                  <Wallet className="h-4 w-4 text-brand-green" />
+                  Ganhos (últimos 30 dias)
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Avaliação realizada: R$ 20 • Sessão agendada realizada: R$ 40
+                </div>
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-lg border border-border bg-background/70 p-2 text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                onClick={() => setEarningsHidden((v) => !v)}
+                title={earningsHidden ? "Mostrar valores" : "Ocultar valores"}
+              >
+                {earningsHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </button>
+            </div>
+
+            {earningsLoading ? (
+              <div className="mt-3 space-y-2">
+                <Skeleton className="h-5 w-40" />
+                <Skeleton className="h-4 w-56" />
+              </div>
+            ) : earnings ? (
+              <div className="mt-3">
+                <div className="text-2xl font-bold text-foreground">
+                  {earningsHidden ? "••••" : fmtMoney(earnings.total)}
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <div>
+                    Avaliações: {earnings.counts.evaluation} • {earningsHidden ? "••••" : fmtMoney(earnings.amounts.evaluation)}
+                  </div>
+                  <div>
+                    Agendadas: {earnings.counts.scheduled} • {earningsHidden ? "••••" : fmtMoney(earnings.amounts.scheduled)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 text-sm text-muted-foreground">Não foi possível carregar os ganhos agora.</div>
+            )}
+          </div>
         </div>
 
         <div className="mb-4 sm:mb-6">
@@ -248,7 +329,7 @@ export default function ProfessionalSessions(): JSX.Element {
                   <AccordionContent className="pb-4 sm:pb-5">
                     <div className="space-y-2 sm:space-y-3">
                       {u.items.map((s) => {
-                        const st = mapStatus(s.status);
+                        const st = mapStatus(s.status, s.session_kind);
                         const StatusIcon = statusConfig[st].icon;
                         const showDot = s.session_date === todayYMD;
                         const startMs = parseLocalDateTime(s.session_date, s.session_time);

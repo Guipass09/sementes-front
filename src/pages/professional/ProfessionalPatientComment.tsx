@@ -56,10 +56,10 @@ export default function ProfessionalPatientComment(): JSX.Element {
         <div className="mb-6 sm:mb-8 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-1 truncate">
-              Comentário do Admin
+              Comentários
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground">
-              Perfil do paciente e observações enviadas pelo admin (somente você vê).
+              Perfil do paciente e observações (somente você vê).
             </p>
           </div>
           <Link
@@ -140,6 +140,20 @@ export default function ProfessionalPatientComment(): JSX.Element {
                 </div>
               ) : (
                 <div className="mt-3 text-sm text-muted-foreground">Nenhum comentário enviado pelo admin para este paciente.</div>
+              )}
+            </div>
+
+            <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
+              <div className="flex items-center gap-2 font-semibold text-foreground">
+                <MessageSquareText className="h-5 w-5 text-brand-purple" />
+                Comentário do profissional
+              </div>
+              {data.comment?.professional_comment?.trim() ? (
+                <div className="mt-3 rounded-lg border border-border bg-muted/20 p-4 whitespace-pre-wrap text-sm text-foreground">
+                  {data.comment.professional_comment}
+                </div>
+              ) : (
+                <div className="mt-3 text-sm text-muted-foreground">Nenhum comentário do profissional ainda.</div>
               )}
             </div>
           </div>

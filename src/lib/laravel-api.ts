@@ -545,11 +545,31 @@ export async function adminUpsertUserComment(payload: {
 
 export type ProfessionalPatientAdminComment = {
   user: ProfessionalPatientRow;
-  comment: null | { id: number; comment: string; created_at?: string | null; updated_at?: string | null };
+  comment: null | {
+    id: number;
+    comment: string;
+    professional_comment?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  };
 };
 
 export async function professionalGetPatientAdminComment(userId: number): Promise<ProfessionalPatientAdminComment> {
   return await request<ProfessionalPatientAdminComment>(`/api/professional/patients/${userId}/admin-comment`);
+}
+
+export async function professionalUpsertPatientProfessionalComment(userId: number, comment: string): Promise<{
+  data: { id: number; user_id: number; professional_user_id: number; comment: string; professional_comment: string | null; created_at?: string | null; updated_at?: string | null };
+}> {
+  await ensureCsrfCookie();
+  return await request(`/api/professional/patients/${userId}/professional-comment`, { method: "POST", json: { comment } });
+}
+
+export async function professionalUpsertAppointmentComment(appointmentId: number, comment: string): Promise<{
+  data: { id: number; user_id: number; professional_user_id: number; professional_comment: string | null; updated_at?: string | null };
+}> {
+  await ensureCsrfCookie();
+  return await request(`/api/professional/appointments/${appointmentId}/comment`, { method: "POST", json: { comment } });
 }
 
 export async function professionalListActivities(): Promise<ActivityRow[]> {
@@ -958,12 +978,23 @@ export async function adminCreateRecurringAppointments(payload: {
   start_date: string; // YYYY-MM-DD (define o dia da semana)
   session_time: string; // HH:mm
   quantity: number; // quantidade de sessões a criar
+  session_kind?: "scheduled" | "evaluation" | null;
 }): Promise<{ message: string; dates: string[] }> {
   await ensureCsrfCookie();
   return await request<{ message: string; dates: string[] }>("/api/admin/appointments/recurring", {
     method: "POST",
     json: payload,
   });
+}
+
+export async function professionalGetEarningsLast30Days(): Promise<{
+  from_date: string;
+  to_date: string;
+  total: number;
+  counts: { scheduled: number; evaluation: number };
+  amounts: { scheduled: number; evaluation: number };
+}> {
+  return await request("/api/professional/earnings/last-30-days");
 }
 
 export async function adminGetUserProfessionals(userId: number): Promise<{ professional_ids: number[] }> {

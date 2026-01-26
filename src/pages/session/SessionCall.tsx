@@ -42,6 +42,7 @@ import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinRespo
 import { useToast } from "@/hooks/use-toast";
 import { playFanfare } from "@/lib/sfx";
 import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
+import { Textarea } from "@/components/ui/textarea";
 
 const ReportFormModalLazy = lazy(async () => {
   const mod = await import("@/features/reports/ReportFormModal");
@@ -140,6 +141,10 @@ export default function SessionCall() {
   const [customPayAmount, setCustomPayAmount] = useState<string>("");
   const [customPaySessions, setCustomPaySessions] = useState<string>("");
   const [customPayMethod, setCustomPayMethod] = useState<"pix" | "card">("card");
+
+  const [proCommentOpen, setProCommentOpen] = useState(false);
+  const [proCommentText, setProCommentText] = useState("");
+  const [proCommentSaving, setProCommentSaving] = useState(false);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDraft, setReportDraft] = useState<ReportFormDraft | null>(null);
@@ -2282,6 +2287,16 @@ export default function SessionCall() {
                 <Package className="h-4 w-4 mr-2" />
                 Pacotes
               </Button>
+              {appRole === "professional" ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setProCommentOpen(true)}
+                  className="rounded-xl border-brand-purple text-brand-purple hover:bg-brand-purple/10"
+                  title="Comentário privado (somente admin/profissional veem)"
+                >
+                  Comentário
+                </Button>
+              ) : null}
               <Button variant="outline" onClick={() => setReportOpen(true)} className="rounded-xl">
                 <FileText className="h-4 w-4 mr-2" />
                 Relatório
@@ -2890,6 +2905,63 @@ export default function SessionCall() {
           onPaid={handleRtcPaid}
         />
       ) : null}
+
+      {/* Comentário do profissional (na transmissão) */}
+      <Dialog
+        open={proCommentOpen}
+        onOpenChange={(open) => {
+          setProCommentOpen(open);
+          if (!open) {
+            setProCommentSaving(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Comentário do profissional</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            Este comentário é <strong>privado</strong> (o paciente não vê) e aparecerá na página de comentários do paciente abaixo do comentário do admin.
+          </div>
+          <div className="mt-3 space-y-2">
+            <Textarea
+              value={proCommentText}
+              onChange={(e) => setProCommentText(e.target.value)}
+              placeholder="Escreva aqui suas observações..."
+              className="min-h-[140px]"
+            />
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => setProCommentOpen(false)} disabled={proCommentSaving}>
+                Cancelar
+              </Button>
+              <Button
+                className="rounded-xl"
+                onClick={async () => {
+                  if (!appointmentId) return;
+                  const text = proCommentText.trim();
+                  if (!text) {
+                    toast({ title: "Comentário", description: "Escreva um comentário antes de enviar.", variant: "destructive" });
+                    return;
+                  }
+                  setProCommentSaving(true);
+                  try {
+                    await api.professionalUpsertAppointmentComment(appointmentId, text);
+                    toast({ title: "Comentário", description: "Comentário salvo com sucesso." });
+                    setProCommentOpen(false);
+                  } catch {
+                    toast({ title: "Comentário", description: "Não foi possível salvar agora. Tente novamente.", variant: "destructive" });
+                  } finally {
+                    setProCommentSaving(false);
+                  }
+                }}
+                disabled={proCommentSaving}
+              >
+                {proCommentSaving ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Pagamento (user): abre só com clique */}
       <Dialog

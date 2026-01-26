@@ -34,7 +34,7 @@ interface SessionData {
   type: string;
   professional: string;
   totalSessions: number;
-  status: "realizada" | "agendada" | "cancelada" | "bloqueada";
+  status: "realizada" | "agendada" | "avaliacao" | "cancelada" | "bloqueada";
   notes?: string;
   join_session?: JoinSessionMeta | null;
 }
@@ -47,6 +47,10 @@ const statusConfig = {
   agendada: {
     label: "Agendada",
     color: "bg-brand-blue/10 text-brand-blue border-brand-blue/20",
+  },
+  avaliacao: {
+    label: "Avaliação",
+    color: "bg-brand-purple/10 text-brand-purple border-brand-purple/20",
   },
   cancelada: {
     label: "Cancelada",
@@ -140,7 +144,14 @@ const AdminSessions = () => {
       type: "Sessão",
       professional: r.professional_name,
       totalSessions: r.total_sessions,
-      status: r.status === "completed" ? "realizada" : r.status === "canceled" ? "cancelada" : "agendada",
+      status:
+        r.status === "completed"
+          ? "realizada"
+          : r.status === "canceled"
+            ? "cancelada"
+            : String((r as any).session_kind || "").toLowerCase() === "evaluation"
+              ? "avaliacao"
+              : "agendada",
       join_session: r.join_session ?? null,
     }));
     setSessions(mapped);
@@ -190,8 +201,10 @@ const AdminSessions = () => {
         return da.localeCompare(db);
       });
 
-      // bolinha laranja: sessão AGENDADA hoje
-      entry.hasTodayAlert = entry.items.some((s) => s.status === "agendada" && s.date === todayYMD);
+      // bolinha laranja: sessão (agendada/avaliação) hoje
+      entry.hasTodayAlert = entry.items.some(
+        (s) => (s.status === "agendada" || s.status === "avaliacao") && s.date === todayYMD
+      );
     }
 
     // ordena usuários: primeiro quem tem bolinha laranja (sessão hoje), depois alfabético
@@ -224,7 +237,7 @@ const AdminSessions = () => {
         professional: session.professional,
         professionalUserId: "", // compat: sessões antigas não têm id; admin pode ajustar ao editar
         totalSessions: session.totalSessions ?? 1,
-        status: session.status,
+        status: session.status === "avaliacao" ? "avaliacao" : "agendada",
         notes: session.notes || "",
       });
     } else {
@@ -275,6 +288,8 @@ const AdminSessions = () => {
 
     setIsSaving(true);
     try {
+      const sessionKind =
+        formData.status === "avaliacao" ? ("evaluation" as const) : ("scheduled" as const);
       await adminCreateRecurringAppointments({
         user_id: userId,
         professional_name: formData.professional.trim(),
@@ -285,6 +300,7 @@ const AdminSessions = () => {
         start_date: formData.date,
         session_time: formData.time,
         quantity: Math.max(1, Number(formData.totalSessions) || 1),
+        session_kind: sessionKind,
       });
 
       await reloadFromBackend();
@@ -398,7 +414,7 @@ const AdminSessions = () => {
                         {(() => {
                           // Bolinha: aparece se houver sessão agendada HOJE.
                           const alert = computeTodaySessionAlert({
-                            sessions: group.items.filter((s) => s.status === "agendada"),
+                            sessions: group.items.filter((s) => s.status === "agendada" || s.status === "avaliacao"),
                             todayYMD,
                             nowMs,
                           });
@@ -431,8 +447,8 @@ const AdminSessions = () => {
                 <AccordionContent className="px-5 pb-5">
                   <div className="space-y-4">
                     {(() => {
-                      const agenda = group.items.filter((s) => s.status === "agendada");
-                      const history = group.items.filter((s) => s.status !== "agendada");
+                      const agenda = group.items.filter((s) => s.status === "agendada" || s.status === "avaliacao");
+                      const history = group.items.filter((s) => s.status !== "agendada" && s.status !== "avaliacao");
 
                       const renderCard = (session: SessionData) => (
                         <div key={session.id} className="rounded-xl border border-border p-5 shadow-sm">
@@ -498,7 +514,7 @@ const AdminSessions = () => {
                                 <Edit size={16} className="mr-2" />
                                 Editar
                               </Button>
-                              {session.status === "agendada" && (
+                              {(session.status === "agendada" || session.status === "avaliacao") && (
                                 <Button variant="secondary" size="sm" onClick={() => void handleMarkCompleted(session.id)}>
                                   <CheckCircle2 size={16} className="mr-2" />
                                   Realizada
@@ -667,11 +683,10 @@ const AdminSessions = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="agendada">Agendada</SelectItem>
-                    <SelectItem value="realizada">Realizada</SelectItem>
-                    <SelectItem value="cancelada">Cancelada</SelectItem>
-                    <SelectItem value="bloqueada">Bloqueada</SelectItem>
+                    <SelectItem value="avaliacao">Avaliação</SelectItem>
                   </SelectContent>
                 </Select>
+                <div className="text-xs text-muted-foreground">Define se este horário é uma sessão normal (Agendada) ou uma Avaliação.</div>
               </div>
 
               <div className="space-y-2">

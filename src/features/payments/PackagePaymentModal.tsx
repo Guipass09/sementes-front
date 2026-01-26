@@ -62,10 +62,12 @@ export default function PackagePaymentModal({
   const [tab, setTab] = useState<"pix" | "card">("pix");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [statusHint, setStatusHint] = useState<string>("");
   const [pix, setPix] = useState<null | { qr_code: string; qr_code_base64: string }>(null);
   const [providerPaymentId, setProviderPaymentId] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<number | null>(null);
   const [waiting, setWaiting] = useState(false);
+  const [brickNonce, setBrickNonce] = useState(0);
 
   const [payerName, setPayerName] = useState<string>("");
   const [payerEmail, setPayerEmail] = useState<string>("");
@@ -98,14 +100,15 @@ export default function PackagePaymentModal({
     payerCpfDigitsRef.current = payerCpfDigits;
   }, [payerCpfDigits]);
 
-  const brickContainerId = useMemo(() => `cardPaymentBrick_container_pkg_${customPackageId ?? "fixed"}_${packageSessions ?? "na"}`, [
-    customPackageId,
-    packageSessions,
-  ]);
+  const brickContainerId = useMemo(
+    () => `cardPaymentBrick_container_pkg_${customPackageId ?? "fixed"}_${packageSessions ?? "na"}_${brickNonce}`,
+    [customPackageId, packageSessions, brickNonce],
+  );
 
   const reset = useCallback(() => {
     setBusy(false);
     setError("");
+    setStatusHint("");
     setPix(null);
     setProviderPaymentId(null);
     setPaymentId(null);
@@ -126,6 +129,13 @@ export default function PackagePaymentModal({
           if (s.paid) {
             toastRef.current({ title: "Pagamento", description: "Pagamento confirmado." });
             onOpenChange(false);
+            return;
+          }
+          const st = String(s.status || "");
+          if (st === "rejected" || st === "cancelled") {
+            setWaiting(false);
+            setError("Pagamento negado. Confira os dados e tente novamente.");
+            setStatusHint(String(s.status_detail || ""));
           }
         })
         .catch(() => {});
@@ -208,6 +218,11 @@ export default function PackagePaymentModal({
                     if (p.status === "approved") {
                       toastRef.current({ title: "Pagamento", description: "Pagamento aprovado." });
                       onOpenChange(false);
+                    } else if (p.status === "rejected" || p.status === "cancelled") {
+                      setWaiting(false);
+                      setError("Pagamento negado. Tente novamente.");
+                      setStatusHint(String(p.status_detail || ""));
+                      toastRef.current({ title: "Pagamento", description: "Pagamento negado. Tente novamente.", variant: "destructive" });
                     } else {
                       toastRef.current({ title: "Pagamento", description: "Pagamento enviado. Aguardando confirmação..." });
                       setWaiting(true);
@@ -245,6 +260,7 @@ export default function PackagePaymentModal({
   const createPix = useCallback(async () => {
     setBusy(true);
     setError("");
+    setStatusHint("");
     setPix(null);
     const idempotencyKey = uuid();
     try {
@@ -282,6 +298,7 @@ export default function PackagePaymentModal({
     }
     setTab("pix");
     setError("");
+    setStatusHint("");
     setPayerName(String(payer?.name ?? "").trim());
     setPayerEmail(String(payer?.email ?? "").trim());
     setPayerCpfRaw("");
@@ -320,7 +337,32 @@ export default function PackagePaymentModal({
             <Separator className="my-3" />
 
             {providerPaymentId ? <div className="mt-2 text-xs text-muted-foreground">ID do pagamento: {providerPaymentId}</div> : null}
-            {error ? <div className="mt-3 text-sm text-destructive">{error}</div> : null}
+            {error ? (
+              <div className="mt-3">
+                <div className="text-sm text-destructive">{error}</div>
+                {statusHint ? <div className="mt-1 text-xs text-muted-foreground">Detalhe: {statusHint}</div> : null}
+                <div className="mt-2 flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => {
+                      setWaiting(false);
+                      setPaymentId(null);
+                      setProviderPaymentId(null);
+                      setPix(null);
+                      setError("");
+                      setStatusHint("");
+                      setBrickNonce((v) => v + 1);
+                      setTab("card");
+                    }}
+                    disabled={busy}
+                  >
+                    Tentar novamente
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
             <Separator className="my-4" />
 

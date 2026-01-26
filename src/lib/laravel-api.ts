@@ -2262,6 +2262,9 @@ export async function paymentsStatus(params: { appointment_id: number } | { paym
   payment_required: boolean;
   paid: boolean;
   paid_at: string | null;
+  status?: string | null;
+  status_detail?: string | null;
+  provider_payment_id?: string | null;
 }> {
   const q = new URLSearchParams(
     "appointment_id" in params ? { appointment_id: String(params.appointment_id) } : { payment_id: String(params.payment_id) }

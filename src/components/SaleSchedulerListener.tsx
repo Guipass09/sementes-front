@@ -92,7 +92,7 @@ export default function SaleSchedulerListener() {
     seenRef.current = loadSeen();
 
     void tick();
-    pollingRef.current = window.setInterval(() => void tick(), 7_000);
+    pollingRef.current = window.setInterval(() => void tick(), 2_000);
     return () => {
       if (pollingRef.current) window.clearInterval(pollingRef.current);
       pollingRef.current = null;

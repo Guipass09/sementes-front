@@ -315,6 +315,11 @@ export default function RtcPaymentModal({ open, onOpenChange, appointmentId, ses
       >
         <DialogHeader className="px-4 pt-[calc(env(safe-area-inset-top)+16px)] pb-3">
           <DialogTitle>Pagamento</DialogTitle>
+          <div className="mt-1">
+            <span className="inline-flex items-center rounded-full border border-brand-green/30 bg-brand-green/10 px-2.5 py-1 text-xs font-medium text-brand-green">
+              Desconto aplicado
+            </span>
+          </div>
         </DialogHeader>
 
         <div className="px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] flex-1 min-h-0 overflow-y-auto">

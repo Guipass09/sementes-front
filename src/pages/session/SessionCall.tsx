@@ -25,6 +25,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import * as api from "@/lib/laravel-api";
 import type {
   ActivityRow,
@@ -131,6 +133,10 @@ export default function SessionCall() {
   const [rtcPaymentOpen, setRtcPaymentOpen] = useState(false);
   const [rtcPaymentMeta, setRtcPaymentMeta] = useState<null | { sessions: number | null; amount: number }>(null);
   const [rtcPaymentLocked, setRtcPaymentLocked] = useState(false);
+
+  const [customPayOpen, setCustomPayOpen] = useState(false);
+  const [customPayAmount, setCustomPayAmount] = useState<string>("");
+  const [customPaySessions, setCustomPaySessions] = useState<string>("");
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDraft, setReportDraft] = useState<ReportFormDraft | null>(null);
@@ -815,7 +821,7 @@ export default function SessionCall() {
     await send("payment_link", { sessions, url });
   };
 
-  const sendPaymentRequest = async (sessions: number, amount: number) => {
+  const sendPaymentRequest = async (sessions: number | null, amount: number) => {
     if (role !== "admin") return;
     await send("payment_request", { sessions, amount });
   };
@@ -841,6 +847,15 @@ export default function SessionCall() {
         toast({ title: "Pagamento", description: "Não foi possível copiar o link.", variant: "destructive" });
       }
     }
+  };
+
+  const parseBrlAmount = (raw: string): number => {
+    const s = String(raw || "").trim();
+    if (!s) return 0;
+    // remove moeda/espaços e normaliza 1.234,56 -> 1234.56
+    const cleaned = s.replace(/[^\d.,-]/g, "").replace(/\./g, "").replace(",", ".");
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : 0;
   };
 
   // Carrega dados mínimos do paciente para pré-preencher relatório (admin)
@@ -2693,6 +2708,25 @@ export default function SessionCall() {
             <DialogTitle>Pacotes (catálogo de preços)</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="rounded-xl border border-border bg-card p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">Personalizado</div>
+                  <div className="text-xs text-muted-foreground">Defina um valor e cobre direto no app.</div>
+                </div>
+                <Button
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => {
+                    setCustomPayAmount("");
+                    setCustomPaySessions("");
+                    setCustomPayOpen(true);
+                  }}
+                >
+                  Custom
+                </Button>
+              </div>
+            </div>
             {packageCatalog.map((p) => (
               <div key={`pkg-${p.sessions}`} className="rounded-xl border border-border bg-card p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -2744,6 +2778,62 @@ export default function SessionCall() {
           }
         />
       ) : null}
+
+      {/* Cobrança personalizada (admin/profissional na transmissão) */}
+      <Dialog open={customPayOpen} onOpenChange={setCustomPayOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cobrança personalizada</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Valor total (R$)</Label>
+              <Input
+                inputMode="decimal"
+                placeholder="Ex.: 560,00"
+                value={customPayAmount}
+                onChange={(e) => setCustomPayAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sessões (opcional)</Label>
+              <Input
+                inputMode="numeric"
+                placeholder="Ex.: 9"
+                value={customPaySessions}
+                onChange={(e) => setCustomPaySessions(e.target.value)}
+              />
+              <div className="text-xs text-muted-foreground">
+                Se deixar vazio, o pagamento aparecerá apenas como “Pagamento” para o paciente.
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => setCustomPayOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="rounded-xl"
+                onClick={() => {
+                  const amount = parseBrlAmount(customPayAmount);
+                  const sessionsRaw = customPaySessions.replace(/\D/g, "");
+                  const sessionsNum = sessionsRaw ? Number(sessionsRaw) : 0;
+                  const sessions = Number.isFinite(sessionsNum) && sessionsNum > 0 ? sessionsNum : null;
+                  if (!Number.isFinite(amount) || amount <= 0) {
+                    toast({ title: "Pagamento", description: "Informe um valor válido.", variant: "destructive" });
+                    return;
+                  }
+                  void sendPaymentRequest(sessions, amount).finally(() => {
+                    setCustomPayOpen(false);
+                    setPackagesOpen(false);
+                  });
+                }}
+              >
+                Enviar cobrança
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Pagamento embutido (Pix/Cartão) */}
       {appointmentId && rtcPaymentMeta ? (

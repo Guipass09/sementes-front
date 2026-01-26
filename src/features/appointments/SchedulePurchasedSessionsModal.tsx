@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { schedulePurchasedSessions } from "@/lib/laravel-api";
+import { paymentsStatus, schedulePurchasedSessions } from "@/lib/laravel-api";
 
 type DayId = "monday" | "tuesday" | "wednesday" | "thursday" | "friday";
 
@@ -43,6 +43,8 @@ export type SaleMeta = {
   patient: { id: number; name: string };
   sessions: number;
   amount?: number;
+  paymentId?: number;
+  paymentStatus?: string | null;
   professionals?: Array<{ id: number; name: string }>;
 };
 
@@ -57,6 +59,7 @@ type Props = {
 export default function SchedulePurchasedSessionsModal({ open, onOpenChange, sale, role, onScheduled }: Props) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
+  const [paymentOk, setPaymentOk] = useState<boolean>(false);
   const [quantity, setQuantity] = useState<string>(String(sale?.sessions ?? ""));
   const [startDate, setStartDate] = useState<string>("");
   const [selectedSlots, setSelectedSlots] = useState<Array<{ dayId: DayId; time: string }>>([]);
@@ -64,6 +67,38 @@ export default function SchedulePurchasedSessionsModal({ open, onOpenChange, sal
 
   const professionalOptions = useMemo(() => sale?.professionals ?? [], [sale?.professionals]);
   const canPickProfessional = role === "admin";
+  const isAwaitingPayment = useMemo(() => {
+    const st = String(sale?.paymentStatus || "");
+    return !!sale?.paymentId && st && st !== "approved";
+  }, [sale?.paymentId, sale?.paymentStatus]);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuantity(String(sale?.sessions ?? ""));
+    setPaymentOk(String(sale?.paymentStatus || "") === "approved");
+  }, [open, sale?.sessions, sale?.paymentStatus]);
+
+  // Se a notificação veio de Pix gerado, aguarda confirmação antes de liberar o "Agendar todas"
+  useEffect(() => {
+    if (!open) return;
+    if (!sale?.paymentId) return;
+    if (!isAwaitingPayment) return;
+    let cancelled = false;
+    const id = window.setInterval(() => {
+      void paymentsStatus({ payment_id: sale.paymentId as number })
+        .then((s) => {
+          if (cancelled) return;
+          if (s.paid || String(s.status || "") === "approved") {
+            setPaymentOk(true);
+          }
+        })
+        .catch(() => {});
+    }, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [open, sale?.paymentId, isAwaitingPayment]);
 
   const toggleSlot = (dayId: DayId, time: string) => {
     const key = `${dayId}-${time}`;
@@ -139,6 +174,11 @@ export default function SchedulePurchasedSessionsModal({ open, onOpenChange, sal
               <div className="mt-1 text-sm text-muted-foreground">
                 Compra: <strong>{sale.sessions}</strong> sessões{typeof sale.amount === "number" ? ` • R$ ${sale.amount.toFixed(2)}` : ""}
               </div>
+              {isAwaitingPayment ? (
+                <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+                  Pix gerado e aguardando pagamento. O agendamento será liberado automaticamente quando o pagamento for confirmado.
+                </div>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -216,7 +256,7 @@ export default function SchedulePurchasedSessionsModal({ open, onOpenChange, sal
               <Button variant="outline" className="rounded-xl" onClick={() => onOpenChange(false)} disabled={busy}>
                 Agora não
               </Button>
-              <Button className="rounded-xl" onClick={() => void handleSubmit()} disabled={busy}>
+              <Button className="rounded-xl" onClick={() => void handleSubmit()} disabled={busy || (isAwaitingPayment && !paymentOk)}>
                 {busy ? "Agendando..." : "Agendar todas"}
               </Button>
             </div>

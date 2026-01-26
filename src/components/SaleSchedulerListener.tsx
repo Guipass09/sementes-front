@@ -37,12 +37,15 @@ function parseSaleNotification(n: AppNotificationRow): SaleMeta | null {
   const patientName = String(s?.patient_name || "Paciente");
   const paymentId = Number(s?.payment_id);
   const amount = Number(s?.amount);
+  const paymentStatus = typeof s?.payment_status === "string" ? String(s.payment_status) : null;
   const professionals = Array.isArray(s?.professionals) ? s.professionals : [];
   return {
     notificationId: n.id,
     patient: { id: patientId, name: patientName },
     sessions,
     amount: Number.isFinite(amount) ? amount : undefined,
+    paymentId: Number.isFinite(paymentId) ? paymentId : undefined,
+    paymentStatus,
     professionals: professionals
       .map((p: any) => ({ id: Number(p?.id), name: String(p?.name || "") }))
       .filter((p: any) => Number.isFinite(p.id) && p.id > 0 && p.name),

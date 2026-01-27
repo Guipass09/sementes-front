@@ -742,6 +742,28 @@ export default function AuditoryGameView() {
             </div>
           </div>
 
+          {/* Ghost do drag (touch) - deve ficar no container da sessão (fs-target),
+              para iniciar na imagem pequena e acompanhar o dedo sem "pular" pro quadro grande. */}
+          {pointerDrag && (
+            <div
+              className="absolute z-50 pointer-events-none"
+              style={{
+                left: pointerDrag.x - (fsRef.current?.getBoundingClientRect().left ?? 0),
+                top: pointerDrag.y - (fsRef.current?.getBoundingClientRect().top ?? 0),
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              <div className="w-24 sm:w-28 md:w-32 lg:w-36 aspect-square rounded-2xl overflow-hidden border border-border shadow-xl bg-card">
+                <img
+                  src={normalizeMediaUrl(items.find((i) => i.id === pointerDrag.id)?.url ?? "/placeholder.svg")}
+                  alt=""
+                  className="w-full h-full object-cover opacity-95"
+                  draggable={false}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Board */}
           <div
             ref={boardRef}
@@ -769,27 +791,6 @@ export default function AuditoryGameView() {
           <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold bg-background/70 border border-border">
             Linha central
           </div>
-
-          {/* Ghost do drag (touch) - precisa estar DENTRO do fs-target para funcionar em fullscreen nativo */}
-          {pointerDrag && (
-            <div
-              className="absolute z-50 pointer-events-none"
-              style={{
-                left: pointerDrag.x - (fsRef.current?.getBoundingClientRect().left ?? 0),
-                top: pointerDrag.y - (fsRef.current?.getBoundingClientRect().top ?? 0),
-                transform: "translate(-50%, -50%)",
-              }}
-            >
-              <div className="w-24 sm:w-28 md:w-32 lg:w-36 aspect-square rounded-2xl overflow-hidden border border-border shadow-xl bg-card">
-                <img
-                  src={normalizeMediaUrl(items.find((i) => i.id === pointerDrag.id)?.url ?? "/placeholder.svg")}
-                  alt=""
-                  className="w-full h-full object-cover opacity-95"
-                  draggable={false}
-                />
-              </div>
-            </div>
-          )}
 
           {/* Feedback */}
           {feedback?.kind === "wrong" && (

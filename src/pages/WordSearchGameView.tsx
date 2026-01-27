@@ -489,6 +489,10 @@ export default function WordSearchGameView() {
                       style={{
                         backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
                         gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                        gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))`,
+                        // Mobile: evita "overlap" quando o tamanho calculado não bate com o tamanho real do container.
+                        // O grid passa a definir o tamanho das células; os botões apenas ocupam 100% da célula.
+                        aspectRatio: "1 / 1",
                       }}
                     >
                       {grid.map((row, rIdx) =>
@@ -496,24 +500,9 @@ export default function WordSearchGameView() {
                           const key = `${rIdx}-${cIdx}`;
                           const isRemoved = removedCells.has(key);
                           const isInFoundWord = isCellInFoundWord(rIdx, cIdx);
-                          
-                          // Cálculo responsivo para mobile e desktop
-                          const isMobile = window.innerWidth < 640;
-                          const maxSize = isMobile
-                            ? Math.min(
-                                Math.floor((window.innerWidth * 0.45) / gridSize),
-                                Math.floor((window.innerHeight * 0.6) / gridSize),
-                              )
-                            : Math.min(
-                                Math.floor((window.innerWidth * 0.4) / gridSize),
-                                Math.floor((window.innerHeight * 0.7) / gridSize),
-                              );
-                          const cellSize = isMobile 
-                            ? Math.max(18, Math.min(28, maxSize))
-                            : Math.max(24, Math.min(36, maxSize));
 
                           if (isRemoved) {
-                            return <div key={key} className="w-full h-full aspect-square" style={{ width: cellSize, height: cellSize }} />;
+                            return <div key={key} className="w-full h-full" />;
                           }
 
                           // Aplicar cores personalizadas corretamente
@@ -527,15 +516,14 @@ export default function WordSearchGameView() {
                               onClick={() => onCellClick(rIdx, cIdx)}
                               disabled={lock || pendingWordId !== null}
                               className={cn(
-                                "w-full aspect-square rounded text-center font-bold transition-colors",
+                                "w-full h-full rounded text-center font-bold transition-colors flex items-center justify-center leading-none",
                                 isInFoundWord
                                   ? "bg-brand-green text-white shadow-md"
                                   : "hover:opacity-80 border",
                               )}
                               style={{
-                                width: cellSize,
-                                height: cellSize,
-                                fontSize: `${Math.max(12, cellSize * 0.5)}px`,
+                                // O tamanho agora é definido pelo grid; ajusta apenas tipografia.
+                                fontSize: "clamp(10px, 3.2vw, 18px)",
                                 backgroundColor: isInFoundWord ? undefined : bgColor,
                                 color: isInFoundWord ? undefined : letterColor,
                                 borderColor: isInFoundWord ? undefined : `${letterColor}40`,
@@ -673,7 +661,9 @@ export default function WordSearchGameView() {
                             style={{
                               backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
                               gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
+                              gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))`,
                               maxHeight: "100%",
+                              aspectRatio: "1 / 1",
                             }}
                           >
                             {grid.map((row, rIdx) =>
@@ -681,14 +671,9 @@ export default function WordSearchGameView() {
                                 const key = `${rIdx}-${cIdx}`;
                                 const isRemoved = removedCells.has(key);
                                 const isInFoundWord = isCellInFoundWord(rIdx, cIdx);
-                                const maxSize = Math.min(
-                                  Math.floor((window.innerWidth * 0.35) / gridSize),
-                                  Math.floor((window.innerHeight * 0.5) / gridSize),
-                                );
-                                const cellSize = Math.max(22, Math.min(32, maxSize));
 
                                 if (isRemoved) {
-                                  return <div key={key} className="w-full h-full aspect-square" style={{ width: cellSize, height: cellSize }} />;
+                                  return <div key={key} className="w-full h-full" />;
                                 }
 
                                 return (
@@ -698,15 +683,13 @@ export default function WordSearchGameView() {
                                     onClick={() => onCellClick(rIdx, cIdx)}
                                     disabled={lock || pendingWordId !== null}
                                     className={cn(
-                                      "w-full aspect-square rounded text-center font-bold transition-colors",
+                                      "w-full h-full rounded text-center font-bold transition-colors flex items-center justify-center leading-none",
                                       isInFoundWord
                                         ? "bg-brand-green text-white shadow-md"
                                         : "hover:opacity-80 border",
                                     )}
                                     style={{
-                                      width: cellSize,
-                                      height: cellSize,
-                                      fontSize: `${Math.max(16, cellSize * 0.55)}px`,
+                                      fontSize: "clamp(12px, 2.2vw, 18px)",
                                       backgroundColor: isInFoundWord ? undefined : (game.grid_background_color || '#000000'),
                                       color: isInFoundWord ? undefined : (game.letter_color || '#FFFFFF'),
                                       borderColor: isInFoundWord ? undefined : `${game.letter_color || '#FFFFFF'}40`,

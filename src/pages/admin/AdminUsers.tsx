@@ -1017,11 +1017,12 @@ const AdminUsers = () => {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => openUserProfile(user)}
+                    className="w-full sm:w-auto"
                   >
                     <Eye size={16} className="mr-2" />
                     Ver Perfil
@@ -1030,6 +1031,7 @@ const AdminUsers = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => void openAssignProfessionals(user)}
+                    className="w-full sm:w-auto"
                   >
                     <Share2 size={16} className="mr-2" />
                     Encaminhar
@@ -1038,7 +1040,7 @@ const AdminUsers = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => void handleDeleteUser(user)}
-                    className="text-destructive hover:text-destructive"
+                    className="w-full sm:w-auto text-destructive hover:text-destructive"
                   >
                     <Trash2 size={16} className="mr-2" />
                     Excluir
@@ -1047,6 +1049,7 @@ const AdminUsers = () => {
                     variant={user.blocked ? "default" : "destructive"}
                     size="sm"
                     onClick={() => handleSetBlocked(user.id, !user.blocked)}
+                    className="w-full sm:w-auto"
                   >
                     {user.blocked ? (
                       <>
@@ -1115,7 +1118,7 @@ const AdminUsers = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:w-auto">
                     <Button variant="outline" size="sm" onClick={() => openProfessionalProfile(p)}>
                       <Eye size={16} className="mr-2" />
                       Ver Perfil
@@ -1127,7 +1130,7 @@ const AdminUsers = () => {
                         setDeleteProfessionalTarget(p);
                         setDeleteProfessionalOpen(true);
                       }}
-                      className="text-destructive hover:text-destructive"
+                      className="w-full sm:w-auto text-destructive hover:text-destructive"
                     >
                       <Trash2 size={16} className="mr-2" />
                       Excluir
@@ -1136,6 +1139,7 @@ const AdminUsers = () => {
                       variant={p.blocked ? "default" : "destructive"}
                       size="sm"
                       onClick={() => handleSetBlockedProfessional(p.id, !p.blocked)}
+                      className="w-full sm:w-auto"
                     >
                       {p.blocked ? (
                         <>

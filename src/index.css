@@ -194,6 +194,27 @@
   }
 }
 
+/* Sessão ao vivo (mobile retrato): aumentar levemente a área de atividade.
+   - Não altera layout/posição (somente altura do "conteúdo")
+   - Atividade (/atividades/:id) é carrossel => um pouco maior */
+@media (orientation: portrait) and (max-width: 1023px) {
+  .sc-session-content .sc-content-area {
+    height: 58svh;
+  }
+  .sc-session-content .sc-content-area.sc-content-area--carousel {
+    height: 61svh;
+  }
+}
+
+@media (orientation: portrait) and (min-width: 640px) and (max-width: 1023px) {
+  .sc-session-content .sc-content-area {
+    height: 60svh;
+  }
+  .sc-session-content .sc-content-area.sc-content-area--carousel {
+    height: 63svh;
+  }
+}
+
 /* Alguns conteúdos (ex.: Roleta na transmissão) precisam SEMPRE caber sem scroll dentro do iframe */
 .fs-target.fs-no-scroll:fullscreen,
 .fs-target.fs-no-scroll:-webkit-full-screen,

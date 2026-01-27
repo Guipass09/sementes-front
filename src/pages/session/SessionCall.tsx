@@ -2042,6 +2042,17 @@ export default function SessionCall() {
     }
   })();
 
+  const isCarouselActivity = (() => {
+    if (!iframeSrc) return false;
+    try {
+      const url = new URL(iframeSrc, window.location.origin);
+      // Atividade (rota /atividades/:id) usa carrossel de mídia; no mobile vertical damos um pouco mais de altura.
+      return url.pathname.startsWith("/atividades/");
+    } catch {
+      return String(iframeSrc).startsWith("/atividades/");
+    }
+  })();
+
   return (
     <div className="min-h-[100svh] bg-background">
       <div className="mx-auto max-w-[1400px] px-4 py-4 lg:py-6">
@@ -2065,6 +2076,7 @@ export default function SessionCall() {
               ref={contentAreaRef}
               className={cn(
                 "sc-content-area relative w-full",
+                isCarouselActivity ? "sc-content-area--carousel" : null,
                 // Mobile: mantém mais compacto para caber controles e vídeos
                 "h-[55vh] sm:h-[58vh]",
                 // Desktop/notebooks: mais alto para não "achatar" e evitar corte em telas 768px de altura

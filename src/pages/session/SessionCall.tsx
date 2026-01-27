@@ -779,6 +779,20 @@ export default function SessionCall() {
     }
   };
 
+  // Garante que o iframe (jogo/atividade) sempre receba o estado atual de controle.
+  // Isso evita o caso em que o controle já foi liberado, mas o iframe recarrega/remonta (mobile)
+  // e não "pega" o SESSION_CONTROL (ficando travado, apesar de receber updates do admin).
+  useEffect(() => {
+    if (!iframeSrc) return;
+    postToContentFrame({ type: "SESSION_CONTROL", granted: controlGranted });
+    // pequeno retry para cobrir o timing do listener dentro do iframe em iOS/Safari
+    const t = window.setTimeout(() => {
+      postToContentFrame({ type: "SESSION_CONTROL", granted: controlGranted });
+    }, 250);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iframeSrc, controlGranted]);
+
   const unlockContentSfx = () => {
     // "Ping" para destravar WebAudio/SFX no contexto do iframe (jogos/atividades).
     postToContentFrame({ type: "SESSION_UNLOCK_SFX" });
@@ -2165,6 +2179,8 @@ export default function SessionCall() {
                   title="Conteúdo da sessão"
                   onLoad={() => {
                     setContentLoading(false);
+                    // Após load do iframe, reenviar o estado de controle (mobile pode montar o listener depois).
+                    postToContentFrame({ type: "SESSION_CONTROL", granted: controlGranted });
                   }}
                   onError={() => {
                     // Se houver erro no iframe, remove loading após delay

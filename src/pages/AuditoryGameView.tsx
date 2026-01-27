@@ -553,13 +553,26 @@ export default function AuditoryGameView() {
       pointerDragIdRef.current = null;
     };
 
-    window.addEventListener("pointermove", onMove, { passive: false } as any);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onCancel);
+    // Fallback iOS: em alguns cenários o pointerup não chega no window.
+    // Usamos o último ponto conhecido do pointerDrag.
+    const onTouchEndFallback = () => {
+      if (!pointerDragIdRef.current) return;
+      const last = pointerDrag;
+      endPointerDrag(last.x, last.y);
+    };
+
+    // Usa capture para aumentar confiabilidade no Safari/iOS com pointer capture.
+    window.addEventListener("pointermove", onMove, { passive: false, capture: true } as any);
+    window.addEventListener("pointerup", onUp, { capture: true } as any);
+    window.addEventListener("pointercancel", onCancel, { capture: true } as any);
+    window.addEventListener("touchend", onTouchEndFallback, { passive: true, capture: true } as any);
+    window.addEventListener("touchcancel", onTouchEndFallback, { passive: true, capture: true } as any);
     return () => {
-      window.removeEventListener("pointermove", onMove as any);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onCancel);
+      window.removeEventListener("pointermove", onMove as any, { capture: true } as any);
+      window.removeEventListener("pointerup", onUp as any, { capture: true } as any);
+      window.removeEventListener("pointercancel", onCancel as any, { capture: true } as any);
+      window.removeEventListener("touchend", onTouchEndFallback as any, { capture: true } as any);
+      window.removeEventListener("touchcancel", onTouchEndFallback as any, { capture: true } as any);
     };
   }, [pointerDrag, endPointerDrag]);
 

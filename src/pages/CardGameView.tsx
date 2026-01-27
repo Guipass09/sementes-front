@@ -198,6 +198,11 @@ export default function CardGameView() {
           return;
         }
 
+        if (evt.kind === "congrats_close") {
+          setCongratsOpen(false);
+          return;
+        }
+
         if (evt.kind === "shuffle") {
           const count = Number(evt.cards_count);
           const seed = Number(evt.seed);
@@ -625,7 +630,15 @@ export default function CardGameView() {
         `}</style>
       </div>
 
-      <Dialog open={congratsOpen} onOpenChange={setCongratsOpen}>
+      <Dialog
+        open={congratsOpen}
+        onOpenChange={(open) => {
+          setCongratsOpen(open);
+          if (!open && inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+            emitSessionEvent({ game: "cards", kind: "congrats_close" });
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Parabéns!</DialogTitle>
@@ -634,7 +647,15 @@ export default function CardGameView() {
             Você virou todas as cartas do baralho. Quer embaralhar e jogar novamente?
           </div>
           <div className="mt-4 flex items-center justify-end gap-2">
-            <Button variant="outline" onClick={() => setCongratsOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCongratsOpen(false);
+                if (inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+                  emitSessionEvent({ game: "cards", kind: "congrats_close" });
+                }
+              }}
+            >
               Fechar
             </Button>
             <Button className="bg-brand-brown hover:bg-brand-brown/90" onClick={doShuffle}>

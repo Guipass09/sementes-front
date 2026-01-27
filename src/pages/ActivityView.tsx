@@ -264,6 +264,16 @@ const ActivityView = () => {
       if (!evt || typeof evt !== "object") return;
       if (evt.game !== "activity") return;
 
+      if (evt.kind === "congrats_close") {
+        applyingRemoteRef.current = true;
+        try {
+          setFinishCongratsOpen(false);
+        } finally {
+          window.setTimeout(() => (applyingRemoteRef.current = false), 0);
+        }
+        return;
+      }
+
       if (evt.kind === "slide") {
         const idx = Number(evt.idx);
         if (!carouselApi) return;
@@ -759,7 +769,12 @@ const ActivityView = () => {
       {/* Modal: parabéns (atividade concluída) */}
       <BrandedCongratsDialog
         open={finishCongratsOpen}
-        onOpenChange={setFinishCongratsOpen}
+        onOpenChange={(open) => {
+          setFinishCongratsOpen(open);
+          if (!open && inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+            emitSessionEvent({ game: "activity", kind: "congrats_close" });
+          }
+        }}
         title="Atividade concluída!"
         description="Parabéns — seu progresso foi salvo com sucesso."
         primaryLabel="Voltar"

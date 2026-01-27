@@ -159,6 +159,10 @@ export default function WordSearchGameView() {
 
       applyingRemoteRef.current = true;
       try {
+        if (evt.kind === "congrats_close") {
+          setCelebrate(false);
+          return;
+        }
         if (evt.kind === "reset") {
           setFoundWords(new Set());
           setFoundImages(new Set());
@@ -792,7 +796,12 @@ export default function WordSearchGameView() {
 
       <BrandedCongratsDialog
         open={celebrate}
-        onOpenChange={setCelebrate}
+        onOpenChange={(open) => {
+          setCelebrate(open);
+          if (!open && inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+            emitSessionEvent({ game: "wordsearch", kind: "congrats_close" });
+          }
+        }}
         title="Parabéns!"
         description="Você concluiu o jogo."
         primaryLabel="Fechar"

@@ -343,6 +343,8 @@ export default function SessionCall() {
       armed: false,
       fired: false,
       startY: 0,
+      startX: 0,
+      startAt: 0,
       mode: "" as "" | "top" | "bottom",
     };
 
@@ -366,12 +368,21 @@ export default function SessionCall() {
       stateRef.fired = false;
       stateRef.mode = "";
       stateRef.startY = e.touches[0].clientY;
+      stateRef.startX = e.touches[0].clientX;
+      stateRef.startAt = Date.now();
+
+      // Para ficar menos sensível: só arma se o gesto começar perto da borda (topo/rodapé).
+      const edgeZonePx = 80;
       if (atTop()) {
-        stateRef.armed = true;
-        stateRef.mode = "top";
+        if (stateRef.startY <= edgeZonePx) {
+          stateRef.armed = true;
+          stateRef.mode = "top";
+        }
       } else if (atBottom()) {
-        stateRef.armed = true;
-        stateRef.mode = "bottom";
+        if (stateRef.startY >= window.innerHeight - edgeZonePx) {
+          stateRef.armed = true;
+          stateRef.mode = "bottom";
+        }
       }
     };
 
@@ -380,17 +391,26 @@ export default function SessionCall() {
       if (!e.touches?.length) return;
       if (drawOn) return;
       if (gestureRefreshDisabled) return;
+      const x = e.touches[0].clientX;
       const y = e.touches[0].clientY;
+      const dx = x - stateRef.startX;
       const dy = y - stateRef.startY;
-      const threshold = 90; // px
+
+      // Ignora gestos mais "horizontais" (ex.: carrossel/arrasto lateral).
+      if (Math.abs(dy) < Math.abs(dx) * 1.15) return;
+
+      // Menos sensível: precisa puxar mais e por mais tempo.
+      const minMs = 320;
+      const threshold = 180; // px
+      if (Date.now() - stateRef.startAt < minMs) return;
 
       if (stateRef.mode === "top") {
-        if (dy > threshold) {
+        if (dy > threshold && atTop()) {
           stateRef.fired = true;
           refreshPage();
         }
       } else if (stateRef.mode === "bottom") {
-        if (dy < -threshold) {
+        if (dy < -threshold && atBottom()) {
           stateRef.fired = true;
           refreshPage();
         }

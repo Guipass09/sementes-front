@@ -296,7 +296,19 @@ export default function MemoryGameView() {
       const evt = data.event;
       if (!evt || typeof evt !== "object") return;
 
-  // seed pode chegar via evento inicial do admin (compat)
+      if (evt.kind === "congrats_close") {
+        applyingRemoteRef.current = true;
+        try {
+          setWinAnim(false);
+        } finally {
+          window.setTimeout(() => {
+            applyingRemoteRef.current = false;
+          }, 0);
+        }
+        return;
+      }
+
+      // seed pode chegar via evento inicial do admin (compat)
       if (evt.kind === "seed" && typeof evt.seed === "number") {
         sessionSeedRef.current = evt.seed;
         setSessionSeed(evt.seed);
@@ -947,7 +959,12 @@ export default function MemoryGameView() {
       {/* Comemoração ao finalizar */}
       <BrandedCongratsDialog
         open={winAnim}
-        onOpenChange={setWinAnim}
+        onOpenChange={(open) => {
+          setWinAnim(open);
+          if (!open && inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+            emitSessionEvent({ game: "memory", kind: "congrats_close" });
+          }
+        }}
         title="Parabéns!"
         description="Você encontrou todos os pares."
         primaryLabel="Jogar novamente"

@@ -115,6 +115,19 @@ export default function HangmanGameView() {
       const evt = data.event;
       if (!evt || typeof evt !== "object") return;
       if (evt.game !== "hangman") return;
+
+      if (evt.kind === "congrats_close") {
+        applyingRemoteRef.current = true;
+        try {
+          setShowWinOverlay(false);
+        } finally {
+          window.setTimeout(() => {
+            applyingRemoteRef.current = false;
+          }, 0);
+        }
+        return;
+      }
+
       if (evt.kind !== "state") return;
 
       const st = evt.state || {};
@@ -597,7 +610,12 @@ export default function HangmanGameView() {
 
       <BrandedCongratsDialog
         open={showWinOverlay}
-        onOpenChange={setShowWinOverlay}
+        onOpenChange={(open) => {
+          setShowWinOverlay(open);
+          if (!open && inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+            emitSessionEvent({ game: "hangman", kind: "congrats_close" });
+          }
+        }}
         title="Parabéns!"
         description="Você completou a palavra."
         primaryLabel="Fechar"

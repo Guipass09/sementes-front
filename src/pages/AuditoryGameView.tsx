@@ -268,6 +268,16 @@ export default function AuditoryGameView() {
       if (!evt || typeof evt !== "object") return;
       if (evt.game !== "auditory") return;
 
+      if (evt.kind === "congrats_close") {
+        applyingRemoteRef.current = true;
+        try {
+          setCelebrate(false);
+        } finally {
+          window.setTimeout(() => (applyingRemoteRef.current = false), 0);
+        }
+        return;
+      }
+
       if (evt.kind === "restart") {
         applyingRemoteRef.current = true;
         try {
@@ -818,7 +828,12 @@ export default function AuditoryGameView() {
           {/* Celebration overlay */}
           <BrandedCongratsDialog
             open={celebrate}
-            onOpenChange={setCelebrate}
+            onOpenChange={(open) => {
+              setCelebrate(open);
+              if (!open && inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+                emitSessionEvent({ game: "auditory", kind: "congrats_close" });
+              }
+            }}
             title="Parabéns!"
             description="Você concluiu o jogo."
             primaryLabel="Fechar"

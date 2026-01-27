@@ -162,6 +162,10 @@ export default function PhonemeGameView() {
 
       applyingRemoteRef.current = true;
       try {
+        if (evt.kind === "congrats_close") {
+          setCelebrate(false);
+          return;
+        }
         if (evt.kind === "reset") {
           setIdx(0);
           setShakeSide(null);
@@ -417,7 +421,12 @@ export default function PhonemeGameView() {
       {/* Celebration modal */}
       <BrandedCongratsDialog
         open={celebrate}
-        onOpenChange={setCelebrate}
+        onOpenChange={(open) => {
+          setCelebrate(open);
+          if (!open && inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+            emitSessionEvent({ game: "phoneme", kind: "congrats_close" });
+          }
+        }}
         title="Parabéns!"
         description="Você concluiu o jogo."
         primaryLabel="Fechar"

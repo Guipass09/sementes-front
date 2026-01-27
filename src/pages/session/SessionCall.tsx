@@ -2200,17 +2200,25 @@ export default function SessionCall() {
           <div className="sc-session-cams order-1 lg:order-2">
             {/* Retrato (celular): 2 vídeos lado a lado em cima.
                 Paisagem/desktop: vídeos empilhados. (paisagem mobile é forçada via CSS em index.css) */}
-            <div className="sc-session-cams-inner grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-4">
+            <div
+              className={cn(
+                "sc-session-cams-inner grid grid-cols-2 gap-2",
+                // Desktop: a coluna de vídeos deve acompanhar exatamente a altura da área de atividade (sc-content-area)
+                "lg:flex lg:flex-col lg:gap-4 lg:h-[76svh] lg:max-h-[860px] lg:min-h-[560px]"
+              )}
+            >
               <div
                 className={cn(
-                  "rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150",
+                  "rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150 flex flex-col",
+                  // Desktop: metade exata da altura disponível (considerando gap-4 => 1rem, divide 0.5rem por card)
+                  "lg:h-[calc(50%-0.5rem)] lg:min-h-0",
                   remoteSpeaking ? "border-brand-green shadow-[0_0_0_2px_rgba(34,197,94,0.35)]" : "border-border"
                 )}
               >
                 <div className="px-3 py-2 text-xs font-semibold text-foreground border-b border-border">
                   {role === "admin" ? "Paciente" : "Fonoaudióloga"}
                 </div>
-                <div className="relative aspect-[4/3] bg-black">
+                <div className="relative aspect-[4/3] bg-black lg:aspect-auto lg:flex-1 lg:min-h-0">
                   <video
                     ref={remoteVideoRef}
                     autoPlay
@@ -2246,14 +2254,16 @@ export default function SessionCall() {
 
               <div
                 className={cn(
-                  "rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150",
+                  "rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150 flex flex-col",
+                  // Desktop: metade exata da altura disponível (considerando gap-4 => 1rem, divide 0.5rem por card)
+                  "lg:h-[calc(50%-0.5rem)] lg:min-h-0",
                   localSpeaking ? "border-brand-orange shadow-[0_0_0_2px_rgba(249,115,22,0.35)]" : "border-border"
                 )}
               >
                 <div className="px-3 py-2 text-xs font-semibold text-foreground border-b border-border">
                   {role === "admin" ? "Você (admin)" : "Você"}
                 </div>
-                <div className="relative aspect-[4/3] bg-black">
+                <div className="relative aspect-[4/3] bg-black lg:aspect-auto lg:flex-1 lg:min-h-0">
                   <video ref={localVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
                   <div className="absolute left-2 bottom-2 z-10">
                     <div className="inline-flex items-center gap-2 rounded-full bg-black/60 text-white px-3 py-1.5 shadow-sm">

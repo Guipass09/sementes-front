@@ -107,6 +107,7 @@ export default function SessionCall() {
   const [inviteEmailSubmitted, setInviteEmailSubmitted] = useState<string | null>(null);
   const [cursor, setCursor] = useState(0);
   const cursorRef = useRef(0);
+  const [pendingOfferAvailable, setPendingOfferAvailable] = useState(false);
   const [epoch, setEpoch] = useState<string | null>(null);
   const epochRef = useRef<string | null>(null);
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
@@ -926,6 +927,16 @@ export default function SessionCall() {
     return { type: type as any, sdp };
   };
 
+  const isInAppBrowser = useMemo(() => {
+    try {
+      const ua = String(navigator.userAgent || "").toLowerCase();
+      // WhatsApp / Instagram / Facebook in-app browsers (iOS/Android)
+      return ua.includes("whatsapp") || ua.includes("instagram") || ua.includes("fbav") || ua.includes("fban");
+    } catch {
+      return false;
+    }
+  }, []);
+
   const selectContent = async (path: string, title: string, kind: string) => {
     if (!path) return;
     // Ao trocar conteúdo, limpa rabiscos (efeito "compartilhamento de tela" por atividade)
@@ -1225,6 +1236,7 @@ export default function SessionCall() {
       // Guardar o offer até o usuário iniciar câmera/microfone (garante 2-way)
       if (mediaState !== "ready") {
         pendingOfferRef.current = sdp;
+        setPendingOfferAvailable(true);
         return;
       }
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
@@ -1991,6 +2003,7 @@ export default function SessionCall() {
       if (role === "user" && pendingOfferRef.current && pcRef.current) {
         const sdp = normalizeSdpInit(pendingOfferRef.current);
         pendingOfferRef.current = null;
+        setPendingOfferAvailable(false);
         if (!sdp) throw new Error("SDP inválido (offer pendente).");
         await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
         await flushPendingIce();
@@ -2016,10 +2029,53 @@ export default function SessionCall() {
           ? "Não foi possível iniciar a câmera (ela pode estar em uso por outro app/aba)."
           : "Falha ao iniciar câmera/microfone.";
 
+      // Dica importante: em navegadores dentro do WhatsApp/Instagram no iPhone, WebRTC/permiteções falham.
+      if (isInAppBrowser) {
+        setMediaError(
+          "Parece que você abriu o link dentro do WhatsApp/Instagram. No iPhone isso costuma bloquear câmera/microfone. Toque em “Abrir no Safari” e tente novamente."
+        );
+      }
+
       const full = details ? `${msg} (${name}: ${details})` : `${msg} (${name})`;
       setMediaState("failed");
       setMediaError(full);
       toast({ title: "WebRTC", description: msg, variant: "destructive" });
+    }
+  };
+
+  const acceptWithoutMedia = async () => {
+    try {
+      await ensurePeer();
+      const pc = pcRef.current;
+      const raw = pendingOfferRef.current;
+      if (!pc || !raw) {
+        toast({ title: "Sessão", description: "Ainda não recebi a conexão do outro participante.", variant: "destructive" });
+        return;
+      }
+      const sdp = normalizeSdpInit(raw);
+      pendingOfferRef.current = null;
+      setPendingOfferAvailable(false);
+      if (!sdp) {
+        toast({ title: "Sessão", description: "Oferta inválida. Tente novamente.", variant: "destructive" });
+        return;
+      }
+
+      // Atenção: isso conecta em modo “somente receber” (sem enviar áudio/vídeo).
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      await flushPendingIce();
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await send("webrtc_answer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+
+      setMediaState("ready");
+      setStatusLabel("Conectado (sem câmera/microfone)");
+      toast({
+        title: "Conectado",
+        description: "Você entrou sem câmera/microfone. Para falar/mostrar vídeo, saia e entre novamente em um navegador compatível.",
+      });
+    } catch (e) {
+      console.error("[WebRTC] acceptWithoutMedia falhou", e);
+      toast({ title: "WebRTC", description: "Não foi possível conectar agora.", variant: "destructive" });
     }
   };
 
@@ -2612,16 +2668,19 @@ export default function SessionCall() {
         description={
           mediaError
             ? mediaError
-            : "Para continuar a sessão, precisamos que você permita o uso da câmera e do microfone."
+            : isInAppBrowser
+              ? "Se você abriu pelo WhatsApp/Instagram, no iPhone pode não funcionar. Abra no Safari. Para continuar, permita câmera e microfone."
+              : "Para continuar a sessão, precisamos que você permita o uso da câmera e do microfone."
         }
         confirmLabel={mediaState === "requesting" ? "Iniciando…" : "Iniciar câmera e microfone"}
-        cancelLabel={null}
+        cancelLabel={role === "user" && mediaState === "failed" && pendingOfferAvailable ? "Entrar sem câmera/mic" : null}
         variant="success"
         hideClose
         disableClose
         confirmDisabled={mediaState === "requesting"}
         confirmClassName="h-12 text-base rounded-2xl"
         onConfirm={() => void startMedia()}
+        onCancel={() => void acceptWithoutMedia()}
       />
 
       {/* Encerrar chamada (admin) */}

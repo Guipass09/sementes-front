@@ -1,7 +1,7 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { ReportFormDraft } from "@/features/reports/ReportFormModal";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Clock3,
   FileText,
@@ -38,7 +38,17 @@ import type {
   CardGameRow,
 } from "@/lib/laravel-api";
 import type { PhonemeGameRow } from "@/lib/laravel-api";
-import { isApiError, videoJoin, videoPoll, videoSendCommand, type VideoJoinResponse, type VideoPollMessage } from "@/lib/laravel-api";
+import {
+  isApiError,
+  videoJoin,
+  videoJoinInvite,
+  videoPoll,
+  videoPollInvite,
+  videoSendCommand,
+  videoSendCommandInvite,
+  type VideoJoinResponse,
+  type VideoPollMessage,
+} from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { playFanfare } from "@/lib/sfx";
 import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
@@ -63,8 +73,18 @@ function safeStopStream(s: MediaStream | null) {
 export default function SessionCall() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+
+  const inviteToken = useMemo(() => {
+    const t =
+      searchParams.get("invite_token") ||
+      searchParams.get("invite") ||
+      searchParams.get("token") ||
+      "";
+    return t.trim() ? t.trim() : null;
+  }, [searchParams]);
 
   const appRole = useMemo(() => {
     const raw = String(user?.role ?? "").toLowerCase().trim();
@@ -81,6 +101,9 @@ export default function SessionCall() {
   const [joining, setJoining] = useState(true);
   const [joinInfo, setJoinInfo] = useState<VideoJoinResponse | null>(null);
   const [role, setRole] = useState<Role | null>(null);
+  const [inviteEmailOpen, setInviteEmailOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteEmailSubmitted, setInviteEmailSubmitted] = useState<string | null>(null);
   const [cursor, setCursor] = useState(0);
   const cursorRef = useRef(0);
   const [epoch, setEpoch] = useState<string | null>(null);
@@ -245,6 +268,11 @@ export default function SessionCall() {
   const resumeInFlightRef = useRef(false);
 
   const goBack = (markCompleted?: boolean) => {
+    // Se entrou via link público (sem login), volta para o login.
+    if (!user) {
+      navigate("/entrar");
+      return;
+    }
     if (appRole === "admin") {
       navigate("/admin/horarios");
       return;
@@ -272,8 +300,19 @@ export default function SessionCall() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/entrar");
-  }, [authLoading, user, navigate]);
+    // Sem login: só permite permanecer aqui se veio por link público (invite_token).
+    if (!authLoading && !user && !inviteToken) navigate("/entrar");
+  }, [authLoading, user, inviteToken, navigate]);
+
+  // Link público: pede e-mail antes de entrar (passo obrigatório).
+  useEffect(() => {
+    if (authLoading) return;
+    if (user) return;
+    if (!inviteToken) return;
+    // Se já entrou, não reabrir.
+    if (joinInfo) return;
+    setInviteEmailOpen(true);
+  }, [authLoading, user, inviteToken, joinInfo]);
 
   const tryClearCaches = useCallback(async () => {
     // Melhor esforço: em PWA/cache agressivo, limpar caches ajuda em atualizações.
@@ -484,9 +523,15 @@ export default function SessionCall() {
 
   // Join room (backend), then set up WebRTC lazily
   useEffect(() => {
-    if (!user) return;
     if (!appointmentId) return;
     if (joiningRef.current) return;
+
+    const isAuthed = !!user;
+    const isInviteFlow = !user && !!inviteToken;
+    const canInviteJoin = isInviteFlow && !!inviteEmailSubmitted;
+
+    if (!isAuthed && !canInviteJoin) return;
+
     joiningRef.current = true;
 
     let cancelled = false;
@@ -511,7 +556,13 @@ export default function SessionCall() {
       }, 30000);
       
       try {
-        const res = await videoJoin(appointmentId);
+        const res = isAuthed
+          ? await videoJoin(appointmentId)
+          : await videoJoinInvite({
+              appointment_id: appointmentId,
+              invite_token: inviteToken as string,
+              email: inviteEmailSubmitted as string,
+            });
         if (cancelled) return;
         if (timeoutId) clearTimeout(timeoutId);
         
@@ -543,6 +594,8 @@ export default function SessionCall() {
         setStatusLabel("Toque em “Iniciar câmera e microfone”");
         setMediaState("idle");
         setMediaError(null);
+        // Fecha gate de e-mail (invite) após join bem-sucedido
+        setInviteEmailOpen(false);
         joiningRef.current = false; // Reset para permitir novo join se necessário
       } catch (e) {
         if (cancelled) return;
@@ -568,15 +621,23 @@ export default function SessionCall() {
 
         const msg =
           isApiError(e) && e.status === 403
-            ? "Essa sessão ainda não está disponível. Tente mais perto do horário."
+            ? (typeof (e as any)?.data?.message === "string" && (e as any).data.message
+                ? String((e as any).data.message)
+                : "Essa sessão ainda não está disponível. Tente mais perto do horário.")
             : "Não foi possível entrar na sessão.";
         toast({ title: "Sessão", description: msg, variant: "destructive" });
         setJoinInfo(null);
         setRole(null);
         setJoining(false);
+        // Se foi invite e falhou, reabre o gate para tentar novamente (ex.: e-mail errado)
+        if (!user && inviteToken) {
+          setInviteEmailOpen(true);
+          setInviteEmailSubmitted(null);
+          return;
+        }
         // volta para lista
         setTimeout(() => {
-          goBack((user?.role as any) === "admin" ? "admin" : "user");
+          goBack(false);
         }, 2000); // Delay para mostrar o toast
       } finally {
         if (!cancelled && timeoutId) clearTimeout(timeoutId);
@@ -590,7 +651,7 @@ export default function SessionCall() {
       joiningRef.current = false; // Reset ao desmontar
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appointmentId, user]);
+  }, [appointmentId, user, inviteToken, inviteEmailSubmitted]);
 
   // Attach streams to video elements
   useEffect(() => {
@@ -763,12 +824,23 @@ export default function SessionCall() {
 
   const send = async (kind: string, payload?: any) => {
     if (!joinInfo) return;
-    await videoSendCommand({
-      appointment_id: joinInfo.sessionId,
-      token: joinInfo.token,
-      kind,
-      payload,
-    });
+    const isInvite = !user && !!inviteToken;
+    if (isInvite) {
+      await videoSendCommandInvite({
+        appointment_id: joinInfo.sessionId,
+        invite_token: inviteToken as string,
+        token: joinInfo.token,
+        kind,
+        payload,
+      });
+    } else {
+      await videoSendCommand({
+        appointment_id: joinInfo.sessionId,
+        token: joinInfo.token,
+        kind,
+        payload,
+      });
+    }
   };
 
   const postToContentFrame = (msg: any) => {
@@ -1375,11 +1447,19 @@ export default function SessionCall() {
       if (inFlight) return;
       inFlight = true;
       try {
-        const res = await videoPoll({
-          appointment_id: joinInfo.sessionId,
-          token: joinInfo.token,
-          after_id: cursorRef.current,
-        });
+        const isInvite = !user && !!inviteToken;
+        const res = isInvite
+          ? await videoPollInvite({
+              appointment_id: joinInfo.sessionId,
+              invite_token: inviteToken as string,
+              token: joinInfo.token,
+              after_id: cursorRef.current,
+            })
+          : await videoPoll({
+              appointment_id: joinInfo.sessionId,
+              token: joinInfo.token,
+              after_id: cursorRef.current,
+            });
         if (cancelled) return;
         if (Array.isArray(res.messages) && res.messages.length) {
           for (const m of res.messages) {
@@ -1423,7 +1503,7 @@ export default function SessionCall() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [joinInfo?.token, role]);
+  }, [joinInfo?.token, role, user, inviteToken]);
 
   const cleanup = () => {
     try {
@@ -2436,6 +2516,66 @@ export default function SessionCall() {
           </Button>
         </div>
       </div>
+
+      {/* Passo obrigatório (link público): confirmar e-mail antes de entrar */}
+      <Dialog
+        open={inviteEmailOpen && !user && !!inviteToken && !joinInfo}
+        onOpenChange={() => {
+          // Obrigatório: não permite fechar manualmente.
+        }}
+      >
+        <DialogContent
+          className="max-w-md"
+          hideClose
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle>Confirmar e-mail</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            Para entrar na transmissão, confirme o e-mail cadastrado na plataforma.
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="invite-email">E-mail</Label>
+            <Input
+              id="invite-email"
+              type="email"
+              placeholder="seuemail@exemplo.com"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              autoComplete="email"
+              autoFocus
+            />
+          </div>
+
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => goBack(false)}
+            >
+              Voltar
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl bg-brand-green text-white hover:bg-brand-green/90"
+              onClick={() => {
+                const email = inviteEmail.trim().toLowerCase();
+                if (!email) {
+                  toast({ title: "E-mail", description: "Informe seu e-mail para continuar.", variant: "destructive" });
+                  return;
+                }
+                setInviteEmailSubmitted(email);
+              }}
+            >
+              Entrar na transmissão
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Passo obrigatório: iniciar câmera/microfone (fica centralizado e fácil de encontrar) */}
       <BrandedConfirmDialog

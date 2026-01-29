@@ -2202,6 +2202,31 @@ export async function videoJoin(appointment_id: number): Promise<VideoJoinRespon
   });
 }
 
+export async function appointmentCreateInviteLink(appointment_id: number): Promise<{
+  appointment_id: number;
+  token: string;
+  expires_at: string;
+}> {
+  return await request(`/api/appointments/${encodeURIComponent(String(appointment_id))}/invite-link`, {
+    method: "POST",
+  });
+}
+
+export async function videoJoinInvite(params: {
+  appointment_id: number;
+  invite_token: string;
+  email: string;
+}): Promise<VideoJoinResponse> {
+  return await request<VideoJoinResponse>("/api/video/join-invite", {
+    method: "POST",
+    json: {
+      appointment_id: params.appointment_id,
+      invite_token: params.invite_token,
+      email: params.email,
+    },
+  });
+}
+
 export async function videoSendCommand(params: {
   appointment_id: number;
   token: string;
@@ -2212,6 +2237,25 @@ export async function videoSendCommand(params: {
     method: "POST",
     json: {
       appointment_id: params.appointment_id,
+      token: params.token,
+      kind: params.kind,
+      payload: params.payload ?? null,
+    },
+  });
+}
+
+export async function videoSendCommandInvite(params: {
+  appointment_id: number;
+  invite_token: string;
+  token: string;
+  kind: string;
+  payload?: any;
+}): Promise<{ ok: true; id: number }> {
+  return await request<{ ok: true; id: number }>("/api/video/command-invite", {
+    method: "POST",
+    json: {
+      appointment_id: params.appointment_id,
+      invite_token: params.invite_token,
       token: params.token,
       kind: params.kind,
       payload: params.payload ?? null,
@@ -2238,6 +2282,21 @@ export async function videoPoll(params: {
     after_id: String(params.after_id || 0),
   }).toString();
   return await request<{ messages: VideoPollMessage[]; next_cursor: number }>(`/api/video/command?${q}`);
+}
+
+export async function videoPollInvite(params: {
+  appointment_id: number;
+  invite_token: string;
+  token: string;
+  after_id: number;
+}): Promise<{ messages: VideoPollMessage[]; next_cursor: number }> {
+  const q = new URLSearchParams({
+    appointment_id: String(params.appointment_id),
+    invite_token: params.invite_token,
+    token: params.token,
+    after_id: String(params.after_id || 0),
+  }).toString();
+  return await request<{ messages: VideoPollMessage[]; next_cursor: number }>(`/api/video/command-invite?${q}`);
 }
 
 export function isApiError(e: unknown): e is ApiError {

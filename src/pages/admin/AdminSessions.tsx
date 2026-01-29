@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar, Plus, Edit, Trash2, Search, Clock, User, Lock, Unlock, CheckCircle2 } from "lucide-react";
+import { Calendar, Plus, Edit, Trash2, Search, Clock, User, Lock, Unlock, CheckCircle2, Link2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
   adminListProfessionals,
   adminListUsers,
   adminUpdateAppointmentStatus,
+  appointmentCreateInviteLink,
   isApiError,
 } from "@/lib/laravel-api";
 import type { JoinSessionMeta } from "@/lib/laravel-api";
@@ -97,6 +98,7 @@ const AdminSessions = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
+  const [inviteGeneratingId, setInviteGeneratingId] = useState<number | null>(null);
 
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -373,6 +375,35 @@ const AdminSessions = () => {
 
   const goToCall = (appointmentId: number) => navigate(`/sessao/${appointmentId}/chamada`);
 
+  const handleGenerateInviteLink = async (appointmentId: number) => {
+    setInviteGeneratingId(appointmentId);
+    try {
+      const res = await appointmentCreateInviteLink(appointmentId);
+      const url = new URL(window.location.origin);
+      url.pathname = `/sessao/${appointmentId}/chamada`;
+      url.searchParams.set("invite_token", res.token);
+      const link = url.toString();
+
+      try {
+        await navigator.clipboard.writeText(link);
+        toast({
+          title: "Link gerado",
+          description: "Link copiado. Envie para o paciente (ele vai confirmar o e-mail ao entrar).",
+        });
+      } catch {
+        window.prompt("Copie o link e envie para o paciente:", link);
+      }
+    } catch {
+      toast({
+        title: "Erro ao gerar link",
+        description: "Não foi possível gerar o link agora. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setInviteGeneratingId(null);
+    }
+  };
+
   return (
     <div className="min-h-full py-8 lg:py-12">
       <div className="container mx-auto px-4">
@@ -491,6 +522,20 @@ const AdminSessions = () => {
                                 nowMs={nowMs}
                                 onClick={() => goToCall(session.id)}
                               />
+                              {(session.status === "agendada" || session.status === "avaliacao") && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-auto px-3 py-2 rounded-xl"
+                                  onClick={() => void handleGenerateInviteLink(session.id)}
+                                  disabled={inviteGeneratingId === session.id}
+                                  title="Gerar link para o paciente entrar sem login"
+                                >
+                                  <Link2 size={16} className="mr-2" />
+                                  {inviteGeneratingId === session.id ? "Gerando..." : "Gerar link"}
+                                </Button>
+                              )}
                               {(() => {
                                 const countdown = getJoinCountdownLabel({
                                   date: session.date,

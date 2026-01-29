@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, Search, Clock, CalendarClock, CheckCircle2, MessageSquareText, Eye, EyeOff, Wallet, RefreshCcw } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Clock, CalendarClock, CheckCircle2, MessageSquareText, Eye, EyeOff, Wallet, RefreshCcw, Link2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,7 @@ export default function ProfessionalSessions(): JSX.Element {
   const [reschedAppt, setReschedAppt] = useState<ProAppointmentRow | null>(null);
   const [reschedDate, setReschedDate] = useState<Date | undefined>(undefined);
   const [reschedTime, setReschedTime] = useState<string>("");
+  const [inviteGeneratingId, setInviteGeneratingId] = useState<number | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -178,6 +179,35 @@ export default function ProfessionalSessions(): JSX.Element {
   }, [filtered, todayYMD]);
 
   const goToCall = (appointmentId: number) => navigate(`/sessao/${appointmentId}/chamada`);
+
+  const handleGenerateInviteLink = async (appointmentId: number) => {
+    setInviteGeneratingId(appointmentId);
+    try {
+      const res = await api.appointmentCreateInviteLink(appointmentId);
+      const url = new URL(window.location.origin);
+      url.pathname = `/sessao/${appointmentId}/chamada`;
+      url.searchParams.set("invite_token", res.token);
+      const link = url.toString();
+
+      try {
+        await navigator.clipboard.writeText(link);
+        toast({
+          title: "Link gerado",
+          description: "Link copiado. Envie para o paciente (ele vai confirmar o e-mail ao entrar).",
+        });
+      } catch {
+        window.prompt("Copie o link e envie para o paciente:", link);
+      }
+    } catch {
+      toast({
+        title: "Erro ao gerar link",
+        description: "Não foi possível gerar o link agora. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setInviteGeneratingId(null);
+    }
+  };
 
   const statusConfig = {
     realizada: { label: "Realizada", color: "bg-brand-green/10 text-brand-green border-brand-green/20", icon: CheckCircle2 },
@@ -390,6 +420,20 @@ export default function ProfessionalSessions(): JSX.Element {
                                   nowMs={nowMs}
                                   onClick={() => goToCall(s.id)}
                                 />
+                                {(st === "agendada" || st === "avaliacao") && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-lg"
+                                    onClick={() => void handleGenerateInviteLink(s.id)}
+                                    disabled={inviteGeneratingId === s.id}
+                                    title="Gerar link para o paciente entrar sem login"
+                                  >
+                                    <Link2 className="h-3.5 w-3.5 mr-2" />
+                                    {inviteGeneratingId === s.id ? "Gerando..." : "Gerar link"}
+                                  </Button>
+                                )}
                                 <Button
                                   variant="outline"
                                   size="sm"

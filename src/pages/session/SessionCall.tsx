@@ -108,6 +108,7 @@ export default function SessionCall() {
   const [cursor, setCursor] = useState(0);
   const cursorRef = useRef(0);
   const [pendingOfferAvailable, setPendingOfferAvailable] = useState(false);
+  const didInviteAutoRedirectRef = useRef(false);
   const [epoch, setEpoch] = useState<string | null>(null);
   const epochRef = useRef<string | null>(null);
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
@@ -567,12 +568,17 @@ export default function SessionCall() {
             });
         if (cancelled) return;
         if (timeoutId) clearTimeout(timeoutId);
-        
-        setJoinInfo(res);
-        setRole(res.role);
-        // Se entrou via convite, persistir login do paciente (Sanctum) para que,
-        // ao sair da transmissão, ele já esteja logado no app.
-        if (!user && inviteToken && (res as any)?.auth?.token && (res as any)?.auth?.user) {
+
+        // Fluxo do link: após validar e-mail e receber auth, redireciona para a mesma rota já logado
+        // (sem invite_token). Isso garante que o WebRTC rode no mesmo fluxo do app "normal"
+        // e evita a necessidade do usuário dar refresh manual.
+        if (
+          !isAuthed &&
+          !didInviteAutoRedirectRef.current &&
+          (res as any)?.auth?.token &&
+          (res as any)?.auth?.user
+        ) {
+          didInviteAutoRedirectRef.current = true;
           try {
             const token = String((res as any).auth.token || "").trim();
             const u = (res as any).auth.user;
@@ -584,7 +590,21 @@ export default function SessionCall() {
           } catch {
             // ignore
           }
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("invite_token");
+            url.searchParams.delete("invite");
+            url.searchParams.delete("token");
+            url.searchParams.set("__reload", String(Date.now()));
+            window.location.replace(url.pathname + url.search);
+          } catch {
+            window.location.replace(`/sessao/${appointmentId}/chamada?__reload=${Date.now()}`);
+          }
+          return;
         }
+        
+        setJoinInfo(res);
+        setRole(res.role);
         // Timer: inicia uma vez e persiste entre reloads/saída-volta
         const startKey = `call_started_at:${appointmentId}`;
         const savedStart = Number(sessionStorage.getItem(startKey) || "0");

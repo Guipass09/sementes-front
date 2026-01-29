@@ -74,7 +74,8 @@ export default function SessionCall() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const auth = useAuth();
+  const { user, loading: authLoading } = auth;
   const { toast } = useToast();
 
   const inviteToken = useMemo(() => {
@@ -568,6 +569,21 @@ export default function SessionCall() {
         
         setJoinInfo(res);
         setRole(res.role);
+        // Se entrou via convite, persistir login do paciente (Sanctum) para que,
+        // ao sair da transmissão, ele já esteja logado no app.
+        if (!user && inviteToken && (res as any)?.auth?.token && (res as any)?.auth?.user) {
+          try {
+            const token = String((res as any).auth.token || "").trim();
+            const u = (res as any).auth.user;
+            if (token) {
+              localStorage.setItem("token", token);
+              localStorage.setItem("user", JSON.stringify(u));
+              auth.setAuthUser(u);
+            }
+          } catch {
+            // ignore
+          }
+        }
         // Timer: inicia uma vez e persiste entre reloads/saída-volta
         const startKey = `call_started_at:${appointmentId}`;
         const savedStart = Number(sessionStorage.getItem(startKey) || "0");

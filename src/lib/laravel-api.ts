@@ -2184,6 +2184,8 @@ export type VideoJoinResponse = {
   token: string;
   sessionId: number;
   iceServers: Array<{ urls: string[]; username?: string; credential?: string }>;
+  // Join via link público pode retornar também o login do paciente (Sanctum).
+  auth?: null | { token: string; user: AuthUser };
   room?: {
     appointment_id: number;
     created_at?: string;

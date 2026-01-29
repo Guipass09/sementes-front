@@ -305,14 +305,14 @@ export default function SessionCall() {
   }, [authLoading, user, inviteToken, navigate]);
 
   // Link público: pede e-mail antes de entrar (passo obrigatório).
+  // Precisa funcionar mesmo enquanto o AuthContext ainda está "loading".
   useEffect(() => {
-    if (authLoading) return;
     if (user) return;
     if (!inviteToken) return;
-    // Se já entrou, não reabrir.
     if (joinInfo) return;
+    if (inviteEmailSubmitted) return; // já enviado, não reabrir durante tentativa
     setInviteEmailOpen(true);
-  }, [authLoading, user, inviteToken, joinInfo]);
+  }, [user, inviteToken, joinInfo, inviteEmailSubmitted]);
 
   const tryClearCaches = useCallback(async () => {
     // Melhor esforço: em PWA/cache agressivo, limpar caches ajuda em atualizações.
@@ -2138,8 +2138,75 @@ export default function SessionCall() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogOpen, role, appRole]);
 
+  const inviteEmailDialog = (
+    <Dialog
+      open={inviteEmailOpen && !user && !!inviteToken && !joinInfo}
+      onOpenChange={() => {
+        // Obrigatório: não permite fechar manualmente.
+      }}
+    >
+      <DialogContent
+        className="max-w-md"
+        hideClose
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>Confirmar e-mail</DialogTitle>
+        </DialogHeader>
+        <div className="text-sm text-muted-foreground">
+          Para entrar na transmissão, confirme o e-mail cadastrado na plataforma.
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <Label htmlFor="invite-email">E-mail</Label>
+          <Input
+            id="invite-email"
+            type="email"
+            placeholder="seuemail@exemplo.com"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            autoComplete="email"
+            autoFocus
+          />
+        </div>
+
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <Button type="button" variant="outline" className="rounded-xl" onClick={() => goBack(false)}>
+            Voltar
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl bg-brand-green text-white hover:bg-brand-green/90"
+            onClick={() => {
+              const email = inviteEmail.trim().toLowerCase();
+              if (!email) {
+                toast({
+                  title: "E-mail",
+                  description: "Informe seu e-mail para continuar.",
+                  variant: "destructive",
+                });
+                return;
+              }
+              setInviteEmailSubmitted(email);
+              setInviteEmailOpen(false);
+              setStatusLabel("Entrando na sessão...");
+            }}
+          >
+            Entrar na transmissão
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (authLoading || joining) {
-    return <FullScreenLogoLoader label={statusLabel} />;
+    return (
+      <>
+        <FullScreenLogoLoader label={statusLabel} />
+        {inviteEmailDialog}
+      </>
+    );
   }
 
   const iframeSrc = (() => {
@@ -2517,65 +2584,7 @@ export default function SessionCall() {
         </div>
       </div>
 
-      {/* Passo obrigatório (link público): confirmar e-mail antes de entrar */}
-      <Dialog
-        open={inviteEmailOpen && !user && !!inviteToken && !joinInfo}
-        onOpenChange={() => {
-          // Obrigatório: não permite fechar manualmente.
-        }}
-      >
-        <DialogContent
-          className="max-w-md"
-          hideClose
-          onEscapeKeyDown={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle>Confirmar e-mail</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm text-muted-foreground">
-            Para entrar na transmissão, confirme o e-mail cadastrado na plataforma.
-          </div>
-
-          <div className="mt-4 space-y-2">
-            <Label htmlFor="invite-email">E-mail</Label>
-            <Input
-              id="invite-email"
-              type="email"
-              placeholder="seuemail@exemplo.com"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              autoComplete="email"
-              autoFocus
-            />
-          </div>
-
-          <div className="mt-5 flex items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-xl"
-              onClick={() => goBack(false)}
-            >
-              Voltar
-            </Button>
-            <Button
-              type="button"
-              className="rounded-xl bg-brand-green text-white hover:bg-brand-green/90"
-              onClick={() => {
-                const email = inviteEmail.trim().toLowerCase();
-                if (!email) {
-                  toast({ title: "E-mail", description: "Informe seu e-mail para continuar.", variant: "destructive" });
-                  return;
-                }
-                setInviteEmailSubmitted(email);
-              }}
-            >
-              Entrar na transmissão
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {inviteEmailDialog}
 
       {/* Passo obrigatório: iniciar câmera/microfone (fica centralizado e fácil de encontrar) */}
       <BrandedConfirmDialog

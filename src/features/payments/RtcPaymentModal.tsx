@@ -79,6 +79,7 @@ export default function RtcPaymentModal({
   const [pix, setPix] = useState<null | { qr_code: string; qr_code_base64: string }>(null);
   const [providerPaymentId, setProviderPaymentId] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
+  const [paid, setPaid] = useState(false);
   const [brickNonce, setBrickNonce] = useState(0);
 
   // Form simples (independente do método)
@@ -123,6 +124,7 @@ export default function RtcPaymentModal({
     setPix(null);
     setProviderPaymentId(null);
     setWaiting(false);
+    setPaid(false);
   }, []);
 
   // Poll de status (necessário quando o usuário ainda não conseguiu "join" na sala)
@@ -136,7 +138,9 @@ export default function RtcPaymentModal({
         .then((s) => {
           if (cancelled) return;
           if (s.paid) {
-            toastRef.current({ title: "Pagamento", description: "Pagamento confirmado. Liberando a sessão..." });
+            setPaid(true);
+            setWaiting(false);
+            toastRef.current({ title: "Pagamento", description: "Pagamento confirmado." });
             onPaidRef.current();
             return;
           }
@@ -241,6 +245,8 @@ export default function RtcPaymentModal({
                     const p = res.data;
                     setProviderPaymentId(p.provider_payment_id ?? null);
                     if (p.status === "approved") {
+                      setPaid(true);
+                      setWaiting(false);
                       toastRef.current({ title: "Pagamento", description: "Pagamento aprovado." });
                       onPaidRef.current();
                     } else if (p.status === "rejected" || p.status === "cancelled") {
@@ -404,7 +410,19 @@ export default function RtcPaymentModal({
               </div>
             </div>
 
-            {error ? (
+            {paid ? (
+              <div className="mt-4 rounded-2xl border border-brand-green/30 bg-brand-green/10 p-4">
+                <div className="text-lg font-semibold text-foreground">Pagamento aprovado!</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Sua sessão foi liberada. Você pode fechar este modal e continuar a transmissão normalmente.
+                </div>
+                <div className="mt-4 flex items-center justify-end">
+                  <Button className="rounded-xl" onClick={() => onOpenChange(false)}>
+                    Voltar para a chamada
+                  </Button>
+                </div>
+              </div>
+            ) : error ? (
               <div className="mt-3">
                 <div className="text-sm text-destructive">{error}</div>
                 {statusHint ? <div className="mt-1 text-xs text-muted-foreground">Detalhe: {statusHint}</div> : null}

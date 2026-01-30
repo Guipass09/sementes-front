@@ -2362,6 +2362,8 @@ export async function paymentsCreate(payload: {
 export async function paymentsStatus(params: { appointment_id: number } | { payment_id: number }): Promise<{
   payment_id?: number;
   appointment_id: number | null;
+  amount?: number | null;
+  sessions?: number | null;
   payment_required: boolean;
   paid: boolean;
   paid_at: string | null;
@@ -2373,6 +2375,27 @@ export async function paymentsStatus(params: { appointment_id: number } | { paym
     "appointment_id" in params ? { appointment_id: String(params.appointment_id) } : { payment_id: String(params.payment_id) }
   ).toString();
   return await request(`/api/payments/status?${q}`);
+}
+
+export async function appointmentInviteAuth(payload: {
+  appointment_id: number;
+  invite_token: string;
+  email: string;
+}): Promise<{ token: string; user: AuthUser; expires_at: string | null }> {
+  return await request("/api/appointment-invites/auth", { method: "POST", json: payload });
+}
+
+export async function appointmentPaymentRequest(appointmentId: number, payload: { amount: number; sessions?: number | null }): Promise<{
+  ok: true;
+  appointment_id: number;
+  payment_required: true;
+  amount: number;
+  sessions: number | null;
+}> {
+  return await request(`/api/appointments/${encodeURIComponent(String(appointmentId))}/payment-request`, {
+    method: "POST",
+    json: { amount: payload.amount, sessions: payload.sessions ?? null },
+  });
 }
 
 // ---------------------------

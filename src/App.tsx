@@ -79,6 +79,7 @@ import { useOneSignal } from "@/hooks/use-onesignal";
 const queryClient = new QueryClient();
 
 const SessionCall = lazyWithRetry(() => import("./pages/session/SessionCall"), "SessionCall");
+const AppointmentPaymentPage = lazyWithRetry(() => import("./pages/payment/AppointmentPaymentPage"), "AppointmentPaymentPage");
 
 function SessionCallRedirect(): JSX.Element {
   const { id } = useParams();
@@ -237,6 +238,14 @@ const App = () => {
               </Route>
               
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route
+                path="/pagamento/sessao/:id"
+                element={
+                  <Suspense fallback={<FullScreenLogoLoader label="Carregando pagamento..." />}>
+                    <AppointmentPaymentPage />
+                  </Suspense>
+                }
+              />
               <Route
                 path="/sessao/:id/chamada"
                 element={

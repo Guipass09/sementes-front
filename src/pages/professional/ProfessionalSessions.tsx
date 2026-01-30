@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import * as api from "@/lib/laravel-api";
@@ -62,6 +62,11 @@ export default function ProfessionalSessions(): JSX.Element {
   const [reschedDate, setReschedDate] = useState<Date | undefined>(undefined);
   const [reschedTime, setReschedTime] = useState<string>("");
   const [inviteGeneratingId, setInviteGeneratingId] = useState<number | null>(null);
+  const [payLinkOpen, setPayLinkOpen] = useState(false);
+  const [payLinkForSession, setPayLinkForSession] = useState<null | { id: number; patientName: string }>(null);
+  const [payLinkBusy, setPayLinkBusy] = useState(false);
+  const [payCustomAmount, setPayCustomAmount] = useState<string>("");
+  const [payCustomSessions, setPayCustomSessions] = useState<string>("");
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -226,6 +231,48 @@ export default function ProfessionalSessions(): JSX.Element {
           : "agendada") as const;
 
   const fmtMoney = (n: number) => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const packageCatalog = useMemo(() => {
+    const list = [
+      { sessions: 3, price: 280 },
+      { sessions: 6, price: 480 },
+      { sessions: 9, price: 560 },
+      { sessions: 15, price: 880 },
+      { sessions: 20, price: 1100 },
+      { sessions: 35, price: 1750 },
+      { sessions: 45, price: 2115 },
+    ];
+    return list.map((p) => ({ ...p, priceLabel: fmtMoney(p.price), perSessionLabel: fmtMoney(p.price / p.sessions) }));
+  }, []);
+
+  const generatePaymentLink = async (appointmentId: number, amount: number, sessions: number | null) => {
+    setPayLinkBusy(true);
+    try {
+      await api.appointmentPaymentRequest(appointmentId, { amount, sessions });
+      const inv = await api.appointmentCreateInviteLink(appointmentId);
+      const url = new URL(window.location.origin);
+      url.pathname = `/pagamento/sessao/${appointmentId}`;
+      url.searchParams.set("invite_token", inv.token);
+      const link = url.toString();
+
+      try {
+        await navigator.clipboard.writeText(link);
+        toast({ title: "Pagamento", description: "Link de pagamento copiado." });
+      } catch {
+        window.prompt("Copie o link de pagamento:", link);
+      }
+      setPayLinkOpen(false);
+      setPayLinkForSession(null);
+    } catch (e: any) {
+      toast({
+        title: "Pagamento",
+        description: e && (e.data?.message || e.message) ? String(e.data?.message || e.message) : "Não foi possível gerar o link agora.",
+        variant: "destructive",
+      });
+    } finally {
+      setPayLinkBusy(false);
+    }
+  };
 
   return (
     <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
@@ -434,6 +481,24 @@ export default function ProfessionalSessions(): JSX.Element {
                                     {inviteGeneratingId === s.id ? "Gerando..." : "Gerar link"}
                                   </Button>
                                 )}
+                                {(st === "agendada" || st === "avaliacao") && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-lg"
+                                    onClick={() => {
+                                      setPayLinkForSession({ id: s.id, patientName: patientDisplayName(s.user || { name: "Paciente" }) });
+                                      setPayCustomAmount("");
+                                      setPayCustomSessions("");
+                                      setPayLinkOpen(true);
+                                    }}
+                                    title="Gerar link de pagamento (página separada)"
+                                  >
+                                    <Wallet className="h-3.5 w-3.5 mr-2" />
+                                    Link pagamento
+                                  </Button>
+                                )}
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -476,6 +541,104 @@ export default function ProfessionalSessions(): JSX.Element {
           )
         )}
       </div>
+
+      {/* Link de pagamento (fora da transmissão) */}
+      <Dialog
+        open={payLinkOpen}
+        onOpenChange={(open) => {
+          setPayLinkOpen(open);
+          if (!open) {
+            setPayLinkForSession(null);
+            setPayLinkBusy(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Gerar link de pagamento</DialogTitle>
+            <DialogDescription>
+              {payLinkForSession ? `Sessão #${payLinkForSession.id} • Paciente: ${payLinkForSession.patientName}` : "Escolha um pacote ou valor personalizado."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="rounded-xl border border-border bg-card p-3">
+              <div className="text-sm font-semibold text-foreground">Personalizado</div>
+              <div className="text-xs text-muted-foreground">Defina um valor e gere um link para o paciente pagar.</div>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label>Valor total (R$)</Label>
+                  <Input
+                    inputMode="decimal"
+                    placeholder="Ex.: 560,00"
+                    value={payCustomAmount}
+                    onChange={(e) => setPayCustomAmount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Sessões (opcional)</Label>
+                  <Input
+                    inputMode="numeric"
+                    placeholder="Ex.: 9"
+                    value={payCustomSessions}
+                    onChange={(e) => setPayCustomSessions(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-end">
+                <Button
+                  className="rounded-lg"
+                  disabled={!payLinkForSession || payLinkBusy}
+                  onClick={() => {
+                    if (!payLinkForSession) return;
+                    const raw = String(payCustomAmount || "").trim();
+                    const cleaned = raw.replace(/[^\d.,-]/g, "").replace(/\./g, "").replace(",", ".");
+                    const amount = Number(cleaned);
+                    const sRaw = payCustomSessions.replace(/\D/g, "");
+                    const sNum = sRaw ? Number(sRaw) : 0;
+                    const sessions = Number.isFinite(sNum) && sNum > 0 ? sNum : null;
+                    if (!Number.isFinite(amount) || amount <= 0) {
+                      toast({ title: "Pagamento", description: "Informe um valor válido.", variant: "destructive" });
+                      return;
+                    }
+                    void generatePaymentLink(payLinkForSession.id, amount, sessions);
+                  }}
+                >
+                  {payLinkBusy ? "Gerando..." : "Gerar link"}
+                </Button>
+              </div>
+            </div>
+
+            {packageCatalog.map((p) => (
+              <div key={`pkg-${p.sessions}`} className="rounded-xl border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">{p.sessions} sessões</div>
+                    <div className="text-xs text-muted-foreground">
+                      Total: {p.priceLabel} • {p.perSessionLabel}/sessão
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="rounded-lg"
+                    disabled={!payLinkForSession || payLinkBusy}
+                    onClick={() => {
+                      if (!payLinkForSession) return;
+                      void generatePaymentLink(payLinkForSession.id, p.price, p.sessions);
+                    }}
+                  >
+                    {payLinkBusy ? "Gerando..." : "Gerar link"}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-2 text-xs text-muted-foreground">
+            O paciente pagará em uma página separada (Pix ou cartão) com formulário antes do método.
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={reschedOpen}

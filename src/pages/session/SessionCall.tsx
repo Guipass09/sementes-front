@@ -109,6 +109,7 @@ export default function SessionCall() {
   const cursorRef = useRef(0);
   const [pendingOfferAvailable, setPendingOfferAvailable] = useState(false);
   const didInviteAutoRedirectRef = useRef(false);
+  const didReconnectRequestRef = useRef(false);
   const [epoch, setEpoch] = useState<string | null>(null);
   const epochRef = useRef<string | null>(null);
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
@@ -162,6 +163,11 @@ export default function SessionCall() {
     null | { sessions: number | null; amount: number; defaultTab?: "pix" | "card"; maxInstallments?: number }
   >(null);
   const [rtcPaymentLocked, setRtcPaymentLocked] = useState(false);
+
+  // Mantém áudio/vídeo ativos em iOS enquanto overlays (pagamento) estão abertos.
+  const paymentOverlayActive = rtcPaymentOpen || paymentIframeOpen || paymentDialogOpen;
+  const paymentMiniRemoteRef = useRef<HTMLVideoElement | null>(null);
+  const paymentMiniLocalRef = useRef<HTMLVideoElement | null>(null);
 
   const [customPayOpen, setCustomPayOpen] = useState(false);
   const [customPayAmount, setCustomPayAmount] = useState<string>("");
@@ -343,9 +349,9 @@ export default function SessionCall() {
   }, [tryClearCaches]);
 
   const handleRtcPaid = useCallback(() => {
+    // Não fechar a chamada nem derrubar streams — apenas desbloquear.
+    // O modal exibe "pagamento aprovado" e o usuário pode fechar manualmente.
     setRtcPaymentLocked(false);
-    setRtcPaymentOpen(false);
-    setRtcPaymentMeta(null);
     // Se ainda não conseguiu fazer join (402), recarrega para tentar entrar já liberado
     if (!joinInfo) {
       refreshPage();
@@ -713,6 +719,28 @@ export default function SessionCall() {
     }
   }, [remoteCamStream, remoteStream]);
 
+  // Pagamento: mantém um video remoto "visível" no DOM em iOS (evita pausar áudio/vídeo por ficar coberto).
+  useEffect(() => {
+    if (!paymentOverlayActive) return;
+    try {
+      const remoteEl = paymentMiniRemoteRef.current;
+      const s = remoteCamStream || remoteStream;
+      if (remoteEl && s) {
+        remoteEl.srcObject = s;
+        remoteEl.muted = false;
+        void remoteEl.play().catch(() => {});
+      }
+    } catch {}
+    try {
+      const localEl = paymentMiniLocalRef.current;
+      if (localEl && localStream) {
+        localEl.srcObject = localStream;
+        localEl.muted = true;
+        void localEl.play().catch(() => {});
+      }
+    } catch {}
+  }, [paymentOverlayActive, remoteCamStream, remoteStream, localStream]);
+
   // Timeout de segurança: remove contentLoading se iframe não carregar em 15 segundos
   useEffect(() => {
     if (!contentLoading) return;
@@ -997,6 +1025,8 @@ export default function SessionCall() {
       max_installments: typeof opts?.maxInstallments === "number" ? opts?.maxInstallments : null,
     });
   };
+
+  // OBS: geração de link de pagamento é feita fora da transmissão (telas de horários).
 
   const copyPaymentLink = async () => {
     if (!paymentUrl) return;
@@ -1292,6 +1322,51 @@ export default function SessionCall() {
       }
     }
 
+    // Reconexão: quando o paciente volta, ele pede um novo offer.
+    if (m.kind === "webrtc_reconnect" && role === "admin") {
+      if (mediaState !== "ready") return;
+
+      const pc = pcRef.current;
+      const bad =
+        !pc ||
+        pc.connectionState === "failed" ||
+        pc.connectionState === "closed" ||
+        pc.iceConnectionState === "failed";
+
+      if (bad) {
+        try {
+          try { pcRef.current?.close?.(); } catch {}
+          pcRef.current = null;
+          peerReadyRef.current = false;
+          ensurePeerRef.current = null;
+          setRemotePresent(false);
+        } catch {}
+      }
+
+      await ensurePeer();
+
+      // Garante que a câmera/mic do admin estejam anexadas (sem exigir novo clique)
+      const pc2 = pcRef.current;
+      if (pc2 && localStream && mediaState === "ready") {
+        const hasSenders = pc2.getSenders().some((s) => !!s.track);
+        if (!hasSenders) {
+          for (const track of localStream.getTracks()) {
+            try { pc2.addTrack(track, localStream); } catch {}
+          }
+        }
+      }
+
+      const pc3 = pcRef.current;
+      if (pc3) {
+        try {
+          const offer = await pc3.createOffer();
+          await pc3.setLocalDescription(offer);
+          await send("webrtc_offer", { sdp: { type: pc3.localDescription?.type, sdp: pc3.localDescription?.sdp } });
+        } catch {}
+      }
+      return;
+    }
+
     // "call_end" não deve derrubar o outro participante.
     // A sessão só "fecha" quando o admin marcar o horário como realizada (status completed).
     if (m.kind === "call_end") {
@@ -1335,7 +1410,6 @@ export default function SessionCall() {
     if (m.kind === "session_paid") {
       setRtcPaymentLocked(false);
       setRtcPaymentMeta(null);
-      setRtcPaymentOpen(false);
       toast({ title: "Pagamento", description: "Pagamento aprovado. Sessão liberada." });
       return;
     }
@@ -1369,14 +1443,14 @@ export default function SessionCall() {
           ? Math.min(12, Math.max(1, Math.floor(Number(m.payload?.max_installments))))
           : undefined;
       if (amount > 0) {
-        // Bloqueia a sessão até pagamento: para "não continuar a chamada" sem pagar,
-        // desligamos câmera/mic local (mantém a sala ativa para receber confirmação).
+        // Mantém a transmissão ativa durante o pagamento.
+        // Se quiser "silenciar" o paciente durante o pagamento, desativa tracks (não stop).
         try {
-          safeStopStream(localStream);
+          for (const t of localStream?.getAudioTracks?.() || []) t.enabled = false;
+          for (const t of localStream?.getVideoTracks?.() || []) t.enabled = false;
+          setMicOn(false);
+          setCamOn(false);
         } catch {}
-        setLocalStream(null);
-        setMicOn(false);
-        setCamOn(false);
 
         setRtcPaymentLocked(true);
         setRtcPaymentMeta({ sessions, amount, defaultTab, maxInstallments });
@@ -1483,6 +1557,27 @@ export default function SessionCall() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinInfo?.token, role]);
+
+  // Reconexão automática (sem refresh do admin):
+  // Quando o paciente entra/volta e o peer não está conectado, ele pede um novo offer.
+  useEffect(() => {
+    if (!joinInfo || !role) return;
+    if (role !== "user") return;
+    if (didReconnectRequestRef.current) return;
+    const pc = pcRef.current;
+    const bad =
+      !pc ||
+      pc.connectionState === "disconnected" ||
+      pc.connectionState === "failed" ||
+      pc.connectionState === "closed";
+    if (!bad) return;
+    didReconnectRequestRef.current = true;
+    void send("webrtc_reconnect", { ts: Date.now() }).catch(() => {});
+    window.setTimeout(() => {
+      didReconnectRequestRef.current = false;
+    }, 2500);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinInfo?.token, role, mediaState]);
 
   // Poll commands
   useEffect(() => {
@@ -2678,6 +2773,30 @@ export default function SessionCall() {
 
       {inviteEmailDialog}
 
+      {/* Durante pagamento, mantemos um mini player visível (iOS não pausa áudio/vídeo). */}
+      {paymentOverlayActive ? (
+        <div className="fixed z-[70] right-3 bottom-[calc(env(safe-area-inset-bottom)+76px)] w-[180px] sm:w-[220px] rounded-2xl overflow-hidden border border-border bg-black/90 shadow-lg">
+          <div className="relative w-full aspect-[4/3] bg-black">
+            <video
+              ref={paymentMiniRemoteRef}
+              className="absolute inset-0 w-full h-full object-cover"
+              playsInline
+              autoPlay
+            />
+            <div className="absolute bottom-2 right-2 w-14 h-14 rounded-xl overflow-hidden border border-white/20 bg-black/60">
+              <video
+                ref={paymentMiniLocalRef}
+                className="w-full h-full object-cover"
+                playsInline
+                muted
+                autoPlay
+              />
+            </div>
+          </div>
+          <div className="px-3 py-2 text-[11px] text-white/90">Chamada ativa</div>
+        </div>
+      ) : null}
+
       {/* Passo obrigatório: iniciar câmera/microfone (fica centralizado e fácil de encontrar) */}
       <BrandedConfirmDialog
         open={!!joinInfo && !!role && !rtcPaymentLocked && mediaState !== "ready"}
@@ -3101,7 +3220,7 @@ export default function SessionCall() {
             ))}
           </div>
           <div className="mt-2 text-xs text-muted-foreground">
-            O pagamento abre no próprio app (Pix ou cartão) sem sair da chamada.
+            Você pode cobrar no app (na chamada) ou gerar um link para abrir a página de pagamento.
           </div>
         </DialogContent>
       </Dialog>

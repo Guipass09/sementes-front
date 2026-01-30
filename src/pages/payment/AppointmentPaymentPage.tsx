@@ -50,8 +50,7 @@ export default function AppointmentPaymentPage(): JSX.Element {
   const { toast } = useToast();
 
   // Gate (deslogado): confirmar e-mail para autenticar via invite.
-  const [email, setEmail] = useState("");
-  const [authBusy, setAuthBusy] = useState(false);
+  const [inviteAuthBusy, setInviteAuthBusy] = useState(false);
   const [pageAuthToken, setPageAuthToken] = useState<string | null>(null);
   const [pageAuthUser, setPageAuthUser] = useState<any | null>(null);
 
@@ -154,28 +153,41 @@ export default function AppointmentPaymentPage(): JSX.Element {
     setPayerEmail(String(u?.email ?? "").trim());
   }, [user?.email, user?.name, pageAuthUser]);
 
-  // auth via invite (sem entrar na transmissão)
-  const handleInviteAuth = useCallback(async () => {
+  // auth via invite (SEM e-mail) para link público de pagamento
+  useEffect(() => {
     if (!appointmentId) return;
     if (!inviteToken) return;
-    const e = email.trim().toLowerCase();
-    if (!e) {
-      toast({ title: "E-mail", description: "Informe seu e-mail para continuar.", variant: "destructive" });
-      return;
-    }
-    setAuthBusy(true);
+    if (pageAuthToken) return;
+    // Se já é paciente logado, não precisa.
+    if (user && (user as any).role === "user") return;
+
+    let cancelled = false;
+    setInviteAuthBusy(true);
     setError("");
-    try {
-      const res = await api.appointmentInviteAuth({ appointment_id: appointmentId, invite_token: inviteToken, email: e });
-      // Token temporário para esta página (não sobrescreve login do admin/profissional)
-      setPageAuthToken(String(res.token || "").trim());
-      setPageAuthUser(res.user as any);
-    } catch (err: any) {
-      toast({ title: "Acesso", description: err?.data?.message || "Não foi possível validar o e-mail.", variant: "destructive" });
-    } finally {
-      setAuthBusy(false);
-    }
-  }, [appointmentId, inviteToken, email, toast, auth]);
+    void api
+      .appointmentInviteAuthPublic({ appointment_id: appointmentId, invite_token: inviteToken })
+      .then((res) => {
+        if (cancelled) return;
+        setPageAuthToken(String(res.token || "").trim());
+        setPageAuthUser(res.user as any);
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        toast({
+          title: "Acesso",
+          description: err?.data?.message || "Não foi possível validar o link de pagamento.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setInviteAuthBusy(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appointmentId, inviteToken, pageAuthToken, toast, user]);
 
   // Poll de status enquanto aguardando (pix ou cartão pendente)
   useEffect(() => {
@@ -402,8 +414,6 @@ export default function AppointmentPaymentPage(): JSX.Element {
   const fmt = (n: number | null) =>
     typeof n === "number" && Number.isFinite(n) ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
 
-  const needsAuth = !!inviteToken && !pageAuthToken && (!user || (user as any).role !== "user");
-
   return (
     <div className="min-h-[100svh] bg-gradient-to-b from-brand-green/10 via-background to-background">
       <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
@@ -445,25 +455,16 @@ export default function AppointmentPaymentPage(): JSX.Element {
           </div>
 
           <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-          {needsAuth ? (
-            <div className="space-y-3">
+          {!user && !pageAuthToken ? (
+            inviteToken ? (
+              <div className="py-10">
+                <FullScreenLogoLoader label={inviteAuthBusy ? "Validando link..." : "Carregando pagamento..."} />
+              </div>
+            ) : (
               <div className="text-sm text-muted-foreground">
-                Para continuar, confirme o e-mail cadastrado na plataforma.
+                Faça login na plataforma para pagar, ou use o link enviado pela profissional/admin.
               </div>
-              <div className="space-y-1.5">
-                <Label>E-mail</Label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" inputMode="email" />
-              </div>
-              <div className="flex items-center justify-end">
-                <Button className="rounded-xl" onClick={() => void handleInviteAuth()} disabled={authBusy}>
-                  {authBusy ? "Validando..." : "Continuar"}
-                </Button>
-              </div>
-            </div>
-          ) : !user && !pageAuthToken ? (
-            <div className="text-sm text-muted-foreground">
-              Faça login na plataforma para pagar, ou use o link enviado pela profissional/admin.
-            </div>
+            )
           ) : (
             <>
               {loadingInfo ? (

@@ -2412,6 +2412,13 @@ export async function appointmentInviteAuth(payload: {
   return await request("/api/appointment-invites/auth", { method: "POST", json: payload });
 }
 
+export async function appointmentInviteAuthPublic(payload: {
+  appointment_id: number;
+  invite_token: string;
+}): Promise<{ token: string; user: AuthUser; expires_at: string | null }> {
+  return await request("/api/appointment-invites/auth-public", { method: "POST", json: payload });
+}
+
 export async function appointmentPaymentRequest(appointmentId: number, payload: { amount: number; sessions?: number | null }): Promise<{
   ok: true;
   appointment_id: number;

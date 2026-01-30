@@ -414,6 +414,11 @@ export default function AppointmentPaymentPage(): JSX.Element {
   const fmt = (n: number | null) =>
     typeof n === "number" && Number.isFinite(n) ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
 
+  // Se abriu com invite_token e o usuário não é paciente, precisamos autenticar via link
+  // antes de permitir criar Pix/Cartão (evita tentar pagar com token de admin/pro e dar Forbidden).
+  const requiresInviteAuth =
+    !!inviteToken && (!user || (user as any).role !== "user") && !pageAuthToken;
+
   return (
     <div className="min-h-[100svh] bg-gradient-to-b from-brand-green/10 via-background to-background">
       <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
@@ -455,16 +460,19 @@ export default function AppointmentPaymentPage(): JSX.Element {
           </div>
 
           <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-          {!user && !pageAuthToken ? (
-            inviteToken ? (
-              <div className="py-10">
-                <FullScreenLogoLoader label={inviteAuthBusy ? "Validando link..." : "Carregando pagamento..."} />
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                Faça login na plataforma para pagar, ou use o link enviado pela profissional/admin.
-              </div>
-            )
+          {requiresInviteAuth ? (
+            <div className="py-10">
+              <FullScreenLogoLoader label={inviteAuthBusy ? "Validando link..." : "Validando link..."} />
+              {!inviteAuthBusy ? (
+                <div className="mt-3 text-center text-sm text-muted-foreground">
+                  Se demorar, atualize a página.
+                </div>
+              ) : null}
+            </div>
+          ) : !user && !pageAuthToken ? (
+            <div className="text-sm text-muted-foreground">
+              Faça login na plataforma para pagar, ou use o link enviado pela profissional/admin.
+            </div>
           ) : (
             <>
               {loadingInfo ? (
@@ -577,7 +585,11 @@ export default function AppointmentPaymentPage(): JSX.Element {
                             <Button
                               className="rounded-xl"
                               onClick={() => void createPix()}
-                              disabled={busy || !(typeof info?.amount === "number" && Number.isFinite(info.amount) && info.amount > 0)}
+                              disabled={
+                                busy ||
+                                requiresInviteAuth ||
+                                !(typeof info?.amount === "number" && Number.isFinite(info.amount) && info.amount > 0)
+                              }
                             >
                               {busy ? "Gerando..." : "Gerar QR Code"}
                             </Button>

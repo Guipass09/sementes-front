@@ -26,6 +26,13 @@ const api = axios.create({
 // Attach Bearer token from localStorage to every request
 api.interceptors.request.use((config) => {
   try {
+    // Se a request já definiu Authorization (ex.: token temporário em páginas públicas),
+    // não sobrescrever com o token do localStorage.
+    const existingAuth =
+      (config.headers as any)?.Authorization ||
+      (config.headers as any)?.authorization;
+    if (existingAuth) return config;
+
     const token = localStorage.getItem("token");
     if (token) {
       if (!config.headers) {

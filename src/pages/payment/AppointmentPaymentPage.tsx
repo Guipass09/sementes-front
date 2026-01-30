@@ -52,7 +52,8 @@ export default function AppointmentPaymentPage(): JSX.Element {
   // Gate (deslogado): confirmar e-mail para autenticar via invite.
   const [email, setEmail] = useState("");
   const [authBusy, setAuthBusy] = useState(false);
-  const [authedByInvite, setAuthedByInvite] = useState(false);
+  const [pageAuthToken, setPageAuthToken] = useState<string | null>(null);
+  const [pageAuthUser, setPageAuthUser] = useState<any | null>(null);
 
   const [loadingInfo, setLoadingInfo] = useState(true);
   const [info, setInfo] = useState<null | {
@@ -127,7 +128,9 @@ export default function AppointmentPaymentPage(): JSX.Element {
     if (!appointmentId) return;
     setLoadingInfo(true);
     try {
-      const s: any = await api.paymentsStatus({ appointment_id: appointmentId });
+      const s: any = pageAuthToken
+        ? await api.paymentsStatusWithAuth(pageAuthToken, { appointment_id: appointmentId })
+        : await api.paymentsStatus({ appointment_id: appointmentId });
       setInfo({
         payment_required: !!s.payment_required,
         amount: typeof s.amount === "number" ? s.amount : s.amount != null ? Number(s.amount) : null,
@@ -143,12 +146,13 @@ export default function AppointmentPaymentPage(): JSX.Element {
     } finally {
       setLoadingInfo(false);
     }
-  }, [appointmentId]);
+  }, [appointmentId, pageAuthToken]);
 
   useEffect(() => {
-    setPayerName(String(user?.name ?? "").trim());
-    setPayerEmail(String(user?.email ?? "").trim());
-  }, [user?.email, user?.name]);
+    const u = pageAuthUser || user;
+    setPayerName(String(u?.name ?? "").trim());
+    setPayerEmail(String(u?.email ?? "").trim());
+  }, [user?.email, user?.name, pageAuthUser]);
 
   // auth via invite (sem entrar na transmissão)
   const handleInviteAuth = useCallback(async () => {
@@ -163,10 +167,9 @@ export default function AppointmentPaymentPage(): JSX.Element {
     setError("");
     try {
       const res = await api.appointmentInviteAuth({ appointment_id: appointmentId, invite_token: inviteToken, email: e });
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("user", JSON.stringify(res.user));
-      auth.setAuthUser(res.user);
-      setAuthedByInvite(true);
+      // Token temporário para esta página (não sobrescreve login do admin/profissional)
+      setPageAuthToken(String(res.token || "").trim());
+      setPageAuthUser(res.user as any);
     } catch (err: any) {
       toast({ title: "Acesso", description: err?.data?.message || "Não foi possível validar o e-mail.", variant: "destructive" });
     } finally {
@@ -180,8 +183,10 @@ export default function AppointmentPaymentPage(): JSX.Element {
     if (!waiting) return;
     let cancelled = false;
     const id = window.setInterval(() => {
-      void api
-        .paymentsStatus({ appointment_id: appointmentId })
+      const req = pageAuthToken
+        ? api.paymentsStatusWithAuth(pageAuthToken, { appointment_id: appointmentId })
+        : api.paymentsStatus({ appointment_id: appointmentId });
+      void req
         .then((s: any) => {
           if (cancelled) return;
           if (s.paid) {
@@ -203,15 +208,19 @@ export default function AppointmentPaymentPage(): JSX.Element {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [waiting, appointmentId, toast]);
+  }, [waiting, appointmentId, toast, pageAuthToken]);
 
   // Card Brick
   useEffect(() => {
     if (!appointmentId) return;
-    if (!user) return;
+    const tokenToUse = pageAuthToken || null;
+    const canPay = (user && (user as any).role === "user") || !!tokenToUse;
+    if (!canPay) return;
     if (paid) return;
     if (tab !== "card") return;
     if (!publicKey) return;
+    const amount = info?.amount ?? null;
+    if (!(typeof amount === "number" && Number.isFinite(amount) && amount > 0)) return;
 
     let cancelled = false;
     (async () => {
@@ -226,7 +235,7 @@ export default function AppointmentPaymentPage(): JSX.Element {
         const mp = new (window as any).MercadoPago(publicKey);
         const bricksBuilder = mp.bricks();
 
-        const init: any = {};
+        const init: any = { amount };
         const email = payerEmailRef.current.trim();
         if (email) init.payer = { ...(init.payer || {}), email };
         const cpfDigits = payerCpfDigitsRef.current;
@@ -262,18 +271,31 @@ export default function AppointmentPaymentPage(): JSX.Element {
                   identification_number: String(formData?.payer?.identification?.number ?? formData?.identificationNumber ?? ""),
                 };
 
-                void api
-                  .paymentsCreate({
-                    appointment_id: appointmentId,
-                    method: "card",
-                    payer: {
-                      name: payerNameRef.current.trim() || null,
-                      email: payerEmailRef.current.trim() || null,
-                      identification: payerCpfDigitsRef.current ? { type: "CPF", number: payerCpfDigitsRef.current } : null,
-                    },
-                    card: cardPayload,
-                    idempotency_key: idempotencyKey,
-                  })
+                const req = tokenToUse
+                  ? api.paymentsCreateWithAuth(tokenToUse, {
+                      appointment_id: appointmentId,
+                      method: "card",
+                      payer: {
+                        name: payerNameRef.current.trim() || null,
+                        email: payerEmailRef.current.trim() || null,
+                        identification: payerCpfDigitsRef.current ? { type: "CPF", number: payerCpfDigitsRef.current } : null,
+                      },
+                      card: cardPayload,
+                      idempotency_key: idempotencyKey,
+                    })
+                  : api.paymentsCreate({
+                      appointment_id: appointmentId,
+                      method: "card",
+                      payer: {
+                        name: payerNameRef.current.trim() || null,
+                        email: payerEmailRef.current.trim() || null,
+                        identification: payerCpfDigitsRef.current ? { type: "CPF", number: payerCpfDigitsRef.current } : null,
+                      },
+                      card: cardPayload,
+                      idempotency_key: idempotencyKey,
+                    });
+
+                void req
                   .then((res) => {
                     const p = res.data;
                     setProviderPaymentId(p.provider_payment_id ?? null);
@@ -307,8 +329,9 @@ export default function AppointmentPaymentPage(): JSX.Element {
         };
 
         (window as any).cardPaymentBrickController = await bricksBuilder.create("cardPayment", brickContainerId, settings);
-      } catch {
-        if (!cancelled) setError("Não foi possível carregar o Mercado Pago neste dispositivo.");
+      } catch (e) {
+        console.error("[MP Brick] falhou", e);
+        if (!cancelled) setError("Não foi possível iniciar o Mercado Pago agora. Tente novamente.");
       }
     })();
 
@@ -318,7 +341,7 @@ export default function AppointmentPaymentPage(): JSX.Element {
         (window as any).cardPaymentBrickController?.unmount?.();
       } catch {}
     };
-  }, [appointmentId, user, tab, publicKey, brickContainerId, paid, toast]);
+  }, [appointmentId, user, tab, publicKey, brickContainerId, paid, toast, info?.amount, pageAuthToken]);
 
   const createPix = useCallback(async () => {
     if (!appointmentId) return;
@@ -328,16 +351,28 @@ export default function AppointmentPaymentPage(): JSX.Element {
     setPix(null);
     const idempotencyKey = uuid();
     try {
-      const res = await api.paymentsCreate({
-        appointment_id: appointmentId,
-        method: "pix",
-        payer: {
-          name: payerNameRef.current.trim() || null,
-          email: payerEmailRef.current.trim() || null,
-          identification: payerCpfDigitsRef.current ? { type: "CPF", number: payerCpfDigitsRef.current } : null,
-        },
-        idempotency_key: idempotencyKey,
-      });
+      const tokenToUse = pageAuthToken || null;
+      const res = tokenToUse
+        ? await api.paymentsCreateWithAuth(tokenToUse, {
+            appointment_id: appointmentId,
+            method: "pix",
+            payer: {
+              name: payerNameRef.current.trim() || null,
+              email: payerEmailRef.current.trim() || null,
+              identification: payerCpfDigitsRef.current ? { type: "CPF", number: payerCpfDigitsRef.current } : null,
+            },
+            idempotency_key: idempotencyKey,
+          })
+        : await api.paymentsCreate({
+            appointment_id: appointmentId,
+            method: "pix",
+            payer: {
+              name: payerNameRef.current.trim() || null,
+              email: payerEmailRef.current.trim() || null,
+              identification: payerCpfDigitsRef.current ? { type: "CPF", number: payerCpfDigitsRef.current } : null,
+            },
+            idempotency_key: idempotencyKey,
+          });
       const p = res.data;
       setProviderPaymentId(p.provider_payment_id ?? null);
       if (p.pix?.qr_code_base64 && p.pix?.qr_code) {
@@ -351,13 +386,14 @@ export default function AppointmentPaymentPage(): JSX.Element {
     } finally {
       setBusy(false);
     }
-  }, [appointmentId]);
+  }, [appointmentId, pageAuthToken]);
 
   useEffect(() => {
     if (!appointmentId) return;
-    if (!user) return;
+    const canRead = !!pageAuthToken || (!!user && (user as any).role === "user");
+    if (!canRead) return;
     void loadInfo();
-  }, [appointmentId, user, authedByInvite, loadInfo]);
+  }, [appointmentId, user, pageAuthToken, loadInfo]);
 
   if (!appointmentId) {
     return <FullScreenLogoLoader label="Pagamento" />;
@@ -366,11 +402,11 @@ export default function AppointmentPaymentPage(): JSX.Element {
   const fmt = (n: number | null) =>
     typeof n === "number" && Number.isFinite(n) ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
 
-  const needsAuth = !user && !!inviteToken;
+  const needsAuth = !!inviteToken && !pageAuthToken && (!user || (user as any).role !== "user");
 
   return (
-    <div className="min-h-[100svh] bg-background">
-      <div className="mx-auto max-w-3xl px-4 py-6">
+    <div className="min-h-[100svh] bg-gradient-to-b from-brand-green/10 via-background to-background">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
         <div className="flex items-center gap-3">
           <img src={logoImage} alt="Sementes da Fala" className="h-10 w-10 rounded-xl border border-border object-cover" />
           <div className="min-w-0">
@@ -385,7 +421,30 @@ export default function AppointmentPaymentPage(): JSX.Element {
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-border bg-card shadow-sm p-5">
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
+          <div className="rounded-3xl border border-border bg-card/70 p-5 shadow-sm backdrop-blur">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-semibold text-foreground">Resumo</div>
+              <span className="inline-flex items-center rounded-full border border-brand-green/30 bg-brand-green/10 px-2.5 py-1 text-xs font-medium text-brand-green">
+                Seguro
+              </span>
+            </div>
+
+            <div className="mt-3 text-4xl font-extrabold tracking-tight text-foreground">
+              {paid || info?.paid ? "Pago" : fmt(info?.amount ?? null)}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {info?.sessions ? `${info.sessions} sessões` : "—"}
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="text-xs text-muted-foreground leading-relaxed">
+              Preencha seus dados, escolha Pix ou Cartão e finalize. Ao aprovar, confirme com a profissional.
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
           {needsAuth ? (
             <div className="space-y-3">
               <div className="text-sm text-muted-foreground">
@@ -401,7 +460,7 @@ export default function AppointmentPaymentPage(): JSX.Element {
                 </Button>
               </div>
             </div>
-          ) : !user ? (
+          ) : !user && !pageAuthToken ? (
             <div className="text-sm text-muted-foreground">
               Faça login na plataforma para pagar, ou use o link enviado pela profissional/admin.
             </div>
@@ -508,8 +567,17 @@ export default function AppointmentPaymentPage(): JSX.Element {
                           <div className="text-sm text-muted-foreground">
                             Gere o QR Code e pague pelo seu banco. Após pagar, a confirmação acontece automaticamente.
                           </div>
+                          {!(typeof info?.amount === "number" && Number.isFinite(info.amount) && info.amount > 0) ? (
+                            <div className="mt-3 text-sm text-muted-foreground">
+                              Valor do pagamento não disponível ainda. Gere o link novamente pelo admin/profissional.
+                            </div>
+                          ) : null}
                           <div className="mt-4 flex items-center justify-end gap-2">
-                            <Button className="rounded-xl" onClick={() => void createPix()} disabled={busy}>
+                            <Button
+                              className="rounded-xl"
+                              onClick={() => void createPix()}
+                              disabled={busy || !(typeof info?.amount === "number" && Number.isFinite(info.amount) && info.amount > 0)}
+                            >
                               {busy ? "Gerando..." : "Gerar QR Code"}
                             </Button>
                           </div>
@@ -561,6 +629,12 @@ export default function AppointmentPaymentPage(): JSX.Element {
                         <div className="rounded-xl border border-border bg-muted/10 p-4">
                           <div className="text-sm text-destructive">VITE_MP_PUBLIC_KEY não configurada no frontend.</div>
                         </div>
+                      ) : !(typeof info?.amount === "number" && Number.isFinite(info.amount) && info.amount > 0) ? (
+                        <div className="rounded-xl border border-border bg-muted/10 p-4">
+                          <div className="text-sm text-muted-foreground">
+                            Valor do pagamento não disponível ainda. Gere o link novamente pelo admin/profissional.
+                          </div>
+                        </div>
                       ) : (
                         <div className="rounded-xl border border-border bg-muted/10 p-4">
                           <div className="text-xs text-muted-foreground">
@@ -575,6 +649,7 @@ export default function AppointmentPaymentPage(): JSX.Element {
               )}
             </>
           )}
+        </div>
         </div>
       </div>
     </div>

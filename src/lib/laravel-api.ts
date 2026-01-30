@@ -2359,6 +2359,21 @@ export async function paymentsCreate(payload: {
   });
 }
 
+export async function paymentsCreateWithAuth(
+  authToken: string,
+  payload: Parameters<typeof paymentsCreate>[0]
+): Promise<{ data: RtcPaymentRow }> {
+  const { idempotency_key, ...json } = payload;
+  return await request<{ data: RtcPaymentRow }>("/api/payments/create", {
+    method: "POST",
+    json,
+    headers: {
+      "X-Idempotency-Key": idempotency_key,
+      Authorization: `Bearer ${authToken}`,
+    },
+  });
+}
+
 export async function paymentsStatus(params: { appointment_id: number } | { payment_id: number }): Promise<{
   payment_id?: number;
   appointment_id: number | null;
@@ -2375,6 +2390,18 @@ export async function paymentsStatus(params: { appointment_id: number } | { paym
     "appointment_id" in params ? { appointment_id: String(params.appointment_id) } : { payment_id: String(params.payment_id) }
   ).toString();
   return await request(`/api/payments/status?${q}`);
+}
+
+export async function paymentsStatusWithAuth(
+  authToken: string,
+  params: Parameters<typeof paymentsStatus>[0]
+): Promise<Awaited<ReturnType<typeof paymentsStatus>>> {
+  const q = new URLSearchParams(
+    "appointment_id" in params ? { appointment_id: String(params.appointment_id) } : { payment_id: String(params.payment_id) }
+  ).toString();
+  return await request(`/api/payments/status?${q}`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+  });
 }
 
 export async function appointmentInviteAuth(payload: {

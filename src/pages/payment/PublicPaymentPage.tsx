@@ -38,7 +38,11 @@ function decodeTokenPreview(token: string): null | { title: string; amount: numb
     if (!part) return null;
     const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
     const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : "";
-    const json = atob(b64 + pad);
+    // atob retorna "binary string" (latin1). Precisamos decodificar como UTF-8
+    // para não quebrar acentos (ex.: "sessões" virar "sessÃµes").
+    const bin = atob(b64 + pad);
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const json = new TextDecoder("utf-8").decode(bytes);
     const obj = JSON.parse(json);
     const title = String(obj?.title ?? "Pagamento");
     const amount = Number(obj?.amount ?? 0);
@@ -329,7 +333,11 @@ export default function PublicPaymentPage(): JSX.Element {
   }, [token, amount, toast]);
 
   const fmtMoney = (n: number) => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const fmtSessions = (n: number | null | undefined) => (n && n > 0 ? `${n} sessões` : "Pagamento avulso");
+  const fmtSessions = (n: number | null | undefined) => {
+    if (!n || n <= 0) return "Pagamento avulso";
+    if (n === 1) return "1 sessão";
+    return `${n} sessões`;
+  };
 
   if (!token) {
     return (
@@ -343,106 +351,68 @@ export default function PublicPaymentPage(): JSX.Element {
   }
 
   return (
-    <div className="min-h-[100svh] py-8 lg:py-12">
-      <div className="container mx-auto px-4">
-        <div className="mx-auto max-w-6xl">
-          <div className="rounded-[28px] border border-border bg-card/70 backdrop-blur overflow-hidden shadow-[0_20px_80px_-40px_rgba(0,0,0,0.35)]">
-            {/* Header */}
-            <div className="relative px-5 sm:px-8 py-6 border-b border-border overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-brand-green/18 via-transparent to-brand-green/10" />
-              <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-brand-green/10 blur-3xl" />
-              <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={logoImage}
-                    alt="Sementes da Fala"
-                    className="h-10 w-10 rounded-xl object-cover border border-border shadow-sm"
-                  />
-                  <div>
-                    <div className="font-display font-bold text-foreground leading-tight">Sementes da Fala</div>
-                    <div className="mt-0.5 inline-flex items-center gap-2 text-xs text-muted-foreground">
-                      <LockKeyhole className="h-3.5 w-3.5" />
-                      Pagamento seguro
-                    </div>
-                  </div>
-                </div>
+    <div className="min-h-[100svh]">
+      {/* Fundo mais sofisticado */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_20%_-10%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(900px_500px_at_90%_10%,rgba(16,185,129,0.10),transparent_55%),radial-gradient(700px_600px_at_50%_120%,rgba(0,0,0,0.10),transparent_55%)]" />
+      </div>
 
-                <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground">
-                    <span className="h-2 w-2 rounded-full bg-brand-green" />
-                    Link verificado
-                  </span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground">
-                    <CreditCard className="h-3.5 w-3.5" />
-                    Pix e Cartão
-                  </span>
+      <div className="container mx-auto px-4 py-8 lg:py-12">
+        <div className="mx-auto max-w-6xl">
+          {/* Header mais “hero” (sem caixa grande) */}
+          <div className="rounded-3xl border border-border/70 bg-background/60 backdrop-blur px-5 sm:px-8 py-6 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+              <div className="flex items-center gap-3">
+                <img
+                  src={logoImage}
+                  alt="Sementes da Fala"
+                  className="h-11 w-11 rounded-2xl object-cover border border-border shadow-sm"
+                />
+                <div>
+                  <div className="font-display font-bold text-foreground leading-tight">Sementes da Fala</div>
+                  <div className="mt-0.5 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                    <LockKeyhole className="h-3.5 w-3.5" />
+                    Pagamento seguro
+                  </div>
                 </div>
               </div>
 
-              {/* Title */}
-              <div className="relative mt-5">
-                <div className="text-xs text-muted-foreground">Você está pagando</div>
-                <div className="mt-1 text-lg sm:text-xl font-display font-bold text-foreground">{title}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/70 px-3 py-1.5 text-xs text-muted-foreground">
+                  <span className="h-2 w-2 rounded-full bg-brand-green" />
+                  Link verificado
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/70 px-3 py-1.5 text-xs text-muted-foreground">
+                  <CreditCard className="h-3.5 w-3.5" />
+                  Pix e cartão
+                </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-0">
-              {/* Summary */}
-              <div className="p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-border bg-muted/15">
-                <div className="lg:sticky lg:top-6">
-                  <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-foreground">Resumo</div>
-                        <div className="mt-1 text-xs text-muted-foreground">{fmtSessions(preview?.sessions ?? null)}</div>
-                      </div>
-                      <span className="inline-flex items-center gap-2 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20 px-3 py-1.5 text-xs">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Seguro
-                      </span>
-                    </div>
-
-                    <div className="mt-4">
-                      <div className="text-4xl font-display font-extrabold text-foreground tracking-tight">
-                        {fmtMoney(amount)}
-                      </div>
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        Confirmação automática após o pagamento. Em seguida, confirme com a profissional/admin.
-                      </div>
-                    </div>
-
-                    <Separator className="my-4" />
-
-                    <div className="space-y-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <LockKeyhole className="h-3.5 w-3.5" />
-                        Ambiente seguro
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <QrCode className="h-3.5 w-3.5" />
-                        Pix com QR Code e copia e cola
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CreditCard className="h-3.5 w-3.5" />
-                        Cartão de crédito (Mercado Pago)
-                      </div>
-                    </div>
-                  </div>
-
-                  {paid ? null : (
-                    <div className="mt-4 rounded-3xl border border-border bg-background/60 p-4">
-                      <div className="text-xs text-muted-foreground">
-                        Dica: se você estiver em uma chamada com a profissional, mantenha esta página aberta até ver “Pagamento confirmado”.
-                      </div>
-                    </div>
-                  )}
+            <div className="mt-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+              <div>
+                <div className="text-xs text-muted-foreground">Você está pagando</div>
+                <div className="mt-1 text-2xl sm:text-3xl font-display font-extrabold text-foreground tracking-tight">
+                  {title}
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20 px-3 py-1.5 text-xs">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  {fmtSessions(preview?.sessions ?? null)}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/70 px-3 py-1.5 text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">{fmtMoney(amount)}</span>
+                </span>
+              </div>
+            </div>
+          </div>
 
-              {/* Main */}
-              <div className="p-5 sm:p-8">
+          <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+            {/* Main */}
+            <div className="order-2 lg:order-1">
                 {paid ? (
-                  <div className="rounded-3xl border border-brand-green/25 bg-brand-green/10 p-6">
+                  <div className="rounded-3xl border border-brand-green/25 bg-brand-green/10 p-6 shadow-sm">
                     <div className="flex items-start gap-3">
                       <CheckCircle2 className="h-6 w-6 text-brand-green mt-0.5" />
                       <div>
@@ -456,7 +426,7 @@ export default function PublicPaymentPage(): JSX.Element {
                 ) : (
                   <>
                     {/* Step 1 */}
-                    <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                    <div className="rounded-3xl border border-border/70 bg-background/60 backdrop-blur p-6 shadow-sm">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="text-sm font-semibold text-foreground">1) Dados do pagador</div>
@@ -516,7 +486,7 @@ export default function PublicPaymentPage(): JSX.Element {
                     <Separator className="my-6" />
 
                     {/* Step 2 */}
-                    <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                    <div className="rounded-3xl border border-border/70 bg-background/60 backdrop-blur p-6 shadow-sm">
                       <div className="text-sm font-semibold text-foreground">2) Escolha a forma de pagamento</div>
                       <div className="mt-1 text-xs text-muted-foreground">
                         Pix é mais rápido. Cartão permite parcelamento conforme disponibilidade.
@@ -536,7 +506,7 @@ export default function PublicPaymentPage(): JSX.Element {
                           </TabsList>
 
                           <TabsContent value="pix" className="mt-4">
-                            <div className="rounded-2xl border border-border bg-background/60 p-5">
+                            <div className="rounded-2xl border border-border bg-background/70 p-5">
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <div className="text-sm font-semibold text-foreground">Pix</div>
@@ -604,7 +574,7 @@ export default function PublicPaymentPage(): JSX.Element {
                           </TabsContent>
 
                           <TabsContent value="card" className="mt-4">
-                            <div className="rounded-2xl border border-border bg-background/60 p-5">
+                            <div className="rounded-2xl border border-border bg-background/70 p-5">
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <div className="text-sm font-semibold text-foreground">Cartão de crédito</div>
@@ -649,6 +619,55 @@ export default function PublicPaymentPage(): JSX.Element {
                       Ao pagar você concorda com os termos da plataforma. Em caso de erro, tente novamente ou contate o suporte.
                     </div>
                   </>
+                )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="order-1 lg:order-2">
+              <div className="lg:sticky lg:top-6 space-y-4">
+                <div className="rounded-3xl border border-border/70 bg-background/60 backdrop-blur p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-foreground">Resumo</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{fmtSessions(preview?.sessions ?? null)}</div>
+                    </div>
+                    <span className="inline-flex items-center gap-2 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20 px-3 py-1.5 text-xs">
+                      <LockKeyhole className="h-3.5 w-3.5" />
+                      Seguro
+                    </span>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-4xl font-display font-extrabold text-foreground tracking-tight">{fmtMoney(amount)}</div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Confirmação automática após o pagamento. Em seguida, confirme com a profissional/admin.
+                    </div>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <LockKeyhole className="h-3.5 w-3.5" />
+                      Ambiente seguro
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <QrCode className="h-3.5 w-3.5" />
+                      Pix com QR Code e copia e cola
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-3.5 w-3.5" />
+                      Cartão de crédito (Mercado Pago)
+                    </div>
+                  </div>
+                </div>
+
+                {paid ? null : (
+                  <div className="rounded-3xl border border-border/70 bg-background/60 backdrop-blur p-4 shadow-sm">
+                    <div className="text-xs text-muted-foreground">
+                      Dica: se você estiver em uma chamada com a profissional, mantenha esta página aberta até ver “Pagamento confirmado”.
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

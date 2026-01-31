@@ -111,6 +111,7 @@ export default function SessionCall() {
   const didInviteAutoRedirectRef = useRef(false);
   const didReconnectRequestRef = useRef(false);
   const lastAppointmentIdRef = useRef<number | null>(null);
+  const joinedAtMsRef = useRef<number>(0);
   const [epoch, setEpoch] = useState<string | null>(null);
   const epochRef = useRef<string | null>(null);
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
@@ -207,6 +208,7 @@ export default function SessionCall() {
     setPendingOfferAvailable(false);
     didInviteAutoRedirectRef.current = false;
     didReconnectRequestRef.current = false;
+    joinedAtMsRef.current = 0;
   }, [appointmentId]);
 
   const [proCommentOpen, setProCommentOpen] = useState(false);
@@ -674,27 +676,28 @@ export default function SessionCall() {
         setMediaError(null);
         // Fecha gate de e-mail (invite) após join bem-sucedido
         setInviteEmailOpen(false);
+        // Marca "início desta entrada" para ignorar comandos antigos (ex.: pagamento) ao entrar via link.
+        joinedAtMsRef.current = Date.now();
         joiningRef.current = false; // Reset para permitir novo join se necessário
       } catch (e) {
         if (cancelled) return;
         if (timeoutId) clearTimeout(timeoutId);
         joiningRef.current = false; // Reset em caso de erro
 
-        // Pagamento obrigatório (402): mantém o usuário na tela e abre o checkout embutido
+        // Pagamento obrigatório (402):
+        // NÃO abrir checkout automaticamente ao iniciar a chamada (evita "vazar" tela de pagamento).
+        // Se o pagamento for necessário, o admin/profissional deve solicitar manualmente durante a sessão.
         if (isApiError(e) && e.status === 402 && ((e as any).data?.payment_required || (e as any).data?.message === "payment_required")) {
-          const pay = (e as any).data?.payment || {};
-          const sessions = Number.isFinite(Number(pay.sessions)) ? Number(pay.sessions) : null;
-          const amount = Number.isFinite(Number(pay.amount)) ? Number(pay.amount) : 0;
-          if (amount > 0) {
-            setRtcPaymentLocked(true);
-            setRtcPaymentMeta({ sessions, amount });
-            setRtcPaymentOpen(true);
-            setStatusLabel("Pagamento pendente. Finalize para liberar a sessão.");
-            setJoinInfo(null);
-            setRole(null);
-            setJoining(false);
-            return;
-          }
+          setJoinInfo(null);
+          setRole(null);
+          setJoining(false);
+          setStatusLabel("Sessão com pagamento pendente. Aguarde o profissional/admin solicitar o pagamento.");
+          toast({
+            title: "Sessão",
+            description: "Pagamento pendente. Aguarde o profissional/admin solicitar o pagamento para você.",
+            variant: "destructive",
+          });
+          return;
         }
 
         const msg =
@@ -1450,6 +1453,11 @@ export default function SessionCall() {
     }
 
     if (m.kind === "payment_link" && role === "user") {
+      // Segurança: ignora comandos antigos para não reabrir pagamento ao entrar via link/retornar à chamada.
+      const joinedAt = joinedAtMsRef.current || 0;
+      const atMs = Date.parse(String((m as any).at || "")) || 0;
+      if (joinedAt > 0 && atMs > 0 && atMs + 1500 < joinedAt) return;
+
       // Evita reabrir automaticamente após refresh/troca de sessão:
       // mensagens antigas podem reaparecer quando o poll reinicia.
       const key = appointmentId ? `rtc_payment_link_seen:${appointmentId}` : "";
@@ -1469,6 +1477,11 @@ export default function SessionCall() {
     }
 
     if (m.kind === "payment_request" && role === "user") {
+      // Segurança: ignora comandos antigos para não reabrir pagamento ao entrar via link/retornar à chamada.
+      const joinedAt = joinedAtMsRef.current || 0;
+      const atMs = Date.parse(String((m as any).at || "")) || 0;
+      if (joinedAt > 0 && atMs > 0 && atMs + 1500 < joinedAt) return;
+
       // Evita reabrir o pagamento automaticamente após refresh:
       // como o poll reinicia com after_id=0, mensagens antigas reaparecem.
       // Aqui deduplicamos por ID (sempre crescente).

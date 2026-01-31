@@ -80,6 +80,7 @@ const queryClient = new QueryClient();
 
 const SessionCall = lazyWithRetry(() => import("./pages/session/SessionCall"), "SessionCall");
 const AppointmentPaymentPage = lazyWithRetry(() => import("./pages/payment/AppointmentPaymentPage"), "AppointmentPaymentPage");
+const PublicPaymentPage = lazyWithRetry(() => import("./pages/payment/PublicPaymentPage"), "PublicPaymentPage");
 
 function SessionCallRedirect(): JSX.Element {
   const { id } = useParams();
@@ -243,6 +244,14 @@ const App = () => {
                 element={
                   <Suspense fallback={<FullScreenLogoLoader label="Carregando pagamento..." />}>
                     <AppointmentPaymentPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/pagamento/publico"
+                element={
+                  <Suspense fallback={<FullScreenLogoLoader label="Carregando pagamento..." />}>
+                    <PublicPaymentPage />
                   </Suspense>
                 }
               />

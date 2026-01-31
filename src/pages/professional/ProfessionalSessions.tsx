@@ -63,7 +63,6 @@ export default function ProfessionalSessions(): JSX.Element {
   const [reschedTime, setReschedTime] = useState<string>("");
   const [inviteGeneratingId, setInviteGeneratingId] = useState<number | null>(null);
   const [payLinkOpen, setPayLinkOpen] = useState(false);
-  const [payLinkForSession, setPayLinkForSession] = useState<null | { id: number; patientName: string }>(null);
   const [payLinkBusy, setPayLinkBusy] = useState(false);
   const [payCustomAmount, setPayCustomAmount] = useState<string>("");
   const [payCustomSessions, setPayCustomSessions] = useState<string>("");
@@ -245,14 +244,14 @@ export default function ProfessionalSessions(): JSX.Element {
     return list.map((p) => ({ ...p, priceLabel: fmtMoney(p.price), perSessionLabel: fmtMoney(p.price / p.sessions) }));
   }, []);
 
-  const generatePaymentLink = async (appointmentId: number, amount: number, sessions: number | null) => {
+  const generatePaymentLink = async (amount: number, sessions: number | null) => {
     setPayLinkBusy(true);
     try {
-      await api.appointmentPaymentRequest(appointmentId, { amount, sessions });
-      const inv = await api.appointmentCreateInviteLink(appointmentId);
+      const title = sessions ? `Pacote ${sessions} sessões` : "Pagamento";
+      const res = await api.paymentLinksSign({ amount, sessions, title });
       const url = new URL(window.location.origin);
-      url.pathname = `/pagamento/sessao/${appointmentId}`;
-      url.searchParams.set("invite_token", inv.token);
+      url.pathname = `/pagamento/publico`;
+      url.searchParams.set("token", res.token);
       const link = url.toString();
 
       try {
@@ -262,7 +261,6 @@ export default function ProfessionalSessions(): JSX.Element {
         window.prompt("Copie o link de pagamento:", link);
       }
       setPayLinkOpen(false);
-      setPayLinkForSession(null);
     } catch (e: any) {
       toast({
         title: "Pagamento",
@@ -281,6 +279,22 @@ export default function ProfessionalSessions(): JSX.Element {
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Sessões</h1>
             <p className="text-sm sm:text-base text-muted-foreground">Visualize suas sessões agendadas e entre na transmissão ao vivo.</p>
+          </div>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setPayCustomAmount("");
+                setPayCustomSessions("");
+                setPayLinkOpen(true);
+              }}
+              title="Gerar link de pagamento genérico (qualquer pessoa pode pagar)"
+            >
+              <Wallet className="mr-2 h-4 w-4" />
+              Gerar link de pagamento
+            </Button>
           </div>
 
           <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
@@ -482,22 +496,7 @@ export default function ProfessionalSessions(): JSX.Element {
                                   </Button>
                                 )}
                                 {(st === "agendada" || st === "avaliacao") && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 rounded-lg"
-                                    onClick={() => {
-                                      setPayLinkForSession({ id: s.id, patientName: patientDisplayName(s.user || { name: "Paciente" }) });
-                                      setPayCustomAmount("");
-                                      setPayCustomSessions("");
-                                      setPayLinkOpen(true);
-                                    }}
-                                    title="Gerar link de pagamento (página separada)"
-                                  >
-                                    <Wallet className="h-3.5 w-3.5 mr-2" />
-                                    Link pagamento
-                                  </Button>
+                                  null
                                 )}
                                 <Button
                                   variant="outline"
@@ -548,7 +547,6 @@ export default function ProfessionalSessions(): JSX.Element {
         onOpenChange={(open) => {
           setPayLinkOpen(open);
           if (!open) {
-            setPayLinkForSession(null);
             setPayLinkBusy(false);
           }
         }}
@@ -557,7 +555,7 @@ export default function ProfessionalSessions(): JSX.Element {
           <DialogHeader>
             <DialogTitle>Gerar link de pagamento</DialogTitle>
             <DialogDescription>
-              {payLinkForSession ? `Sessão #${payLinkForSession.id} • Paciente: ${payLinkForSession.patientName}` : "Escolha um pacote ou valor personalizado."}
+              Escolha um pacote ou valor personalizado. O link pode ser enviado para qualquer pessoa pagar.
             </DialogDescription>
           </DialogHeader>
 
@@ -588,9 +586,8 @@ export default function ProfessionalSessions(): JSX.Element {
               <div className="mt-3 flex items-center justify-end">
                 <Button
                   className="rounded-lg"
-                  disabled={!payLinkForSession || payLinkBusy}
+                    disabled={payLinkBusy}
                   onClick={() => {
-                    if (!payLinkForSession) return;
                     const raw = String(payCustomAmount || "").trim();
                     const cleaned = raw.replace(/[^\d.,-]/g, "").replace(/\./g, "").replace(",", ".");
                     const amount = Number(cleaned);
@@ -601,7 +598,7 @@ export default function ProfessionalSessions(): JSX.Element {
                       toast({ title: "Pagamento", description: "Informe um valor válido.", variant: "destructive" });
                       return;
                     }
-                    void generatePaymentLink(payLinkForSession.id, amount, sessions);
+                    void generatePaymentLink(amount, sessions);
                   }}
                 >
                   {payLinkBusy ? "Gerando..." : "Gerar link"}
@@ -621,10 +618,9 @@ export default function ProfessionalSessions(): JSX.Element {
                   <Button
                     size="sm"
                     className="rounded-lg"
-                    disabled={!payLinkForSession || payLinkBusy}
+                      disabled={payLinkBusy}
                     onClick={() => {
-                      if (!payLinkForSession) return;
-                      void generatePaymentLink(payLinkForSession.id, p.price, p.sessions);
+                      void generatePaymentLink(p.price, p.sessions);
                     }}
                   >
                     {payLinkBusy ? "Gerando..." : "Gerar link"}

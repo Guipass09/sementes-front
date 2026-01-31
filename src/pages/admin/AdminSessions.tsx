@@ -19,7 +19,7 @@ import {
   adminListUsers,
   adminUpdateAppointmentStatus,
   appointmentCreateInviteLink,
-  appointmentPaymentRequest,
+  paymentLinksSign,
   isApiError,
 } from "@/lib/laravel-api";
 import type { JoinSessionMeta } from "@/lib/laravel-api";
@@ -101,7 +101,6 @@ const AdminSessions = () => {
   const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
   const [inviteGeneratingId, setInviteGeneratingId] = useState<number | null>(null);
   const [payLinkOpen, setPayLinkOpen] = useState(false);
-  const [payLinkForSession, setPayLinkForSession] = useState<null | { id: number; userName: string }>(null);
   const [payLinkBusy, setPayLinkBusy] = useState(false);
   const [payCustomAmount, setPayCustomAmount] = useState<string>("");
   const [payCustomSessions, setPayCustomSessions] = useState<string>("");
@@ -424,16 +423,14 @@ const AdminSessions = () => {
     }
   };
 
-  const generatePaymentLink = async (appointmentId: number, amount: number, sessions: number | null) => {
+  const generatePaymentLink = async (amount: number, sessions: number | null) => {
     setPayLinkBusy(true);
     try {
-      // fixa o valor no servidor
-      await appointmentPaymentRequest(appointmentId, { amount, sessions });
-      // gera invite token para o paciente pagar mesmo deslogado
-      const inv = await appointmentCreateInviteLink(appointmentId);
+      const title = sessions ? `Pacote ${sessions} sessões` : "Pagamento";
+      const res = await paymentLinksSign({ amount, sessions, title });
       const url = new URL(window.location.origin);
-      url.pathname = `/pagamento/sessao/${appointmentId}`;
-      url.searchParams.set("invite_token", inv.token);
+      url.pathname = `/pagamento/publico`;
+      url.searchParams.set("token", res.token);
       const link = url.toString();
 
       try {
@@ -443,7 +440,6 @@ const AdminSessions = () => {
         window.prompt("Copie o link de pagamento:", link);
       }
       setPayLinkOpen(false);
-      setPayLinkForSession(null);
     } catch (e: any) {
       toast({
         title: "Pagamento",
@@ -468,10 +464,26 @@ const AdminSessions = () => {
             </h1>
             <p className="text-muted-foreground">Visualize, crie e gerencie horários de todos os usuários</p>
           </div>
-          <Button onClick={() => handleOpenDialog()} className="w-full sm:w-auto">
-            <Plus size={20} className="mr-2" />
-            Novo Horário
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setPayCustomAmount("");
+                setPayCustomSessions("");
+                setPayLinkOpen(true);
+              }}
+              className="w-full sm:w-auto"
+              title="Gerar link de pagamento genérico (qualquer pessoa pode pagar)"
+            >
+              <Wallet size={18} className="mr-2" />
+              Gerar link de pagamento
+            </Button>
+            <Button onClick={() => handleOpenDialog()} className="w-full sm:w-auto">
+              <Plus size={20} className="mr-2" />
+              Novo Horário
+            </Button>
+          </div>
         </div>
 
         <div className="mb-6">
@@ -591,22 +603,7 @@ const AdminSessions = () => {
                                 </Button>
                               )}
                               {(session.status === "agendada" || session.status === "avaliacao") && (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-auto px-3 py-2 rounded-xl"
-                                  onClick={() => {
-                                    setPayLinkForSession({ id: session.id, userName: session.userName });
-                                    setPayCustomAmount("");
-                                    setPayCustomSessions("");
-                                    setPayLinkOpen(true);
-                                  }}
-                                  title="Gerar link de pagamento (página separada)"
-                                >
-                                  <Wallet size={16} className="mr-2" />
-                                  Link pagamento
-                                </Button>
+                                null
                               )}
                               {(() => {
                                 const countdown = getJoinCountdownLabel({
@@ -704,7 +701,6 @@ const AdminSessions = () => {
           onOpenChange={(open) => {
             setPayLinkOpen(open);
             if (!open) {
-              setPayLinkForSession(null);
               setPayLinkBusy(false);
             }
           }}
@@ -713,9 +709,7 @@ const AdminSessions = () => {
             <DialogHeader>
               <DialogTitle>Gerar link de pagamento</DialogTitle>
               <DialogDescription>
-                {payLinkForSession
-                  ? `Sessão #${payLinkForSession.id} • Paciente: ${payLinkForSession.userName}`
-                  : "Escolha um pacote ou valor personalizado."}
+                Escolha um pacote ou valor personalizado. O link pode ser enviado para qualquer pessoa pagar.
               </DialogDescription>
             </DialogHeader>
 
@@ -746,9 +740,8 @@ const AdminSessions = () => {
                 <div className="mt-3 flex items-center justify-end">
                   <Button
                     className="rounded-lg"
-                    disabled={!payLinkForSession || payLinkBusy}
+                    disabled={payLinkBusy}
                     onClick={() => {
-                      if (!payLinkForSession) return;
                       const raw = String(payCustomAmount || "").trim();
                       const cleaned = raw.replace(/[^\d.,-]/g, "").replace(/\./g, "").replace(",", ".");
                       const amount = Number(cleaned);
@@ -759,7 +752,7 @@ const AdminSessions = () => {
                         toast({ title: "Pagamento", description: "Informe um valor válido.", variant: "destructive" });
                         return;
                       }
-                      void generatePaymentLink(payLinkForSession.id, amount, sessions);
+                      void generatePaymentLink(amount, sessions);
                     }}
                   >
                     {payLinkBusy ? "Gerando..." : "Gerar link"}
@@ -779,10 +772,9 @@ const AdminSessions = () => {
                     <Button
                       size="sm"
                       className="rounded-lg"
-                      disabled={!payLinkForSession || payLinkBusy}
+                      disabled={payLinkBusy}
                       onClick={() => {
-                        if (!payLinkForSession) return;
-                        void generatePaymentLink(payLinkForSession.id, p.price, p.sessions);
+                        void generatePaymentLink(p.price, p.sessions);
                       }}
                     >
                       {payLinkBusy ? "Gerando..." : "Gerar link"}

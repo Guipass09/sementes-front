@@ -2386,6 +2386,32 @@ export async function paymentsCreateInvite(payload: {
   });
 }
 
+export async function paymentsCreatePublic(payload: {
+  token: string;
+  method: "pix" | "card";
+  payer: {
+    name?: string | null;
+    email: string;
+    identification?: { type: "CPF"; number: string } | null;
+  };
+  card?: {
+    token: string;
+    installments: number;
+    payment_method_id: string;
+    issuer_id?: any;
+    identification_type?: string | null;
+    identification_number?: string | null;
+  };
+  idempotency_key: string;
+}): Promise<{ data: RtcPaymentRow }> {
+  const { idempotency_key, ...json } = payload;
+  return await request<{ data: RtcPaymentRow }>("/api/payments/create-public", {
+    method: "POST",
+    json,
+    headers: { "X-Idempotency-Key": idempotency_key },
+  });
+}
+
 export async function paymentsCreateWithAuth(
   authToken: string,
   payload: Parameters<typeof paymentsCreate>[0]
@@ -2429,6 +2455,11 @@ export async function paymentsStatusInvite(params: { appointment_id: number; inv
   return await request(`/api/payments/status-invite?${q}`);
 }
 
+export async function paymentsStatusPublic(params: { payment_id: number }): Promise<Awaited<ReturnType<typeof paymentsStatus>>> {
+  const q = new URLSearchParams({ payment_id: String(params.payment_id) }).toString();
+  return await request(`/api/payments/status-public?${q}`);
+}
+
 export async function paymentsStatusWithAuth(
   authToken: string,
   params: Parameters<typeof paymentsStatus>[0]
@@ -2466,6 +2497,20 @@ export async function appointmentPaymentRequest(appointmentId: number, payload: 
   return await request(`/api/appointments/${encodeURIComponent(String(appointmentId))}/payment-request`, {
     method: "POST",
     json: { amount: payload.amount, sessions: payload.sessions ?? null },
+  });
+}
+
+export async function paymentLinksSign(payload: { amount: number; sessions?: number | null; title?: string | null }): Promise<{
+  token: string;
+  payload: { v: number; id: string; title: string; amount: number; sessions: number | null; iat: number; exp: number };
+}> {
+  return await request("/api/payment-links/sign", {
+    method: "POST",
+    json: {
+      amount: payload.amount,
+      sessions: payload.sessions ?? null,
+      title: payload.title ?? null,
+    },
   });
 }
 

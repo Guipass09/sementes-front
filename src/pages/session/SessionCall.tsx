@@ -110,6 +110,7 @@ export default function SessionCall() {
   const [pendingOfferAvailable, setPendingOfferAvailable] = useState(false);
   const didInviteAutoRedirectRef = useRef(false);
   const didReconnectRequestRef = useRef(false);
+  const lastAppointmentIdRef = useRef<number | null>(null);
   const [epoch, setEpoch] = useState<string | null>(null);
   const epochRef = useRef<string | null>(null);
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
@@ -173,6 +174,40 @@ export default function SessionCall() {
   const [customPayAmount, setCustomPayAmount] = useState<string>("");
   const [customPaySessions, setCustomPaySessions] = useState<string>("");
   const [customPayMethod, setCustomPayMethod] = useState<"pix" | "card">("card");
+
+  // Segurança: nada de um atendimento pode "vazar" para outro.
+  // Ao trocar de appointment, zeramos TODOS os estados de pagamento e removemos referências de join/poll antigas,
+  // para evitar reabrir modais/iframes de um paciente anterior no próximo.
+  useEffect(() => {
+    if (lastAppointmentIdRef.current === appointmentId) return;
+    lastAppointmentIdRef.current = appointmentId;
+
+    // Pagamento (externo e embutido)
+    setRtcPaymentOpen(false);
+    setRtcPaymentMeta(null);
+    setRtcPaymentLocked(false);
+    setPaymentIframeOpen(false);
+    setPaymentDialogOpen(false);
+    setPaymentUrl(null);
+    setPaymentSessions(null);
+    setPaymentConfirmOpen(false);
+    setPendingPayment(null);
+    setCustomPayOpen(false);
+
+    // Evita que loops/mensagens do appointment anterior continuem afetando a UI
+    setJoinInfo(null);
+    setRole(null);
+    cursorRef.current = 0;
+    setCursor(0);
+    epochRef.current = null;
+    setEpoch(null);
+    pendingWebrtcRef.current = [];
+    pendingIceRef.current = [];
+    pendingOfferRef.current = null;
+    setPendingOfferAvailable(false);
+    didInviteAutoRedirectRef.current = false;
+    didReconnectRequestRef.current = false;
+  }, [appointmentId]);
 
   const [proCommentOpen, setProCommentOpen] = useState(false);
   const [proCommentText, setProCommentText] = useState("");
@@ -1415,6 +1450,15 @@ export default function SessionCall() {
     }
 
     if (m.kind === "payment_link" && role === "user") {
+      // Evita reabrir automaticamente após refresh/troca de sessão:
+      // mensagens antigas podem reaparecer quando o poll reinicia.
+      const key = appointmentId ? `rtc_payment_link_seen:${appointmentId}` : "";
+      if (key) {
+        const last = Number(sessionStorage.getItem(key) || "0");
+        if (Number.isFinite(last) && last > 0 && m.id <= last) return;
+        sessionStorage.setItem(key, String(m.id));
+      }
+
       const url = m.payload?.url;
       const sessions = m.payload?.sessions;
       if (typeof url === "string" && url.startsWith("http")) {

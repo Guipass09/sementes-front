@@ -49,11 +49,6 @@ export default function AppointmentPaymentPage(): JSX.Element {
   const { user } = auth;
   const { toast } = useToast();
 
-  // Gate (deslogado): confirmar e-mail para autenticar via invite.
-  const [inviteAuthBusy, setInviteAuthBusy] = useState(false);
-  const [pageAuthToken, setPageAuthToken] = useState<string | null>(null);
-  const [pageAuthUser, setPageAuthUser] = useState<any | null>(null);
-
   const [loadingInfo, setLoadingInfo] = useState(true);
   const [info, setInfo] = useState<null | {
     payment_required: boolean;
@@ -127,8 +122,8 @@ export default function AppointmentPaymentPage(): JSX.Element {
     if (!appointmentId) return;
     setLoadingInfo(true);
     try {
-      const s: any = pageAuthToken
-        ? await api.paymentsStatusWithAuth(pageAuthToken, { appointment_id: appointmentId })
+      const s: any = inviteToken
+        ? await api.paymentsStatusInvite({ appointment_id: appointmentId, invite_token: inviteToken })
         : await api.paymentsStatus({ appointment_id: appointmentId });
       setInfo({
         payment_required: !!s.payment_required,
@@ -145,49 +140,12 @@ export default function AppointmentPaymentPage(): JSX.Element {
     } finally {
       setLoadingInfo(false);
     }
-  }, [appointmentId, pageAuthToken]);
+  }, [appointmentId, inviteToken]);
 
   useEffect(() => {
-    const u = pageAuthUser || user;
-    setPayerName(String(u?.name ?? "").trim());
-    setPayerEmail(String(u?.email ?? "").trim());
-  }, [user?.email, user?.name, pageAuthUser]);
-
-  // auth via invite (SEM e-mail) para link público de pagamento
-  useEffect(() => {
-    if (!appointmentId) return;
-    if (!inviteToken) return;
-    if (pageAuthToken) return;
-    // Se já é paciente logado, não precisa.
-    if (user && (user as any).role === "user") return;
-
-    let cancelled = false;
-    setInviteAuthBusy(true);
-    setError("");
-    void api
-      .appointmentInviteAuthPublic({ appointment_id: appointmentId, invite_token: inviteToken })
-      .then((res) => {
-        if (cancelled) return;
-        setPageAuthToken(String(res.token || "").trim());
-        setPageAuthUser(res.user as any);
-      })
-      .catch((err: any) => {
-        if (cancelled) return;
-        toast({
-          title: "Acesso",
-          description: err?.data?.message || "Não foi possível validar o link de pagamento.",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setInviteAuthBusy(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [appointmentId, inviteToken, pageAuthToken, toast, user]);
+    setPayerName(String(user?.name ?? "").trim());
+    setPayerEmail(String(user?.email ?? "").trim());
+  }, [user?.email, user?.name]);
 
   // Poll de status enquanto aguardando (pix ou cartão pendente)
   useEffect(() => {
@@ -195,8 +153,8 @@ export default function AppointmentPaymentPage(): JSX.Element {
     if (!waiting) return;
     let cancelled = false;
     const id = window.setInterval(() => {
-      const req = pageAuthToken
-        ? api.paymentsStatusWithAuth(pageAuthToken, { appointment_id: appointmentId })
+      const req = inviteToken
+        ? api.paymentsStatusInvite({ appointment_id: appointmentId, invite_token: inviteToken })
         : api.paymentsStatus({ appointment_id: appointmentId });
       void req
         .then((s: any) => {
@@ -220,13 +178,12 @@ export default function AppointmentPaymentPage(): JSX.Element {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [waiting, appointmentId, toast, pageAuthToken]);
+  }, [waiting, appointmentId, toast, inviteToken]);
 
   // Card Brick
   useEffect(() => {
     if (!appointmentId) return;
-    const tokenToUse = pageAuthToken || null;
-    const canPay = (user && (user as any).role === "user") || !!tokenToUse;
+    const canPay = !!inviteToken || (user && (user as any).role === "user");
     if (!canPay) return;
     if (paid) return;
     if (tab !== "card") return;
@@ -283,9 +240,10 @@ export default function AppointmentPaymentPage(): JSX.Element {
                   identification_number: String(formData?.payer?.identification?.number ?? formData?.identificationNumber ?? ""),
                 };
 
-                const req = tokenToUse
-                  ? api.paymentsCreateWithAuth(tokenToUse, {
+                const req = inviteToken
+                  ? api.paymentsCreateInvite({
                       appointment_id: appointmentId,
+                      invite_token: inviteToken,
                       method: "card",
                       payer: {
                         name: payerNameRef.current.trim() || null,
@@ -353,7 +311,7 @@ export default function AppointmentPaymentPage(): JSX.Element {
         (window as any).cardPaymentBrickController?.unmount?.();
       } catch {}
     };
-  }, [appointmentId, user, tab, publicKey, brickContainerId, paid, toast, info?.amount, pageAuthToken]);
+  }, [appointmentId, user, tab, publicKey, brickContainerId, paid, toast, info?.amount, inviteToken]);
 
   const createPix = useCallback(async () => {
     if (!appointmentId) return;
@@ -363,10 +321,10 @@ export default function AppointmentPaymentPage(): JSX.Element {
     setPix(null);
     const idempotencyKey = uuid();
     try {
-      const tokenToUse = pageAuthToken || null;
-      const res = tokenToUse
-        ? await api.paymentsCreateWithAuth(tokenToUse, {
+      const res = inviteToken
+        ? await api.paymentsCreateInvite({
             appointment_id: appointmentId,
+            invite_token: inviteToken,
             method: "pix",
             payer: {
               name: payerNameRef.current.trim() || null,
@@ -398,14 +356,12 @@ export default function AppointmentPaymentPage(): JSX.Element {
     } finally {
       setBusy(false);
     }
-  }, [appointmentId, pageAuthToken]);
+  }, [appointmentId, inviteToken]);
 
   useEffect(() => {
     if (!appointmentId) return;
-    const canRead = !!pageAuthToken || (!!user && (user as any).role === "user");
-    if (!canRead) return;
     void loadInfo();
-  }, [appointmentId, user, pageAuthToken, loadInfo]);
+  }, [appointmentId, loadInfo]);
 
   if (!appointmentId) {
     return <FullScreenLogoLoader label="Pagamento" />;
@@ -413,11 +369,6 @@ export default function AppointmentPaymentPage(): JSX.Element {
 
   const fmt = (n: number | null) =>
     typeof n === "number" && Number.isFinite(n) ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
-
-  // Se abriu com invite_token e o usuário não é paciente, precisamos autenticar via link
-  // antes de permitir criar Pix/Cartão (evita tentar pagar com token de admin/pro e dar Forbidden).
-  const requiresInviteAuth =
-    !!inviteToken && (!user || (user as any).role !== "user") && !pageAuthToken;
 
   return (
     <div className="min-h-[100svh] bg-gradient-to-b from-brand-green/10 via-background to-background">
@@ -460,16 +411,7 @@ export default function AppointmentPaymentPage(): JSX.Element {
           </div>
 
           <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-          {requiresInviteAuth ? (
-            <div className="py-10">
-              <FullScreenLogoLoader label={inviteAuthBusy ? "Validando link..." : "Validando link..."} />
-              {!inviteAuthBusy ? (
-                <div className="mt-3 text-center text-sm text-muted-foreground">
-                  Se demorar, atualize a página.
-                </div>
-              ) : null}
-            </div>
-          ) : !user && !pageAuthToken ? (
+          {!inviteToken && !user ? (
             <div className="text-sm text-muted-foreground">
               Faça login na plataforma para pagar, ou use o link enviado pela profissional/admin.
             </div>
@@ -587,7 +529,6 @@ export default function AppointmentPaymentPage(): JSX.Element {
                               onClick={() => void createPix()}
                               disabled={
                                 busy ||
-                                requiresInviteAuth ||
                                 !(typeof info?.amount === "number" && Number.isFinite(info.amount) && info.amount > 0)
                               }
                             >

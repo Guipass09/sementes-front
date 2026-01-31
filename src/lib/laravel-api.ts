@@ -2359,6 +2359,33 @@ export async function paymentsCreate(payload: {
   });
 }
 
+export async function paymentsCreateInvite(payload: {
+  appointment_id: number;
+  invite_token: string;
+  method: "pix" | "card";
+  payer?: {
+    name?: string | null;
+    email?: string | null;
+    identification?: { type: "CPF"; number: string } | null;
+  };
+  card?: {
+    token: string;
+    installments: number;
+    payment_method_id: string;
+    issuer_id?: any;
+    identification_type?: string | null;
+    identification_number?: string | null;
+  };
+  idempotency_key: string;
+}): Promise<{ data: RtcPaymentRow }> {
+  const { idempotency_key, ...json } = payload;
+  return await request<{ data: RtcPaymentRow }>("/api/payments/create-invite", {
+    method: "POST",
+    json,
+    headers: { "X-Idempotency-Key": idempotency_key },
+  });
+}
+
 export async function paymentsCreateWithAuth(
   authToken: string,
   payload: Parameters<typeof paymentsCreate>[0]
@@ -2390,6 +2417,16 @@ export async function paymentsStatus(params: { appointment_id: number } | { paym
     "appointment_id" in params ? { appointment_id: String(params.appointment_id) } : { payment_id: String(params.payment_id) }
   ).toString();
   return await request(`/api/payments/status?${q}`);
+}
+
+export async function paymentsStatusInvite(params: { appointment_id: number; invite_token: string }): Promise<
+  Awaited<ReturnType<typeof paymentsStatus>>
+> {
+  const q = new URLSearchParams({
+    appointment_id: String(params.appointment_id),
+    invite_token: String(params.invite_token),
+  }).toString();
+  return await request(`/api/payments/status-invite?${q}`);
 }
 
 export async function paymentsStatusWithAuth(

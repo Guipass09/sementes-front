@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
+import { AlertTriangle, CheckCircle2, ClipboardCopy, CreditCard, LockKeyhole, QrCode } from "lucide-react";
 
 function uuid(): string {
   try {
@@ -122,6 +123,13 @@ export default function PublicPaymentPage(): JSX.Element {
     const a = preview?.amount ?? 0;
     return Number.isFinite(a) ? a : 0;
   }, [preview?.amount]);
+
+  const canSubmitPayer = useMemo(() => {
+    const email = payerEmailRef.current.trim();
+    return email.includes("@") && email.includes(".");
+  }, [payerEmail]);
+
+  const title = useMemo(() => preview?.title ?? "Pagamento", [preview?.title]);
 
   const resetPayment = useCallback(() => {
     setBusy(false);
@@ -321,6 +329,7 @@ export default function PublicPaymentPage(): JSX.Element {
   }, [token, amount, toast]);
 
   const fmtMoney = (n: number) => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtSessions = (n: number | null | undefined) => (n && n > 0 ? `${n} sessões` : "Pagamento avulso");
 
   if (!token) {
     return (
@@ -336,52 +345,134 @@ export default function PublicPaymentPage(): JSX.Element {
   return (
     <div className="min-h-[100svh] py-8 lg:py-12">
       <div className="container mx-auto px-4">
-        <div className="mx-auto max-w-5xl">
-          <div className="rounded-3xl border border-border bg-card/70 backdrop-blur overflow-hidden">
-            <div className="px-5 sm:px-8 py-6 bg-gradient-to-b from-brand-green/10 to-transparent border-b border-border">
-              <div className="flex items-center justify-between gap-3">
+        <div className="mx-auto max-w-6xl">
+          <div className="rounded-[28px] border border-border bg-card/70 backdrop-blur overflow-hidden shadow-[0_20px_80px_-40px_rgba(0,0,0,0.35)]">
+            {/* Header */}
+            <div className="relative px-5 sm:px-8 py-6 border-b border-border overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-brand-green/18 via-transparent to-brand-green/10" />
+              <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-brand-green/10 blur-3xl" />
+              <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <img src={logoImage} alt="Sementes da Fala" className="h-10 w-10 rounded-xl object-cover border border-border" />
+                  <img
+                    src={logoImage}
+                    alt="Sementes da Fala"
+                    className="h-10 w-10 rounded-xl object-cover border border-border shadow-sm"
+                  />
                   <div>
-                    <div className="font-display font-bold text-foreground">Sementes da Fala</div>
-                    <div className="text-xs text-muted-foreground">Pagamento seguro</div>
+                    <div className="font-display font-bold text-foreground leading-tight">Sementes da Fala</div>
+                    <div className="mt-0.5 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                      <LockKeyhole className="h-3.5 w-3.5" />
+                      Pagamento seguro
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Link</div>
-                  <div className="text-sm font-semibold text-foreground">{preview?.title ?? "Pagamento"}</div>
+
+                <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground">
+                    <span className="h-2 w-2 rounded-full bg-brand-green" />
+                    Link verificado
+                  </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/60 px-3 py-1.5 text-xs text-muted-foreground">
+                    <CreditCard className="h-3.5 w-3.5" />
+                    Pix e Cartão
+                  </span>
                 </div>
+              </div>
+
+              {/* Title */}
+              <div className="relative mt-5">
+                <div className="text-xs text-muted-foreground">Você está pagando</div>
+                <div className="mt-1 text-lg sm:text-xl font-display font-bold text-foreground">{title}</div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-0">
-              <div className="p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-border bg-muted/20">
-                <div className="text-sm font-semibold text-foreground">Resumo</div>
-                <div className="mt-3 rounded-2xl border border-border bg-card p-4">
-                  <div className="text-3xl font-display font-bold text-foreground">{fmtMoney(amount)}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {preview?.sessions ? `${preview.sessions} sessões` : "Pagamento avulso"}
+            <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-0">
+              {/* Summary */}
+              <div className="p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-border bg-muted/15">
+                <div className="lg:sticky lg:top-6">
+                  <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-foreground">Resumo</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{fmtSessions(preview?.sessions ?? null)}</div>
+                      </div>
+                      <span className="inline-flex items-center gap-2 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20 px-3 py-1.5 text-xs">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Seguro
+                      </span>
+                    </div>
+
+                    <div className="mt-4">
+                      <div className="text-4xl font-display font-extrabold text-foreground tracking-tight">
+                        {fmtMoney(amount)}
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Confirmação automática após o pagamento. Em seguida, confirme com a profissional/admin.
+                      </div>
+                    </div>
+
+                    <Separator className="my-4" />
+
+                    <div className="space-y-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <LockKeyhole className="h-3.5 w-3.5" />
+                        Ambiente seguro
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <QrCode className="h-3.5 w-3.5" />
+                        Pix com QR Code e copia e cola
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CreditCard className="h-3.5 w-3.5" />
+                        Cartão de crédito (Mercado Pago)
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-3 inline-flex items-center gap-2 text-xs">
-                    <span className="px-2 py-1 rounded-full bg-brand-green/10 text-brand-green border border-brand-green/20">Seguro</span>
-                  </div>
-                </div>
-                <div className="mt-4 text-xs text-muted-foreground">
-                  Preencha seus dados, escolha Pix ou Cartão e finalize. Após aprovar, confirme com a profissional.
+
+                  {paid ? null : (
+                    <div className="mt-4 rounded-3xl border border-border bg-background/60 p-4">
+                      <div className="text-xs text-muted-foreground">
+                        Dica: se você estiver em uma chamada com a profissional, mantenha esta página aberta até ver “Pagamento confirmado”.
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {/* Main */}
               <div className="p-5 sm:p-8">
                 {paid ? (
-                  <div className="rounded-2xl border border-border bg-card p-5">
-                    <div className="text-lg font-semibold text-brand-green">Pagamento realizado com sucesso</div>
-                    <div className="mt-1 text-sm text-muted-foreground">Confirme com a profissional/admin para prosseguir.</div>
+                  <div className="rounded-3xl border border-brand-green/25 bg-brand-green/10 p-6">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-6 w-6 text-brand-green mt-0.5" />
+                      <div>
+                        <div className="text-lg font-semibold text-brand-green">Pagamento realizado com sucesso</div>
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          Agora confirme com a profissional/admin para prosseguir.
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <>
-                    <div className="rounded-2xl border border-border bg-card p-5">
-                      <div className="text-sm font-semibold text-foreground">Dados do pagador</div>
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Step 1 */}
+                    <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-foreground">1) Dados do pagador</div>
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            Precisamos dessas informações para processar o pagamento com segurança.
+                          </div>
+                        </div>
+                        {canSubmitPayer ? (
+                          <span className="inline-flex items-center gap-2 text-xs text-brand-green">
+                            <CheckCircle2 className="h-4 w-4" />
+                            OK
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1.5">
                           <Label>Nome completo</Label>
                           <Input value={payerName} onChange={(e) => setPayerName(e.target.value)} placeholder="Seu nome" />
@@ -403,112 +494,164 @@ export default function PublicPaymentPage(): JSX.Element {
                             inputMode="email"
                             placeholder="seuemail@exemplo.com"
                           />
+                          {!payerEmail.trim() ? (
+                            <div className="text-[11px] text-muted-foreground">Obrigatório para gerar Pix e pagar com cartão.</div>
+                          ) : null}
                         </div>
                       </div>
 
                       {error ? (
-                        <div className="mt-3 text-sm text-destructive">
-                          {error}
-                          {statusHint ? <div className="mt-1 text-xs text-muted-foreground">{statusHint}</div> : null}
+                        <div className="mt-4 rounded-2xl border border-destructive/25 bg-destructive/10 p-4">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                            <div className="text-sm text-destructive">
+                              {error}
+                              {statusHint ? <div className="mt-1 text-xs text-muted-foreground">{statusHint}</div> : null}
+                            </div>
+                          </div>
                         </div>
                       ) : null}
                     </div>
 
-                    <Separator className="my-5" />
+                    <Separator className="my-6" />
 
-                    <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
-                      <TabsList className="grid grid-cols-2">
-                        <TabsTrigger value="pix">Pix</TabsTrigger>
-                        <TabsTrigger value="card">Cartão de crédito</TabsTrigger>
-                      </TabsList>
+                    {/* Step 2 */}
+                    <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+                      <div className="text-sm font-semibold text-foreground">2) Escolha a forma de pagamento</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Pix é mais rápido. Cartão permite parcelamento conforme disponibilidade.
+                      </div>
 
-                      <TabsContent value="pix" className="mt-4">
-                        <div className="rounded-2xl border border-border bg-card p-5">
-                          <div className="text-sm font-semibold text-foreground">Pix</div>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            Gere o QR Code e pague pelo seu banco. Após pagar, a confirmação acontece automaticamente.
-                          </div>
+                      <div className="mt-4">
+                        <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>
+                          <TabsList className="grid grid-cols-2">
+                            <TabsTrigger value="pix" className="gap-2">
+                              <QrCode className="h-4 w-4" />
+                              Pix
+                            </TabsTrigger>
+                            <TabsTrigger value="card" className="gap-2">
+                              <CreditCard className="h-4 w-4" />
+                              Cartão
+                            </TabsTrigger>
+                          </TabsList>
 
-                          {pix ? (
-                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-4 items-start">
-                              <div className="rounded-xl border border-border bg-background p-3">
-                                <img
-                                  alt="QR Code Pix"
-                                  className="w-full h-auto rounded-lg"
-                                  src={`data:image/png;base64,${pix.qr_code_base64}`}
-                                />
-                              </div>
-                              <div>
-                                <div className="text-xs text-muted-foreground mb-2">Código Pix (copia e cola)</div>
-                                <div className="rounded-xl border border-border bg-background p-3 text-xs break-all select-all">
-                                  {pix.qr_code}
+                          <TabsContent value="pix" className="mt-4">
+                            <div className="rounded-2xl border border-border bg-background/60 p-5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-semibold text-foreground">Pix</div>
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    Gere o QR Code e pague pelo seu banco. Após pagar, a confirmação acontece automaticamente.
+                                  </div>
                                 </div>
-                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span className="text-xs text-muted-foreground">{fmtMoney(amount)}</span>
+                              </div>
+
+                              {pix ? (
+                                <div className="mt-5 grid grid-cols-1 sm:grid-cols-[220px_1fr] gap-4 items-start">
+                                  <div className="rounded-2xl border border-border bg-background p-3">
+                                    <img
+                                      alt="QR Code Pix"
+                                      className="w-full h-auto rounded-xl"
+                                      src={`data:image/png;base64,${pix.qr_code_base64}`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <div className="text-xs text-muted-foreground mb-2">Código Pix (copia e cola)</div>
+                                    <div className="rounded-2xl border border-border bg-background p-3 text-xs break-all select-all">
+                                      {pix.qr_code}
+                                    </div>
+                                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                                      <Button
+                                        variant="outline"
+                                        className="rounded-xl"
+                                        onClick={async () => {
+                                          try {
+                                            await navigator.clipboard.writeText(pix.qr_code);
+                                            toast({ title: "Pix", description: "Copiado para a área de transferência." });
+                                          } catch {
+                                            toast({ title: "Pix", description: "Não foi possível copiar.", variant: "destructive" });
+                                          }
+                                        }}
+                                      >
+                                        <ClipboardCopy className="h-4 w-4 mr-2" />
+                                        Copiar código
+                                      </Button>
+                                      {providerPaymentId || paymentId ? (
+                                        <span className="text-xs text-muted-foreground">
+                                          {waiting ? "Aguardando confirmação…" : "Gerado com sucesso."}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-5 flex items-center justify-end">
                                   <Button
-                                    variant="outline"
-                                    onClick={async () => {
-                                      try {
-                                        await navigator.clipboard.writeText(pix.qr_code);
-                                        toast({ title: "Pix", description: "Copiado para a área de transferência." });
-                                      } catch {
-                                        toast({ title: "Pix", description: "Não foi possível copiar.", variant: "destructive" });
-                                      }
-                                    }}
+                                    className="rounded-2xl px-6"
+                                    onClick={() => void createPix()}
+                                    disabled={
+                                      busy ||
+                                      !canSubmitPayer ||
+                                      !(typeof amount === "number" && Number.isFinite(amount) && amount > 0)
+                                    }
                                   >
-                                    Copiar código
+                                    {busy ? "Gerando..." : "Gerar QR Code"}
                                   </Button>
-                                  {providerPaymentId ? (
-                                    <span className="text-xs text-muted-foreground">Aguardando confirmação…</span>
-                                  ) : null}
                                 </div>
-                              </div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="mt-4 flex items-center justify-end">
-                              <Button
-                                className="rounded-xl"
-                                onClick={() => void createPix()}
-                                disabled={busy || !(typeof amount === "number" && Number.isFinite(amount) && amount > 0)}
-                              >
-                                {busy ? "Gerando..." : "Gerar QR Code"}
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </TabsContent>
+                          </TabsContent>
 
-                      <TabsContent value="card" className="mt-4">
-                        <div className="rounded-2xl border border-border bg-card p-5">
-                          <div className="text-sm font-semibold text-foreground">Cartão de crédito</div>
-                          <div className="mt-1 text-xs text-muted-foreground">Preencha os dados do cartão abaixo.</div>
-                          {!publicKey ? (
-                            <div className="mt-3 text-sm text-destructive">
-                              Chave pública do Mercado Pago não configurada (VITE_MP_PUBLIC_KEY).
-                            </div>
-                          ) : (
-                            <div className={cn("mt-4", busy ? "opacity-60 pointer-events-none" : "")}>
-                              <div id={brickContainerId} />
-                              <div className="mt-2 text-xs text-muted-foreground">
-                                Se o formulário não aparecer, toque na tela e aguarde alguns segundos.
+                          <TabsContent value="card" className="mt-4">
+                            <div className="rounded-2xl border border-border bg-background/60 p-5">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-semibold text-foreground">Cartão de crédito</div>
+                                  <div className="mt-1 text-xs text-muted-foreground">Preencha os dados do cartão abaixo.</div>
+                                </div>
+                                <span className="text-xs text-muted-foreground">{fmtMoney(amount)}</span>
+                              </div>
+
+                              {!publicKey ? (
+                                <div className="mt-4 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+                                  Chave pública do Mercado Pago não configurada (VITE_MP_PUBLIC_KEY).
+                                </div>
+                              ) : (
+                                <div className={cn("mt-5", busy ? "opacity-60 pointer-events-none" : "")}>
+                                  <div id={brickContainerId} />
+                                  <div className="mt-2 text-[11px] text-muted-foreground">
+                                    Se o formulário não aparecer, toque na tela e aguarde alguns segundos.
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="mt-4 flex items-center justify-between gap-2">
+                                <div className="text-xs text-muted-foreground">
+                                  Precisa recarregar o formulário?
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  className="rounded-xl"
+                                  onClick={() => setBrickNonce((n) => n + 1)}
+                                  disabled={!publicKey || busy}
+                                >
+                                  Recarregar
+                                </Button>
                               </div>
                             </div>
-                          )}
-                          <div className="mt-3 flex justify-end">
-                            <Button variant="outline" onClick={() => setBrickNonce((n) => n + 1)} disabled={!publicKey || busy}>
-                              Recarregar cartão
-                            </Button>
-                          </div>
-                        </div>
-                      </TabsContent>
-                    </Tabs>
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 rounded-3xl border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
+                      Ao pagar você concorda com os termos da plataforma. Em caso de erro, tente novamente ou contate o suporte.
+                    </div>
                   </>
                 )}
               </div>
             </div>
-          </div>
-
-          <div className="mt-4 text-center text-xs text-muted-foreground">
-            Ao pagar você concorda com os termos da plataforma. Em caso de erro, tente novamente ou contate o suporte.
           </div>
         </div>
       </div>

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import * as api from "@/lib/laravel-api";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
-import { AlertTriangle, CheckCircle2, ClipboardCopy, CreditCard, LockKeyhole, QrCode } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardCopy, CreditCard, Eye, LockKeyhole, QrCode } from "lucide-react";
 
 type Props = {
   open: boolean;
@@ -298,13 +298,16 @@ export default function RtcPaymentModal({
     setPix(null);
     const idempotencyKey = uuid();
     try {
+      const email = payerEmail.trim() || null;
+      const name = payerName.trim() || null;
+      const cpfDigits = payerCpfDigits || null;
       const res = await api.paymentsCreate({
         appointment_id: appointmentId,
         method: "pix",
         payer: {
-          name: payerNameRef.current.trim() || null,
-          email: payerEmailRef.current.trim() || null,
-          identification: payerCpfDigitsRef.current ? { type: "CPF", number: payerCpfDigitsRef.current } : null,
+          name,
+          email,
+          identification: cpfDigits ? { type: "CPF", number: cpfDigits } : null,
         },
         idempotency_key: idempotencyKey,
       });
@@ -321,7 +324,7 @@ export default function RtcPaymentModal({
     } finally {
       setBusy(false);
     }
-  }, [appointmentId]);
+  }, [appointmentId, payerCpfDigits, payerEmail, payerName]);
 
   useEffect(() => {
     if (!open) {
@@ -399,11 +402,19 @@ export default function RtcPaymentModal({
                     <span className="h-2 w-2 rounded-full bg-brand-green" />
                     Sessão em andamento
                   </span>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-brand-green/20 bg-brand-green/10 px-3 py-1.5 text-xs text-brand-green">
+                    <Eye className="h-3.5 w-3.5" />
+                    Somente você vê esta tela
+                  </span>
                   <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background/70 px-3 py-1.5 text-xs text-muted-foreground">
                     <CreditCard className="h-3.5 w-3.5" />
                     Pix e cartão
                   </span>
                 </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-border bg-background/70 px-4 py-3 text-xs sm:text-sm text-muted-foreground">
+                Privacidade: este pagamento aparece <span className="font-semibold text-foreground">somente para você</span>. A chamada continua ativa.
               </div>
 
               <div className="mt-5 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">

@@ -129,7 +129,9 @@ export default function PublicPaymentPage(): JSX.Element {
   }, [preview?.amount]);
 
   const canSubmitPayer = useMemo(() => {
-    const email = payerEmailRef.current.trim();
+    // Importante: validar pelo state (não por ref), senão pode ficar "travado" desabilitado
+    // quando o e-mail é preenchido automaticamente (ref atualiza via effect sem novo render).
+    const email = payerEmail.trim();
     return email.includes("@") && email.includes(".");
   }, [payerEmail]);
 
@@ -199,9 +201,9 @@ export default function PublicPaymentPage(): JSX.Element {
         const bricksBuilder = mp.bricks();
 
         const init: any = { amount };
-        const email = payerEmailRef.current.trim();
+        const email = payerEmail.trim();
         if (email) init.payer = { ...(init.payer || {}), email };
-        const cpfDigits = payerCpfDigitsRef.current;
+        const cpfDigits = payerCpfDigits;
         if (cpfDigits) {
           init.payer = {
             ...(init.payer || {}),
@@ -286,12 +288,12 @@ export default function PublicPaymentPage(): JSX.Element {
         (window as any).cardPaymentBrickController?.unmount?.();
       } catch {}
     };
-  }, [paid, tab, publicKey, token, amount, brickContainerId, toast]);
+  }, [paid, tab, publicKey, token, amount, brickContainerId, toast, payerEmail, payerCpfDigits]);
 
   const createPix = useCallback(async () => {
     if (!token) return;
     if (!(typeof amount === "number" && Number.isFinite(amount) && amount > 0)) return;
-    const email = payerEmailRef.current.trim();
+    const email = payerEmail.trim();
     if (!email) {
       toast({ title: "Pagamento", description: "Informe o e-mail do pagador.", variant: "destructive" });
       return;
@@ -330,7 +332,7 @@ export default function PublicPaymentPage(): JSX.Element {
     } finally {
       setBusy(false);
     }
-  }, [token, amount, toast]);
+  }, [token, amount, toast, payerEmail]);
 
   const fmtMoney = (n: number) => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtSessions = (n: number | null | undefined) => {

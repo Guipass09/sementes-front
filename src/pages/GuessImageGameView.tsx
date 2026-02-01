@@ -10,7 +10,6 @@ import type { GuessImageGameRow, GuessImageGameItemRow } from "@/lib/laravel-api
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { isApiError } from "@/lib/laravel-api";
 import { cn } from "@/lib/utils";
-import confetti from "canvas-confetti";
 
 // Grid size for revealing tiles
 const GRID_COLS = 8;
@@ -163,11 +162,6 @@ export default function GuessImageGameView() {
   const handleOptionSelect = useCallback((isCorrect: boolean) => {
     if (isCorrect) {
       setGameState("correct");
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
       
       // Move to next session after delay
       setTimeout(() => {
@@ -176,11 +170,6 @@ export default function GuessImageGameView() {
         } else {
           // Game completed
           setGameState("completed");
-          confetti({
-            particleCount: 200,
-            spread: 100,
-            origin: { y: 0.5 },
-          });
         }
       }, 1500);
     } else {

@@ -36,6 +36,7 @@ import type {
   SpinWheelGameRow,
   WordSearchGameRow,
   CardGameRow,
+  GuessImageGameRow,
 } from "@/lib/laravel-api";
 import type { PhonemeGameRow } from "@/lib/laravel-api";
 import {
@@ -148,6 +149,7 @@ export default function SessionCall() {
   const [spinGames, setSpinGames] = useState<SpinWheelGameRow[]>([]);
   const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
   const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
+  const [guessImageGames, setGuessImageGames] = useState<GuessImageGameRow[]>([]);
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [pendingShare, setPendingShare] = useState<null | { path: string; title: string; kind: string }>(null);
   const [pendingPayment, setPendingPayment] = useState<null | { sessions: number; amount: number; url?: string }>(null);
@@ -237,6 +239,7 @@ export default function SessionCall() {
     const spin = mk(spinGames as any[]);
     const ws = mk(wordSearchGames as any[]);
     const cards = mk(cardGames as any[]);
+    const guess = mk(guessImageGames as any[]);
     return {
       mine: {
         activities: acts.mine as ActivityRow[],
@@ -248,6 +251,7 @@ export default function SessionCall() {
         spinGames: spin.mine as SpinWheelGameRow[],
         wordSearchGames: ws.mine as WordSearchGameRow[],
         cardGames: cards.mine as CardGameRow[],
+        guessImageGames: guess.mine as GuessImageGameRow[],
       },
       shared: {
         activities: acts.shared as ActivityRow[],
@@ -259,9 +263,10 @@ export default function SessionCall() {
         spinGames: spin.shared as SpinWheelGameRow[],
         wordSearchGames: ws.shared as WordSearchGameRow[],
         cardGames: cards.shared as CardGameRow[],
+        guessImageGames: guess.shared as GuessImageGameRow[],
       },
     };
-  }, [appRole, user?.id, activities, memGames, memGames2, phonemeGames, audGames, hangGames, spinGames, wordSearchGames, cardGames]);
+  }, [appRole, user?.id, activities, memGames, memGames2, phonemeGames, audGames, hangGames, spinGames, wordSearchGames, cardGames, guessImageGames]);
 
   const activeCatalog = appRole === "professional" ? (catalogTab === "compartilhados" ? catalogView.shared : catalogView.mine) : catalogView.mine;
   const catActivities = activeCatalog.activities;
@@ -273,6 +278,7 @@ export default function SessionCall() {
   const catSpinGames = activeCatalog.spinGames;
   const catWordSearchGames = activeCatalog.wordSearchGames;
   const catCardGames = activeCatalog.cardGames;
+  const catGuessImageGames = activeCatalog.guessImageGames;
   const [fixedUser, setFixedUser] = useState<null | { id: number; name: string }>(null);
 
   const [callStartedAtMs, setCallStartedAtMs] = useState<number | null>(null);
@@ -2338,7 +2344,8 @@ export default function SessionCall() {
       hangGames.length ||
       spinGames.length ||
       wordSearchGames.length ||
-      cardGames.length
+      cardGames.length ||
+      guessImageGames.length
     )
       return;
 
@@ -2346,7 +2353,7 @@ export default function SessionCall() {
     (async () => {
       setCatalogLoading(true);
       try {
-        const [a, memClassic, memV2, phon, aud, hang, spin, ws, cards] = await Promise.all([
+        const [a, memClassic, memV2, phon, aud, hang, spin, ws, cards, guess] = await Promise.all([
           (appRole === "admin" ? api.adminListActivities() : api.professionalListActivities()).catch(() => [] as ActivityRow[]),
           (appRole === "admin" ? api.adminListMemoryGames({ variant: "classic" }) : api.professionalListMemoryGames({ variant: "classic" })).catch(
             () => [] as MemoryGameRow[]
@@ -2360,6 +2367,7 @@ export default function SessionCall() {
           (appRole === "admin" ? api.adminListSpinWheelGames() : api.professionalListSpinWheelGames()).catch(() => [] as SpinWheelGameRow[]),
           (appRole === "admin" ? api.adminListWordSearchGames() : api.professionalListWordSearchGames()).catch(() => [] as WordSearchGameRow[]),
           (appRole === "admin" ? api.adminListCardGames() : api.professionalListCardGames()).catch(() => [] as CardGameRow[]),
+          (appRole === "admin" ? api.adminListGuessImageGames() : api.professionalListGuessImageGames()).catch(() => [] as GuessImageGameRow[]),
         ]);
         if (cancelled) return;
         setActivities(a);
@@ -2371,6 +2379,7 @@ export default function SessionCall() {
         setSpinGames(spin);
         setWordSearchGames(ws);
         setCardGames(cards);
+        setGuessImageGames(guess);
       } finally {
         if (!cancelled) setCatalogLoading(false);
       }
@@ -3208,6 +3217,36 @@ export default function SessionCall() {
                     </AccordionItem>
                   )}
 
+                  {/* Acerte a Imagem */}
+                  {catGuessImageGames.length > 0 && (
+                    <AccordionItem value="guess-image" className="border border-border rounded-xl px-4">
+                      <AccordionTrigger className="text-sm font-semibold text-foreground hover:no-underline py-3">
+                        Acerte a Imagem ({catGuessImageGames.length})
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-3">
+                        <div className="space-y-2">
+                          {catGuessImageGames.map((g) => (
+                            <button
+                              key={`guess-${g.id}`}
+                              onClick={() => {
+                                const path = `/jogos/acerte-imagem/${g.id}`;
+                                if (role === "admin") {
+                                  setPendingShare({ path, title: g.title, kind: "guess_image_game" });
+                                  setShareConfirmOpen(true);
+                                } else {
+                                  void selectContent(path, g.title, "guess_image_game");
+                                }
+                              }}
+                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                            >
+                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+
                   {/* Mensagem se não houver jogos */}
                   {catMemGames.length === 0 &&
                     catMemGames2.length === 0 &&
@@ -3216,7 +3255,8 @@ export default function SessionCall() {
                     catHangGames.length === 0 &&
                     catSpinGames.length === 0 &&
                     catWordSearchGames.length === 0 &&
-                    catCardGames.length === 0 && (
+                    catCardGames.length === 0 &&
+                    catGuessImageGames.length === 0 && (
                       <div className="text-sm text-muted-foreground py-2">Nenhum jogo disponível</div>
                     )}
                 </Accordion>

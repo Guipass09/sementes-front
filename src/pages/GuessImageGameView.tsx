@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Play, Pause, RotateCcw, Check, X, Image as ImageIcon, Trophy, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Image as ImageIcon, RotateCcw, Play, Pause, Check, X } from "lucide-react";
+import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
 import * as api from "@/lib/laravel-api";
-import type { GuessImageGameRow, GuessImageGameItemRow } from "@/lib/laravel-api";
-import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import type { GuessImageGameRow } from "@/lib/laravel-api";
 import { isApiError } from "@/lib/laravel-api";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import FullscreenToggle from "@/components/FullscreenToggle";
+import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
+import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+
+type Role = "admin" | "user";
 
 // Grid size for revealing tiles
 const GRID_COLS = 8;
@@ -17,7 +22,7 @@ const GRID_ROWS = 6;
 const TOTAL_TILES = GRID_COLS * GRID_ROWS;
 const REVEAL_INTERVAL = 200; // ms between revealing each tile
 
-type GameState = "idle" | "revealing" | "paused" | "choosing" | "correct" | "wrong" | "completed";
+type GameState = "idle" | "revealing" | "choosing" | "correct" | "wrong";
 
 function shuffleArray<T>(arr: T[]): T[] {
   const shuffled = [...arr];
@@ -31,10 +36,19 @@ function shuffleArray<T>(arr: T[]): T[] {
 export default function GuessImageGameView() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const auth = useAuth();
-  const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get("session_id");
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
+
+  const sessionParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const inSession = sessionParams.get("session") === "1";
+  const sessionRole = (sessionParams.get("session_role") || "").toLowerCase() as Role | "";
+  const sessionId = useMemo(() => {
+    const n = Number(sessionParams.get("session_id"));
+    return Number.isFinite(n) ? n : null;
+  }, [sessionParams]);
+
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const applyingRemoteRef = useRef(false);
 
   const gameId = useMemo(() => {
     const n = Number(id);
@@ -44,37 +58,77 @@ export default function GuessImageGameView() {
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<GuessImageGameRow | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [forbidden, setForbidden] = useState(false);
 
   // Game state
-  const [currentSessionIndex, setCurrentSessionIndex] = useState(0);
+  const [idx, setIdx] = useState(0);
   const [gameState, setGameState] = useState<GameState>("idle");
   const [revealedTiles, setRevealedTiles] = useState<Set<number>>(new Set());
   const [tileOrder, setTileOrder] = useState<number[]>([]);
   const [revealIndex, setRevealIndex] = useState(0);
+  const [lock, setLock] = useState(false);
+  const [celebrate, setCelebrate] = useState(false);
+  const [optionOrder, setOptionOrder] = useState<boolean[]>([true, false]); // true = correct first
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const isAdmin = auth.user?.role === "admin" || auth.user?.role === "professional";
+  const fsRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const autoPseudoFullscreen = inSession && sessionRole === "user";
+
+  useEffect(() => {
+    if (!authLoading && !user) navigate("/entrar");
+  }, [authLoading, user, navigate]);
+
+  // Sessão ao vivo (usuário): pseudo fullscreen automático
+  useEffect(() => {
+    if (!autoPseudoFullscreen) return;
+    const el = fsRef.current;
+    if (!el) return;
+    el.classList.add("is-pseudo-fullscreen");
+    document.documentElement.classList.add("fs-lock");
+    document.documentElement.classList.add("fs-mode");
+    return () => {
+      el.classList.remove("is-pseudo-fullscreen");
+      document.documentElement.classList.remove("fs-lock");
+      document.documentElement.classList.remove("fs-mode");
+    };
+  }, [autoPseudoFullscreen]);
 
   // Fetch game data
   useEffect(() => {
+    if (!user) return;
     if (!gameId) {
       setNotFound(true);
+      setForbidden(false);
+      setGame(null);
       setLoading(false);
       return;
     }
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setNotFound(false);
+      setForbidden(false);
       try {
-        const sid = sessionId ? Number(sessionId) : undefined;
-        const g = await api.userGetGuessImageGame(gameId, { session_id: sid });
+        const g =
+          user.role === "admin"
+            ? await api.adminGetGuessImageGame(gameId)
+            : user.role === "professional"
+              ? await api.professionalGetGuessImageGame(gameId)
+              : await api.userGetGuessImageGame(gameId, inSession ? { session_id: sessionId } : undefined);
         if (cancelled) return;
         setGame(g);
+        setIdx(0);
+        resetTiles();
       } catch (e) {
         if (cancelled) return;
-        if (isApiError(e) && e.status === 404) {
-          setNotFound(true);
+        if (isApiError(e)) {
+          if (e.status === 404) setNotFound(true);
+          else if (e.status === 403) setForbidden(true);
+          else if (e.status === 401) navigate("/entrar");
         }
+        setGame(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -82,23 +136,30 @@ export default function GuessImageGameView() {
     return () => {
       cancelled = true;
     };
-  }, [gameId, sessionId]);
+  }, [gameId, user, navigate, inSession, sessionId]);
 
-  // Current session item
-  const currentItem = useMemo(() => {
+  const current = useMemo(() => {
     if (!game?.items?.length) return null;
     const sorted = [...game.items].sort((a, b) => a.position - b.position);
-    return sorted[currentSessionIndex] ?? null;
-  }, [game, currentSessionIndex]);
+    return sorted[idx] ?? null;
+  }, [game, idx]);
 
-  // Initialize tile order when session changes
-  useEffect(() => {
+  const finished = !!game && idx >= (game.items?.length ?? 0);
+
+  const resetTiles = useCallback(() => {
     const allTiles = Array.from({ length: TOTAL_TILES }, (_, i) => i);
     setTileOrder(shuffleArray(allTiles));
     setRevealedTiles(new Set());
     setRevealIndex(0);
     setGameState("idle");
-  }, [currentSessionIndex, game]);
+    // Randomize option order
+    setOptionOrder(Math.random() > 0.5 ? [true, false] : [false, true]);
+  }, []);
+
+  // Reset when session changes
+  useEffect(() => {
+    resetTiles();
+  }, [idx, resetTiles]);
 
   // Clean up interval on unmount
   useEffect(() => {
@@ -109,15 +170,25 @@ export default function GuessImageGameView() {
     };
   }, []);
 
+  const emitSessionEvent = (event: any) => {
+    if (!inSession) return;
+    if (applyingRemoteRef.current) return;
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "SESSION_GAME_EVENT", event }, window.location.origin);
+      }
+    } catch {}
+  };
+
   // Start revealing tiles
   const startRevealing = useCallback(() => {
     setGameState("revealing");
+    if (inSession) emitSessionEvent({ kind: "start", index: idx });
     
     intervalRef.current = setInterval(() => {
       setRevealIndex((prev) => {
         const next = prev + 1;
         if (next >= TOTAL_TILES) {
-          // All tiles revealed - auto pause
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
@@ -128,7 +199,7 @@ export default function GuessImageGameView() {
         return next;
       });
     }, REVEAL_INTERVAL);
-  }, []);
+  }, [inSession, idx]);
 
   // Update revealed tiles when revealIndex changes
   useEffect(() => {
@@ -143,49 +214,114 @@ export default function GuessImageGameView() {
       intervalRef.current = null;
     }
     setGameState("choosing");
-  }, []);
+    if (inSession) emitSessionEvent({ kind: "pause", index: idx });
+  }, [inSession, idx]);
 
   // Reset current session
-  const resetSession = useCallback(() => {
+  const doReset = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    const allTiles = Array.from({ length: TOTAL_TILES }, (_, i) => i);
-    setTileOrder(shuffleArray(allTiles));
-    setRevealedTiles(new Set());
-    setRevealIndex(0);
-    setGameState("idle");
-  }, []);
+    setIdx(0);
+    resetTiles();
+    setLock(false);
+    setCelebrate(false);
+    if (inSession && sessionRole === "admin") emitSessionEvent({ kind: "reset" });
+  }, [inSession, sessionRole, resetTiles]);
 
   // Handle option selection
-  const handleOptionSelect = useCallback((isCorrect: boolean) => {
+  const pick = useCallback((isCorrect: boolean) => {
+    if (!game || !current) return;
+    if (lock) return;
+    if (inSession && sessionRole === "user" && !controlAllowedRef.current) return;
+
+    if (isCorrect) playCorrect();
+    else playWrong();
+
+    if (inSession) emitSessionEvent({ kind: "answer", index: idx, correct: isCorrect });
+
     if (isCorrect) {
       setGameState("correct");
-      
-      // Move to next session after delay
-      setTimeout(() => {
-        if (game && currentSessionIndex < game.items.length - 1) {
-          setCurrentSessionIndex((prev) => prev + 1);
+      setLock(true);
+      const nextIdx = idx + 1;
+      const isLastItem = nextIdx >= (game.items?.length ?? 0);
+      window.setTimeout(() => {
+        if (isLastItem) {
+          setCelebrate(true);
+          setIdx(nextIdx);
         } else {
-          // Game completed
-          setGameState("completed");
+          setIdx(nextIdx);
         }
-      }, 1500);
+        setLock(false);
+      }, 1000);
     } else {
       setGameState("wrong");
-      toast({
-        title: "Ops! Tente novamente",
-        description: "Essa não é a resposta correta.",
-        variant: "destructive",
-      });
-      
-      // Allow retry after delay
-      setTimeout(() => {
+      window.setTimeout(() => {
         setGameState("choosing");
-      }, 1500);
+      }, 1000);
     }
-  }, [game, currentSessionIndex, toast]);
+  }, [game, current, lock, inSession, sessionRole, idx]);
+
+  // Sessão: recebe controle e eventos
+  useEffect(() => {
+    if (!inSession) return;
+    const onMsg = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) return;
+      const data: any = ev.data;
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "SESSION_UNLOCK_SFX") {
+        void unlockSfx();
+        return;
+      }
+      if (data.type === "SESSION_CONTROL") {
+        const granted = !!data.granted;
+        controlAllowedRef.current = sessionRole === "admin" ? true : granted;
+        return;
+      }
+      if (data.type !== "SESSION_GAME_EVENT") return;
+      const evt = data.event;
+      if (!evt || typeof evt !== "object") return;
+
+      applyingRemoteRef.current = true;
+      try {
+        if (evt.kind === "congrats_close") {
+          setCelebrate(false);
+          return;
+        }
+        if (evt.kind === "reset") {
+          doReset();
+          return;
+        }
+        if (evt.kind === "start" && typeof evt.index === "number") {
+          setIdx(evt.index);
+          startRevealing();
+          return;
+        }
+        if (evt.kind === "pause") {
+          pauseRevealing();
+          return;
+        }
+        if (evt.kind === "answer" && typeof evt.correct === "boolean") {
+          pick(evt.correct);
+          return;
+        }
+      } finally {
+        window.setTimeout(() => {
+          applyingRemoteRef.current = false;
+        }, 0);
+      }
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [inSession, sessionRole, doReset, startRevealing, pauseRevealing, pick]);
+
+  useEffect(() => {
+    if (!celebrate) return;
+    const t = window.setTimeout(() => setCelebrate(false), 2500);
+    return () => window.clearTimeout(t);
+  }, [celebrate]);
 
   // Render tile grid overlay
   const renderTileGrid = () => {
@@ -207,7 +343,7 @@ export default function GuessImageGameView() {
               width: `${100 / GRID_COLS}%`,
               height: `${100 / GRID_ROWS}%`,
               backdropFilter: isRevealed ? "none" : "blur(20px)",
-              backgroundColor: isRevealed ? "transparent" : "rgba(0,0,0,0.3)",
+              backgroundColor: isRevealed ? "transparent" : "rgba(0,0,0,0.4)",
             }}
           />
         );
@@ -216,227 +352,205 @@ export default function GuessImageGameView() {
     return tiles;
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 py-8">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <Skeleton className="h-10 w-32 mb-6" />
-            <Skeleton className="aspect-video w-full rounded-2xl" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (notFound || !game) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 py-8">
-        <div className="container mx-auto px-4 text-center">
-          <ImageIcon className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Jogo não encontrado</h1>
-          <p className="text-muted-foreground mb-4">Este jogo não existe ou você não tem acesso.</p>
-          <Button onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (gameState === "completed") {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 py-8 flex items-center justify-center">
-        <div className="text-center">
-          <Trophy className="h-24 w-24 mx-auto text-yellow-500 mb-6 animate-bounce" />
-          <h1 className="text-4xl font-display font-bold text-foreground mb-4">Parabéns!</h1>
-          <p className="text-xl text-muted-foreground mb-8">
-            Você completou todas as {game.sessions_count} sessões!
-          </p>
-          <div className="flex gap-4 justify-center">
-            <Button onClick={() => navigate(-1)} variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar
-            </Button>
-            <Button onClick={() => {
-              setCurrentSessionIndex(0);
-              resetSession();
-            }} className="bg-brand-pink hover:bg-brand-pink/90">
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Jogar novamente
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 py-4 lg:py-8">
-      <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 lg:mb-6">
-          <Button variant="ghost" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Button>
-          <div className="text-center">
-            <h1 className="text-lg lg:text-2xl font-display font-bold text-foreground">{game.title}</h1>
-            <p className="text-sm text-muted-foreground">
-              Sessão {currentSessionIndex + 1} de {game.sessions_count}
-            </p>
+    <div className="min-h-[100svh] bg-transparent">
+      {!inSession && (
+        <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
+          <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="shrink-0">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar
+              </Button>
+              <div className="h-6 w-px bg-border hidden sm:block" />
+              <div className="flex items-center gap-3 min-w-0">
+                <img src={logoImage} alt="Sementes da Fala" className="w-9 h-9 rounded-lg object-contain bg-white/60" />
+                <span className="hidden sm:block font-display font-bold text-base truncate">
+                  <span className="text-brand-green">Sementes</span> <span className="text-brand-brown">da Fala</span>
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="w-20" /> {/* Spacer */}
-        </div>
+        </header>
+      )}
 
-        {/* Progress bar */}
-        <div className="max-w-4xl mx-auto mb-4">
-          <div className="h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand-pink transition-all duration-500"
-              style={{ width: `${((currentSessionIndex) / game.sessions_count) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Main game area */}
-        <div className="max-w-4xl mx-auto">
-          {currentItem ? (
-            <div className="space-y-6">
-              {/* Main image with tile overlay */}
-              <div className="relative aspect-video rounded-2xl overflow-hidden shadow-2xl bg-black">
-                <img
-                  src={normalizeMediaUrl(currentItem.main_url)}
-                  alt="Imagem principal"
-                  className="w-full h-full object-contain"
-                />
-                {/* Tile grid overlay */}
-                <div className="absolute inset-0">
-                  {renderTileGrid()}
-                </div>
-
-                {/* Correct feedback overlay */}
-                {gameState === "correct" && (
-                  <div className="absolute inset-0 bg-green-500/30 flex items-center justify-center">
-                    <div className="bg-green-500 text-white rounded-full p-6 animate-pulse">
-                      <Check className="h-16 w-16" />
+      <main className="relative">
+        <div className={cn("container mx-auto px-4 py-6 lg:py-8", inSession && "px-0 py-0")}>
+          <div className="max-w-6xl mx-auto">
+            <div ref={fsRef} className="fs-target rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col">
+              <div ref={headerRef} className="px-6 sm:px-10 pt-7 sm:pt-9 pb-5 border-b border-border/60">
+                {loading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-7 w-2/3" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                  </div>
+                ) : game ? (
+                  <div className="flex flex-col gap-2">
+                    <h1 className="text-2xl sm:text-3xl font-display font-bold text-foreground">{game.title}</h1>
+                    <p className="fs-hide-in-fs text-muted-foreground leading-relaxed">{game.description}</p>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      Sessão {Math.min(idx + 1, game.items?.length ?? 0)} de {game.items?.length ?? 0}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {(!inSession || sessionRole === "admin") && (
+                        <Button variant="secondary" onClick={doReset}>
+                          <RotateCcw className="h-4 w-4 mr-2" />
+                          Reiniciar
+                        </Button>
+                      )}
+                      <FullscreenToggle targetRef={fsRef} className="ml-auto" mode={inSession ? "pseudo" : "auto"} />
                     </div>
                   </div>
-                )}
-
-                {/* Wrong feedback overlay */}
-                {gameState === "wrong" && (
-                  <div className="absolute inset-0 bg-red-500/30 flex items-center justify-center">
-                    <div className="bg-red-500 text-white rounded-full p-6 animate-shake">
-                      <X className="h-16 w-16" />
-                    </div>
+                ) : notFound ? (
+                  <div className="space-y-2">
+                    <h1 className="text-xl font-display font-bold text-foreground">Jogo não encontrado</h1>
+                    <p className="text-muted-foreground">Esse jogo não existe (ou foi removido).</p>
+                  </div>
+                ) : forbidden ? (
+                  <div className="space-y-2">
+                    <h1 className="text-xl font-display font-bold text-foreground">Acesso negado</h1>
+                    <p className="text-muted-foreground">Você não tem permissão para acessar este jogo.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <h1 className="text-xl font-display font-bold text-foreground">Não foi possível carregar</h1>
+                    <p className="text-muted-foreground">Tente novamente em alguns instantes.</p>
                   </div>
                 )}
               </div>
 
-              {/* Controls */}
-              <div className="flex justify-center gap-4">
-                {gameState === "idle" && (
-                  <Button
-                    size="lg"
-                    onClick={startRevealing}
-                    className="bg-brand-pink hover:bg-brand-pink/90 text-lg px-8 py-6"
-                  >
-                    <Play className="h-6 w-6 mr-2" />
-                    Iniciar
-                  </Button>
-                )}
+              <div ref={bodyRef} className="p-2 sm:p-4 lg:p-6 flex-1 fs-fit flex flex-col items-center gap-4">
+                {loading ? (
+                  <Skeleton className="h-[60vh] w-full rounded-2xl" />
+                ) : game && current && !finished ? (
+                  <>
+                    {/* Main image with tile overlay */}
+                    <div className="relative w-full h-[40vh] sm:h-[45vh] lg:h-[50vh] rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-black">
+                      <img
+                        src={normalizeMediaUrl(current.main_url)}
+                        alt="Imagem principal"
+                        className="w-full h-full object-contain"
+                      />
+                      {/* Tile grid overlay */}
+                      <div className="absolute inset-0">
+                        {renderTileGrid()}
+                      </div>
 
-                {gameState === "revealing" && (
-                  <Button
-                    size="lg"
-                    onClick={pauseRevealing}
-                    variant="destructive"
-                    className="text-lg px-8 py-6"
-                  >
-                    <Pause className="h-6 w-6 mr-2" />
-                    Pare!
-                  </Button>
-                )}
+                      {/* Correct feedback overlay */}
+                      {gameState === "correct" && (
+                        <div className="absolute inset-0 bg-green-500/30 flex items-center justify-center">
+                          <div className="bg-green-500 text-white rounded-full p-4 sm:p-6">
+                            <Check className="h-10 w-10 sm:h-16 sm:w-16" />
+                          </div>
+                        </div>
+                      )}
 
-                {(gameState === "choosing" || gameState === "wrong") && (
-                  <Button
-                    size="lg"
-                    onClick={resetSession}
-                    variant="outline"
-                    className="text-lg px-8 py-6"
-                  >
-                    <RotateCcw className="h-6 w-6 mr-2" />
-                    Reiniciar
-                  </Button>
-                )}
-              </div>
+                      {/* Wrong feedback overlay */}
+                      {gameState === "wrong" && (
+                        <div className="absolute inset-0 bg-red-500/30 flex items-center justify-center">
+                          <div className="bg-red-500 text-white rounded-full p-4 sm:p-6 animate-[shake_0.35s_ease-in-out_0s_2]">
+                            <X className="h-10 w-10 sm:h-16 sm:w-16" />
+                          </div>
+                        </div>
+                      )}
 
-              {/* Options - show when paused or choosing */}
-              {(gameState === "choosing" || gameState === "wrong") && (
-                <div className="mt-6">
-                  <p className="text-center text-lg font-semibold mb-4">Qual é a imagem correta?</p>
-                  <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
-                    {/* Randomize option order */}
-                    {[
-                      { url: currentItem.correct_url, isCorrect: true },
-                      { url: currentItem.wrong_url, isCorrect: false },
-                    ]
-                      .sort(() => Math.random() - 0.5)
-                      .map((option, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => handleOptionSelect(option.isCorrect)}
-                          disabled={gameState === "wrong"}
-                          className={cn(
-                            "relative aspect-square rounded-2xl overflow-hidden border-4 transition-all duration-200",
-                            "hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-brand-pink/50",
-                            gameState === "wrong" ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                            "border-transparent hover:border-brand-pink"
-                          )}
+                      {/* Progress indicator */}
+                      <div className="absolute bottom-2 left-2 right-2 z-10 flex items-center justify-between text-white/90 text-xs sm:text-sm bg-black/40 backdrop-blur-sm rounded-lg px-2 sm:px-3 py-1.5 sm:py-2">
+                        <div className="inline-flex items-center gap-1.5 sm:gap-2 min-w-0">
+                          <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+                          <span className="font-semibold">Acerte a Imagem</span>
+                        </div>
+                        <div className="tabular-nums shrink-0 ml-2">
+                          {idx + 1}/{game.items?.length ?? 0}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex justify-center gap-3">
+                      {gameState === "idle" && (!inSession || sessionRole === "admin") && (
+                        <Button
+                          size="lg"
+                          onClick={startRevealing}
+                          className="bg-pink-500 hover:bg-pink-600 text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6"
                         >
-                          <img
-                            src={normalizeMediaUrl(option.url)}
-                            alt={`Opção ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              )}
+                          <Play className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
+                          Iniciar
+                        </Button>
+                      )}
 
-              {/* Correct state - show next button */}
-              {gameState === "correct" && currentSessionIndex < game.items.length - 1 && (
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-600 mb-4">Correto!</p>
-                  <Button
-                    size="lg"
-                    onClick={() => setCurrentSessionIndex((prev) => prev + 1)}
-                    className="bg-green-500 hover:bg-green-600 text-lg px-8 py-6"
-                  >
-                    Próxima sessão
-                    <ChevronRight className="h-6 w-6 ml-2" />
-                  </Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <ImageIcon className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">Nenhuma sessão disponível.</p>
-            </div>
-          )}
-        </div>
+                      {gameState === "revealing" && (!inSession || sessionRole === "admin") && (
+                        <Button
+                          size="lg"
+                          onClick={pauseRevealing}
+                          variant="destructive"
+                          className="text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6"
+                        >
+                          <Pause className="h-5 w-5 sm:h-6 sm:w-6 mr-2" />
+                          Pare!
+                        </Button>
+                      )}
+                    </div>
 
-        {/* Description */}
-        {game.description && (
-          <div className="max-w-4xl mx-auto mt-8 p-4 bg-card rounded-xl border border-border">
-            <p className="text-muted-foreground">{game.description}</p>
+                    {/* Options - show when paused or choosing */}
+                    {(gameState === "choosing" || gameState === "wrong" || gameState === "correct") && (
+                      <div className="w-full">
+                        <p className="text-center text-sm sm:text-base font-semibold mb-3">Qual é a imagem correta?</p>
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
+                          {optionOrder.map((isCorrect, i) => (
+                            <button
+                              key={i}
+                              onClick={() => pick(isCorrect)}
+                              disabled={lock || gameState === "wrong" || gameState === "correct"}
+                              className={cn(
+                                "relative aspect-square rounded-xl sm:rounded-2xl overflow-hidden border-4 transition-all duration-200",
+                                "hover:scale-[1.02] focus:outline-none focus:ring-4 focus:ring-pink-500/50",
+                                lock || gameState === "wrong" || gameState === "correct" ? "opacity-70 cursor-not-allowed" : "cursor-pointer",
+                                "border-transparent hover:border-pink-500",
+                                gameState === "correct" && isCorrect && "border-green-500 ring-2 ring-green-500",
+                                gameState === "wrong" && !isCorrect && "border-red-500 ring-2 ring-red-500"
+                              )}
+                            >
+                              <img
+                                src={normalizeMediaUrl(isCorrect ? current.correct_url : current.wrong_url)}
+                                alt={`Opção ${i + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      </main>
+
+      {/* Celebration modal */}
+      <BrandedCongratsDialog
+        open={celebrate}
+        onOpenChange={(open) => {
+          setCelebrate(open);
+          if (!open && inSession && sessionRole === "admin" && !applyingRemoteRef.current) {
+            emitSessionEvent({ game: "guess_image", kind: "congrats_close" });
+          }
+        }}
+        title="Parabéns!"
+        description="Você concluiu o jogo."
+        primaryLabel="Fechar"
+      >
+        <div className="relative h-10">
+          <div className="mg-aud-celebrate pointer-events-none">
+            <span className="mg-aud-confetti" />
+            <span className="mg-aud-confetti" />
+            <span className="mg-aud-confetti" />
+          </div>
+        </div>
+      </BrandedCongratsDialog>
     </div>
   );
 }

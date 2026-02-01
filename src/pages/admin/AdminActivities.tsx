@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Plus, Search, FileText, Clock, Tag, Grid3X3, ChevronDown, Ear, Type, CircleDot, Layers, Share2 } from "lucide-react";
+import { Activity, Plus, Search, FileText, Clock, Tag, Grid3X3, ChevronDown, Ear, Type, CircleDot, Layers, Share2, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -137,6 +137,10 @@ const AdminActivities = () => {
                 <DropdownMenuItem onSelect={() => navigate("/admin/jogos/cartas/novo")}>
                   <Layers className="h-4 w-4 mr-2" />
                   Jogo das Cartas
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/acerte-imagem/novo")}>
+                  <Image className="h-4 w-4 mr-2" />
+                  Acerte a Imagem
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

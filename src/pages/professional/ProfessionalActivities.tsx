@@ -117,6 +117,7 @@ export default function ProfessionalActivities(): JSX.Element {
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/roleta/novo")}>Roleta Musical</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/caca-palavras/novo")}>Caça-palavras</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/cartas/novo")}>Jogo das Cartas</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/acerte-imagem/novo")}>Acerte a Imagem</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button

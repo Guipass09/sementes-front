@@ -16,11 +16,11 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 type Role = "admin" | "user";
 
-// Grid size for revealing tiles
-const GRID_COLS = 8;
-const GRID_ROWS = 6;
+// Grid size for revealing tiles - more tiles = smaller pieces = harder to guess
+const GRID_COLS = 12;
+const GRID_ROWS = 10;
 const TOTAL_TILES = GRID_COLS * GRID_ROWS;
-const REVEAL_INTERVAL = 200; // ms between revealing each tile
+const REVEAL_INTERVAL = 350; // ms between revealing each tile (slower = more suspense)
 
 type GameState = "idle" | "revealing" | "choosing" | "correct" | "wrong";
 
@@ -334,16 +334,16 @@ export default function GuessImageGameView() {
           <div
             key={index}
             className={cn(
-              "absolute transition-all duration-300",
-              isRevealed ? "opacity-0" : "opacity-100"
+              "absolute transition-all duration-500",
+              isRevealed ? "opacity-0 scale-0" : "opacity-100 scale-100"
             )}
             style={{
               left: `${(col / GRID_COLS) * 100}%`,
               top: `${(row / GRID_ROWS) * 100}%`,
               width: `${100 / GRID_COLS}%`,
               height: `${100 / GRID_ROWS}%`,
-              backdropFilter: isRevealed ? "none" : "blur(20px)",
-              backgroundColor: isRevealed ? "transparent" : "rgba(0,0,0,0.4)",
+              backdropFilter: isRevealed ? "none" : "blur(30px)",
+              backgroundColor: isRevealed ? "transparent" : "rgba(120,120,120,0.85)",
             }}
           />
         );
@@ -426,11 +426,11 @@ export default function GuessImageGameView() {
                 ) : game && current && !finished ? (
                   <>
                     {/* Main image with tile overlay */}
-                    <div className="relative w-full h-[40vh] sm:h-[45vh] lg:h-[50vh] rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-black">
+                    <div className="relative w-full h-[40vh] sm:h-[45vh] lg:h-[50vh] rounded-xl sm:rounded-2xl overflow-hidden border border-border bg-muted/30">
                       <img
                         src={normalizeMediaUrl(current.main_url)}
                         alt="Imagem principal"
-                        className="w-full h-full object-contain"
+                        className="w-full h-full object-cover"
                       />
                       {/* Tile grid overlay */}
                       <div className="absolute inset-0">

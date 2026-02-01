@@ -525,36 +525,35 @@ export default function GuessImageGameView() {
                         </div>
                       </div>
 
-                      {/* Controls overlay - show when idle or revealing */}
-                      {(gameState === "idle" || gameState === "revealing") && (!inSession || sessionRole === "admin") && (
+                      {/* Iniciar button overlay - only when idle */}
+                      {gameState === "idle" && (!inSession || sessionRole === "admin") && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          {gameState === "idle" && (
-                            <Button
-                              size={inSession ? "default" : "lg"}
-                              onClick={startRevealing}
-                              className={cn(
-                                "bg-pink-500 hover:bg-pink-600 shadow-lg",
-                                inSession ? "text-sm px-4 py-2" : "text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6"
-                              )}
-                            >
-                              <Play className={cn("mr-2", inSession ? "h-4 w-4" : "h-5 w-5 sm:h-6 sm:w-6")} />
-                              Iniciar
-                            </Button>
-                          )}
-                          {gameState === "revealing" && (
-                            <Button
-                              size={inSession ? "default" : "lg"}
-                              onClick={pauseRevealing}
-                              variant="destructive"
-                              className={cn(
-                                "shadow-lg",
-                                inSession ? "text-sm px-4 py-2" : "text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6"
-                              )}
-                            >
-                              <Pause className={cn("mr-2", inSession ? "h-4 w-4" : "h-5 w-5 sm:h-6 sm:w-6")} />
-                              Pare!
-                            </Button>
-                          )}
+                          <Button
+                            size={inSession ? "default" : "lg"}
+                            onClick={startRevealing}
+                            className={cn(
+                              "bg-pink-500 hover:bg-pink-600 shadow-lg",
+                              inSession ? "text-sm px-4 py-2" : "text-base sm:text-lg px-6 sm:px-8 py-5 sm:py-6"
+                            )}
+                          >
+                            <Play className={cn("mr-2", inSession ? "h-4 w-4" : "h-5 w-5 sm:h-6 sm:w-6")} />
+                            Iniciar
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Pare button - bottom corner, not blocking the image */}
+                      {gameState === "revealing" && (!inSession || sessionRole === "admin") && (
+                        <div className="absolute top-2 right-2 z-20">
+                          <Button
+                            size={inSession ? "sm" : "default"}
+                            onClick={pauseRevealing}
+                            variant="destructive"
+                            className="shadow-lg"
+                          >
+                            <Pause className={cn("mr-1", inSession ? "h-3 w-3" : "h-4 w-4")} />
+                            Pare!
+                          </Button>
                         </div>
                       )}
                     </div>

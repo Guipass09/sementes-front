@@ -71,6 +71,10 @@ import AdminCardGames from "./pages/admin/AdminCardGames";
 import AdminCardGameCreate from "./pages/admin/AdminCardGameCreate";
 import AdminCardGameEdit from "./pages/admin/AdminCardGameEdit";
 import CardGameView from "./pages/CardGameView";
+import AdminGuessImageGames from "./pages/admin/AdminGuessImageGames";
+import AdminGuessImageGameCreate from "./pages/admin/AdminGuessImageGameCreate";
+import AdminGuessImageGameEdit from "./pages/admin/AdminGuessImageGameEdit";
+import GuessImageGameView from "./pages/GuessImageGameView";
 import RouteChangeLoader from "./components/RouteChangeLoader";
 import GameplayBackground from "./components/GameplayBackground";
 import { installSfxUnlock } from "@/lib/sfx";
@@ -173,6 +177,9 @@ const App = () => {
                 <Route path="jogos/cartas" element={<AdminCardGames />} />
                 <Route path="jogos/cartas/novo" element={<AdminCardGameCreate />} />
                 <Route path="jogos/cartas/:id/editar" element={<AdminCardGameEdit />} />
+                <Route path="jogos/acerte-imagem" element={<AdminGuessImageGames />} />
+                <Route path="jogos/acerte-imagem/novo" element={<AdminGuessImageGameCreate />} />
+                <Route path="jogos/acerte-imagem/:id/editar" element={<AdminGuessImageGameEdit />} />
                 <Route path="horarios" element={<ProfessionalSessions />} />
                 <Route path="historico" element={<ProfessionalHistory />} />
                 <Route path="relatorios" element={<ProfessionalReports />} />
@@ -215,6 +222,9 @@ const App = () => {
                 <Route path="jogos/cartas" element={<AdminCardGames />} />
                 <Route path="jogos/cartas/novo" element={<AdminCardGameCreate />} />
                 <Route path="jogos/cartas/:id/editar" element={<AdminCardGameEdit />} />
+                <Route path="jogos/acerte-imagem" element={<AdminGuessImageGames />} />
+                <Route path="jogos/acerte-imagem/novo" element={<AdminGuessImageGameCreate />} />
+                <Route path="jogos/acerte-imagem/:id/editar" element={<AdminGuessImageGameEdit />} />
                 <Route path="horarios" element={<AdminSessions />} />
                 <Route path="relatorios" element={<AdminReports />} />
               </Route>
@@ -275,6 +285,7 @@ const App = () => {
               <Route path="/jogos/roleta/:id" element={<SpinWheelGameView />} />
               <Route path="/jogos/caca-palavras/:id" element={<WordSearchGameView />} />
               <Route path="/jogos/cartas/:id" element={<CardGameView />} />
+              <Route path="/jogos/acerte-imagem/:id" element={<GuessImageGameView />} />
               <Route path="*" element={<NotFound />} />
               </Routes>
               </div>

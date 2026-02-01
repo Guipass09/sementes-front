@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers } from "lucide-react";
+import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AdminGamesHub() {
@@ -183,6 +183,28 @@ export default function AdminGamesHub() {
                     Gerenciar <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                   <Button onClick={() => navigate("/admin/jogos/cartas/novo")} variant="secondary">
+                    Novo jogo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-2xl border border-border p-6 shadow-sm h-full">
+            <div className="flex items-start gap-4 h-full">
+              <div className="h-12 w-12 rounded-2xl bg-pink-500/10 flex items-center justify-center">
+                <ImageIcon className="h-6 w-6 text-pink-500" />
+              </div>
+              <div className="flex-1 flex flex-col h-full">
+                <h2 className="font-display font-bold text-foreground text-xl">Acerte a Imagem</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Imagem vai sendo revelada aos poucos e o usuário escolhe entre duas opções.
+                </p>
+                <div className="mt-auto pt-4 flex flex-wrap gap-2 items-center">
+                  <Button onClick={() => navigate("/admin/jogos/acerte-imagem")} variant="default" className="bg-pink-500 hover:bg-pink-600">
+                    Gerenciar <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                  <Button onClick={() => navigate("/admin/jogos/acerte-imagem/novo")} variant="secondary">
                     Novo jogo
                   </Button>
                 </div>

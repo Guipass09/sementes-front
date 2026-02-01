@@ -268,6 +268,35 @@ export type CardGameRow = {
   created_at?: string | null;
 };
 
+// ---------------------------
+// ACERTE A IMAGEM (Guess Image)
+// ---------------------------
+
+export type GuessImageGameStatus = "disponivel" | "concluido";
+
+export type GuessImageGameItemRow = {
+  id: number;
+  position: number;
+  main_url: string;
+  correct_url: string;
+  wrong_url: string;
+};
+
+export type GuessImageGameRow = {
+  id: number;
+  title: string;
+  description: string;
+  sessions_count: number;
+  status?: GuessImageGameStatus; // user
+  progress?: any | null;
+  created_by: { id?: number; name: string; role: AuthRole };
+  assigned_count?: number; // admin
+  assigned_to?: Array<{ id: number; name: string }>; // admin
+  items: GuessImageGameItemRow[];
+  thumbnail?: GuessImageGameItemRow | null;
+  created_at?: string | null;
+};
+
 export type HangmanSupportImageRow = {
   position: number;
   url: string;
@@ -1859,6 +1888,157 @@ export async function userUpdateCardGameProgress(
 ): Promise<CardGameRow> {
   await ensureCsrfCookie();
   return await request<CardGameRow>(`/api/card-games/${id}/progress`, { method: "PATCH", json: payload });
+}
+
+// ---------------------------
+// ACERTE A IMAGEM (Guess Image) - ADMIN
+// ---------------------------
+
+export async function adminListGuessImageGames(): Promise<GuessImageGameRow[]> {
+  const res = await request<{ data: GuessImageGameRow[] }>("/api/admin/guess-image-games");
+  return res.data;
+}
+
+export async function adminGetGuessImageGame(id: number): Promise<GuessImageGameRow> {
+  return await request<GuessImageGameRow>(`/api/admin/guess-image-games/${id}`);
+}
+
+export async function adminCreateGuessImageGame(payload: {
+  title: string;
+  description: string;
+  sessions_count: number;
+  assigned_to: number[];
+  main_images: File[];
+  correct_images: File[];
+  wrong_images: File[];
+}): Promise<GuessImageGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("sessions_count", String(payload.sessions_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  payload.main_images.forEach((f) => fd.append("main_images[]", f));
+  payload.correct_images.forEach((f) => fd.append("correct_images[]", f));
+  payload.wrong_images.forEach((f) => fd.append("wrong_images[]", f));
+  return await request<GuessImageGameRow>("/api/admin/guess-image-games", { method: "POST", formData: fd });
+}
+
+export async function adminUpdateGuessImageGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    sessions_count: number;
+    assigned_to: number[];
+    main_images: File[];
+    correct_images: File[];
+    wrong_images: File[];
+  }>
+): Promise<GuessImageGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.sessions_count !== undefined) fd.set("sessions_count", String(payload.sessions_count));
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.main_images !== undefined) payload.main_images.forEach((f) => fd.append("main_images[]", f));
+  if (payload.correct_images !== undefined) payload.correct_images.forEach((f) => fd.append("correct_images[]", f));
+  if (payload.wrong_images !== undefined) payload.wrong_images.forEach((f) => fd.append("wrong_images[]", f));
+  fd.set("_method", "PATCH");
+  return await request<GuessImageGameRow>(`/api/admin/guess-image-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function adminDeleteGuessImageGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/admin/guess-image-games/${id}`, { method: "DELETE" });
+}
+
+// ---------------------------
+// ACERTE A IMAGEM (Guess Image) - PROFESSIONAL
+// ---------------------------
+
+export async function professionalListGuessImageGames(): Promise<GuessImageGameRow[]> {
+  const res = await request<{ data: GuessImageGameRow[] }>("/api/professional/guess-image-games");
+  return res.data;
+}
+
+export async function professionalGetGuessImageGame(id: number): Promise<GuessImageGameRow> {
+  return await request<GuessImageGameRow>(`/api/professional/guess-image-games/${id}`);
+}
+
+export async function professionalCreateGuessImageGame(payload: {
+  title: string;
+  description: string;
+  sessions_count: number;
+  assigned_to: number[];
+  main_images: File[];
+  correct_images: File[];
+  wrong_images: File[];
+}): Promise<GuessImageGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  fd.set("title", payload.title);
+  fd.set("description", payload.description);
+  fd.set("sessions_count", String(payload.sessions_count));
+  fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  payload.main_images.forEach((f) => fd.append("main_images[]", f));
+  payload.correct_images.forEach((f) => fd.append("correct_images[]", f));
+  payload.wrong_images.forEach((f) => fd.append("wrong_images[]", f));
+  return await request<GuessImageGameRow>("/api/professional/guess-image-games", { method: "POST", formData: fd });
+}
+
+export async function professionalUpdateGuessImageGame(
+  id: number,
+  payload: Partial<{
+    title: string;
+    description: string;
+    sessions_count: number;
+    assigned_to: number[];
+    main_images: File[];
+    correct_images: File[];
+    wrong_images: File[];
+  }>
+): Promise<GuessImageGameRow> {
+  await ensureCsrfCookie();
+  const fd = new FormData();
+  if (payload.title !== undefined) fd.set("title", payload.title);
+  if (payload.description !== undefined) fd.set("description", payload.description);
+  if (payload.sessions_count !== undefined) fd.set("sessions_count", String(payload.sessions_count));
+  if (payload.assigned_to !== undefined) fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
+  if (payload.main_images !== undefined) payload.main_images.forEach((f) => fd.append("main_images[]", f));
+  if (payload.correct_images !== undefined) payload.correct_images.forEach((f) => fd.append("correct_images[]", f));
+  if (payload.wrong_images !== undefined) payload.wrong_images.forEach((f) => fd.append("wrong_images[]", f));
+  fd.set("_method", "PATCH");
+  return await request<GuessImageGameRow>(`/api/professional/guess-image-games/${id}`, { method: "POST", formData: fd });
+}
+
+export async function professionalDeleteGuessImageGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request<void>(`/api/professional/guess-image-games/${id}`, { method: "DELETE" });
+}
+
+// ---------------------------
+// ACERTE A IMAGEM (Guess Image) - USER
+// ---------------------------
+
+export async function userListGuessImageGames(): Promise<GuessImageGameRow[]> {
+  const res = await request<{ data: GuessImageGameRow[] }>("/api/guess-image-games");
+  return res.data;
+}
+
+export async function userGetGuessImageGame(id: number, opts?: { session_id?: number | null }): Promise<GuessImageGameRow> {
+  const sid = opts?.session_id;
+  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+  return await request<GuessImageGameRow>(`/api/guess-image-games/${id}${qs}`);
+}
+
+export async function userUpdateGuessImageGameProgress(
+  id: number,
+  payload: { progress?: any; status?: GuessImageGameStatus }
+): Promise<GuessImageGameRow> {
+  await ensureCsrfCookie();
+  return await request<GuessImageGameRow>(`/api/guess-image-games/${id}/progress`, { method: "PATCH", json: payload });
 }
 
 export async function adminDeleteHangmanGame(id: number): Promise<void> {

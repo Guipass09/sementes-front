@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Grid3X3, Play, Image as ImageIcon, Ear, Type, ChevronDown, Gamepad2, CircleDot, Layers } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
-import type { MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, PhonemeGameRow, WordSearchGameRow, CardGameRow } from "@/lib/laravel-api";
+import type { MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, PhonemeGameRow, WordSearchGameRow, CardGameRow, GuessImageGameRow } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import {
@@ -25,6 +25,7 @@ export default function PatientMemoryGames() {
   const [spinWheelGames, setSpinWheelGames] = useState<SpinWheelGameRow[]>([]);
   const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
   const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
+  const [guessImageGames, setGuessImageGames] = useState<GuessImageGameRow[]>([]);
 
   useEffect(() => {
     if (!auth.user) return;
@@ -32,7 +33,7 @@ export default function PatientMemoryGames() {
     (async () => {
       setLoading(true);
       try {
-        const [memClassic, memV2, phon, aud, hang, spin, ws, cards] = await Promise.all([
+        const [memClassic, memV2, phon, aud, hang, spin, ws, cards, guessImg] = await Promise.all([
           api.userListMemoryGames({ variant: "classic" }).catch(err => {
             console.error("[Jogos] Erro ao buscar memory games:", err);
             return [];
@@ -65,6 +66,10 @@ export default function PatientMemoryGames() {
             console.error("[Jogos] Erro ao buscar card games:", err);
             return [];
           }),
+          api.userListGuessImageGames().catch(err => {
+            console.error("[Jogos] Erro ao buscar guess image games:", err);
+            return [];
+          }),
         ]);
         if (!cancelled) {
           console.log("[Jogos] Resultados:", {
@@ -75,6 +80,7 @@ export default function PatientMemoryGames() {
             hang: hang.length,
             spin: spin.length,
             ws: ws.length,
+            guessImg: guessImg.length,
           });
           setGames(memClassic);
           setGamesV2(memV2);
@@ -84,6 +90,7 @@ export default function PatientMemoryGames() {
           setSpinWheelGames(spin);
           setWordSearchGames(ws);
           setCardGames(cards);
+          setGuessImageGames(guessImg);
         }
       } catch (error) {
         console.error("[Jogos] Erro geral ao buscar jogos:", error);
@@ -96,6 +103,7 @@ export default function PatientMemoryGames() {
           setSpinWheelGames([]);
           setWordSearchGames([]);
           setCardGames([]);
+          setGuessImageGames([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -114,7 +122,8 @@ export default function PatientMemoryGames() {
     hangmanGames.length +
     spinWheelGames.length +
     wordSearchGames.length +
-    cardGames.length;
+    cardGames.length +
+    guessImageGames.length;
 
   return (
     <div className="min-h-full py-8 lg:py-12">
@@ -168,6 +177,11 @@ export default function PatientMemoryGames() {
               <span className="text-muted-foreground">Jogo das Cartas:</span>
               <span className="font-semibold text-foreground">{cardGames.length}</span>
             </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-pink-500"></div>
+              <span className="text-muted-foreground">Acerte a Imagem:</span>
+              <span className="font-semibold text-foreground">{guessImageGames.length}</span>
+            </div>
             <div className="ml-auto flex items-center gap-2">
               <span className="text-muted-foreground">Total:</span>
               <span className="font-bold text-foreground">{totalGames} jogos</span>
@@ -196,7 +210,7 @@ export default function PatientMemoryGames() {
             <p className="text-muted-foreground">Nenhum jogo disponível ainda.</p>
           </div>
         ) : (
-          <Accordion type="multiple" defaultValue={["memoria", "memoria2", "fonema", "auditivo", "forca", "roleta", "cartas"]} className="space-y-4">
+          <Accordion type="multiple" defaultValue={["memoria", "memoria2", "fonema", "auditivo", "forca", "roleta", "cartas", "acerte-imagem"]} className="space-y-4">
             {/* Jogos da Memória */}
             {games.length > 0 && (
               <AccordionItem value="memoria" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
@@ -622,6 +636,59 @@ export default function PatientMemoryGames() {
                             <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
                             <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
                             <span className="text-xs text-brand-brown font-medium">{g.cards_count} carta(s)</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
+            {/* Acerte a Imagem */}
+            {guessImageGames.length > 0 && (
+              <AccordionItem value="acerte-imagem" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center">
+                      <ImageIcon className="h-5 w-5 text-pink-500" />
+                    </div>
+                    <div className="text-left">
+                      <h2 className="text-lg font-display font-bold text-foreground">Acerte a Imagem</h2>
+                      <p className="text-sm text-muted-foreground">
+                        {guessImageGames.length} jogo{guessImageGames.length !== 1 ? "s" : ""} disponível{guessImageGames.length !== 1 ? "is" : ""}
+                      </p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                    {guessImageGames.map((g) => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => navigate(`/jogos/acerte-imagem/${g.id}`)}
+                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-pink-500/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/40"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-14 h-14 rounded-xl bg-pink-500/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {g.thumbnail?.main_url ? (
+                              <img
+                                src={normalizeMediaUrl(g.thumbnail.main_url)}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = "/placeholder.svg";
+                                }}
+                              />
+                            ) : (
+                              <ImageIcon size={24} className="text-pink-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
+                            <span className="text-xs text-pink-500 font-medium">{g.sessions_count} sessão(ões)</span>
                           </div>
                         </div>
                       </button>

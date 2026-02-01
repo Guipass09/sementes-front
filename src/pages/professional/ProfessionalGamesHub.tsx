@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers } from "lucide-react";
+import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function ProfessionalGamesHub() {
@@ -167,6 +167,26 @@ export default function ProfessionalGamesHub() {
                     Gerenciar <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1.5 sm:ml-2" />
                   </Button>
                   <Button onClick={() => navigate("/profissional/jogos/cartas/novo")} variant="secondary" className="text-xs sm:text-sm w-full sm:w-auto">
+                    Novo jogo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6 shadow-sm h-full">
+            <div className="flex items-start gap-3 sm:gap-4 h-full">
+              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-pink-500/10 flex items-center justify-center flex-shrink-0">
+                <ImageIcon className="h-5 w-5 sm:h-6 sm:w-6 text-pink-500" />
+              </div>
+              <div className="flex-1 flex flex-col h-full min-w-0">
+                <h2 className="font-display font-bold text-foreground text-lg sm:text-xl">Acerte a Imagem</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Imagem revelada aos poucos com duas opções para escolher.</p>
+                <div className="mt-auto pt-3 sm:pt-4 flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-center">
+                  <Button onClick={() => navigate("/profissional/jogos/acerte-imagem")} variant="default" className="bg-pink-500 hover:bg-pink-600 text-xs sm:text-sm w-full sm:w-auto">
+                    Gerenciar <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1.5 sm:ml-2" />
+                  </Button>
+                  <Button onClick={() => navigate("/profissional/jogos/acerte-imagem/novo")} variant="secondary" className="text-xs sm:text-sm w-full sm:w-auto">
                     Novo jogo
                   </Button>
                 </div>

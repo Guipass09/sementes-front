@@ -516,6 +516,27 @@
     box-shadow: inset 0 2px 4px hsl(0 0% 0% / 0.02);
   }
 
+  /* iOS/Safari: inputs type="date" costumam ter altura/alinhamento diferente.
+     Padroniza a altura e centraliza o valor para ficar igual aos outros inputs. */
+  .input-field[type="date"] {
+    height: 52px;
+    padding-top: 0;
+    padding-bottom: 0;
+    -webkit-appearance: none;
+  }
+  .input-field[type="date"]::-webkit-date-and-time-value {
+    display: flex;
+    align-items: center;
+    height: 52px;
+    margin: 0;
+    padding: 0;
+    line-height: 1.2;
+  }
+  .input-field[type="date"]::-webkit-datetime-edit {
+    padding: 0;
+    margin: 0;
+  }
+
   .input-field:focus {
     box-shadow: var(--shadow-input-focus), inset 0 2px 4px hsl(0 0% 0% / 0.02);
   }

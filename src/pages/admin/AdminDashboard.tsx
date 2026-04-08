@@ -257,10 +257,6 @@ const AdminDashboard = () => {
 
             {/* Admin Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-orange/10 text-brand-orange text-sm font-medium animate-fade-in" style={{ animationDelay: "0.2s" }}>
-              <Shield size={16} />
-              Acesso Administrativo
-            </div>
-            {/* Badge Azul */}
             <style>{`
               .admin-access-badge {
                 background-color: hsl(var(--brand-blue));

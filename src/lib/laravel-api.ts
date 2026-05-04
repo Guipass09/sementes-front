@@ -1095,6 +1095,32 @@ export type ProfessionalPatientRow = {
   profile_photo_url?: string | null;
 };
 
+export type ClinicProfessionalRow = {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  professional_age?: number | null;
+  professional_birthdate?: string | null;
+  professional_crfa?: string | null;
+  professional_registration?: string | null;
+  assigned_users_count: number;
+  profile_photo_url?: string | null;
+};
+
+export type ClinicPatientRow = {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  child_age?: number | null;
+  responsible_name?: string | null;
+  child_name?: string | null;
+  child_birthdate?: string | null;
+  assigned_professionals: Array<{ id: number; name: string }>;
+  profile_photo_url?: string | null;
+};
+
 export async function professionalListPatients(): Promise<ProfessionalPatientRow[]> {
   const res = await request<{ data: ProfessionalPatientRow[] }>("/api/professional/patients");
   return res.data ?? [];
@@ -1102,6 +1128,50 @@ export async function professionalListPatients(): Promise<ProfessionalPatientRow
 
 export async function professionalGetPatientOverview(userId: number): Promise<any> {
   return await request(`/api/professional/patients/${userId}/overview`);
+}
+
+export async function clinicListProfessionals(): Promise<{ data: ClinicProfessionalRow[]; count: number; limit: number }> {
+  return await request<{ data: ClinicProfessionalRow[]; count: number; limit: number }>("/api/professional/clinic/professionals");
+}
+
+export async function clinicCreateProfessional(payload: {
+  name: string;
+  email: string;
+  phone: string;
+  professional_age?: number;
+  professional_birthdate?: string;
+  professional_crfa: string;
+  professional_registration?: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<ClinicProfessionalRow> {
+  await ensureCsrfCookie();
+  return await request<ClinicProfessionalRow>("/api/professional/clinic/professionals", {
+    method: "POST",
+    json: payload,
+  });
+}
+
+export async function clinicListPatients(): Promise<ClinicPatientRow[]> {
+  const res = await request<{ data: ClinicPatientRow[] }>("/api/professional/clinic/patients");
+  return res.data ?? [];
+}
+
+export async function clinicCreatePatient(payload: {
+  responsible_name: string;
+  child_name: string;
+  child_birthdate: string;
+  email: string;
+  phone: string;
+  password: string;
+  password_confirmation: string;
+  professional_ids?: number[];
+}): Promise<ClinicPatientRow> {
+  await ensureCsrfCookie();
+  return await request<ClinicPatientRow>("/api/professional/clinic/patients", {
+    method: "POST",
+    json: payload,
+  });
 }
 
 // ---------------------------

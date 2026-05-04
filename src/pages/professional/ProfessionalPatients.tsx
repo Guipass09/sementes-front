@@ -8,6 +8,7 @@ import * as api from "@/lib/laravel-api";
 import type { ProfessionalPatientRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { useAuth } from "@/auth/AuthContext";
+import ClinicPeopleManagement from "@/components/ClinicPeopleManagement";
 
 type PatientOverview = {
   user: ProfessionalPatientRow;
@@ -36,12 +37,10 @@ export default function ProfessionalPatients(): JSX.Element {
   const [overviewLoading, setOverviewLoading] = useState(false);
   const clinicName = String(auth.user?.clinic_name ?? "").trim();
   const isClinicAccount = clinicName.length > 0;
-  const pageTitle = isClinicAccount ? "Terapeutas" : "Pacientes";
-  const emptyLabel = isClinicAccount ? "Nenhum terapeuta vinculado." : "Nenhum paciente vinculado.";
-  const dialogTitle = isClinicAccount ? "Perfil do Terapeuta" : "Perfil do Paciente";
-  const pageDescription = isClinicAccount
-    ? "Você verá apenas terapeutas vinculados à sua clínica."
-    : "Você verá apenas pacientes que o admin vinculou a você.";
+  const pageTitle = "Pacientes";
+  const emptyLabel = "Nenhum paciente vinculado.";
+  const dialogTitle = "Perfil do Paciente";
+  const pageDescription = "Você verá apenas pacientes que o admin vinculou a você.";
 
   const refresh = async () => {
     setLoading(true);
@@ -78,6 +77,10 @@ export default function ProfessionalPatients(): JSX.Element {
       setOverviewLoading(false);
     }
   };
+
+  if (isClinicAccount) {
+    return <ClinicPeopleManagement />;
+  }
 
   return (
     <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">

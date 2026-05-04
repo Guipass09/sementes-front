@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BriefcaseMedical, Link2, Mail, Phone, Search, UserPlus, Users } from "lucide-react";
+import { BriefcaseMedical, Mail, Phone, Search, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -92,16 +92,11 @@ export default function ClinicPeopleManagement(): JSX.Element {
   const [patients, setPatients] = useState<ClinicPatientRow[]>([]);
   const [professionalLimit, setProfessionalLimit] = useState(PROFESSIONAL_LIMIT);
   const [createProfessionalOpen, setCreateProfessionalOpen] = useState(false);
-  const [attachProfessionalOpen, setAttachProfessionalOpen] = useState(false);
   const [createPatientOpen, setCreatePatientOpen] = useState(false);
   const [savingProfessional, setSavingProfessional] = useState(false);
-  const [attachingProfessionalId, setAttachingProfessionalId] = useState<number | null>(null);
   const [savingPatient, setSavingPatient] = useState(false);
   const [professionalForm, setProfessionalForm] = useState<ProfessionalFormState>(emptyProfessionalForm);
   const [patientForm, setPatientForm] = useState<PatientFormState>(emptyPatientForm);
-  const [availableProfessionals, setAvailableProfessionals] = useState<ClinicProfessionalRow[]>([]);
-  const [availableProfessionalsLoading, setAvailableProfessionalsLoading] = useState(false);
-  const [availableProfessionalsSearch, setAvailableProfessionalsSearch] = useState("");
 
   const professionalCount = professionals.length;
   const remainingProfessionalSlots = Math.max(0, professionalLimit - professionalCount);
@@ -208,33 +203,6 @@ export default function ClinicPeopleManagement(): JSX.Element {
     setCreatePatientOpen(true);
   };
 
-  const openAttachProfessionalModal = async () => {
-    if (limitReached) {
-      toast({
-        title: "Limite atingido",
-        description: "Sua clínica já chegou ao máximo de 30 terapeutas cadastrados.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setAvailableProfessionalsSearch("");
-    setAttachProfessionalOpen(true);
-    setAvailableProfessionalsLoading(true);
-    try {
-      const rows = await api.clinicListAvailableProfessionals();
-      setAvailableProfessionals(rows);
-    } catch (error: any) {
-      toast({
-        title: "Não foi possível carregar os terapeutas disponíveis",
-        description: error?.data?.message || "Tente novamente em instantes.",
-        variant: "destructive",
-      });
-    } finally {
-      setAvailableProfessionalsLoading(false);
-    }
-  };
-
   const handleCreateProfessional = async () => {
     if (!professionalForm.name.trim() || !professionalForm.email.trim() || !professionalForm.phone.trim() || !professionalForm.professional_age.trim() || !professionalForm.professional_crfa.trim() || !professionalForm.password || !professionalForm.password_confirmation) {
       toast({
@@ -335,28 +303,6 @@ export default function ClinicPeopleManagement(): JSX.Element {
     }
   };
 
-  const handleAttachProfessional = async (professionalId: number) => {
-    setAttachingProfessionalId(professionalId);
-    try {
-      await api.clinicAttachProfessional(professionalId);
-      await loadClinicData();
-      setAvailableProfessionals((prev) => prev.filter((professional) => professional.id !== professionalId));
-      setAttachProfessionalOpen(false);
-      toast({
-        title: "Terapeuta vinculado",
-        description: "O profissional agora faz parte da clínica e os pacientes já vinculados a ele entraram na visão da empresa.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Não foi possível vincular o terapeuta",
-        description: error?.data?.message || "Verifique os dados e tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setAttachingProfessionalId(null);
-    }
-  };
-
   const toggleAssignedProfessional = (professionalId: number, checked: boolean) => {
     setPatientForm((prev) => ({
       ...prev,
@@ -365,22 +311,6 @@ export default function ClinicPeopleManagement(): JSX.Element {
         : prev.professional_ids.filter((id) => id !== professionalId),
     }));
   };
-
-  const filteredAvailableProfessionals = useMemo(() => {
-    const query = availableProfessionalsSearch.trim().toLowerCase();
-    if (!query) return availableProfessionals;
-    return availableProfessionals.filter((professional) =>
-      [
-        professional.name,
-        professional.email,
-        professional.phone ?? "",
-        professional.professional_crfa ?? "",
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
-    );
-  }, [availableProfessionals, availableProfessionalsSearch]);
 
   const patientCountByProfessionalId = useMemo(() => {
     const counts = new Map<number, number>();
@@ -416,10 +346,6 @@ export default function ClinicPeopleManagement(): JSX.Element {
             <Button variant="outline" onClick={openPatientModal} className="rounded-full">
               <UserPlus size={16} className="mr-2" />
               Cadastrar paciente
-            </Button>
-            <Button variant="outline" onClick={() => void openAttachProfessionalModal()} className="rounded-full" disabled={limitReached}>
-              <Link2 size={16} className="mr-2" />
-              Vincular terapeuta existente
             </Button>
             <Button onClick={openProfessionalModal} className="rounded-full" disabled={limitReached}>
               <BriefcaseMedical size={16} className="mr-2" />
@@ -730,78 +656,6 @@ export default function ClinicPeopleManagement(): JSX.Element {
             </Button>
             <Button onClick={() => void handleCreateProfessional()} disabled={savingProfessional}>
               {savingProfessional ? "Salvando..." : "Cadastrar terapeuta"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={attachProfessionalOpen} onOpenChange={setAttachProfessionalOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Vincular terapeuta existente</DialogTitle>
-            <DialogDescription>
-              Traga um perfil profissional já existente para dentro do ecossistema da clínica. Os pacientes já vinculados a esse terapeuta passam a aparecer também no painel da empresa.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                value={availableProfessionalsSearch}
-                onChange={(e) => setAvailableProfessionalsSearch(e.target.value)}
-                placeholder="Buscar terapeuta disponível por nome, email ou CRFA..."
-                className="pl-10"
-              />
-            </div>
-
-            {availableProfessionalsLoading ? (
-              <div className="space-y-3">
-                {[0, 1, 2].map((item) => (
-                  <div key={item} className="rounded-xl border border-border p-4">
-                    <Skeleton className="h-4 w-1/3 mb-2" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </div>
-                ))}
-              </div>
-            ) : filteredAvailableProfessionals.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-                Nenhum terapeuta disponível para vincular no momento.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredAvailableProfessionals.map((professional) => (
-                  <div key={professional.id} className="rounded-xl border border-border bg-card p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground truncate">{professional.name}</p>
-                        <p className="text-sm text-muted-foreground truncate">{professional.email}</p>
-                        <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                          {professional.phone ? (
-                            <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">Celular: {professional.phone}</span>
-                          ) : null}
-                          {professional.professional_crfa ? (
-                            <span className="rounded-full bg-brand-green/10 px-2.5 py-1 text-brand-green">CRFA: {professional.professional_crfa}</span>
-                          ) : null}
-                          <span className="rounded-full bg-brand-orange/10 px-2.5 py-1 text-brand-orange">
-                            {professional.assigned_users_count} paciente(s) já vinculado(s)
-                          </span>
-                        </div>
-                      </div>
-
-                      <Button onClick={() => void handleAttachProfessional(professional.id)} disabled={attachingProfessionalId === professional.id}>
-                        {attachingProfessionalId === professional.id ? "Vinculando..." : "Trazer para a clínica"}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAttachProfessionalOpen(false)}>
-              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

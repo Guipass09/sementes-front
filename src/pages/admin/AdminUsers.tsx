@@ -45,6 +45,8 @@ import {
   adminUpdateProfessional,
   adminDeleteProfessional,
   adminSetUserProfessionals,
+  adminGetClinicProfessionals,
+  adminSetClinicProfessionals,
   adminUpsertUserComment,
   isApiError,
 } from "@/lib/laravel-api";
@@ -99,6 +101,8 @@ interface ProfessionalData {
   clinic_area?: string | null;
   clinic_city_state?: string | null;
   clinic_team_size?: string | null;
+  clinic_user_id?: number | null;
+  affiliated_clinic_name?: string | null;
   assigned_users_count?: number;
 }
 
@@ -147,6 +151,8 @@ const mapAdminProfessional = (p: AdminProfessionalRow): ProfessionalData => ({
   clinic_area: p.clinic_area ?? null,
   clinic_city_state: p.clinic_city_state ?? null,
   clinic_team_size: p.clinic_team_size ?? null,
+  clinic_user_id: p.clinic_user_id ?? null,
+  affiliated_clinic_name: p.affiliated_clinic_name ?? null,
   assigned_users_count: p.assigned_users_count ?? 0,
 });
 
@@ -178,6 +184,13 @@ const AdminUsers = () => {
   const [assignLoading, setAssignLoading] = useState(false);
   const [assignPros, setAssignPros] = useState<Array<{ id: number; name: string; email: string }>>([]);
   const [assignSelected, setAssignSelected] = useState<number[]>([]);
+  const [clinicAssignOpen, setClinicAssignOpen] = useState(false);
+  const [clinicAssignTarget, setClinicAssignTarget] = useState<ProfessionalData | null>(null);
+  const [clinicAssignLoading, setClinicAssignLoading] = useState(false);
+  const [clinicAssignPros, setClinicAssignPros] = useState<
+    Array<{ id: number; name: string; email: string; professional_crfa?: string | null; affiliated_clinic_name?: string | null }>
+  >([]);
+  const [clinicAssignSelected, setClinicAssignSelected] = useState<number[]>([]);
   const [progressSummary, setProgressSummary] = useState<null | {
     activities: { total: number; disponivel: number; em_andamento: number; concluida: number };
     memory_games: { total: number; disponivel: number; concluido: number };
@@ -746,6 +759,53 @@ const AdminUsers = () => {
     }
   };
 
+  const openClinicProfessionals = async (clinic: ProfessionalData) => {
+    setClinicAssignTarget(clinic);
+    setClinicAssignOpen(true);
+    setClinicAssignLoading(true);
+    try {
+      const [pros, current] = await Promise.all([adminListProfessionals(), adminGetClinicProfessionals(clinic.id)]);
+      setClinicAssignPros(
+        (pros ?? []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          email: p.email,
+          professional_crfa: p.professional_crfa ?? null,
+          affiliated_clinic_name: p.affiliated_clinic_name ?? null,
+        }))
+      );
+      setClinicAssignSelected(current.professional_ids ?? []);
+    } catch {
+      setClinicAssignPros([]);
+      setClinicAssignSelected([]);
+      toast({ title: "Erro", description: "Não foi possível carregar os profissionais da clínica.", variant: "destructive" });
+    } finally {
+      setClinicAssignLoading(false);
+    }
+  };
+
+  const toggleClinicAssignPro = (professionalId: number) => {
+    setClinicAssignSelected((prev) => (prev.includes(professionalId) ? prev.filter((id) => id !== professionalId) : [...prev, professionalId]));
+  };
+
+  const saveClinicAssign = async () => {
+    if (!clinicAssignTarget) return;
+    setClinicAssignLoading(true);
+    try {
+      await adminSetClinicProfessionals(clinicAssignTarget.id, clinicAssignSelected);
+      await Promise.all([reloadProfessionals(), reloadClinics()]);
+      toast({ title: "Profissionais direcionados", description: "A clínica recebeu a nova equipe com sucesso." });
+      setClinicAssignOpen(false);
+      setClinicAssignTarget(null);
+      emitAdminDataChanged();
+    } catch (e) {
+      const msg = isApiError(e) ? e.message : "Não foi possível salvar os profissionais da clínica.";
+      toast({ title: "Erro", description: msg, variant: "destructive" });
+    } finally {
+      setClinicAssignLoading(false);
+    }
+  };
+
   const openProfessionalProfile = (p: ProfessionalData) => {
     setSelectedProfessional(p);
     setIsProfessionalDialogOpen(true);
@@ -1169,6 +1229,9 @@ const AdminUsers = () => {
                           CRFa: {p.professional_crfa}
                         </p>
                       )}
+                      {p.affiliated_clinic_name && (
+                        <p className="text-xs text-brand-green truncate">Clínica: {p.affiliated_clinic_name}</p>
+                      )}
                     </div>
                   </div>
 
@@ -1282,6 +1345,10 @@ const AdminUsers = () => {
                     <Button variant="outline" size="sm" onClick={() => openProfessionalProfile(clinic)}>
                       <Eye size={16} className="mr-2" />
                       Ver Perfil
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => void openClinicProfessionals(clinic)}>
+                      <Share2 size={16} className="mr-2" />
+                      Direcionar profissionais
                     </Button>
                     <Button
                       variant="outline"
@@ -1893,10 +1960,28 @@ const AdminUsers = () => {
                             Responsabilidade: {selectedProfessional.professional_attestation ? "confirmada" : "não confirmada"}
                           </p>
                         ) : null}
+                        {selectedProfessional.affiliated_clinic_name ? (
+                          <p className="text-sm text-brand-green">Clínica vinculada: {selectedProfessional.affiliated_clinic_name}</p>
+                        ) : null}
                       </>
                     )}
                   </div>
                 </div>
+
+                {isClinicAccount(selectedProfessional) ? (
+                  <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 p-4">
+                    <div>
+                      <h4 className="font-semibold text-foreground">Equipe da clínica</h4>
+                      <p className="text-sm text-muted-foreground">
+                        O admin centraliza quais profissionais fazem parte desta empresa.
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={() => void openClinicProfessionals(selectedProfessional)}>
+                      <Share2 size={16} className="mr-2" />
+                      Direcionar profissionais
+                    </Button>
+                  </div>
+                ) : null}
 
                 {/* Block Professional */}
                 <div className="flex items-center justify-between p-4 border border-border rounded-lg">
@@ -2100,10 +2185,10 @@ const AdminUsers = () => {
                           professional_age: isClinicAccount(p) ? undefined : p.professional_age ?? null,
                           professional_crfa: isClinicAccount(p) ? undefined : p.professional_crfa ?? null,
                           responsible_name: p.responsible_name ?? null,
-                          clinic_name: p.clinic_name ?? p.name,
-                          clinic_area: p.clinic_area ?? null,
-                          clinic_city_state: p.clinic_city_state ?? null,
-                          clinic_team_size: p.clinic_team_size ?? null,
+                          clinic_name: isClinicAccount(p) ? p.clinic_name ?? p.name : undefined,
+                          clinic_area: isClinicAccount(p) ? p.clinic_area ?? null : undefined,
+                          clinic_city_state: isClinicAccount(p) ? p.clinic_city_state ?? null : undefined,
+                          clinic_team_size: isClinicAccount(p) ? p.clinic_team_size ?? null : undefined,
                         })
                           .then(async () => {
                             await reloadProfessionals();
@@ -2324,6 +2409,77 @@ const AdminUsers = () => {
                   Cancelar
                 </Button>
                 <Button onClick={() => void saveAssign()} disabled={assignLoading || !assignTarget}>
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={clinicAssignOpen}
+          onOpenChange={(open) => {
+            setClinicAssignOpen(open);
+            if (!open) {
+              setClinicAssignTarget(null);
+              setClinicAssignPros([]);
+              setClinicAssignSelected([]);
+            }
+          }}
+        >
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Direcionar profissionais para clínica</DialogTitle>
+              <DialogDescription>
+                {clinicAssignTarget
+                  ? `Clínica: ${professionalDisplayName(clinicAssignTarget)}`
+                  : "Selecione os profissionais que devem fazer parte desta clínica."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {clinicAssignLoading ? (
+                <div className="text-sm text-muted-foreground">Carregando...</div>
+              ) : clinicAssignPros.length === 0 ? (
+                <div className="text-sm text-muted-foreground">Nenhum profissional cadastrado.</div>
+              ) : (
+                <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+                  {clinicAssignPros.map((professional) => (
+                    <button
+                      key={professional.id}
+                      type="button"
+                      onClick={() => toggleClinicAssignPro(professional.id)}
+                      className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${
+                        clinicAssignSelected.includes(professional.id) ? "border-primary bg-primary/5" : "border-border hover:bg-muted/30"
+                      }`}
+                    >
+                      <div className="font-medium text-foreground">{professional.name}</div>
+                      <div className="text-xs text-muted-foreground">{professional.email}</div>
+                      <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                        {professional.professional_crfa ? (
+                          <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">CRFA: {professional.professional_crfa}</span>
+                        ) : null}
+                        {professional.affiliated_clinic_name ? (
+                          <span className="rounded-full bg-brand-orange/10 px-2 py-0.5 text-brand-orange">
+                            Hoje em: {professional.affiliated_clinic_name}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">Sem clínica</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                Limite da clínica: até 30 profissionais. Se um profissional já estiver em outra clínica, o admin pode realocar sem apagar o perfil dele.
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setClinicAssignOpen(false)} disabled={clinicAssignLoading}>
+                  Cancelar
+                </Button>
+                <Button onClick={() => void saveClinicAssign()} disabled={clinicAssignLoading || !clinicAssignTarget}>
                   Salvar
                 </Button>
               </div>

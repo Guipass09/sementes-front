@@ -844,6 +844,8 @@ export type AdminProfessionalRow = {
   clinic_area?: string | null;
   clinic_city_state?: string | null;
   clinic_team_size?: string | null;
+  clinic_user_id?: number | null;
+  affiliated_clinic_name?: string | null;
   assigned_users_count?: number;
 };
 
@@ -1081,6 +1083,24 @@ export async function adminGetUserProfessionals(userId: number): Promise<{ profe
 export async function adminSetUserProfessionals(userId: number, professional_ids: number[]): Promise<{ professional_ids: number[] }> {
   await ensureCsrfCookie();
   return await request<{ professional_ids: number[] }>(`/api/admin/users/${userId}/professionals`, {
+    method: "PUT",
+    json: { professional_ids },
+  });
+}
+
+export async function adminGetClinicProfessionals(clinicId: number): Promise<{
+  professional_ids: number[];
+  assigned_professionals: Array<{ id: number; name: string; email: string; phone?: string | null; professional_crfa?: string | null }>;
+}> {
+  return await request(`/api/admin/clinics/${clinicId}/professionals`);
+}
+
+export async function adminSetClinicProfessionals(clinicId: number, professional_ids: number[]): Promise<{
+  professional_ids: number[];
+  assigned_professionals: Array<{ id: number; name: string; email: string; phone?: string | null; professional_crfa?: string | null }>;
+}> {
+  await ensureCsrfCookie();
+  return await request(`/api/admin/clinics/${clinicId}/professionals`, {
     method: "PUT",
     json: { professional_ids },
   });

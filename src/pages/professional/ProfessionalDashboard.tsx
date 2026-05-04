@@ -18,6 +18,8 @@ export default function ProfessionalDashboard(): JSX.Element {
   const { toast } = useToast();
   const auth = useAuth();
   const [assignedUsersCount, setAssignedUsersCount] = useState(0);
+  const clinicName = useMemo(() => String(auth.user?.clinic_name ?? "").trim(), [auth.user?.clinic_name]);
+  const isClinicAccount = clinicName.length > 0;
 
   const firstName = useMemo(() => {
     const name = String(auth.user?.name ?? "").trim();
@@ -127,26 +129,39 @@ export default function ProfessionalDashboard(): JSX.Element {
             </div>
 
             {/* Title */}
-            <h1 className="text-3xl lg:text-4xl xl:text-5xl font-display font-bold text-foreground mb-4 animate-fade-in">
-              Painel <span className="text-brand-green">Profissional</span>
-            </h1>
+            {isClinicAccount ? (
+              <div className="mb-4 animate-fade-in space-y-3">
+                <h1 className="text-3xl lg:text-4xl xl:text-5xl font-display font-bold text-foreground">
+                  Painel <span className="text-brand-green">Administrativo</span>
+                </h1>
+                <p className="text-lg lg:text-2xl text-muted-foreground font-medium">
+                  <span className="text-foreground">Clínica:</span> {clinicName}
+                </p>
+              </div>
+            ) : (
+              <h1 className="text-3xl lg:text-4xl xl:text-5xl font-display font-bold text-foreground mb-4 animate-fade-in">
+                Painel <span className="text-brand-green">Profissional</span>
+              </h1>
+            )}
 
             {/* Description */}
             <p
               className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in"
               style={{ animationDelay: "0.1s" }}
             >
-              Gerencie seus pacientes, atividades, horários e relatórios do sistema Sementes da Fala
+              {isClinicAccount
+                ? "Gerencie pacientes, atividades, horários e relatórios da sua clínica no sistema Sementes da Fala"
+                : "Gerencie seus pacientes, atividades, horários e relatórios do sistema Sementes da Fala"}
             </p>
 
             {/* Badge */}
             <div
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-orange/10 text-brand-orange text-sm font-medium animate-fade-in"
               style={{ animationDelay: "0.2s" }}
-              title="Acesso Profissional"
+              title={isClinicAccount ? "Acesso da Clínica" : "Acesso Profissional"}
             >
               <Shield size={16} />
-              <span>Bem-vindo(a), {firstName}!</span>
+              <span>{isClinicAccount ? `Bem-vindo(a), ${clinicName}!` : `Bem-vindo(a), ${firstName}!`}</span>
             </div>
           </div>
         </div>
@@ -202,4 +217,3 @@ export default function ProfessionalDashboard(): JSX.Element {
     </div>
   );
 }
-

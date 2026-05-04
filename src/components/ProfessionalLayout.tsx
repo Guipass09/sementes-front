@@ -34,6 +34,8 @@ const ProfessionalLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const auth = useAuth();
+  const clinicName = String(auth.user?.clinic_name ?? "").trim();
+  const isClinicAccount = clinicName.length > 0;
 
   useEffect(() => {
     if (auth.loading) return;
@@ -81,7 +83,9 @@ const ProfessionalLayout = () => {
             <span className="hidden sm:block font-display font-bold text-sm sm:text-base">
               <span className="text-brand-green">Sementes</span>{" "}
               <span className="text-brand-brown">da Fala</span>
-              <span className="text-[9px] sm:text-[10px] ml-1 text-muted-foreground hidden md:inline">Profissional</span>
+              <span className="text-[9px] sm:text-[10px] ml-1 text-muted-foreground hidden md:inline">
+                {isClinicAccount ? "Clínica" : "Profissional"}
+              </span>
             </span>
           </Link>
 
@@ -115,7 +119,7 @@ const ProfessionalLayout = () => {
             >
               <div className="text-right hidden lg:block">
                 <p className="text-xs sm:text-sm font-semibold text-foreground leading-tight truncate max-w-[120px]">{user.name}</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">Profissional</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{isClinicAccount ? "Clínica" : "Profissional"}</p>
               </div>
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-purple to-brand-blue flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
                 {user.profile_photo_url ? (
@@ -213,4 +217,3 @@ const ProfessionalLayout = () => {
 };
 
 export default ProfessionalLayout;
-

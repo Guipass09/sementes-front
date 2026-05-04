@@ -827,6 +827,7 @@ export type AdminProfessionalRow = {
   email: string;
   phone?: string | null;
   role: "professional";
+  entity_type?: "professional" | "clinic";
   blocked: boolean;
   access: UserAccess;
   profile_photo_url?: string | null;
@@ -835,6 +836,11 @@ export type AdminProfessionalRow = {
   professional_attestation?: boolean | null;
   professional_crfa?: string | null;
   professional_registration?: string | null;
+  responsible_name?: string | null;
+  clinic_name?: string | null;
+  clinic_area?: string | null;
+  clinic_city_state?: string | null;
+  clinic_team_size?: string | null;
   assigned_users_count?: number;
 };
 
@@ -845,6 +851,11 @@ export async function adminListUsers(): Promise<AdminUserRow[]> {
 
 export async function adminListProfessionals(): Promise<AdminProfessionalRow[]> {
   const res = await request<{ data: AdminProfessionalRow[] }>("/api/admin/professionals");
+  return res.data ?? [];
+}
+
+export async function adminListClinics(): Promise<AdminProfessionalRow[]> {
+  const res = await request<{ data: AdminProfessionalRow[] }>("/api/admin/clinics");
   return res.data ?? [];
 }
 
@@ -888,7 +899,19 @@ export async function adminUpdateProfessional(
   payload: Partial<
     Pick<
       AdminProfessionalRow,
-      "blocked" | "access" | "name" | "email" | "phone" | "professional_age" | "professional_crfa" | "professional_registration"
+      | "blocked"
+      | "access"
+      | "name"
+      | "email"
+      | "phone"
+      | "professional_age"
+      | "professional_crfa"
+      | "professional_registration"
+      | "responsible_name"
+      | "clinic_name"
+      | "clinic_area"
+      | "clinic_city_state"
+      | "clinic_team_size"
     >
   >
 ): Promise<AdminProfessionalRow> {
@@ -2800,4 +2823,3 @@ export async function userUpdateSpinWheelGameProgress(
   await ensureCsrfCookie();
   return await request<SpinWheelGameRow>(`/api/spin-wheel-games/${id}/progress`, { method: "PATCH", json: payload });
 }
-

@@ -34,6 +34,7 @@ import {
   adminDeleteAllAppointmentsForUser,
   adminDeleteCustomPackage,
   adminGetUserProgressSummary,
+  adminListClinics,
   adminGetUserProfessionals,
   adminListCustomPackages,
   adminListProfessionals,
@@ -55,7 +56,7 @@ import type { AdminProfessionalRow, CustomPackageRow, ReportType } from "@/lib/l
 import * as api from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 
-type AdminUsersMode = "users" | "professionals";
+type AdminUsersMode = "users" | "professionals" | "clinics";
 
 interface UserAccess {
   atividades: boolean;
@@ -85,6 +86,7 @@ interface ProfessionalData {
   name: string;
   email: string;
   phone?: string | null;
+  entity_type?: "professional" | "clinic";
   profile_photo_url?: string | null;
   blocked: boolean;
   access: UserAccess;
@@ -92,6 +94,11 @@ interface ProfessionalData {
   professional_birthdate?: string | null; // YYYY-MM-DD
   professional_attestation?: boolean | null;
   professional_crfa?: string | null;
+  responsible_name?: string | null;
+  clinic_name?: string | null;
+  clinic_area?: string | null;
+  clinic_city_state?: string | null;
+  clinic_team_size?: string | null;
   assigned_users_count?: number;
 }
 
@@ -113,6 +120,8 @@ const formatYmd = (ymd?: string | null) => {
 };
 
 const userDisplayName = (u: { name: string; child_name?: string | null }) => (u.child_name?.trim() ? u.child_name.trim() : u.name);
+const professionalDisplayName = (p: ProfessionalData) => (p.clinic_name?.trim() ? p.clinic_name.trim() : p.name);
+const isClinicAccount = (p: ProfessionalData) => !!p.clinic_name?.trim();
 
 const formatMoney = (value: number | string) => {
   const num = Number(value);
@@ -120,11 +129,33 @@ const formatMoney = (value: number | string) => {
   return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 };
 
+const mapAdminProfessional = (p: AdminProfessionalRow): ProfessionalData => ({
+  id: p.id,
+  name: p.name,
+  email: p.email,
+  phone: p.phone ?? null,
+  entity_type: p.entity_type ?? (p.clinic_name?.trim() ? "clinic" : "professional"),
+  profile_photo_url: p.profile_photo_url ?? null,
+  blocked: !!p.blocked,
+  access: p.access ?? { atividades: true, horarios: true, relatorios: true },
+  professional_age: p.professional_age ?? null,
+  professional_birthdate: p.professional_birthdate ?? null,
+  professional_attestation: p.professional_attestation ?? null,
+  professional_crfa: p.professional_crfa ?? null,
+  responsible_name: p.responsible_name ?? null,
+  clinic_name: p.clinic_name ?? null,
+  clinic_area: p.clinic_area ?? null,
+  clinic_city_state: p.clinic_city_state ?? null,
+  clinic_team_size: p.clinic_team_size ?? null,
+  assigned_users_count: p.assigned_users_count ?? 0,
+});
+
 const AdminUsers = () => {
   const { toast } = useToast();
   const [mode, setMode] = useState<AdminUsersMode>("users");
   const [users, setUsers] = useState<UserData[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalData[]>([]);
+  const [clinics, setClinics] = useState<ProfessionalData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
@@ -350,21 +381,17 @@ const AdminUsers = () => {
     setIsLoading(true);
     try {
       const list = await adminListProfessionals();
-      const onlyPros: ProfessionalData[] = (list ?? []).map((p: AdminProfessionalRow) => ({
-        id: p.id,
-        name: p.name,
-        email: p.email,
-        phone: p.phone ?? null,
-        profile_photo_url: (p as any).profile_photo_url ?? null,
-        blocked: !!p.blocked,
-        access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
-        professional_age: (p as any).professional_age ?? null,
-        professional_birthdate: (p as any).professional_birthdate ?? null,
-        professional_attestation: (p as any).professional_attestation ?? null,
-        professional_crfa: (p as any).professional_crfa ?? null,
-        assigned_users_count: (p as any).assigned_users_count ?? 0,
-      }));
-      setProfessionals(onlyPros);
+      setProfessionals((list ?? []).map(mapAdminProfessional));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const reloadClinics = async () => {
+    setIsLoading(true);
+    try {
+      const list = await adminListClinics();
+      setClinics((list ?? []).map(mapAdminProfessional));
     } finally {
       setIsLoading(false);
     }
@@ -377,21 +404,10 @@ const AdminUsers = () => {
       try {
         if (mode === "professionals") {
           const list = await adminListProfessionals();
-          const onlyPros: ProfessionalData[] = (list ?? []).map((p: AdminProfessionalRow) => ({
-            id: p.id,
-            name: p.name,
-            email: p.email,
-            phone: p.phone ?? null,
-            profile_photo_url: (p as any).profile_photo_url ?? null,
-            blocked: !!p.blocked,
-            access: (p.access as any) ?? { atividades: true, horarios: true, relatorios: true },
-            professional_age: (p as any).professional_age ?? null,
-            professional_birthdate: (p as any).professional_birthdate ?? null,
-            professional_attestation: (p as any).professional_attestation ?? null,
-            professional_crfa: (p as any).professional_crfa ?? null,
-            assigned_users_count: (p as any).assigned_users_count ?? 0,
-          }));
-          if (mounted) setProfessionals(onlyPros);
+          if (mounted) setProfessionals((list ?? []).map(mapAdminProfessional));
+        } else if (mode === "clinics") {
+          const list = await adminListClinics();
+          if (mounted) setClinics((list ?? []).map(mapAdminProfessional));
         } else {
           const list = await adminListUsers();
           const onlyUsers = list
@@ -417,8 +433,18 @@ const AdminUsers = () => {
       } catch (e) {
         if (mounted) {
           toast({
-            title: mode === "professionals" ? "Erro ao carregar profissionais" : "Erro ao carregar usuários",
-            description: mode === "professionals" ? "Não foi possível buscar a lista de profissionais." : "Não foi possível buscar a lista de usuários.",
+            title:
+              mode === "professionals"
+                ? "Erro ao carregar profissionais"
+                : mode === "clinics"
+                  ? "Erro ao carregar clínicas"
+                  : "Erro ao carregar usuários",
+            description:
+              mode === "professionals"
+                ? "Não foi possível buscar a lista de profissionais."
+                : mode === "clinics"
+                  ? "Não foi possível buscar a lista de clínicas."
+                  : "Não foi possível buscar a lista de usuários.",
             variant: "destructive",
           });
         }
@@ -549,6 +575,18 @@ const AdminUsers = () => {
     );
   }, [professionals, searchTerm]);
 
+  const filteredClinics = useMemo(() => {
+    return clinics.filter((clinic) => {
+      const query = searchTerm.toLowerCase();
+      return (
+        professionalDisplayName(clinic).toLowerCase().includes(query) ||
+        clinic.email.toLowerCase().includes(query) ||
+        (clinic.responsible_name ?? "").toLowerCase().includes(query) ||
+        (clinic.clinic_city_state ?? "").toLowerCase().includes(query)
+      );
+    });
+  }, [clinics, searchTerm]);
+
   const handleSetBlocked = (userId: number, blocked: boolean) => {
     const current = users.find((u) => u.id === userId);
     if (!current) return;
@@ -579,16 +617,18 @@ const AdminUsers = () => {
   };
 
   const handleSetBlockedProfessional = (id: number, blocked: boolean) => {
-    const current = professionals.find((p) => p.id === id);
+    const current = professionals.find((p) => p.id === id) ?? clinics.find((p) => p.id === id);
     if (!current) return;
     if (current.blocked === blocked) return;
 
     setProfessionals((prev) => prev.map((p) => (p.id === id ? { ...p, blocked } : p)));
+    setClinics((prev) => prev.map((p) => (p.id === id ? { ...p, blocked } : p)));
     if (selectedProfessional?.id === id) setSelectedProfessional({ ...selectedProfessional, blocked });
 
     void adminUpdateProfessional(id, { blocked })
       .then((updated) => {
         setProfessionals((prev) => prev.map((p) => (p.id === id ? { ...p, blocked: !!updated.blocked, access: (updated as any).access ?? p.access } : p)));
+        setClinics((prev) => prev.map((p) => (p.id === id ? { ...p, blocked: !!updated.blocked, access: (updated as any).access ?? p.access } : p)));
         if (selectedProfessional?.id === id) {
           setSelectedProfessional((prev) => (prev ? { ...prev, blocked: !!updated.blocked, access: (updated as any).access ?? prev.access } : prev));
         }
@@ -596,8 +636,9 @@ const AdminUsers = () => {
       })
       .catch(() => {
         setProfessionals((prev) => prev.map((p) => (p.id === id ? current : p)));
+        setClinics((prev) => prev.map((p) => (p.id === id ? current : p)));
         if (selectedProfessional?.id === id) setSelectedProfessional(current);
-        toast({ title: "Erro", description: "Não foi possível atualizar este profissional.", variant: "destructive" });
+        toast({ title: "Erro", description: "Não foi possível atualizar este cadastro.", variant: "destructive" });
       });
   };
 
@@ -626,15 +667,17 @@ const AdminUsers = () => {
   };
 
   const handleSetAccessProfessional = (id: number, access: UserAccess) => {
-    const current = professionals.find((p) => p.id === id);
+    const current = professionals.find((p) => p.id === id) ?? clinics.find((p) => p.id === id);
     if (!current) return;
 
     setProfessionals((prev) => prev.map((p) => (p.id === id ? { ...p, access } : p)));
+    setClinics((prev) => prev.map((p) => (p.id === id ? { ...p, access } : p)));
     if (selectedProfessional?.id === id) setSelectedProfessional({ ...selectedProfessional, access });
 
     void adminUpdateProfessional(id, { access })
       .then((updated) => {
         setProfessionals((prev) => prev.map((p) => (p.id === id ? { ...p, blocked: !!updated.blocked, access: (updated as any).access ?? access } : p)));
+        setClinics((prev) => prev.map((p) => (p.id === id ? { ...p, blocked: !!updated.blocked, access: (updated as any).access ?? access } : p)));
         if (selectedProfessional?.id === id) {
           setSelectedProfessional((prev) => (prev ? { ...prev, blocked: !!updated.blocked, access: (updated as any).access ?? access } : prev));
         }
@@ -642,6 +685,7 @@ const AdminUsers = () => {
       })
       .catch(() => {
         setProfessionals((prev) => prev.map((p) => (p.id === id ? current : p)));
+        setClinics((prev) => prev.map((p) => (p.id === id ? current : p)));
         if (selectedProfessional?.id === id) setSelectedProfessional(current);
         toast({ title: "Erro", description: "Não foi possível atualizar o acesso.", variant: "destructive" });
       });
@@ -712,18 +756,23 @@ const AdminUsers = () => {
     try {
       await adminDeleteProfessional(deleteProfessionalTarget.id);
       setProfessionals((prev) => prev.filter((p) => p.id !== deleteProfessionalTarget.id));
+      setClinics((prev) => prev.filter((p) => p.id !== deleteProfessionalTarget.id));
       if (selectedProfessional?.id === deleteProfessionalTarget.id) {
         setSelectedProfessional(null);
         setIsProfessionalDialogOpen(false);
       }
       emitAdminDataChanged();
-      toast({ title: "Profissional excluído", description: "O profissional foi removido permanentemente." });
+      toast({
+        title: isClinicAccount(deleteProfessionalTarget) ? "Clínica excluída" : "Profissional excluído",
+        description: "O cadastro foi removido permanentemente.",
+      });
     } catch (e) {
-      const msg = isApiError(e) ? e.message : "Não foi possível excluir este profissional.";
+      const msg = isApiError(e) ? e.message : "Não foi possível excluir este cadastro.";
       toast({ title: "Erro", description: msg, variant: "destructive" });
     } finally {
       try {
         await reloadProfessionals();
+        await reloadClinics();
       } catch {}
     }
   };
@@ -789,7 +838,7 @@ const AdminUsers = () => {
               Gerenciamento de Usuários
             </h1>
             <p className="text-muted-foreground">
-              Selecione Usuários ou Profissionais para gerenciar bloqueios e permissões.
+              Selecione Usuários, Profissionais ou Clínicas para gerenciar bloqueios e permissões.
             </p>
           </div>
           <div className="flex items-center justify-end">
@@ -830,6 +879,20 @@ const AdminUsers = () => {
               }`}
             >
               Profissionais
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("clinics");
+                setSearchTerm("");
+                setSelectedUser(null);
+                setIsUserDialogOpen(false);
+              }}
+              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                mode === "clinics" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Clínicas
             </button>
           </div>
         </div>
@@ -927,7 +990,13 @@ const AdminUsers = () => {
         <div className="space-y-4">
           {isLoading && (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">{mode === "professionals" ? "Carregando profissionais..." : "Carregando usuários..."}</p>
+              <p className="text-muted-foreground">
+                {mode === "professionals"
+                  ? "Carregando profissionais..."
+                  : mode === "clinics"
+                    ? "Carregando clínicas..."
+                    : "Carregando usuários..."}
+              </p>
             </div>
           )}
           {mode === "users" &&
@@ -1157,6 +1226,97 @@ const AdminUsers = () => {
                 </div>
               </div>
             ))}
+
+          {mode === "clinics" &&
+            filteredClinics.map((clinic, index) => (
+              <div
+                key={clinic.id}
+                className="bg-card rounded-xl border border-border p-5 shadow-sm hover:shadow-md transition-all duration-200 animate-fade-in"
+                style={{ animationDelay: `${0.05 * index}s` }}
+              >
+                <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-blue to-brand-blue/70 flex items-center justify-center text-white font-semibold">
+                      {clinic.profile_photo_url ? (
+                        <img src={normalizeMediaUrl(clinic.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        professionalDisplayName(clinic).split(" ").map((n) => n[0]).join("").slice(0, 2)
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-foreground">{professionalDisplayName(clinic)}</h3>
+                        {clinic.blocked && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
+                            Bloqueado
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">{clinic.email}</p>
+                      {clinic.phone && <p className="text-xs text-muted-foreground truncate">Celular: {clinic.phone}</p>}
+                      {clinic.responsible_name && (
+                        <p className="text-xs text-muted-foreground truncate">Responsável: {clinic.responsible_name}</p>
+                      )}
+                      {clinic.clinic_city_state && (
+                        <p className="text-xs text-muted-foreground truncate">Cidade/Estado: {clinic.clinic_city_state}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1 text-xs">
+                      <Activity size={14} className={clinic.access.atividades ? "text-brand-green" : "text-muted-foreground"} />
+                      <span className={clinic.access.atividades ? "text-brand-green" : "text-muted-foreground"}>Atividades</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs">
+                      <Calendar size={14} className={clinic.access.horarios ? "text-brand-green" : "text-muted-foreground"} />
+                      <span className={clinic.access.horarios ? "text-brand-green" : "text-muted-foreground"}>Horários</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs">
+                      <FileText size={14} className={clinic.access.relatorios ? "text-brand-green" : "text-muted-foreground"} />
+                      <span className={clinic.access.relatorios ? "text-brand-green" : "text-muted-foreground"}>Relatórios</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:w-auto">
+                    <Button variant="outline" size="sm" onClick={() => openProfessionalProfile(clinic)}>
+                      <Eye size={16} className="mr-2" />
+                      Ver Perfil
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setDeleteProfessionalTarget(clinic);
+                        setDeleteProfessionalOpen(true);
+                      }}
+                      className="w-full sm:w-auto text-destructive hover:text-destructive"
+                    >
+                      <Trash2 size={16} className="mr-2" />
+                      Excluir
+                    </Button>
+                    <Button
+                      variant={clinic.blocked ? "default" : "destructive"}
+                      size="sm"
+                      onClick={() => handleSetBlockedProfessional(clinic.id, !clinic.blocked)}
+                      className="w-full sm:w-auto"
+                    >
+                      {clinic.blocked ? (
+                        <>
+                          <Unlock size={16} className="mr-2" />
+                          Liberar
+                        </>
+                      ) : (
+                        <>
+                          <Lock size={16} className="mr-2" />
+                          Bloquear
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
         </div>
 
         {/* Empty State */}
@@ -1170,6 +1330,12 @@ const AdminUsers = () => {
           <div className="text-center py-12">
             <Users size={48} className="mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">Nenhum profissional encontrado</p>
+          </div>
+        )}
+        {!isLoading && mode === "clinics" && filteredClinics.length === 0 && (
+          <div className="text-center py-12">
+            <Users size={48} className="mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">Nenhuma clínica encontrada</p>
           </div>
         )}
 
@@ -1674,9 +1840,13 @@ const AdminUsers = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <User size={24} />
-                Perfil do Profissional
+                {selectedProfessional && isClinicAccount(selectedProfessional) ? "Perfil da Clínica" : "Perfil do Profissional"}
               </DialogTitle>
-              <DialogDescription>Gerencie bloqueios, permissões e dados do profissional</DialogDescription>
+              <DialogDescription>
+                {selectedProfessional && isClinicAccount(selectedProfessional)
+                  ? "Gerencie bloqueios, permissões e dados da clínica"
+                  : "Gerencie bloqueios, permissões e dados do profissional"}
+              </DialogDescription>
             </DialogHeader>
 
             {selectedProfessional && (
@@ -1686,26 +1856,45 @@ const AdminUsers = () => {
                     {selectedProfessional.profile_photo_url ? (
                       <img src={normalizeMediaUrl(selectedProfessional.profile_photo_url)} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      selectedProfessional.name.split(" ").map((n) => n[0]).join("").slice(0, 2)
+                      professionalDisplayName(selectedProfessional).split(" ").map((n) => n[0]).join("").slice(0, 2)
                     )}
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-foreground text-lg">{selectedProfessional.name}</h3>
+                    <h3 className="font-semibold text-foreground text-lg">{professionalDisplayName(selectedProfessional)}</h3>
                     <p className="text-sm text-muted-foreground">{selectedProfessional.email}</p>
                     {selectedProfessional.phone && <p className="text-sm text-muted-foreground">Celular: {selectedProfessional.phone}</p>}
-                    {selectedProfessional.professional_birthdate ? (
-                      <p className="text-sm text-muted-foreground">Nascimento: {formatYmd(selectedProfessional.professional_birthdate)}</p>
-                    ) : selectedProfessional.professional_age ? (
-                      <p className="text-sm text-muted-foreground">Idade: {selectedProfessional.professional_age} ano(s)</p>
-                    ) : null}
-                    {selectedProfessional.professional_crfa ? (
-                      <p className="text-sm text-muted-foreground">CRFa: {selectedProfessional.professional_crfa}</p>
-                    ) : null}
-                    {selectedProfessional.professional_attestation !== null && selectedProfessional.professional_attestation !== undefined ? (
-                      <p className="text-sm text-muted-foreground">
-                        Responsabilidade: {selectedProfessional.professional_attestation ? "confirmada" : "não confirmada"}
-                      </p>
-                    ) : null}
+                    {isClinicAccount(selectedProfessional) ? (
+                      <>
+                        {selectedProfessional.responsible_name ? (
+                          <p className="text-sm text-muted-foreground">Responsável: {selectedProfessional.responsible_name}</p>
+                        ) : null}
+                        {selectedProfessional.clinic_area ? (
+                          <p className="text-sm text-muted-foreground">Área: {selectedProfessional.clinic_area}</p>
+                        ) : null}
+                        {selectedProfessional.clinic_city_state ? (
+                          <p className="text-sm text-muted-foreground">Cidade/Estado: {selectedProfessional.clinic_city_state}</p>
+                        ) : null}
+                        {selectedProfessional.clinic_team_size ? (
+                          <p className="text-sm text-muted-foreground">Profissionais hoje: {selectedProfessional.clinic_team_size}</p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        {selectedProfessional.professional_birthdate ? (
+                          <p className="text-sm text-muted-foreground">Nascimento: {formatYmd(selectedProfessional.professional_birthdate)}</p>
+                        ) : selectedProfessional.professional_age ? (
+                          <p className="text-sm text-muted-foreground">Idade: {selectedProfessional.professional_age} ano(s)</p>
+                        ) : null}
+                        {selectedProfessional.professional_crfa ? (
+                          <p className="text-sm text-muted-foreground">CRFa: {selectedProfessional.professional_crfa}</p>
+                        ) : null}
+                        {selectedProfessional.professional_attestation !== null && selectedProfessional.professional_attestation !== undefined ? (
+                          <p className="text-sm text-muted-foreground">
+                            Responsabilidade: {selectedProfessional.professional_attestation ? "confirmada" : "não confirmada"}
+                          </p>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1713,9 +1902,13 @@ const AdminUsers = () => {
                 <div className="flex items-center justify-between p-4 border border-border rounded-lg">
                   <div>
                     <Label htmlFor="block-pro" className="text-base font-semibold">
-                      Bloquear Profissional
+                      {isClinicAccount(selectedProfessional) ? "Bloquear Clínica" : "Bloquear Profissional"}
                     </Label>
-                    <p className="text-sm text-muted-foreground">Quando bloqueado, o profissional não pode acessar o sistema</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isClinicAccount(selectedProfessional)
+                        ? "Quando bloqueada, a clínica não pode acessar o sistema"
+                        : "Quando bloqueado, o profissional não pode acessar o sistema"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {selectedProfessional.blocked ? <ShieldOff className="text-destructive" size={20} /> : <Shield className="text-brand-green" size={20} />}
@@ -1802,10 +1995,18 @@ const AdminUsers = () => {
                   <h4 className="font-semibold text-foreground">Editar dados</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label>Nome</Label>
+                      <Label>{isClinicAccount(selectedProfessional) ? "Nome da clínica" : "Nome"}</Label>
                       <Input
-                        value={selectedProfessional.name}
-                        onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
+                        value={isClinicAccount(selectedProfessional) ? selectedProfessional.clinic_name ?? selectedProfessional.name : selectedProfessional.name}
+                        onChange={(e) =>
+                          setSelectedProfessional((prev) =>
+                            prev
+                              ? isClinicAccount(prev)
+                                ? { ...prev, name: e.target.value, clinic_name: e.target.value }
+                                : { ...prev, name: e.target.value }
+                              : prev
+                          )
+                        }
                       />
                     </div>
                     <div className="space-y-1">
@@ -1822,27 +2023,62 @@ const AdminUsers = () => {
                         onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, phone: e.target.value } : prev))}
                       />
                     </div>
-                    <div className="space-y-1">
-                      <Label>Idade</Label>
-                      <Input
-                        type="number"
-                        min={18}
-                        max={120}
-                        value={selectedProfessional.professional_age ?? ""}
-                        onChange={(e) =>
-                          setSelectedProfessional((prev) =>
-                            prev ? { ...prev, professional_age: e.target.value ? Number(e.target.value) : null } : prev
-                          )
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label>CRFa</Label>
-                      <Input
-                        value={selectedProfessional.professional_crfa ?? ""}
-                        onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, professional_crfa: e.target.value } : prev))}
-                      />
-                    </div>
+                    {isClinicAccount(selectedProfessional) ? (
+                      <>
+                        <div className="space-y-1">
+                          <Label>Responsável</Label>
+                          <Input
+                            value={selectedProfessional.responsible_name ?? ""}
+                            onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, responsible_name: e.target.value } : prev))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Área de atuação</Label>
+                          <Input
+                            value={selectedProfessional.clinic_area ?? ""}
+                            onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, clinic_area: e.target.value } : prev))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Cidade/Estado</Label>
+                          <Input
+                            value={selectedProfessional.clinic_city_state ?? ""}
+                            onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, clinic_city_state: e.target.value } : prev))}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Estrutura inicial</Label>
+                          <Input
+                            value={selectedProfessional.clinic_team_size ?? ""}
+                            onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, clinic_team_size: e.target.value } : prev))}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <Label>Idade</Label>
+                          <Input
+                            type="number"
+                            min={18}
+                            max={120}
+                            value={selectedProfessional.professional_age ?? ""}
+                            onChange={(e) =>
+                              setSelectedProfessional((prev) =>
+                                prev ? { ...prev, professional_age: e.target.value ? Number(e.target.value) : null } : prev
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>CRFa</Label>
+                          <Input
+                            value={selectedProfessional.professional_crfa ?? ""}
+                            onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, professional_crfa: e.target.value } : prev))}
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="flex items-center justify-end gap-2">
                     <Button
@@ -1861,12 +2097,21 @@ const AdminUsers = () => {
                           name: p.name,
                           email: p.email,
                           phone: p.phone ?? "",
-                          professional_age: p.professional_age ?? null,
-                          professional_crfa: p.professional_crfa ?? null,
+                          professional_age: isClinicAccount(p) ? undefined : p.professional_age ?? null,
+                          professional_crfa: isClinicAccount(p) ? undefined : p.professional_crfa ?? null,
+                          responsible_name: p.responsible_name ?? null,
+                          clinic_name: p.clinic_name ?? p.name,
+                          clinic_area: p.clinic_area ?? null,
+                          clinic_city_state: p.clinic_city_state ?? null,
+                          clinic_team_size: p.clinic_team_size ?? null,
                         })
                           .then(async () => {
                             await reloadProfessionals();
-                            toast({ title: "Profissional atualizado", description: "Dados salvos com sucesso." });
+                            await reloadClinics();
+                            toast({
+                              title: isClinicAccount(p) ? "Clínica atualizada" : "Profissional atualizado",
+                              description: "Dados salvos com sucesso.",
+                            });
                             emitAdminDataChanged();
                           })
                           .catch((e) => {
@@ -2109,6 +2354,3 @@ const AdminUsers = () => {
 };
 
 export default AdminUsers;
-
-
-

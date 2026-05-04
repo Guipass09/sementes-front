@@ -85,6 +85,7 @@ const initials = (value: string) =>
 export default function ClinicPeopleManagement(): JSX.Element {
   const { toast } = useToast();
   const [tab, setTab] = useState<ClinicTab>("professionals");
+  const [selectedPatientProfessionalId, setSelectedPatientProfessionalId] = useState<number | "all" | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [professionals, setProfessionals] = useState<ClinicProfessionalRow[]>([]);
@@ -148,10 +149,34 @@ export default function ClinicPeopleManagement(): JSX.Element {
     );
   }, [professionals, search]);
 
+  useEffect(() => {
+    if (tab !== "patients") return;
+    if (professionals.length === 0) {
+      setSelectedPatientProfessionalId("all");
+      return;
+    }
+
+    if (selectedPatientProfessionalId === null) {
+      setSelectedPatientProfessionalId(professionals[0].id);
+      return;
+    }
+
+    if (selectedPatientProfessionalId !== "all" && !professionals.some((professional) => professional.id === selectedPatientProfessionalId)) {
+      setSelectedPatientProfessionalId(professionals[0].id);
+    }
+  }, [tab, professionals, selectedPatientProfessionalId]);
+
   const filteredPatients = useMemo(() => {
+    if (selectedPatientProfessionalId === null) return [];
+
+    const scopedPatients =
+      selectedPatientProfessionalId === "all"
+        ? patients
+        : patients.filter((patient) => patient.assigned_professionals.some((professional) => professional.id === selectedPatientProfessionalId));
+
     const query = search.trim().toLowerCase();
-    if (!query) return patients;
-    return patients.filter((patient) =>
+    if (!query) return scopedPatients;
+    return scopedPatients.filter((patient) =>
       [
         patient.child_name ?? "",
         patient.responsible_name ?? "",
@@ -163,7 +188,7 @@ export default function ClinicPeopleManagement(): JSX.Element {
         .toLowerCase()
         .includes(query)
     );
-  }, [patients, search]);
+  }, [patients, search, selectedPatientProfessionalId]);
 
   const openProfessionalModal = () => {
     if (limitReached) {
@@ -357,6 +382,25 @@ export default function ClinicPeopleManagement(): JSX.Element {
     );
   }, [availableProfessionals, availableProfessionalsSearch]);
 
+  const patientCountByProfessionalId = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const professional of professionals) {
+      counts.set(professional.id, 0);
+    }
+    for (const patient of patients) {
+      for (const professional of patient.assigned_professionals) {
+        counts.set(professional.id, (counts.get(professional.id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [patients, professionals]);
+
+  const selectedProfessionalName = useMemo(() => {
+    if (selectedPatientProfessionalId === "all") return "Todos os terapeutas";
+    if (selectedPatientProfessionalId === null) return "";
+    return professionals.find((professional) => professional.id === selectedPatientProfessionalId)?.name ?? "";
+  }, [professionals, selectedPatientProfessionalId]);
+
   return (
     <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
       <div className="container mx-auto px-3 sm:px-4">
@@ -494,61 +538,134 @@ export default function ClinicPeopleManagement(): JSX.Element {
               ))}
             </div>
           )
-        ) : filteredPatients.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border bg-card/50 px-6 py-12 text-center">
-            <Users size={48} className="mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">Nenhum paciente cadastrado na clínica.</p>
-          </div>
         ) : (
-          <div className="space-y-3 sm:space-y-4">
-            {filteredPatients.map((patient) => {
-              const displayName = patient.child_name?.trim() ? patient.child_name.trim() : patient.name;
-              return (
-                <div key={patient.id} className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-blue to-brand-purple flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
-                        {patient.profile_photo_url ? (
-                          <img src={normalizeMediaUrl(patient.profile_photo_url)} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          initials(displayName)
-                        )}
-                      </div>
+          <div className="space-y-5 sm:space-y-6">
+            {professionals.length > 0 ? (
+              <div className="space-y-3">
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-foreground">Escolha o terapeuta</h2>
+                  <p className="text-sm text-muted-foreground">Clique em um perfil para ver só os pacientes daquele terapeuta.</p>
+                </div>
 
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-semibold text-foreground truncate">{displayName}</h3>
-                        {patient.responsible_name ? (
-                          <p className="text-xs text-muted-foreground truncate">Responsável: {patient.responsible_name}</p>
-                        ) : null}
-                        <div className="text-sm text-muted-foreground truncate flex items-center gap-2">
-                          <Mail size={14} />
-                          <span>{patient.email}</span>
-                        </div>
-                        {patient.phone ? (
-                          <div className="text-xs text-muted-foreground truncate flex items-center gap-2">
-                            <Phone size={13} />
-                            <span>{patient.phone}</span>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPatientProfessionalId("all")}
+                    className={`text-left rounded-xl border p-4 transition-all ${
+                      selectedPatientProfessionalId === "all"
+                        ? "border-primary bg-primary/10 shadow-sm"
+                        : "border-border bg-card hover:shadow-sm"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-brown to-brand-orange flex items-center justify-center text-white font-semibold">
+                        Td
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground">Todos os terapeutas</p>
+                        <p className="text-sm text-muted-foreground">{patients.length} paciente(s) no total</p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {professionals.map((professional) => {
+                    const isSelected = selectedPatientProfessionalId === professional.id;
+                    const patientCount = patientCountByProfessionalId.get(professional.id) ?? 0;
+                    return (
+                      <button
+                        key={professional.id}
+                        type="button"
+                        onClick={() => setSelectedPatientProfessionalId(professional.id)}
+                        className={`text-left rounded-xl border p-4 transition-all ${
+                          isSelected ? "border-primary bg-primary/10 shadow-sm" : "border-border bg-card hover:shadow-sm"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
+                            {professional.profile_photo_url ? (
+                              <img src={normalizeMediaUrl(professional.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              initials(professional.name)
+                            )}
                           </div>
-                        ) : null}
-                        <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                          {patient.child_birthdate ? (
-                            <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">Nascimento: {formatYmd(patient.child_birthdate)}</span>
-                          ) : null}
-                          <span className={`rounded-full px-2.5 py-1 ${patient.source === "clinic" ? "bg-brand-blue/10 text-brand-blue" : "bg-brand-brown/10 text-brand-brown"}`}>
-                            {patient.source === "clinic" ? "Cadastro da clínica" : "Paciente herdado de terapeuta vinculado"}
-                          </span>
-                          <span className="rounded-full bg-brand-green/10 px-2.5 py-1 text-brand-green">
-                            {patient.assigned_professionals.length > 0
-                              ? `Terapeutas: ${patient.assigned_professionals.map((professional) => professional.name).join(", ")}`
-                              : "Sem terapeuta vinculado"}
-                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-foreground truncate">{professional.name}</p>
+                            <p className="text-sm text-muted-foreground truncate">{professional.email}</p>
+                            <p className="text-xs text-brand-green mt-1">{patientCount} paciente(s) vinculado(s)</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {filteredPatients.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-card/50 px-6 py-12 text-center">
+                <Users size={48} className="mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  {selectedPatientProfessionalId && selectedPatientProfessionalId !== "all"
+                    ? `Nenhum paciente encontrado para ${selectedProfessionalName}.`
+                    : "Nenhum paciente cadastrado na clínica."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 sm:space-y-4">
+                <div className="rounded-xl border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
+                  Exibindo pacientes de: <span className="font-semibold text-foreground">{selectedProfessionalName || "Todos os terapeutas"}</span>
+                </div>
+
+                {filteredPatients.map((patient) => {
+                  const displayName = patient.child_name?.trim() ? patient.child_name.trim() : patient.name;
+                  return (
+                    <div key={patient.id} className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-blue to-brand-purple flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
+                            {patient.profile_photo_url ? (
+                              <img src={normalizeMediaUrl(patient.profile_photo_url)} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              initials(displayName)
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold text-foreground truncate">{displayName}</h3>
+                            {patient.responsible_name ? (
+                              <p className="text-xs text-muted-foreground truncate">Responsável: {patient.responsible_name}</p>
+                            ) : null}
+                            <div className="text-sm text-muted-foreground truncate flex items-center gap-2">
+                              <Mail size={14} />
+                              <span>{patient.email}</span>
+                            </div>
+                            {patient.phone ? (
+                              <div className="text-xs text-muted-foreground truncate flex items-center gap-2">
+                                <Phone size={13} />
+                                <span>{patient.phone}</span>
+                              </div>
+                            ) : null}
+                            <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                              {patient.child_birthdate ? (
+                                <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">Nascimento: {formatYmd(patient.child_birthdate)}</span>
+                              ) : null}
+                              <span className={`rounded-full px-2.5 py-1 ${patient.source === "clinic" ? "bg-brand-blue/10 text-brand-blue" : "bg-brand-brown/10 text-brand-brown"}`}>
+                                {patient.source === "clinic" ? "Cadastro da clínica" : "Paciente herdado de terapeuta vinculado"}
+                              </span>
+                              <span className="rounded-full bg-brand-green/10 px-2.5 py-1 text-brand-green">
+                                {patient.assigned_professionals.length > 0
+                                  ? `Terapeutas: ${patient.assigned_professionals.map((professional) => professional.name).join(", ")}`
+                                  : "Sem terapeuta vinculado"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

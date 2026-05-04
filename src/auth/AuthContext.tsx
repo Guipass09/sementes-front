@@ -36,6 +36,17 @@ type AuthContextValue = {
     password: string;
     password_confirmation: string;
   }) => Promise<AuthUser>;
+  registerClinic: (params: {
+    clinic_name: string;
+    clinic_area?: string;
+    clinic_city_state: string;
+    responsible_name: string;
+    email: string;
+    phone: string;
+    clinic_team_size: string;
+    password: string;
+    password_confirmation: string;
+  }) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
 
@@ -402,6 +413,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [setAuthUser, normalizeRole]
   );
 
+  const registerClinic = useCallback(
+    async (params: {
+      clinic_name: string;
+      clinic_area?: string;
+      clinic_city_state: string;
+      responsible_name: string;
+      email: string;
+      phone: string;
+      clinic_team_size: string;
+      password: string;
+      password_confirmation: string;
+    }) => {
+      const res = await api.registerClinic(params as any);
+
+      if (!(res as any)?.token || !(res as any)?.user) {
+        throw new Error("Resposta de cadastro (clínica) inválida");
+      }
+
+      localStorage.setItem("token", (res as any).token);
+      const userData = { ...(res as any).user } as AuthUser & any;
+      userData.role = normalizeRole(userData.role || "professional");
+      userData.access = userData.access ?? { atividades: false, horarios: false, relatorios: false };
+
+      localStorage.setItem("user", JSON.stringify(userData));
+      setAuthUser(userData as AuthUser);
+
+      window.location.href = "/profissional";
+      return userData as AuthUser;
+    },
+    [setAuthUser, normalizeRole]
+  );
+
   const logout = useCallback(async () => {
     try {
       // attempt to revoke token on backend
@@ -421,8 +464,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [setAuthUser]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, refresh, setAuthUser, loadUser, login, register, registerProfessional, logout }),
-    [user, loading, refresh, setAuthUser, loadUser, login, register, registerProfessional, logout]
+    () => ({ user, loading, refresh, setAuthUser, loadUser, login, register, registerProfessional, registerClinic, logout }),
+    [user, loading, refresh, setAuthUser, loadUser, login, register, registerProfessional, registerClinic, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -433,7 +476,6 @@ export function useAuth(): AuthContextValue {
   if (!ctx) throw new Error("useAuth deve ser usado dentro de <AuthProvider />");
   return ctx;
 }
-
 
 
 

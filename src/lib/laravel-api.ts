@@ -39,6 +39,10 @@ export type AuthUser = {
   professional_age?: number | null;
   professional_crfa?: string | null;
   professional_registration?: string | null;
+  clinic_name?: string | null;
+  clinic_area?: string | null;
+  clinic_city_state?: string | null;
+  clinic_team_size?: string | null;
 };
 
 export type ProfessionalUserRow = {
@@ -506,6 +510,24 @@ export async function registerProfessional(params: {
 }): Promise<{ token: string; user: AuthUser }> {
   await ensureCsrfCookie();
   return await request<{ token: string; user: AuthUser }>("/api/register-professional", {
+    method: "POST",
+    json: params,
+  });
+}
+
+export async function registerClinic(params: {
+  clinic_name: string;
+  clinic_area?: string;
+  clinic_city_state: string;
+  responsible_name: string;
+  email: string;
+  phone: string;
+  clinic_team_size: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<{ token: string; user: AuthUser }> {
+  await ensureCsrfCookie();
+  return await request<{ token: string; user: AuthUser }>("/api/register-clinic", {
     method: "POST",
     json: params,
   });
@@ -2778,5 +2800,4 @@ export async function userUpdateSpinWheelGameProgress(
   await ensureCsrfCookie();
   return await request<SpinWheelGameRow>(`/api/spin-wheel-games/${id}/progress`, { method: "PATCH", json: payload });
 }
-
 

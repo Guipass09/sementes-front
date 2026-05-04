@@ -1,42 +1,68 @@
-import { useState, useCallback } from "react";
-import { Eye, EyeOff, Mail, Lock, Check, AlertCircle, User, Phone, BadgeCheck } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { AlertCircle, BadgeCheck, Briefcase, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, Phone, User, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import { isApiError } from "@/lib/laravel-api";
 
-type RegisterMode = "patient" | "professional";
+type RegisterMode = "patient" | "professional" | "clinic";
+
+type FieldValidation = {
+  valid: boolean;
+  touched: boolean;
+  message: string;
+};
 
 interface FormState {
-  name: string; // profissional
-  responsibleName: string; // paciente
-  childName: string; // paciente
-  childBirthdate: string; // YYYY-MM-DD
+  name: string;
+  responsibleName: string;
+  childName: string;
+  childBirthdate: string;
   email: string;
   phone: string;
-  professionalBirthdate: string; // YYYY-MM-DD
+  professionalBirthdate: string;
   professionalCrfa: string;
   professionalAttestation: boolean;
+  clinicName: string;
+  clinicArea: string;
+  clinicCityState: string;
+  clinicTeamSize: string;
   password: string;
   confirmPassword: string;
 }
 
 interface ValidationState {
-  name: { valid: boolean; touched: boolean; message: string };
-  responsibleName: { valid: boolean; touched: boolean; message: string };
-  childName: { valid: boolean; touched: boolean; message: string };
-  childBirthdate: { valid: boolean; touched: boolean; message: string };
-  email: { valid: boolean; touched: boolean; message: string };
-  phone: { valid: boolean; touched: boolean; message: string };
-  professionalBirthdate: { valid: boolean; touched: boolean; message: string };
-  professionalCrfa: { valid: boolean; touched: boolean; message: string };
-  professionalAttestation: { valid: boolean; touched: boolean; message: string };
-  password: { valid: boolean; touched: boolean; message: string };
-  confirmPassword: { valid: boolean; touched: boolean; message: string };
+  name: FieldValidation;
+  responsibleName: FieldValidation;
+  childName: FieldValidation;
+  childBirthdate: FieldValidation;
+  email: FieldValidation;
+  phone: FieldValidation;
+  professionalBirthdate: FieldValidation;
+  professionalCrfa: FieldValidation;
+  professionalAttestation: FieldValidation;
+  clinicName: FieldValidation;
+  clinicArea: FieldValidation;
+  clinicCityState: FieldValidation;
+  clinicTeamSize: FieldValidation;
+  password: FieldValidation;
+  confirmPassword: FieldValidation;
 }
 
+const clinicTeamSizeOptions = [
+  { value: "1-5", label: "1-5" },
+  { value: "6-10", label: "6-10" },
+  { value: "11-20", label: "11-20" },
+  { value: "20+", label: "20+" },
+] as const;
+
+const createValidationField = (): FieldValidation => ({
+  valid: false,
+  touched: false,
+  message: "",
+});
+
 const RegisterForm = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const auth = useAuth();
 
@@ -52,22 +78,30 @@ const RegisterForm = () => {
     professionalBirthdate: "",
     professionalCrfa: "",
     professionalAttestation: false,
+    clinicName: "",
+    clinicArea: "",
+    clinicCityState: "",
+    clinicTeamSize: "",
     password: "",
     confirmPassword: "",
   });
 
   const [validation, setValidation] = useState<ValidationState>({
-    name: { valid: false, touched: false, message: "" },
-    responsibleName: { valid: false, touched: false, message: "" },
-    childName: { valid: false, touched: false, message: "" },
-    childBirthdate: { valid: false, touched: false, message: "" },
-    email: { valid: false, touched: false, message: "" },
-    phone: { valid: false, touched: false, message: "" },
-    professionalBirthdate: { valid: false, touched: false, message: "" },
-    professionalCrfa: { valid: false, touched: false, message: "" },
-    professionalAttestation: { valid: false, touched: false, message: "" },
-    password: { valid: false, touched: false, message: "" },
-    confirmPassword: { valid: false, touched: false, message: "" },
+    name: createValidationField(),
+    responsibleName: createValidationField(),
+    childName: createValidationField(),
+    childBirthdate: createValidationField(),
+    email: createValidationField(),
+    phone: createValidationField(),
+    professionalBirthdate: createValidationField(),
+    professionalCrfa: createValidationField(),
+    professionalAttestation: createValidationField(),
+    clinicName: createValidationField(),
+    clinicArea: createValidationField(),
+    clinicCityState: createValidationField(),
+    clinicTeamSize: createValidationField(),
+    password: createValidationField(),
+    confirmPassword: createValidationField(),
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -86,10 +120,32 @@ const RegisterForm = () => {
     return { valid: true, message: "" };
   }, []);
 
+  const validateRequiredText = useCallback((value: string, label: string, minLength = 2): { valid: boolean; message: string } => {
+    const text = String(value ?? "").trim();
+    if (!text) {
+      return { valid: false, message: `${label} é obrigatório` };
+    }
+    if (text.length < minLength) {
+      return { valid: false, message: `${label} inválido` };
+    }
+    return { valid: true, message: "" };
+  }, []);
+
+  const validateOptionalText = useCallback((value: string, label: string, minLength = 2): { valid: boolean; message: string } => {
+    const text = String(value ?? "").trim();
+    if (!text) {
+      return { valid: true, message: "" };
+    }
+    if (text.length < minLength) {
+      return { valid: false, message: `${label} inválida` };
+    }
+    return { valid: true, message: "" };
+  }, []);
+
   const validateChildName = useCallback((name: string): { valid: boolean; message: string } => {
-    const s = String(name ?? "").trim();
-    if (!s) return { valid: false, message: "Nome da criança é obrigatório" };
-    if (s.length < 2) return { valid: false, message: "Nome da criança inválido" };
+    const text = String(name ?? "").trim();
+    if (!text) return { valid: false, message: "Nome da criança é obrigatório" };
+    if (text.length < 2) return { valid: false, message: "Nome da criança inválido" };
     return { valid: true, message: "" };
   }, []);
 
@@ -109,7 +165,6 @@ const RegisterForm = () => {
     if (!digits) {
       return { valid: false, message: "Celular é obrigatório" };
     }
-    // Brasil: DDD (2) + celular (9 dígitos, começando com 9) = 11 dígitos
     if (digits.length !== 11) {
       return { valid: false, message: "Informe um celular com DDD (11 dígitos)" };
     }
@@ -122,29 +177,35 @@ const RegisterForm = () => {
   const validateBirthdate = useCallback(
     (value: string, opts?: { label?: string; minAgeYears?: number }): { valid: boolean; message: string } => {
       const label = opts?.label ?? "Data de nascimento";
-      const s = String(value ?? "").trim();
-      if (!s) return { valid: false, message: `${label} é obrigatória` };
-      // Esperado: YYYY-MM-DD (input type="date")
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return { valid: false, message: "Informe uma data válida" };
-      const [yy, mm, dd] = s.split("-").map((n) => Number(n));
-      if (!yy || !mm || !dd) return { valid: false, message: "Informe uma data válida" };
-      const dt = new Date(yy, mm - 1, dd);
-      if (Number.isNaN(dt.getTime()) || dt.getFullYear() !== yy || dt.getMonth() !== mm - 1 || dt.getDate() !== dd) {
+      const text = String(value ?? "").trim();
+      if (!text) return { valid: false, message: `${label} é obrigatória` };
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return { valid: false, message: "Informe uma data válida" };
+
+      const [year, month, day] = text.split("-").map((part) => Number(part));
+      if (!year || !month || !day) return { valid: false, message: "Informe uma data válida" };
+
+      const birthdate = new Date(year, month - 1, day);
+      if (
+        Number.isNaN(birthdate.getTime()) ||
+        birthdate.getFullYear() !== year ||
+        birthdate.getMonth() !== month - 1 ||
+        birthdate.getDate() !== day
+      ) {
         return { valid: false, message: "Informe uma data válida" };
       }
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      if (dt.getTime() > today.getTime()) return { valid: false, message: "A data não pode ser no futuro" };
+      if (birthdate.getTime() > today.getTime()) return { valid: false, message: "A data não pode ser no futuro" };
 
       if (typeof opts?.minAgeYears === "number") {
-        const age = (() => {
-          let a = today.getFullYear() - yy;
-          const m = today.getMonth() + 1;
-          const d = today.getDate();
-          if (m < mm || (m === mm && d < dd)) a--;
-          return a;
-        })();
-        if (age < opts.minAgeYears) return { valid: false, message: `Idade mínima é ${opts.minAgeYears} anos` };
+        let age = today.getFullYear() - year;
+        const currentMonth = today.getMonth() + 1;
+        const currentDay = today.getDate();
+        if (currentMonth < month || (currentMonth === month && currentDay < day)) age--;
+        if (age < opts.minAgeYears) {
+          return { valid: false, message: `Idade mínima é ${opts.minAgeYears} anos` };
+        }
       }
 
       return { valid: true, message: "" };
@@ -152,16 +213,23 @@ const RegisterForm = () => {
     []
   );
 
-  const validateProfessionalCrfa = useCallback((v: string): { valid: boolean; message: string } => {
-    const s = String(v ?? "").trim();
-    if (!s) return { valid: false, message: "CRFa é obrigatório" };
-    if (s.length < 3) return { valid: false, message: "CRFa inválido" };
+  const validateProfessionalCrfa = useCallback((value: string): { valid: boolean; message: string } => {
+    const text = String(value ?? "").trim();
+    if (!text) return { valid: false, message: "CRFa é obrigatório" };
+    if (text.length < 3) return { valid: false, message: "CRFa inválido" };
     return { valid: true, message: "" };
   }, []);
 
   const validateAttestation = useCallback((checked: boolean): { valid: boolean; message: string } => {
     if (!checked) {
       return { valid: false, message: "Você precisa confirmar a responsabilidade pelas informações" };
+    }
+    return { valid: true, message: "" };
+  }, []);
+
+  const validateChoice = useCallback((value: string, label: string): { valid: boolean; message: string } => {
+    if (!String(value ?? "").trim()) {
+      return { valid: false, message: `Selecione ${label.toLowerCase()}` };
     }
     return { valid: true, message: "" };
   }, []);
@@ -188,60 +256,70 @@ const RegisterForm = () => {
 
   const handleInputChange = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = field === "professionalAttestation" ? (e.target as HTMLInputElement).checked : e.target.value;
-    setFormData((prev) => ({ ...prev, [field]: value as any }));
 
-    if (validation[field].touched) {
-      let result;
-      switch (field) {
-        case "name":
-          result = validateName(String(value), "Nome");
-          break;
-        case "responsibleName":
-          result = validateName(String(value), "Nome do responsável");
-          break;
-        case "childName":
-          result = validateChildName(String(value));
-          break;
-        case "childBirthdate":
-          result = validateBirthdate(String(value), { label: "Data de nascimento da criança" });
-          break;
-        case "email":
-          result = validateEmail(String(value));
-          break;
-        case "phone":
-          result = validatePhone(String(value));
-          break;
-        case "professionalBirthdate":
-          result = validateBirthdate(String(value), { label: "Data de nascimento", minAgeYears: 18 });
-          break;
-        case "professionalCrfa":
-          result = validateProfessionalCrfa(String(value));
-          break;
-        case "professionalAttestation":
-          result = validateAttestation(Boolean(value));
-          break;
-        case "password":
-          result = validatePassword(String(value));
-          // Also revalidate confirm password when password changes
-          if (validation.confirmPassword.touched) {
-            const confirmResult = validateConfirmPassword(formData.confirmPassword, String(value));
-            setValidation((prev) => ({
-              ...prev,
-              confirmPassword: { ...confirmResult, touched: true },
-            }));
-          }
-          break;
-        case "confirmPassword":
-          result = validateConfirmPassword(String(value), formData.password);
-          break;
-        default:
-          return;
-      }
-      setValidation((prev) => ({
-        ...prev,
-        [field]: { ...result, touched: true },
-      }));
+    setFormData((prev) => ({ ...prev, [field]: value as never }));
+
+    if (!validation[field].touched) return;
+
+    let result;
+    switch (field) {
+      case "name":
+        result = validateName(String(value), "Nome");
+        break;
+      case "responsibleName":
+        result = validateName(String(value), "Nome do responsável");
+        break;
+      case "childName":
+        result = validateChildName(String(value));
+        break;
+      case "childBirthdate":
+        result = validateBirthdate(String(value), { label: "Data de nascimento da criança" });
+        break;
+      case "email":
+        result = validateEmail(String(value));
+        break;
+      case "phone":
+        result = validatePhone(String(value));
+        break;
+      case "professionalBirthdate":
+        result = validateBirthdate(String(value), { label: "Data de nascimento", minAgeYears: 18 });
+        break;
+      case "professionalCrfa":
+        result = validateProfessionalCrfa(String(value));
+        break;
+      case "professionalAttestation":
+        result = validateAttestation(Boolean(value));
+        break;
+      case "clinicName":
+        result = validateName(String(value), "Nome da clínica");
+        break;
+      case "clinicArea":
+        result = validateOptionalText(String(value), "Área de atuação");
+        break;
+      case "clinicCityState":
+        result = validateRequiredText(String(value), "Cidade/Estado");
+        break;
+      case "password":
+        result = validatePassword(String(value));
+        if (validation.confirmPassword.touched) {
+          const confirmResult = validateConfirmPassword(formData.confirmPassword, String(value));
+          setValidation((prev) => ({
+            ...prev,
+            confirmPassword: { ...confirmResult, touched: true },
+          }));
+        }
+        break;
+      case "confirmPassword":
+        result = validateConfirmPassword(String(value), formData.password);
+        break;
+      default:
+        return;
     }
+
+    setValidation((prev) => ({
+      ...prev,
+      [field]: { ...result, touched: true },
+    }));
   };
 
   const handleInputBlur = (field: keyof FormState) => () => {
@@ -274,6 +352,18 @@ const RegisterForm = () => {
       case "professionalAttestation":
         result = validateAttestation(formData.professionalAttestation);
         break;
+      case "clinicName":
+        result = validateName(formData.clinicName, "Nome da clínica");
+        break;
+      case "clinicArea":
+        result = validateOptionalText(formData.clinicArea, "Área de atuação");
+        break;
+      case "clinicCityState":
+        result = validateRequiredText(formData.clinicCityState, "Cidade/Estado");
+        break;
+      case "clinicTeamSize":
+        result = validateChoice(formData.clinicTeamSize, "a quantidade de profissionais");
+        break;
       case "password":
         result = validatePassword(formData.password);
         break;
@@ -283,9 +373,22 @@ const RegisterForm = () => {
       default:
         return;
     }
+
     setValidation((prev) => ({
       ...prev,
       [field]: { ...result, touched: true },
+    }));
+  };
+
+  const handleClinicTeamSizeSelect = (value: string) => {
+    setFormData((prev) => ({ ...prev, clinicTeamSize: value }));
+
+    if (!validation.clinicTeamSize.touched) return;
+
+    const result = validateChoice(value, "a quantidade de profissionais");
+    setValidation((prev) => ({
+      ...prev,
+      clinicTeamSize: { ...result, touched: true },
     }));
   };
 
@@ -294,7 +397,8 @@ const RegisterForm = () => {
     setRegisterError("");
 
     const nameResult = mode === "professional" ? validateName(formData.name, "Nome") : { valid: true, message: "" };
-    const responsibleResult = mode === "patient" ? validateName(formData.responsibleName, "Nome do responsável") : { valid: true, message: "" };
+    const responsibleResult =
+      mode === "patient" || mode === "clinic" ? validateName(formData.responsibleName, "Nome do responsável") : { valid: true, message: "" };
     const childNameResult = mode === "patient" ? validateChildName(formData.childName) : { valid: true, message: "" };
     const childBirthdateResult =
       mode === "patient" ? validateBirthdate(formData.childBirthdate, { label: "Data de nascimento da criança" }) : { valid: true, message: "" };
@@ -304,6 +408,10 @@ const RegisterForm = () => {
       mode === "professional" ? validateBirthdate(formData.professionalBirthdate, { label: "Data de nascimento", minAgeYears: 18 }) : { valid: true, message: "" };
     const professionalCrfaResult = mode === "professional" ? validateProfessionalCrfa(formData.professionalCrfa) : { valid: true, message: "" };
     const professionalAttestationResult = mode === "professional" ? validateAttestation(formData.professionalAttestation) : { valid: true, message: "" };
+    const clinicNameResult = mode === "clinic" ? validateName(formData.clinicName, "Nome da clínica") : { valid: true, message: "" };
+    const clinicAreaResult = mode === "clinic" ? validateOptionalText(formData.clinicArea, "Área de atuação") : { valid: true, message: "" };
+    const clinicCityStateResult = mode === "clinic" ? validateRequiredText(formData.clinicCityState, "Cidade/Estado") : { valid: true, message: "" };
+    const clinicTeamSizeResult = mode === "clinic" ? validateChoice(formData.clinicTeamSize, "a quantidade de profissionais") : { valid: true, message: "" };
     const passwordResult = validatePassword(formData.password);
     const confirmPasswordResult = validateConfirmPassword(formData.confirmPassword, formData.password);
 
@@ -317,6 +425,10 @@ const RegisterForm = () => {
       professionalBirthdate: { ...professionalBirthdateResult, touched: true },
       professionalCrfa: { ...professionalCrfaResult, touched: true },
       professionalAttestation: { ...professionalAttestationResult, touched: true },
+      clinicName: { ...clinicNameResult, touched: true },
+      clinicArea: { ...clinicAreaResult, touched: true },
+      clinicCityState: { ...clinicCityStateResult, touched: true },
+      clinicTeamSize: { ...clinicTeamSizeResult, touched: true },
       password: { ...passwordResult, touched: true },
       confirmPassword: { ...confirmPasswordResult, touched: true },
     });
@@ -331,6 +443,10 @@ const RegisterForm = () => {
       !professionalBirthdateResult.valid ||
       !professionalCrfaResult.valid ||
       !professionalAttestationResult.valid ||
+      !clinicNameResult.valid ||
+      !clinicAreaResult.valid ||
+      !clinicCityStateResult.valid ||
+      !clinicTeamSizeResult.valid ||
       !passwordResult.valid ||
       !confirmPasswordResult.valid
     ) {
@@ -339,6 +455,7 @@ const RegisterForm = () => {
 
     setIsButtonClicked(true);
     setIsSubmitting(true);
+
     try {
       if (mode === "professional") {
         await auth.registerProfessional({
@@ -348,6 +465,18 @@ const RegisterForm = () => {
           professional_birthdate: formData.professionalBirthdate,
           professional_crfa: formData.professionalCrfa.trim(),
           professional_attestation: formData.professionalAttestation,
+          password: formData.password,
+          password_confirmation: formData.confirmPassword,
+        });
+      } else if (mode === "clinic") {
+        await auth.registerClinic({
+          clinic_name: formData.clinicName.trim(),
+          clinic_area: formData.clinicArea.trim() || undefined,
+          clinic_city_state: formData.clinicCityState.trim(),
+          responsible_name: formData.responsibleName.trim(),
+          email: formData.email,
+          phone: formData.phone,
+          clinic_team_size: formData.clinicTeamSize,
           password: formData.password,
           password_confirmation: formData.confirmPassword,
         });
@@ -368,14 +497,14 @@ const RegisterForm = () => {
         title: "Conta criada com sucesso!",
         description: "Bem-vindo ao Sementes da Fala",
       });
-
-      // O redirecionamento é feito pelo AuthContext.register() usando window.location.href
-      // Não precisamos fazer navigate aqui, mas deixamos como fallback
-      // O AuthContext já redireciona para /paciente automaticamente
     } catch (e) {
       if (isApiError(e) && e.status === 422) {
         const msg =
           e.data?.message ||
+          e.data?.errors?.clinic_name?.[0] ||
+          e.data?.errors?.clinic_area?.[0] ||
+          e.data?.errors?.clinic_city_state?.[0] ||
+          e.data?.errors?.clinic_team_size?.[0] ||
           e.data?.errors?.email?.[0] ||
           e.data?.errors?.phone?.[0] ||
           e.data?.errors?.responsible_name?.[0] ||
@@ -401,15 +530,25 @@ const RegisterForm = () => {
     return `${base} ${validation[field].valid ? "success" : "error"}`;
   };
 
+  const renderValidationIcon = (field: keyof ValidationState) => {
+    if (!validation[field].touched) return null;
+    return validation[field].valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />;
+  };
+
+  const renderFieldError = (field: keyof ValidationState) => {
+    if (!validation[field].touched || validation[field].valid) return null;
+    return <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation[field].message}</p>;
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div className="text-center">
-        <div className="text-sm font-semibold text-foreground">Paciente / Profissional</div>
-        <div className="mt-3 inline-flex rounded-xl border border-border bg-background/70 p-1">
+        <div className="text-sm font-semibold text-foreground">Paciente / Profissional / Clínica</div>
+        <div className="mt-3 grid w-full grid-cols-3 rounded-xl border border-border bg-background/70 p-1">
           <button
             type="button"
             onClick={() => setMode("patient")}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+            className={`px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
               mode === "patient" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -418,15 +557,24 @@ const RegisterForm = () => {
           <button
             type="button"
             onClick={() => setMode("professional")}
-            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+            className={`px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
               mode === "professional" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Profissional
           </button>
+          <button
+            type="button"
+            onClick={() => setMode("clinic")}
+            className={`px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              mode === "clinic" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Clínica
+          </button>
         </div>
       </div>
-      {/* Register Error Message */}
+
       {registerError && (
         <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 animate-fade-in">
           <p className="text-sm text-destructive flex items-center gap-2">
@@ -436,9 +584,8 @@ const RegisterForm = () => {
         </div>
       )}
 
-      {mode === "patient" ? (
+      {mode === "patient" && (
         <>
-          {/* Responsible Name */}
           <div className="space-y-2">
             <label htmlFor="responsibleName" className="block text-sm font-semibold text-foreground">
               Nome do Responsável
@@ -460,22 +607,11 @@ const RegisterForm = () => {
                 aria-invalid={validation.responsibleName.touched && !validation.responsibleName.valid}
                 className={`${getInputClassName("responsibleName")} pl-11 pr-10`}
               />
-              {validation.responsibleName.touched && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  {validation.responsibleName.valid ? (
-                    <Check size={18} className="text-primary" />
-                  ) : (
-                    <AlertCircle size={18} className="text-destructive" />
-                  )}
-                </div>
-              )}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("responsibleName")}</div>
             </div>
-            {validation.responsibleName.touched && !validation.responsibleName.valid && (
-              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.responsibleName.message}</p>
-            )}
+            {renderFieldError("responsibleName")}
           </div>
 
-          {/* Child Name */}
           <div className="space-y-2">
             <label htmlFor="childName" className="block text-sm font-semibold text-foreground">
               Nome da Criança
@@ -497,18 +633,11 @@ const RegisterForm = () => {
                 aria-invalid={validation.childName.touched && !validation.childName.valid}
                 className={`${getInputClassName("childName")} pl-11 pr-10`}
               />
-              {validation.childName.touched && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  {validation.childName.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
-                </div>
-              )}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("childName")}</div>
             </div>
-            {validation.childName.touched && !validation.childName.valid && (
-              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.childName.message}</p>
-            )}
+            {renderFieldError("childName")}
           </div>
 
-          {/* Child Birthdate */}
           <div className="space-y-2">
             <label htmlFor="childBirthdate" className="block text-sm font-semibold text-foreground">
               Data de Nascimento da Criança
@@ -525,19 +654,14 @@ const RegisterForm = () => {
                 aria-invalid={validation.childBirthdate.touched && !validation.childBirthdate.valid}
                 className={`${getInputClassName("childBirthdate")} pl-4 pr-10`}
               />
-              {validation.childBirthdate.touched && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  {validation.childBirthdate.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
-                </div>
-              )}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("childBirthdate")}</div>
             </div>
-            {validation.childBirthdate.touched && !validation.childBirthdate.valid && (
-              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.childBirthdate.message}</p>
-            )}
+            {renderFieldError("childBirthdate")}
           </div>
         </>
-      ) : (
-        /* Professional Name */
+      )}
+
+      {mode === "professional" && (
         <div className="space-y-2">
           <label htmlFor="name" className="block text-sm font-semibold text-foreground">
             Nome
@@ -559,24 +683,130 @@ const RegisterForm = () => {
               aria-invalid={validation.name.touched && !validation.name.valid}
               className={`${getInputClassName("name")} pl-11 pr-10`}
             />
-            {validation.name.touched && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                {validation.name.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
-              </div>
-            )}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("name")}</div>
           </div>
-          {validation.name.touched && !validation.name.valid && (
-            <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.name.message}</p>
-          )}
+          {renderFieldError("name")}
         </div>
       )}
 
-      {/* Email Field */}
+      {mode === "clinic" && (
+        <>
+          <div className="pt-1">
+            <div className="text-sm font-semibold text-foreground">Dados da clínica</div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="clinicName" className="block text-sm font-semibold text-foreground">
+              Nome da clínica
+            </label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Building2 size={18} />
+              </div>
+              <input
+                type="text"
+                id="clinicName"
+                name="clinicName"
+                value={formData.clinicName}
+                onChange={handleInputChange("clinicName")}
+                onBlur={handleInputBlur("clinicName")}
+                placeholder="Nome da clínica"
+                autoComplete="organization"
+                aria-label="Nome da clínica"
+                aria-invalid={validation.clinicName.touched && !validation.clinicName.valid}
+                className={`${getInputClassName("clinicName")} pl-11 pr-10`}
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("clinicName")}</div>
+            </div>
+            {renderFieldError("clinicName")}
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="clinicArea" className="block text-sm font-semibold text-foreground">
+              Área de atuação <span className="text-muted-foreground font-normal">(opcional)</span>
+            </label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Briefcase size={18} />
+              </div>
+              <input
+                type="text"
+                id="clinicArea"
+                name="clinicArea"
+                value={formData.clinicArea}
+                onChange={handleInputChange("clinicArea")}
+                onBlur={handleInputBlur("clinicArea")}
+                placeholder="Ex: Fonoaudiologia infantil"
+                autoComplete="organization-title"
+                aria-label="Área de atuação"
+                aria-invalid={validation.clinicArea.touched && !validation.clinicArea.valid}
+                className={`${getInputClassName("clinicArea")} pl-11 pr-10`}
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("clinicArea")}</div>
+            </div>
+            {renderFieldError("clinicArea")}
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="clinicCityState" className="block text-sm font-semibold text-foreground">
+              Cidade/Estado
+            </label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <MapPin size={18} />
+              </div>
+              <input
+                type="text"
+                id="clinicCityState"
+                name="clinicCityState"
+                value={formData.clinicCityState}
+                onChange={handleInputChange("clinicCityState")}
+                onBlur={handleInputBlur("clinicCityState")}
+                placeholder="Ex: São Paulo/SP"
+                autoComplete="address-level2"
+                aria-label="Cidade e estado"
+                aria-invalid={validation.clinicCityState.touched && !validation.clinicCityState.valid}
+                className={`${getInputClassName("clinicCityState")} pl-11 pr-10`}
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("clinicCityState")}</div>
+            </div>
+            {renderFieldError("clinicCityState")}
+          </div>
+
+          <div className="pt-1">
+            <div className="text-sm font-semibold text-foreground">Responsável (login)</div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="responsibleName" className="block text-sm font-semibold text-foreground">
+              Nome do responsável
+            </label>
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <User size={18} />
+              </div>
+              <input
+                type="text"
+                id="responsibleName"
+                name="responsibleName"
+                value={formData.responsibleName}
+                onChange={handleInputChange("responsibleName")}
+                onBlur={handleInputBlur("responsibleName")}
+                placeholder="Nome completo do responsável"
+                autoComplete="name"
+                aria-label="Nome do responsável pela clínica"
+                aria-invalid={validation.responsibleName.touched && !validation.responsibleName.valid}
+                className={`${getInputClassName("responsibleName")} pl-11 pr-10`}
+              />
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("responsibleName")}</div>
+            </div>
+            {renderFieldError("responsibleName")}
+          </div>
+        </>
+      )}
+
       <div className="space-y-2">
-        <label 
-          htmlFor="email" 
-          className="block text-sm font-semibold text-foreground"
-        >
+        <label htmlFor="email" className="block text-sm font-semibold text-foreground">
           Email
         </label>
         <div className="relative">
@@ -596,24 +826,11 @@ const RegisterForm = () => {
             aria-invalid={validation.email.touched && !validation.email.valid}
             className={`${getInputClassName("email")} pl-11 pr-10`}
           />
-          {validation.email.touched && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              {validation.email.valid ? (
-                <Check size={18} className="text-primary" />
-              ) : (
-                <AlertCircle size={18} className="text-destructive" />
-              )}
-            </div>
-          )}
+          <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("email")}</div>
         </div>
-        {validation.email.touched && !validation.email.valid && (
-          <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">
-            {validation.email.message}
-          </p>
-        )}
+        {renderFieldError("email")}
       </div>
 
-      {/* Phone Field */}
       <div className="space-y-2">
         <label htmlFor="phone" className="block text-sm font-semibold text-foreground">
           Celular (DDD)
@@ -636,28 +853,13 @@ const RegisterForm = () => {
             aria-invalid={validation.phone.touched && !validation.phone.valid}
             className={`${getInputClassName("phone")} pl-11 pr-10`}
           />
-          {validation.phone.touched && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2">
-              {validation.phone.valid ? (
-                <Check size={18} className="text-primary" />
-              ) : (
-                <AlertCircle size={18} className="text-destructive" />
-              )}
-            </div>
-          )}
+          <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("phone")}</div>
         </div>
-        {validation.phone.touched && !validation.phone.valid && (
-          <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">
-            {validation.phone.message}
-          </p>
-        )}
+        {renderFieldError("phone")}
       </div>
 
-      {mode === "patient" ? (
-        null
-      ) : (
+      {mode === "professional" && (
         <>
-          {/* Professional Birthdate */}
           <div className="space-y-2">
             <label htmlFor="professionalBirthdate" className="block text-sm font-semibold text-foreground">
               Data de Nascimento
@@ -674,18 +876,11 @@ const RegisterForm = () => {
                 aria-invalid={validation.professionalBirthdate.touched && !validation.professionalBirthdate.valid}
                 className={`${getInputClassName("professionalBirthdate")} pl-4 pr-10`}
               />
-              {validation.professionalBirthdate.touched && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  {validation.professionalBirthdate.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
-                </div>
-              )}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("professionalBirthdate")}</div>
             </div>
-            {validation.professionalBirthdate.touched && !validation.professionalBirthdate.valid && (
-              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalBirthdate.message}</p>
-            )}
+            {renderFieldError("professionalBirthdate")}
           </div>
 
-          {/* CRFa */}
           <div className="space-y-2">
             <label htmlFor="professionalCrfa" className="block text-sm font-semibold text-foreground">
               CRFa
@@ -707,18 +902,11 @@ const RegisterForm = () => {
                 aria-invalid={validation.professionalCrfa.touched && !validation.professionalCrfa.valid}
                 className={`${getInputClassName("professionalCrfa")} pl-11 pr-10`}
               />
-              {validation.professionalCrfa.touched && (
-                <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                  {validation.professionalCrfa.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
-                </div>
-              )}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("professionalCrfa")}</div>
             </div>
-            {validation.professionalCrfa.touched && !validation.professionalCrfa.valid && (
-              <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">{validation.professionalCrfa.message}</p>
-            )}
+            {renderFieldError("professionalCrfa")}
           </div>
 
-          {/* Attestation */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-foreground">Responsabilidade</label>
             <label className="flex items-start gap-3 rounded-lg border border-border bg-background/70 p-3">
@@ -726,6 +914,7 @@ const RegisterForm = () => {
                 type="checkbox"
                 checked={formData.professionalAttestation}
                 onChange={handleInputChange("professionalAttestation")}
+                onBlur={handleInputBlur("professionalAttestation")}
                 aria-label="Confirmo a responsabilidade pelas informações"
                 className="mt-1 h-4 w-4"
               />
@@ -742,12 +931,8 @@ const RegisterForm = () => {
         </>
       )}
 
-      {/* Password Field */}
       <div className="space-y-2">
-        <label 
-          htmlFor="password" 
-          className="block text-sm font-semibold text-foreground"
-        >
+        <label htmlFor="password" className="block text-sm font-semibold text-foreground">
           Senha
         </label>
         <div className="relative">
@@ -769,26 +954,18 @@ const RegisterForm = () => {
           />
           <button
             type="button"
-            onClick={() => setShowPassword(!showPassword)}
+            onClick={() => setShowPassword((prev) => !prev)}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
           >
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
-        {validation.password.touched && !validation.password.valid && (
-          <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">
-            {validation.password.message}
-          </p>
-        )}
+        {renderFieldError("password")}
       </div>
 
-      {/* Confirm Password Field */}
       <div className="space-y-2">
-        <label 
-          htmlFor="confirmPassword" 
-          className="block text-sm font-semibold text-foreground"
-        >
+        <label htmlFor="confirmPassword" className="block text-sm font-semibold text-foreground">
           Confirmar Senha
         </label>
         <div className="relative">
@@ -810,25 +987,54 @@ const RegisterForm = () => {
           />
           <button
             type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+            onClick={() => setShowConfirmPassword((prev) => !prev)}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
+            aria-label={showConfirmPassword ? "Ocultar confirmação de senha" : "Mostrar confirmação de senha"}
           >
             {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
-        {validation.confirmPassword.touched && !validation.confirmPassword.valid && (
-          <p className="text-sm text-destructive animate-fade-in flex items-center gap-1">
-            {validation.confirmPassword.message}
-          </p>
-        )}
+        {renderFieldError("confirmPassword")}
       </div>
 
-      {/* Submit Button */}
+      {mode === "clinic" && (
+        <div className="space-y-3">
+          <div className="text-sm font-semibold text-foreground">Estrutura inicial</div>
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-foreground">Quantos profissionais tem hoje?</label>
+            <div className="grid grid-cols-2 gap-2">
+              {clinicTeamSizeOptions.map((option) => {
+                const isSelected = formData.clinicTeamSize === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleClinicTeamSizeSelect(option.value)}
+                    onBlur={handleInputBlur("clinicTeamSize")}
+                    className={`rounded-xl border px-4 py-3 text-sm font-semibold transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                        : "border-border bg-background/70 text-foreground hover:border-primary/40 hover:text-primary"
+                    }`}
+                    aria-pressed={isSelected}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Users size={16} />
+                      {option.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {renderFieldError("clinicTeamSize")}
+          </div>
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={isSubmitting}
-        className={`btn-primary ${isButtonClicked ? 'clicked' : ''} ${isSubmitting ? 'opacity-80' : ''}`}
+        className={`btn-primary ${isButtonClicked ? "clicked" : ""} ${isSubmitting ? "opacity-80" : ""}`}
       >
         {isSubmitting ? (
           <span className="flex items-center justify-center gap-2">
@@ -843,13 +1049,9 @@ const RegisterForm = () => {
         )}
       </button>
 
-      {/* Login Link */}
       <p className="text-center text-sm text-muted-foreground">
         Já tem uma conta?{" "}
-        <Link 
-          to="/entrar" 
-          className="font-semibold text-primary hover:text-brand-green-dark transition-colors"
-        >
+        <Link to="/entrar" className="font-semibold text-primary hover:text-brand-green-dark transition-colors">
           Fazer login
         </Link>
       </p>

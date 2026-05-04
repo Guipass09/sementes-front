@@ -555,8 +555,13 @@ export async function professionalListProfessionals(): Promise<ProfessionalDirec
   return res.data ?? [];
 }
 
-export async function professionalListAppointments(): Promise<{ data: any[] }> {
-  return await request<{ data: any[] }>("/api/professional/appointments");
+export async function professionalListAppointments(params?: { professional_user_id?: number | null }): Promise<{ data: any[] }> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  return await request<{ data: any[] }>(`/api/professional/appointments${suffix}`);
 }
 
 // ---------------------------
@@ -727,8 +732,13 @@ export async function professionalDeleteActivityMedia(params: { activity_id: num
   await request<void>(`/api/professional/activities/${params.activity_id}/media/${params.media_id}`, { method: "DELETE" });
 }
 
-export async function professionalListReports(): Promise<ReportRow[]> {
-  const res = await request<{ data: ReportRow[] }>("/api/professional/reports");
+export async function professionalListReports(params?: { professional_user_id?: number | null }): Promise<ReportRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: ReportRow[] }>(`/api/professional/reports${suffix}`);
   return res.data ?? [];
 }
 

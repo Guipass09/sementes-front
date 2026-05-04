@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { useAuth } from "@/auth/AuthContext";
+import ClinicProfessionalAppointmentsPanel from "@/components/ClinicProfessionalAppointmentsPanel";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
@@ -19,6 +21,16 @@ type ProAppointmentRow = {
 };
 
 export default function ProfessionalHistory(): JSX.Element {
+  const auth = useAuth();
+  const clinicName = String(auth.user?.clinic_name ?? "").trim();
+  if (clinicName) {
+    return <ClinicProfessionalAppointmentsPanel mode="history" />;
+  }
+
+  return <StandardProfessionalHistory />;
+}
+
+function StandardProfessionalHistory(): JSX.Element {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ProAppointmentRow[]>([]);
@@ -190,4 +202,3 @@ export default function ProfessionalHistory(): JSX.Element {
     </div>
   );
 }
-

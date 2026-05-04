@@ -9,6 +9,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/auth/AuthContext";
+import ClinicProfessionalAppointmentsPanel from "@/components/ClinicProfessionalAppointmentsPanel";
 import * as api from "@/lib/laravel-api";
 import type { JoinSessionMeta } from "@/lib/laravel-api";
 import { JoinSessionButton } from "@/components/JoinSessionButton";
@@ -40,6 +42,16 @@ type ProAppointmentRow = {
 const patientDisplayName = (u: { name: string; child_name?: string | null }) => (u.child_name?.trim() ? u.child_name.trim() : u.name);
 
 export default function ProfessionalSessions(): JSX.Element {
+  const auth = useAuth();
+  const clinicName = String(auth.user?.clinic_name ?? "").trim();
+  if (clinicName) {
+    return <ClinicProfessionalAppointmentsPanel mode="active" />;
+  }
+
+  return <StandardProfessionalSessions />;
+}
+
+function StandardProfessionalSessions(): JSX.Element {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -711,4 +723,3 @@ export default function ProfessionalSessions(): JSX.Element {
     </div>
   );
 }
-

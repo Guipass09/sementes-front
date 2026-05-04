@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
+import ClinicProfessionalReportsView from "@/components/ClinicProfessionalReportsView";
 import type { ReportDetail } from "@/features/reports/types";
 import { ReportCard } from "@/features/reports/ReportCard";
 import { ReportPreviewModal } from "@/features/reports/ReportPreviewModal";
@@ -27,6 +28,16 @@ function toDetail(r: any): ReportDetail {
 }
 
 export default function ProfessionalReports(): JSX.Element {
+  const auth = useAuth();
+  const clinicName = String(auth.user?.clinic_name ?? "").trim();
+  if (clinicName) {
+    return <ClinicProfessionalReportsView />;
+  }
+
+  return <StandardProfessionalReports />;
+}
+
+function StandardProfessionalReports(): JSX.Element {
   const auth = useAuth();
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<ReportDetail[]>([]);
@@ -183,4 +194,3 @@ export default function ProfessionalReports(): JSX.Element {
     </div>
   );
 }
-

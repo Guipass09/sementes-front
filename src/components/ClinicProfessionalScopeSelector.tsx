@@ -68,7 +68,12 @@ export default function ClinicProfessionalScopeSelector(props: {
                     </span>
                     {professional.professional_crfa ? (
                       <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">
-                        CRFA: {professional.professional_crfa}
+                        {professional.professional_crfa}
+                      </span>
+                    ) : null}
+                    {professional.professional_registration ? (
+                      <span className="rounded-full bg-brand-blue/10 px-2.5 py-1 text-brand-blue">
+                        Registro: {professional.professional_registration}
                       </span>
                     ) : null}
                   </div>

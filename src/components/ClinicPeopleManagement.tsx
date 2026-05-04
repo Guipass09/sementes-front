@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
@@ -43,6 +44,17 @@ type PatientFormState = {
 };
 
 const PROFESSIONAL_LIMIT = 30;
+const CLINIC_PROFESSIONAL_SPECIALTIES = [
+  "Psicologia",
+  "Fonoaudiologia",
+  "Psicopedagogia",
+  "Musicoterapia",
+  "Nutrição",
+  "Fisioterapia",
+  "TO",
+  "AT",
+  "Outros",
+] as const;
 
 const emptyProfessionalForm = (): ProfessionalFormState => ({
   name: "",
@@ -81,6 +93,11 @@ const initials = (value: string) =>
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+const clinicSpecialtyLabel = (value?: string | null) => {
+  const normalized = String(value ?? "").trim();
+  return normalized || null;
+};
 
 export default function ClinicPeopleManagement(): JSX.Element {
   const { toast } = useToast();
@@ -135,7 +152,7 @@ export default function ClinicPeopleManagement(): JSX.Element {
         professional.name,
         professional.email,
         professional.phone ?? "",
-        professional.professional_crfa ?? "",
+        clinicSpecialtyLabel(professional.professional_crfa) ?? "",
         professional.professional_registration ?? "",
       ]
         .join(" ")
@@ -204,10 +221,10 @@ export default function ClinicPeopleManagement(): JSX.Element {
   };
 
   const handleCreateProfessional = async () => {
-    if (!professionalForm.name.trim() || !professionalForm.email.trim() || !professionalForm.phone.trim() || !professionalForm.professional_age.trim() || !professionalForm.professional_crfa.trim() || !professionalForm.password || !professionalForm.password_confirmation) {
+    if (!professionalForm.name.trim() || !professionalForm.email.trim() || !professionalForm.phone.trim() || !professionalForm.professional_age.trim() || !professionalForm.professional_crfa.trim() || !professionalForm.professional_registration.trim() || !professionalForm.password || !professionalForm.password_confirmation) {
       toast({
         title: "Preencha os campos obrigatórios",
-        description: "Nome, email, celular, idade, CRFA e senha são obrigatórios.",
+        description: "Nome, email, celular, idade, especialidade, registro profissional e senha são obrigatórios.",
         variant: "destructive",
       });
       return;
@@ -230,7 +247,7 @@ export default function ClinicPeopleManagement(): JSX.Element {
         phone: professionalForm.phone.trim(),
         professional_age: Number(professionalForm.professional_age),
         professional_crfa: professionalForm.professional_crfa.trim(),
-        professional_registration: professionalForm.professional_registration.trim() || undefined,
+        professional_registration: professionalForm.professional_registration.trim(),
         password: professionalForm.password,
         password_confirmation: professionalForm.password_confirmation,
       });
@@ -392,7 +409,7 @@ export default function ClinicPeopleManagement(): JSX.Element {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={tab === "professionals" ? "Buscar terapeuta por nome, email ou CRFA..." : "Buscar paciente por nome, responsável ou email..."}
+              placeholder={tab === "professionals" ? "Buscar terapeuta por nome, email, especialidade ou registro..." : "Buscar paciente por nome, responsável ou email..."}
               className="pl-9 sm:pl-11 text-sm sm:text-base"
             />
           </div>
@@ -445,8 +462,15 @@ export default function ClinicPeopleManagement(): JSX.Element {
                           </div>
                         ) : null}
                         <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                          {professional.professional_crfa ? (
-                            <span className="rounded-full bg-brand-green/10 px-2.5 py-1 text-brand-green">CRFA: {professional.professional_crfa}</span>
+                          {clinicSpecialtyLabel(professional.professional_crfa) ? (
+                            <span className="rounded-full bg-brand-green/10 px-2.5 py-1 text-brand-green">
+                              Especialidade: {clinicSpecialtyLabel(professional.professional_crfa)}
+                            </span>
+                          ) : null}
+                          {professional.professional_registration ? (
+                            <span className="rounded-full bg-brand-blue/10 px-2.5 py-1 text-brand-blue">
+                              Registro: {professional.professional_registration}
+                            </span>
                           ) : null}
                           {professional.professional_age ? (
                             <span className="rounded-full bg-muted px-2.5 py-1 text-muted-foreground">{professional.professional_age} anos</span>
@@ -628,13 +652,24 @@ export default function ClinicPeopleManagement(): JSX.Element {
                 <Input id="clinic-professional-age" type="number" min={18} value={professionalForm.professional_age} onChange={(e) => setProfessionalForm((prev) => ({ ...prev, professional_age: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="clinic-professional-crfa">CRFA</Label>
-                <Input id="clinic-professional-crfa" value={professionalForm.professional_crfa} onChange={(e) => setProfessionalForm((prev) => ({ ...prev, professional_crfa: e.target.value }))} />
+                <Label htmlFor="clinic-professional-crfa">Especialidade</Label>
+                <Select value={professionalForm.professional_crfa} onValueChange={(value) => setProfessionalForm((prev) => ({ ...prev, professional_crfa: value }))}>
+                  <SelectTrigger id="clinic-professional-crfa">
+                    <SelectValue placeholder="Selecione a especialidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CLINIC_PROFESSIONAL_SPECIALTIES.map((specialty) => (
+                      <SelectItem key={specialty} value={specialty}>
+                        {specialty}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="clinic-professional-registration">Registro profissional (opcional)</Label>
+              <Label htmlFor="clinic-professional-registration">Registro profissional</Label>
               <Input id="clinic-professional-registration" value={professionalForm.professional_registration} onChange={(e) => setProfessionalForm((prev) => ({ ...prev, professional_registration: e.target.value }))} />
             </div>
 

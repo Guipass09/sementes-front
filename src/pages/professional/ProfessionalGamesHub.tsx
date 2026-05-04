@@ -1,8 +1,20 @@
 import { useNavigate } from "react-router-dom";
 import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/auth/AuthContext";
+import ClinicProfessionalGamesView from "@/components/ClinicProfessionalGamesView";
 
 export default function ProfessionalGamesHub() {
+  const auth = useAuth();
+  const clinicName = String(auth.user?.clinic_name ?? "").trim();
+  if (clinicName) {
+    return <ClinicProfessionalGamesView />;
+  }
+
+  return <StandardProfessionalGamesHub />;
+}
+
+function StandardProfessionalGamesHub() {
   const navigate = useNavigate();
 
   return (
@@ -198,4 +210,3 @@ export default function ProfessionalGamesHub() {
     </div>
   );
 }
-

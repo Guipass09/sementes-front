@@ -631,8 +631,13 @@ export async function professionalUpsertAppointmentComment(appointmentId: number
   return await request(`/api/professional/appointments/${appointmentId}/comment`, { method: "POST", json: { comment } });
 }
 
-export async function professionalListActivities(): Promise<ActivityRow[]> {
-  const res = await request<{ data: ActivityRow[] }>("/api/professional/activities");
+export async function professionalListActivities(params?: { professional_user_id?: number | null }): Promise<ActivityRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: ActivityRow[] }>(`/api/professional/activities${suffix}`);
   return res.data ?? [];
 }
 
@@ -1225,9 +1230,19 @@ export async function clinicCreatePatient(payload: {
 // PROFESSIONAL GAMES
 // ---------------------------
 
-export async function professionalListMemoryGames(opts?: { variant?: "classic" | "v2" }): Promise<MemoryGameRow[]> {
-  const qs = opts?.variant ? `?variant=${encodeURIComponent(opts.variant)}` : "";
-  const res = await request<{ data: MemoryGameRow[] }>(`/api/professional/memory-games${qs}`);
+export async function professionalListMemoryGames(opts?: {
+  variant?: "classic" | "v2";
+  professional_user_id?: number | null;
+}): Promise<MemoryGameRow[]> {
+  const qs = new URLSearchParams();
+  if (opts?.variant) {
+    qs.set("variant", opts.variant);
+  }
+  if (opts?.professional_user_id) {
+    qs.set("professional_user_id", String(opts.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: MemoryGameRow[] }>(`/api/professional/memory-games${suffix}`);
   return res.data;
 }
 
@@ -1278,8 +1293,13 @@ export async function professionalDeleteMemoryGame(id: number): Promise<void> {
   await request<void>(`/api/professional/memory-games/${id}`, { method: "DELETE" });
 }
 
-export async function professionalListAuditoryGames(): Promise<AuditoryGameRow[]> {
-  const res = await request<{ data: AuditoryGameRow[] }>("/api/professional/auditory-games");
+export async function professionalListAuditoryGames(params?: { professional_user_id?: number | null }): Promise<AuditoryGameRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: AuditoryGameRow[] }>(`/api/professional/auditory-games${suffix}`);
   return res.data;
 }
 
@@ -1336,8 +1356,13 @@ export async function professionalDeleteAuditoryGame(id: number): Promise<void> 
   await request<void>(`/api/professional/auditory-games/${id}`, { method: "DELETE" });
 }
 
-export async function professionalListPhonemeGames(): Promise<PhonemeGameRow[]> {
-  const res = await request<{ data: PhonemeGameRow[] }>("/api/professional/phoneme-games");
+export async function professionalListPhonemeGames(params?: { professional_user_id?: number | null }): Promise<PhonemeGameRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: PhonemeGameRow[] }>(`/api/professional/phoneme-games${suffix}`);
   return res.data;
 }
 
@@ -1402,8 +1427,13 @@ export async function professionalDeletePhonemeGame(id: number): Promise<void> {
   await request<void>(`/api/professional/phoneme-games/${id}`, { method: "DELETE" });
 }
 
-export async function professionalListHangmanGames(): Promise<HangmanGameRow[]> {
-  const res = await request<{ data: HangmanGameRow[] }>("/api/professional/hangman-games");
+export async function professionalListHangmanGames(params?: { professional_user_id?: number | null }): Promise<HangmanGameRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: HangmanGameRow[] }>(`/api/professional/hangman-games${suffix}`);
   return res.data;
 }
 
@@ -1456,8 +1486,13 @@ export async function professionalDeleteHangmanGame(id: number): Promise<void> {
   await request<void>(`/api/professional/hangman-games/${id}`, { method: "DELETE" });
 }
 
-export async function professionalListWordSearchGames(): Promise<WordSearchGameRow[]> {
-  const res = await request<{ data: WordSearchGameRow[] }>("/api/professional/word-search-games");
+export async function professionalListWordSearchGames(params?: { professional_user_id?: number | null }): Promise<WordSearchGameRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: WordSearchGameRow[] }>(`/api/professional/word-search-games${suffix}`);
   return res.data;
 }
 
@@ -1526,8 +1561,13 @@ export async function professionalDeleteWordSearchGame(id: number): Promise<void
   await request<void>(`/api/professional/word-search-games/${id}`, { method: "DELETE" });
 }
 
-export async function professionalListCardGames(): Promise<CardGameRow[]> {
-  const res = await request<{ data: CardGameRow[] }>("/api/professional/card-games");
+export async function professionalListCardGames(params?: { professional_user_id?: number | null }): Promise<CardGameRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: CardGameRow[] }>(`/api/professional/card-games${suffix}`);
   return res.data ?? [];
 }
 
@@ -1582,8 +1622,13 @@ export async function professionalDeleteCardGame(id: number): Promise<void> {
   await request<void>(`/api/professional/card-games/${id}`, { method: "DELETE" });
 }
 
-export async function professionalListSpinWheelGames(): Promise<SpinWheelGameRow[]> {
-  const res = await request<{ data: SpinWheelGameRow[] }>("/api/professional/spin-wheel-games");
+export async function professionalListSpinWheelGames(params?: { professional_user_id?: number | null }): Promise<SpinWheelGameRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: SpinWheelGameRow[] }>(`/api/professional/spin-wheel-games${suffix}`);
   return res.data;
 }
 
@@ -2120,8 +2165,13 @@ export async function adminDeleteGuessImageGame(id: number): Promise<void> {
 // ACERTE A IMAGEM (Guess Image) - PROFESSIONAL
 // ---------------------------
 
-export async function professionalListGuessImageGames(): Promise<GuessImageGameRow[]> {
-  const res = await request<{ data: GuessImageGameRow[] }>("/api/professional/guess-image-games");
+export async function professionalListGuessImageGames(params?: { professional_user_id?: number | null }): Promise<GuessImageGameRow[]> {
+  const qs = new URLSearchParams();
+  if (params?.professional_user_id) {
+    qs.set("professional_user_id", String(params.professional_user_id));
+  }
+  const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  const res = await request<{ data: GuessImageGameRow[] }>(`/api/professional/guess-image-games${suffix}`);
   return res.data;
 }
 

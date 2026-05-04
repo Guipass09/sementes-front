@@ -20,8 +20,19 @@ import { ProfessionalActivityFormModal } from "@/features/activities/Professiona
 import { ShareActivityModal } from "@/features/activities/ShareActivityModal";
 import { useAuth } from "@/auth/AuthContext";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import ClinicProfessionalActivitiesView from "@/components/ClinicProfessionalActivitiesView";
 
 export default function ProfessionalActivities(): JSX.Element {
+  const auth = useAuth();
+  const clinicName = String(auth.user?.clinic_name ?? "").trim();
+  if (clinicName) {
+    return <ClinicProfessionalActivitiesView />;
+  }
+
+  return <StandardProfessionalActivities />;
+}
+
+function StandardProfessionalActivities(): JSX.Element {
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [users, setUsers] = useState<ProfessionalUserRow[]>([]);
@@ -413,4 +424,3 @@ export default function ProfessionalActivities(): JSX.Element {
     </div>
   );
 }
-

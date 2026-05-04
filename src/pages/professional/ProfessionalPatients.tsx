@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import * as api from "@/lib/laravel-api";
 import type { ProfessionalPatientRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import { useAuth } from "@/auth/AuthContext";
 
 type PatientOverview = {
   user: ProfessionalPatientRow;
@@ -26,12 +27,21 @@ const formatYmd = (ymd?: string | null) => {
 const patientDisplayName = (p: ProfessionalPatientRow) => (p.child_name?.trim() ? p.child_name.trim() : p.name);
 
 export default function ProfessionalPatients(): JSX.Element {
+  const auth = useAuth();
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState<ProfessionalPatientRow[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<ProfessionalPatientRow | null>(null);
   const [overview, setOverview] = useState<PatientOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
+  const clinicName = String(auth.user?.clinic_name ?? "").trim();
+  const isClinicAccount = clinicName.length > 0;
+  const pageTitle = isClinicAccount ? "Terapeutas" : "Pacientes";
+  const emptyLabel = isClinicAccount ? "Nenhum terapeuta vinculado." : "Nenhum paciente vinculado.";
+  const dialogTitle = isClinicAccount ? "Perfil do Terapeuta" : "Perfil do Paciente";
+  const pageDescription = isClinicAccount
+    ? "Você verá apenas terapeutas vinculados à sua clínica."
+    : "Você verá apenas pacientes que o admin vinculou a você.";
 
   const refresh = async () => {
     setLoading(true);
@@ -73,8 +83,8 @@ export default function ProfessionalPatients(): JSX.Element {
     <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
       <div className="container mx-auto px-3 sm:px-4">
         <div className="mb-6 sm:mb-8">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Pacientes</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Você verá apenas pacientes que o admin vinculou a você.</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">{pageTitle}</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">{pageDescription}</p>
         </div>
 
         <div className="mb-4 sm:mb-6">
@@ -102,7 +112,7 @@ export default function ProfessionalPatients(): JSX.Element {
           ) : filtered.length === 0 ? (
             <div className="text-center py-12">
               <Users size={48} className="mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">Nenhum paciente vinculado.</p>
+              <p className="text-muted-foreground">{emptyLabel}</p>
             </div>
           ) : (
             filtered.map((p) => (
@@ -152,9 +162,9 @@ export default function ProfessionalPatients(): JSX.Element {
             }
           }}
         >
-          <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto px-3 sm:px-6">
-            <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl">Perfil do Paciente</DialogTitle>
+            <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto px-3 sm:px-6">
+              <DialogHeader>
+                <DialogTitle className="text-lg sm:text-xl">{dialogTitle}</DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">Visualização somente leitura (edição/bloqueio é apenas pelo admin).</DialogDescription>
             </DialogHeader>
 
@@ -237,4 +247,3 @@ export default function ProfessionalPatients(): JSX.Element {
     </div>
   );
 }
-

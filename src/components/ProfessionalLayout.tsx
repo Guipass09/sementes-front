@@ -17,16 +17,6 @@ interface UserData {
   profile_photo_url?: string | null;
 }
 
-const navItems = [
-  { path: "/profissional", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/profissional/pacientes", label: "Pacientes", icon: Users },
-  { path: "/profissional/atividades", label: "Atividades", icon: Activity },
-  { path: "/profissional/jogos", label: "Jogos", icon: Grid3X3 },
-  { path: "/profissional/horarios", label: "Horários", icon: Calendar },
-  { path: "/profissional/historico", label: "Histórico", icon: History },
-  { path: "/profissional/relatorios", label: "Relatórios", icon: FileText },
-];
-
 const ProfessionalLayout = () => {
   const [user, setUser] = useState<UserData | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -36,6 +26,15 @@ const ProfessionalLayout = () => {
   const auth = useAuth();
   const clinicName = String(auth.user?.clinic_name ?? "").trim();
   const isClinicAccount = clinicName.length > 0;
+  const navItems = [
+    { path: "/profissional", label: "Dashboard", icon: LayoutDashboard },
+    { path: "/profissional/pacientes", label: isClinicAccount ? "Terapeutas" : "Pacientes", icon: Users },
+    { path: "/profissional/atividades", label: "Atividades", icon: Activity },
+    { path: "/profissional/jogos", label: "Jogos", icon: Grid3X3 },
+    { path: "/profissional/horarios", label: "Horários", icon: Calendar },
+    { path: "/profissional/historico", label: "Histórico", icon: History },
+    { path: "/profissional/relatorios", label: "Relatórios", icon: FileText },
+  ];
 
   useEffect(() => {
     if (auth.loading) return;

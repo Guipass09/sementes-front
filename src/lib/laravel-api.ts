@@ -43,6 +43,9 @@ export type AuthUser = {
   clinic_area?: string | null;
   clinic_city_state?: string | null;
   clinic_team_size?: string | null;
+  clinic_user_id?: number | null;
+  affiliated_clinic_user_id?: number | null;
+  affiliated_clinic_name?: string | null;
 };
 
 export type ProfessionalUserRow = {
@@ -1118,6 +1121,7 @@ export type ClinicPatientRow = {
   child_name?: string | null;
   child_birthdate?: string | null;
   assigned_professionals: Array<{ id: number; name: string }>;
+  source: "clinic" | "linked_professional";
   profile_photo_url?: string | null;
 };
 
@@ -1132,6 +1136,11 @@ export async function professionalGetPatientOverview(userId: number): Promise<an
 
 export async function clinicListProfessionals(): Promise<{ data: ClinicProfessionalRow[]; count: number; limit: number }> {
   return await request<{ data: ClinicProfessionalRow[]; count: number; limit: number }>("/api/professional/clinic/professionals");
+}
+
+export async function clinicListAvailableProfessionals(): Promise<ClinicProfessionalRow[]> {
+  const res = await request<{ data: ClinicProfessionalRow[] }>("/api/professional/clinic/professionals/available");
+  return res.data ?? [];
 }
 
 export async function clinicCreateProfessional(payload: {
@@ -1149,6 +1158,14 @@ export async function clinicCreateProfessional(payload: {
   return await request<ClinicProfessionalRow>("/api/professional/clinic/professionals", {
     method: "POST",
     json: payload,
+  });
+}
+
+export async function clinicAttachProfessional(professional_user_id: number): Promise<ClinicProfessionalRow> {
+  await ensureCsrfCookie();
+  return await request<ClinicProfessionalRow>("/api/professional/clinic/professionals/attach", {
+    method: "POST",
+    json: { professional_user_id },
   });
 }
 

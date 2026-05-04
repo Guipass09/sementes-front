@@ -19,6 +19,7 @@ export default function ProfessionalDashboard(): JSX.Element {
   const auth = useAuth();
   const [assignedUsersCount, setAssignedUsersCount] = useState(0);
   const clinicName = useMemo(() => String(auth.user?.clinic_name ?? "").trim(), [auth.user?.clinic_name]);
+  const affiliatedClinicName = useMemo(() => String(auth.user?.affiliated_clinic_name ?? "").trim(), [auth.user?.affiliated_clinic_name]);
   const isClinicAccount = clinicName.length > 0;
 
   const firstName = useMemo(() => {
@@ -139,9 +140,16 @@ export default function ProfessionalDashboard(): JSX.Element {
                 </p>
               </div>
             ) : (
-              <h1 className="text-3xl lg:text-4xl xl:text-5xl font-display font-bold text-foreground mb-4 animate-fade-in">
-                Painel <span className="text-brand-green">Profissional</span>
-              </h1>
+              <div className="mb-4 animate-fade-in space-y-3">
+                <h1 className="text-3xl lg:text-4xl xl:text-5xl font-display font-bold text-foreground">
+                  Painel <span className="text-brand-green">Profissional</span>
+                </h1>
+                {affiliatedClinicName ? (
+                  <p className="text-lg lg:text-2xl text-muted-foreground font-medium">
+                    <span className="text-foreground">Clínica:</span> {affiliatedClinicName}
+                  </p>
+                ) : null}
+              </div>
             )}
 
             {/* Description */}
@@ -151,6 +159,8 @@ export default function ProfessionalDashboard(): JSX.Element {
             >
               {isClinicAccount
                 ? "Gerencie pacientes, atividades, horários e relatórios da sua clínica no sistema Sementes da Fala"
+                : affiliatedClinicName
+                  ? `Gerencie seus pacientes, atividades, horários e relatórios como profissional vinculado à clínica ${affiliatedClinicName}`
                 : "Gerencie seus pacientes, atividades, horários e relatórios do sistema Sementes da Fala"}
             </p>
 
@@ -161,7 +171,13 @@ export default function ProfessionalDashboard(): JSX.Element {
               title={isClinicAccount ? "Acesso da Clínica" : "Acesso Profissional"}
             >
               <Shield size={16} />
-              <span>{isClinicAccount ? `Bem-vindo(a), ${clinicName}!` : `Bem-vindo(a), ${firstName}!`}</span>
+              <span>
+                {isClinicAccount
+                  ? `Bem-vindo(a), ${clinicName}!`
+                  : affiliatedClinicName
+                    ? `Bem-vindo(a), ${firstName}! Clínica: ${affiliatedClinicName}`
+                    : `Bem-vindo(a), ${firstName}!`}
+              </span>
             </div>
           </div>
         </div>

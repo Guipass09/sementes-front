@@ -60,7 +60,7 @@ export default function RtcPaymentModal({
   onPaid,
 }: Props) {
   const { toast } = useToast();
-  const publicKey = String((import.meta as any).env?.VITE_MP_PUBLIC_KEY ?? "").trim();
+  const publicKey = String(import.meta.env.VITE_MP_PUBLIC_KEY ?? "").trim();
 
   // Evita remount infinito do Brick por re-render da chamada (timer/RTC).
   // Guardamos callbacks em refs para não precisar reinicializar o Brick quando o componente pai renderiza.

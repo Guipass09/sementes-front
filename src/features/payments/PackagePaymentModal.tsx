@@ -52,7 +52,7 @@ export default function PackagePaymentModal({
   payer,
 }: Props) {
   const { toast } = useToast();
-  const publicKey = String((import.meta as any).env?.VITE_MP_PUBLIC_KEY ?? "").trim();
+  const publicKey = String(import.meta.env.VITE_MP_PUBLIC_KEY ?? "").trim();
 
   const toastRef = useRef(toast);
   useEffect(() => {

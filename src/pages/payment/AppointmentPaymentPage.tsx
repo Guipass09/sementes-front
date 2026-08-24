@@ -59,7 +59,7 @@ export default function AppointmentPaymentPage(): JSX.Element {
     status_detail?: string | null;
   }>(null);
 
-  const publicKey = String((import.meta as any).env?.VITE_MP_PUBLIC_KEY ?? "").trim();
+  const publicKey = String(import.meta.env.VITE_MP_PUBLIC_KEY ?? "").trim();
 
   const [tab, setTab] = useState<"pix" | "card">("pix");
   const [busy, setBusy] = useState(false);

@@ -71,7 +71,7 @@ export default function PublicPaymentPage(): JSX.Element {
   const { user } = auth;
   const { toast } = useToast();
 
-  const publicKey = String((import.meta as any).env?.VITE_MP_PUBLIC_KEY ?? "").trim();
+  const publicKey = String(import.meta.env.VITE_MP_PUBLIC_KEY ?? "").trim();
 
   const [tab, setTab] = useState<"pix" | "card">("pix");
   const [busy, setBusy] = useState(false);

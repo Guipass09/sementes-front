@@ -12,7 +12,7 @@ function normalizeApiBaseUrl(raw: string): string {
 // - Produção/Vercel: definir VITE_API_URL (sem "/api" e sem "/" no final)
 // - Fallback: domínio oficial
 export const API_BASE_URL = normalizeApiBaseUrl(
-  (import.meta as any)?.env?.VITE_API_URL || "https://api.sementesdafala.com.br"
+  import.meta.env.VITE_API_URL || "https://api.sementesdafala.com.br"
 );
 
 const api = axios.create({

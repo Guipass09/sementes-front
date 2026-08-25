@@ -2609,14 +2609,12 @@ export async function appointmentCreateInviteLink(appointment_id: number): Promi
 export async function videoJoinInvite(params: {
   appointment_id: number;
   invite_token: string;
-  email: string;
 }): Promise<VideoJoinResponse> {
   return await request<VideoJoinResponse>("/api/video/join-invite", {
     method: "POST",
     json: {
       appointment_id: params.appointment_id,
       invite_token: params.invite_token,
-      email: params.email,
     },
   });
 }

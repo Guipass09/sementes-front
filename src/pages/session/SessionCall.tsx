@@ -103,9 +103,6 @@ export default function SessionCall() {
   const [joining, setJoining] = useState(true);
   const [joinInfo, setJoinInfo] = useState<VideoJoinResponse | null>(null);
   const [role, setRole] = useState<Role | null>(null);
-  const [inviteEmailOpen, setInviteEmailOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteEmailSubmitted, setInviteEmailSubmitted] = useState<string | null>(null);
   const [cursor, setCursor] = useState(0);
   const cursorRef = useRef(0);
   const [pendingOfferAvailable, setPendingOfferAvailable] = useState(false);
@@ -356,16 +353,6 @@ export default function SessionCall() {
     if (!authLoading && !user && !inviteToken) navigate("/entrar");
   }, [authLoading, user, inviteToken, navigate]);
 
-  // Link público: pede e-mail antes de entrar (passo obrigatório).
-  // Precisa funcionar mesmo enquanto o AuthContext ainda está "loading".
-  useEffect(() => {
-    if (user) return;
-    if (!inviteToken) return;
-    if (joinInfo) return;
-    if (inviteEmailSubmitted) return; // já enviado, não reabrir durante tentativa
-    setInviteEmailOpen(true);
-  }, [user, inviteToken, joinInfo, inviteEmailSubmitted]);
-
   const tryClearCaches = useCallback(async () => {
     // Melhor esforço: em PWA/cache agressivo, limpar caches ajuda em atualizações.
     try {
@@ -580,9 +567,8 @@ export default function SessionCall() {
 
     const isAuthed = !!user;
     const isInviteFlow = !user && !!inviteToken;
-    const canInviteJoin = isInviteFlow && !!inviteEmailSubmitted;
 
-    if (!isAuthed && !canInviteJoin) return;
+    if (!isAuthed && !isInviteFlow) return;
 
     joiningRef.current = true;
 
@@ -613,12 +599,11 @@ export default function SessionCall() {
           : await videoJoinInvite({
               appointment_id: appointmentId,
               invite_token: inviteToken as string,
-              email: inviteEmailSubmitted as string,
             });
         if (cancelled) return;
         if (timeoutId) clearTimeout(timeoutId);
 
-        // Fluxo do link: após validar e-mail e receber auth, redireciona para a mesma rota já logado
+        // Fluxo do link: após validar o convite e receber auth, redireciona para a mesma rota já logado
         // (sem invite_token). Isso garante que o WebRTC rode no mesmo fluxo do app "normal"
         // e evita a necessidade do usuário dar refresh manual.
         if (
@@ -677,11 +662,9 @@ export default function SessionCall() {
         setContentLoading(false);
         setControlGranted(!!res.room?.control_granted_to_user);
         setScreenShareActive(!!(res as any)?.room?.screen_share_active);
-        setStatusLabel("Toque em “Iniciar câmera e microfone”");
+        setStatusLabel("Toque em Participar");
         setMediaState("idle");
         setMediaError(null);
-        // Fecha gate de e-mail (invite) após join bem-sucedido
-        setInviteEmailOpen(false);
         // Marca "início desta entrada" para ignorar comandos antigos (ex.: pagamento) ao entrar via link.
         joinedAtMsRef.current = Date.now();
         joiningRef.current = false; // Reset para permitir novo join se necessário
@@ -716,12 +699,6 @@ export default function SessionCall() {
         setJoinInfo(null);
         setRole(null);
         setJoining(false);
-        // Se foi invite e falhou, reabre o gate para tentar novamente (ex.: e-mail errado)
-        if (!user && inviteToken) {
-          setInviteEmailOpen(true);
-          setInviteEmailSubmitted(null);
-          return;
-        }
         // volta para lista
         setTimeout(() => {
           goBack(false);
@@ -738,7 +715,7 @@ export default function SessionCall() {
       joiningRef.current = false; // Reset ao desmontar
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appointmentId, user, inviteToken, inviteEmailSubmitted]);
+  }, [appointmentId, user, inviteToken]);
 
   // Attach streams to video elements
   useEffect(() => {
@@ -2391,73 +2368,10 @@ export default function SessionCall() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalogOpen, role, appRole]);
 
-  const inviteEmailDialog = (
-    <Dialog
-      open={inviteEmailOpen && !user && !!inviteToken && !joinInfo}
-      onOpenChange={() => {
-        // Obrigatório: não permite fechar manualmente.
-      }}
-    >
-      <DialogContent
-        className="max-w-md"
-        hideClose
-        onEscapeKeyDown={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
-      >
-        <DialogHeader>
-          <DialogTitle>Confirmar e-mail</DialogTitle>
-        </DialogHeader>
-        <div className="text-sm text-muted-foreground">
-          Para entrar na transmissão, confirme o e-mail cadastrado na plataforma.
-        </div>
-
-        <div className="mt-4 space-y-2">
-          <Label htmlFor="invite-email">E-mail</Label>
-          <Input
-            id="invite-email"
-            type="email"
-            placeholder="seuemail@exemplo.com"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            autoComplete="email"
-            autoFocus
-          />
-        </div>
-
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" className="rounded-xl" onClick={() => goBack(false)}>
-            Voltar
-          </Button>
-          <Button
-            type="button"
-            className="rounded-xl bg-brand-green text-white hover:bg-brand-green/90"
-            onClick={() => {
-              const email = inviteEmail.trim().toLowerCase();
-              if (!email) {
-                toast({
-                  title: "E-mail",
-                  description: "Informe seu e-mail para continuar.",
-                  variant: "destructive",
-                });
-                return;
-              }
-              setInviteEmailSubmitted(email);
-              setInviteEmailOpen(false);
-              setStatusLabel("Entrando na sessão...");
-            }}
-          >
-            Entrar na transmissão
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
   if (authLoading || joining) {
     return (
       <>
         <FullScreenLogoLoader label={statusLabel} />
-        {inviteEmailDialog}
       </>
     );
   }
@@ -2837,8 +2751,6 @@ export default function SessionCall() {
         </div>
       </div>
 
-      {inviteEmailDialog}
-
       {/* Durante pagamento, mantemos um mini player visível (iOS não pausa áudio/vídeo). */}
       {paymentOverlayActive ? (
         <div className="fixed z-[70] right-3 bottom-[calc(env(safe-area-inset-bottom)+76px)] w-[180px] sm:w-[220px] rounded-2xl overflow-hidden border border-border bg-black/90 shadow-lg">
@@ -2863,21 +2775,21 @@ export default function SessionCall() {
         </div>
       ) : null}
 
-      {/* Passo obrigatório: iniciar câmera/microfone (fica centralizado e fácil de encontrar) */}
+      {/* Passo obrigatório: o clique libera as permissões do navegador e entra na chamada. */}
       <BrandedConfirmDialog
         open={!!joinInfo && !!role && !rtcPaymentLocked && mediaState !== "ready"}
         onOpenChange={() => {
           // Obrigatório: não permite fechar manualmente.
         }}
-        title="Ativar câmera e microfone"
+        title="Entrar na sessão"
         description={
           mediaError
             ? mediaError
             : isInAppBrowser
-              ? "Se você abriu pelo WhatsApp/Instagram, no iPhone pode não funcionar. Abra no Safari. Para continuar, permita câmera e microfone."
-              : "Para continuar a sessão, precisamos que você permita o uso da câmera e do microfone."
+              ? "Se você abriu pelo WhatsApp/Instagram, no iPhone pode não funcionar. Abra no Safari e toque em Participar."
+              : "Toque em Participar para entrar na chamada."
         }
-        confirmLabel={mediaState === "requesting" ? "Iniciando…" : "Iniciar câmera e microfone"}
+        confirmLabel="Participar"
         cancelLabel={role === "user" && mediaState === "failed" && pendingOfferAvailable ? "Entrar sem câmera/mic" : null}
         variant="success"
         hideClose

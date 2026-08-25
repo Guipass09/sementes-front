@@ -26,6 +26,7 @@ import type { JoinSessionMeta } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
 import { emitAdminDataChanged } from "@/lib/admin-events";
 import { useAuth } from "@/auth/AuthContext";
+import { buildLiveSessionInviteShareText, buildLiveSessionInviteUrl } from "@/lib/live-session-invite";
 
 interface SessionData {
   id: number;
@@ -398,19 +399,17 @@ const AdminSessions = () => {
     setInviteGeneratingId(appointmentId);
     try {
       const res = await appointmentCreateInviteLink(appointmentId);
-      const url = new URL(window.location.origin);
-      url.pathname = `/sessao/${appointmentId}/chamada`;
-      url.searchParams.set("invite_token", res.token);
-      const link = url.toString();
+      const link = buildLiveSessionInviteUrl(appointmentId, res.token);
+      const shareText = buildLiveSessionInviteShareText(link);
 
       try {
-        await navigator.clipboard.writeText(link);
+        await navigator.clipboard.writeText(shareText);
         toast({
           title: "Link gerado",
-          description: "Link copiado. Envie para o paciente (ele vai confirmar o e-mail ao entrar).",
+          description: "Mensagem com link copiada. Envie para o paciente.",
         });
       } catch {
-        window.prompt("Copie o link e envie para o paciente:", link);
+        window.prompt("Copie a mensagem e envie para o paciente:", shareText);
       }
     } catch {
       toast({

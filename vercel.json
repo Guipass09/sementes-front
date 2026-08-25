@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/convite-sessao/:id",
+      "destination": "/api/session-invite?id=:id"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

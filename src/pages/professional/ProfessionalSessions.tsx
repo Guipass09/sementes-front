@@ -16,6 +16,7 @@ import type { JoinSessionMeta } from "@/lib/laravel-api";
 import { JoinSessionButton } from "@/components/JoinSessionButton";
 import { BLINK_AFTER_MINUTES, BLINK_BEFORE_MINUTES, getJoinCountdownLabel, getTodayYMD, parseLocalDateTime } from "@/lib/session-alert";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import { buildLiveSessionInviteShareText, buildLiveSessionInviteUrl } from "@/lib/live-session-invite";
 
 type ProAppointmentRow = {
   id: number;
@@ -200,19 +201,17 @@ function StandardProfessionalSessions(): JSX.Element {
     setInviteGeneratingId(appointmentId);
     try {
       const res = await api.appointmentCreateInviteLink(appointmentId);
-      const url = new URL(window.location.origin);
-      url.pathname = `/sessao/${appointmentId}/chamada`;
-      url.searchParams.set("invite_token", res.token);
-      const link = url.toString();
+      const link = buildLiveSessionInviteUrl(appointmentId, res.token);
+      const shareText = buildLiveSessionInviteShareText(link);
 
       try {
-        await navigator.clipboard.writeText(link);
+        await navigator.clipboard.writeText(shareText);
         toast({
           title: "Link gerado",
-          description: "Link copiado. Envie para o paciente (ele vai confirmar o e-mail ao entrar).",
+          description: "Mensagem com link copiada. Envie para o paciente.",
         });
       } catch {
-        window.prompt("Copie o link e envie para o paciente:", link);
+        window.prompt("Copie a mensagem e envie para o paciente:", shareText);
       }
     } catch {
       toast({

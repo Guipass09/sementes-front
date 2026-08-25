@@ -1,5 +1,5 @@
 const SITE_URL = "https://www.sementesdafala.com.br";
-const IMAGE_URL = `${SITE_URL}/orientacao-conexao-sementes-da-fala.png?v=20260825`;
+const IMAGE_URL = `${SITE_URL}/orientacao-conexao-sementes-da-fala-preview.jpg`;
 const DESCRIPTION =
   "Para entrar no atendimento, clique no link e depois em participar, caso peça para autorizar camera ou microfone é necessario permitir 💚";
 
@@ -42,9 +42,9 @@ export default function handler(req, res) {
     <meta property="og:url" content="${escapeHtml(targetUrl)}" />
     <meta property="og:image" content="${escapeHtml(IMAGE_URL)}" />
     <meta property="og:image:secure_url" content="${escapeHtml(IMAGE_URL)}" />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:width" content="2048" />
-    <meta property="og:image:height" content="2048" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="1200" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${escapeHtml(title)}" />
     <meta name="twitter:description" content="${escapeHtml(DESCRIPTION)}" />

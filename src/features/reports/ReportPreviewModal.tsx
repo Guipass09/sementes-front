@@ -103,16 +103,24 @@ export function ReportPreviewModal(props: {
             <div className="rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
               <div
                 ref={previewRef}
+                data-report-pdf
                 className="mx-auto bg-white text-slate-900 rounded-lg shadow-sm border border-slate-200"
                 style={{
                   // A4 em px aproximado a 96dpi (apenas para preview)
                   width: "794px",
                   maxWidth: "100%",
+                  overflow: "visible",
                 }}
               >
-                <div className="p-4 sm:p-8">
+                <div
+                  className="p-4 sm:p-8"
+                  style={{
+                    padding: "48px",
+                    boxSizing: "border-box",
+                  }}
+                >
                   {/* Cabeçalho */}
-                  <div className="flex items-center gap-4 pb-4 border-b border-slate-200">
+                  <div data-pdf-avoid className="flex items-center gap-4 pb-4 border-b border-slate-200">
                     <img
                       src={logoSrc}
                       alt="Sementes da Fala"
@@ -145,7 +153,7 @@ export function ReportPreviewModal(props: {
                   </div>
 
                   {/* Identificação */}
-                  <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div data-pdf-avoid className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div className="rounded-md bg-slate-50 border border-slate-200 p-3">
                       <div className="text-slate-500">Paciente</div>
                       <div className="font-semibold">{props.report.patientName || props.report.patient.name}</div>
@@ -160,11 +168,11 @@ export function ReportPreviewModal(props: {
                   </div>
 
                   {/* Conteúdo */}
-                  <div className="mt-6">
+                  <div className="mt-6" data-pdf-text>
                     <h2 className="text-base font-semibold mb-3">{props.report.title}</h2>
                     <div className="space-y-4 text-[15px] leading-relaxed">
                       {paragraphs.map((p, idx) => (
-                        <p key={idx} className="whitespace-pre-wrap">
+                        <p key={idx} data-pdf-avoid className="whitespace-pre-wrap">
                           {p}
                         </p>
                       ))}
@@ -172,7 +180,7 @@ export function ReportPreviewModal(props: {
                   </div>
 
                   {/* Assinatura */}
-                  <div className="mt-10">
+                  <div data-pdf-avoid className="mt-10">
                     <div className="flex justify-end">
                       <div className="w-full sm:w-[360px]">
                         <div className="border-t border-slate-300 pt-2 text-sm text-slate-700 text-center">
@@ -186,7 +194,7 @@ export function ReportPreviewModal(props: {
                   </div>
 
                   {/* Rodapé */}
-                  <div className="mt-8 pt-4 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
+                  <div data-pdf-avoid className="mt-8 pt-4 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
                     <span>Sementes da Fala • Relatório gerado pelo sistema</span>
                     <span>Confidencial</span>
                   </div>

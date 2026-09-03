@@ -104,18 +104,20 @@ export function ReportPreviewModal(props: {
               <div
                 ref={previewRef}
                 data-report-pdf
-                className="mx-auto bg-white text-slate-900 rounded-lg shadow-sm border border-slate-200"
+                className="mx-auto bg-white text-slate-900 rounded-md shadow-sm border border-slate-200"
                 style={{
                   // A4 em px aproximado a 96dpi (apenas para preview)
                   width: "794px",
                   maxWidth: "100%",
                   overflow: "visible",
+                  fontFamily: "Arial, Helvetica, sans-serif",
                 }}
               >
                 <div
-                  className="p-4 sm:p-8"
+                  data-report-pdf-content
+                  className="p-5 sm:p-8"
                   style={{
-                    padding: "48px",
+                    padding: "56px 64px",
                     boxSizing: "border-box",
                   }}
                 >
@@ -142,9 +144,9 @@ export function ReportPreviewModal(props: {
                         <span className="text-brand-green">Sementes</span>{" "}
                         <span className="text-brand-brown">da Fala</span>
                       </div>
-                      <div className="text-sm text-slate-600">Relatório clínico</div>
+                      <div className="text-xs uppercase tracking-[0.08em] text-slate-500">Relatório clínico</div>
                     </div>
-                    <div className="text-right text-sm text-slate-600">
+                    <div className="text-right text-xs text-slate-600">
                       <div className="font-medium text-slate-900">
                         {formatReportDate(props.report.date)}
                       </div>
@@ -153,13 +155,13 @@ export function ReportPreviewModal(props: {
                   </div>
 
                   {/* Identificação */}
-                  <div data-pdf-avoid className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-md bg-slate-50 border border-slate-200 p-3">
-                      <div className="text-slate-500">Paciente</div>
+                  <div data-pdf-avoid className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-md bg-slate-50 border border-slate-200 p-3.5">
+                      <div className="text-[11px] uppercase tracking-[0.08em] text-slate-500">Paciente</div>
                       <div className="font-semibold">{props.report.patientName || props.report.patient.name}</div>
                     </div>
-                    <div className="rounded-md bg-slate-50 border border-slate-200 p-3">
-                      <div className="text-slate-500">Profissional</div>
+                    <div className="rounded-md bg-slate-50 border border-slate-200 p-3.5">
+                      <div className="text-[11px] uppercase tracking-[0.08em] text-slate-500">Profissional</div>
                       <div className="font-semibold">{props.report.professionalName}</div>
                       <div className="text-xs text-slate-500 mt-0.5">
                         Criado por: {props.report.createdBy.name}
@@ -168,11 +170,11 @@ export function ReportPreviewModal(props: {
                   </div>
 
                   {/* Conteúdo */}
-                  <div className="mt-6" data-pdf-text>
-                    <h2 className="text-base font-semibold mb-3">{props.report.title}</h2>
-                    <div className="space-y-4 text-[15px] leading-relaxed">
+                  <div className="mt-7" data-pdf-text>
+                    <h2 data-pdf-avoid className="text-[17px] font-semibold mb-5 text-slate-950">{props.report.title}</h2>
+                    <div className="space-y-5 text-[14px] leading-7 text-slate-800">
                       {paragraphs.map((p, idx) => (
-                        <p key={idx} data-pdf-avoid className="whitespace-pre-wrap">
+                        <p key={idx} data-pdf-avoid className="whitespace-pre-wrap text-justify">
                           {p}
                         </p>
                       ))}
@@ -180,10 +182,10 @@ export function ReportPreviewModal(props: {
                   </div>
 
                   {/* Assinatura */}
-                  <div data-pdf-avoid className="mt-10">
+                  <div data-pdf-avoid className="mt-14">
                     <div className="flex justify-end">
-                      <div className="w-full sm:w-[360px]">
-                        <div className="border-t border-slate-300 pt-2 text-sm text-slate-700 text-center">
+                      <div className="w-full sm:w-[320px]">
+                        <div className="border-t border-slate-300 pt-3 text-sm text-slate-700 text-center">
                           Assinatura do(a) Profissional
                         </div>
                         <div className="text-xs text-slate-500 text-center mt-1">
@@ -194,7 +196,7 @@ export function ReportPreviewModal(props: {
                   </div>
 
                   {/* Rodapé */}
-                  <div data-pdf-avoid className="mt-8 pt-4 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
+                  <div data-pdf-avoid className="mt-10 pt-4 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
                     <span>Sementes da Fala • Relatório gerado pelo sistema</span>
                     <span>Confidencial</span>
                   </div>

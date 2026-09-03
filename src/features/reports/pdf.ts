@@ -16,6 +16,8 @@ export function buildReportPdfFilename(patientName: string, dateStr: string): st
   return `relatorio_${safeName}_${safeDate}.pdf`;
 }
 
+const A4_PREVIEW_WIDTH_PX = 794;
+
 export async function downloadElementAsPdf(params: {
   element: HTMLElement;
   filename: string;
@@ -25,7 +27,7 @@ export async function downloadElementAsPdf(params: {
 
   await html2pdf()
     .set({
-      margin: [0, 0, 0, 0],
+      margin: [18, 18, 18, 18],
       filename: params.filename,
       image: { type: "jpeg", quality: 0.98 },
       html2canvas: {
@@ -34,18 +36,28 @@ export async function downloadElementAsPdf(params: {
         backgroundColor: "#ffffff",
         scrollX: 0,
         scrollY: 0,
-        windowWidth: 794,
+        windowWidth: A4_PREVIEW_WIDTH_PX,
         onclone: (clonedDocument: Document) => {
           const report = clonedDocument.querySelector<HTMLElement>("[data-report-pdf]");
           if (report) {
             Object.assign(report.style, {
-              width: "794px",
-              maxWidth: "794px",
+              width: `${A4_PREVIEW_WIDTH_PX}px`,
+              maxWidth: `${A4_PREVIEW_WIDTH_PX}px`,
               margin: "0",
               border: "0",
               borderRadius: "0",
               boxShadow: "none",
               overflow: "visible",
+              fontFamily: "Arial, Helvetica, sans-serif",
+              color: "#1f2937",
+            });
+          }
+
+          const content = clonedDocument.querySelector<HTMLElement>("[data-report-pdf-content]");
+          if (content) {
+            Object.assign(content.style, {
+              padding: "24px 28px",
+              boxSizing: "border-box",
             });
           }
 
@@ -61,6 +73,9 @@ export async function downloadElementAsPdf(params: {
               overflowWrap: "break-word",
               wordBreak: "normal",
               hyphens: "auto",
+              fontSize: "14px",
+              lineHeight: "1.75",
+              textAlign: "justify",
             });
           });
         },

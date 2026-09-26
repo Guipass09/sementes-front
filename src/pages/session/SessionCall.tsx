@@ -15,6 +15,7 @@ import {
   Video,
   VideoOff,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
@@ -107,17 +108,18 @@ export default function SessionCall() {
   const cursorRef = useRef(0);
   const [pendingOfferAvailable, setPendingOfferAvailable] = useState(false);
   const didInviteAutoRedirectRef = useRef(false);
-  const didReconnectRequestRef = useRef(false);
   const lastAppointmentIdRef = useRef<number | null>(null);
   const joinedAtMsRef = useRef<number>(0);
   const [epoch, setEpoch] = useState<string | null>(null);
   const epochRef = useRef<string | null>(null);
   const pendingWebrtcRef = useRef<VideoPollMessage[]>([]);
-  const pendingIceRef = useRef<any[]>([]);
+  const pendingIceRef = useRef<Array<{ candidate: any; offerId: string | null }>>([]);
   const pendingOfferRef = useRef<any | null>(null);
+  const pendingOfferIdRef = useRef<string | null>(null);
   const peerReadyRef = useRef(false);
   const ensurePeerRef = useRef<Promise<void> | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [remoteCamStream, setRemoteCamStream] = useState<MediaStream | null>(null);
   const [remoteScreenStream, setRemoteScreenStream] = useState<MediaStream | null>(null);
@@ -125,8 +127,23 @@ export default function SessionCall() {
   const [camOn, setCamOn] = useState(true);
   const [statusLabel, setStatusLabel] = useState<string>("Conectando...");
   const [remotePresent, setRemotePresent] = useState(false);
+  const [remoteMediaState, setRemoteMediaState] = useState<{ cameraOn: boolean; microphoneOn: boolean } | null>(null);
+  const [remoteVideoStalled, setRemoteVideoStalled] = useState(false);
+  const videoHealthRef = useRef({ frames: 0, lastFrameAt: 0, softRecoveryAt: 0, iceRecoveryAt: 0 });
+  const localMediaStateRef = useRef({ cameraOn: true, microphoneOn: true });
   const [mediaState, setMediaState] = useState<"idle" | "requesting" | "ready" | "failed">("idle");
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [showReconnectButton, setShowReconnectButton] = useState(false);
+  const mediaReadyRef = useRef(false);
+  const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recoveryAttemptsRef = useRef(0);
+  const recoveryDueAtRef = useRef(0);
+  const offerInFlightRef = useRef(false);
+  const lastOfferAtRef = useRef(0);
+  const activeOfferIdRef = useRef<string | null>(null);
+  const receivedOfferIdRef = useRef<string | null>(null);
+  const publishingSdpRef = useRef(false);
+  const pendingLocalIceRef = useRef<RTCIceCandidateInit[]>([]);
   const [contentPath, setContentPath] = useState<string | null>(null);
   const [contentTitle, setContentTitle] = useState<string | null>(null);
   const [contentKind, setContentKind] = useState<string | null>(null);
@@ -204,9 +221,23 @@ export default function SessionCall() {
     pendingWebrtcRef.current = [];
     pendingIceRef.current = [];
     pendingOfferRef.current = null;
+    pendingOfferIdRef.current = null;
+    activeOfferIdRef.current = null;
+    receivedOfferIdRef.current = null;
+    lastOfferAtRef.current = 0;
     setPendingOfferAvailable(false);
     didInviteAutoRedirectRef.current = false;
-    didReconnectRequestRef.current = false;
+    if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
+    recoveryTimerRef.current = null;
+    recoveryDueAtRef.current = 0;
+    recoveryAttemptsRef.current = 0;
+    mediaReadyRef.current = false;
+    publishingSdpRef.current = false;
+    pendingLocalIceRef.current = [];
+    setShowReconnectButton(false);
+    setRemoteMediaState(null);
+    setRemoteVideoStalled(false);
+    videoHealthRef.current = { frames: 0, lastFrameAt: 0, softRecoveryAt: 0, iceRecoveryAt: 0 };
     joinedAtMsRef.current = 0;
   }, [appointmentId]);
 
@@ -838,6 +869,7 @@ export default function SessionCall() {
 
         // atualiza state/UI (preview local)
         setLocalStream(fresh);
+        localStreamRef.current = fresh;
 
         const newAudio = fresh.getAudioTracks?.()?.[0] ?? null;
         const newVideo = fresh.getVideoTracks?.()?.[0] ?? null;
@@ -889,6 +921,16 @@ export default function SessionCall() {
       window.removeEventListener("focus", onVisible);
     };
   }, [resumeAfterVisibility]);
+
+  useEffect(() => {
+    if (!localStream || mediaState !== "ready") return;
+    const onEnded = () => {
+      if (document.visibilityState === "visible") void resumeAfterVisibility();
+    };
+    const tracks = localStream.getTracks();
+    tracks.forEach((track) => track.addEventListener("ended", onEnded));
+    return () => tracks.forEach((track) => track.removeEventListener("ended", onEnded));
+  }, [localStream, mediaState, resumeAfterVisibility]);
 
   // iOS/Safari (PWA) pode bloquear autoplay com áudio; tenta destravar no primeiro toque.
   useEffect(() => {
@@ -1138,13 +1180,109 @@ export default function SessionCall() {
     if (!pc) return;
     if (!pc.remoteDescription) return;
     const batch = pendingIceRef.current.splice(0);
-    for (const c of batch) {
+    const expectedOfferId = role === "admin" ? activeOfferIdRef.current : receivedOfferIdRef.current;
+    for (const { candidate, offerId } of batch) {
+      if (offerId && offerId !== expectedOfferId) continue;
       try {
-        await pc.addIceCandidate(new RTCIceCandidate(c));
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
       } catch {
         // ignore
       }
     }
+  };
+
+  const announceLocalMediaState = () => {
+    const { cameraOn, microphoneOn } = localMediaStateRef.current;
+    void send("media_state", { camera_on: cameraOn, microphone_on: microphoneOn }).catch(() => {});
+  };
+
+  const cancelRecovery = () => {
+    if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
+    recoveryTimerRef.current = null;
+    recoveryDueAtRef.current = 0;
+    recoveryAttemptsRef.current = 0;
+    setShowReconnectButton(false);
+  };
+
+  const publishDescription = async (pc: RTCPeerConnection, description: RTCSessionDescriptionInit, kind: "webrtc_offer" | "webrtc_answer", offerId: string | null) => {
+    publishingSdpRef.current = true;
+    pendingLocalIceRef.current = [];
+    try {
+      await pc.setLocalDescription(description);
+      await send(kind, { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp }, offer_id: offerId });
+      while (pendingLocalIceRef.current.length) {
+        const candidate = pendingLocalIceRef.current.shift();
+        if (!candidate) continue;
+        try {
+          await send("webrtc_ice", { candidate, offer_id: offerId });
+        } catch (error) {
+          console.warn("[WebRTC] candidato ICE não enviado", error);
+        }
+      }
+    } finally {
+      publishingSdpRef.current = false;
+      pendingLocalIceRef.current = [];
+    }
+  };
+
+  const sendOffer = async (iceRestart: boolean) => {
+    const pc = pcRef.current;
+    if (role !== "admin" || !mediaReadyRef.current || !pc || pc.signalingState === "closed") return;
+    if (offerInFlightRef.current) return;
+
+    offerInFlightRef.current = true;
+    try {
+      if (pc.signalingState === "have-local-offer") {
+        if (Date.now() - lastOfferAtRef.current < 20000) return;
+        await pc.setLocalDescription({ type: "rollback" });
+      }
+      if (pc.signalingState !== "stable") return;
+
+      const offerId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      activeOfferIdRef.current = offerId;
+      const offer = await pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
+      lastOfferAtRef.current = Date.now();
+      await publishDescription(pc, offer, "webrtc_offer", offerId);
+    } finally {
+      offerInFlightRef.current = false;
+    }
+  };
+
+  const scheduleRecovery = (delayMs: number) => {
+    if (!mediaReadyRef.current || !joinInfo || !role) return;
+    const dueAt = Date.now() + delayMs;
+    if (recoveryTimerRef.current) {
+      if (dueAt >= recoveryDueAtRef.current) return;
+      clearTimeout(recoveryTimerRef.current);
+    }
+    recoveryDueAtRef.current = dueAt;
+    recoveryTimerRef.current = setTimeout(async () => {
+      recoveryTimerRef.current = null;
+      recoveryDueAtRef.current = 0;
+      const pc = pcRef.current;
+      if (!mediaReadyRef.current || !pc || pc.connectionState === "connected") return;
+      if (pc.signalingState === "closed") {
+        setShowReconnectButton(true);
+        setStatusLabel("Conexão encerrada. Tente novamente.");
+        return;
+      }
+
+      const attempt = ++recoveryAttemptsRef.current;
+      setStatusLabel("Reconectando...");
+      if (attempt >= 3) setShowReconnectButton(true);
+      try {
+        if (role === "admin") {
+          await sendOffer(true);
+        } else {
+          await send("webrtc_reconnect", { ts: Date.now() });
+        }
+      } catch (error) {
+        console.warn("[WebRTC] tentativa de reconexão falhou", error);
+      }
+      if (mediaReadyRef.current && pcRef.current === pc && pcRef.current.connectionState !== "connected") {
+        scheduleRecovery(Math.min(20000, 5000 + attempt * 3000));
+      }
+    }, delayMs);
   };
 
   const ensurePeer = async () => {
@@ -1172,8 +1310,7 @@ export default function SessionCall() {
             // preferir track direto (mais robusto)
             inbound.addTrack(ev.track);
           } catch {}
-          // Se chegou qualquer track remoto, consideramos "outro participante presente"
-          setRemotePresent(true);
+          if (pc.connectionState === "connected") setRemotePresent(true);
           if (ev.track.kind === "audio") {
             try {
               inboundCam.addTrack(ev.track);
@@ -1214,19 +1351,34 @@ export default function SessionCall() {
 
         pc.onicecandidate = (ev) => {
           if (!ev.candidate) return;
-          void send("webrtc_ice", { candidate: ev.candidate });
+          if (publishingSdpRef.current) {
+            pendingLocalIceRef.current.push(ev.candidate.toJSON());
+            return;
+          }
+          const offerId = role === "admin" ? activeOfferIdRef.current : receivedOfferIdRef.current;
+          void send("webrtc_ice", { candidate: ev.candidate, offer_id: offerId }).catch((error) => {
+            console.warn("[WebRTC] candidato ICE não enviado", error);
+          });
         };
 
         pc.onconnectionstatechange = () => {
+          if (pcRef.current !== pc) return;
           setStatusLabel(
             pc.connectionState === "connected"
               ? "Conectado"
               : pc.connectionState === "connecting"
               ? "Conectando..."
-              : pc.connectionState === "failed"
-              ? "Falha na conexão"
+              : pc.connectionState === "disconnected" || pc.connectionState === "failed"
+              ? "Reconectando..."
               : "Conectando..."
           );
+          if (pc.connectionState === "connected") {
+            cancelRecovery();
+            setRemotePresent(pc.getReceivers().some((receiver) => receiver.track?.readyState === "live"));
+            void remoteVideoRef.current?.play().catch(() => {});
+            announceLocalMediaState();
+            return;
+          }
           if (
             pc.connectionState === "disconnected" ||
             pc.connectionState === "failed" ||
@@ -1234,12 +1386,15 @@ export default function SessionCall() {
           ) {
             setRemotePresent(false);
           }
+          if (pc.connectionState === "disconnected") scheduleRecovery(4000);
+          if (pc.connectionState === "failed") scheduleRecovery(0);
         };
 
         pc.oniceconnectionstatechange = () => {
           // Ajuda a diagnosticar se falta TURN/NAT (ex.: "failed")
           if (pc.iceConnectionState === "failed") {
-            setStatusLabel("Falha ICE (rede restrita)");
+            setStatusLabel("Reconectando...");
+            scheduleRecovery(0);
           }
         };
 
@@ -1258,6 +1413,12 @@ export default function SessionCall() {
   };
 
   const handleMessage = async (m: VideoPollMessage) => {
+    // A fila do backend dura horas; sinais anteriores à entrada atual não servem para este peer.
+    if (["webrtc_offer", "webrtc_answer", "webrtc_ice", "webrtc_reconnect", "media_state"].includes(m.kind)) {
+      const joinedOnServer = Date.parse(joinInfo?.server_now || "");
+      const sentOnServer = Date.parse(m.at || "");
+      if (Number.isFinite(joinedOnServer) && Number.isFinite(sentOnServer) && sentOnServer < joinedOnServer - 30000) return;
+    }
     // Ignora mensagens antigas/de outra "versão" da chamada.
     // (resolve "fila suja" sem perder mensagens pendentes quando o outro entra depois)
     const myEpoch = epochRef.current;
@@ -1280,6 +1441,9 @@ export default function SessionCall() {
         pendingWebrtcRef.current = [];
         pendingIceRef.current = [];
         pendingOfferRef.current = null;
+        pendingOfferIdRef.current = null;
+        activeOfferIdRef.current = null;
+        receivedOfferIdRef.current = null;
       } else if (typeof msgEpoch !== "string") {
         // Se vier sem epoch, não bloqueia (compat/backward)
       } else if (msgEpoch !== myEpoch) {
@@ -1304,23 +1468,27 @@ export default function SessionCall() {
       if (!pc) return;
       const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
+      const offerId = typeof m.payload?.offer_id === "string" ? m.payload.offer_id : null;
       // Guardar o offer até o usuário iniciar câmera/microfone (garante 2-way)
-      if (mediaState !== "ready") {
+      if (!mediaReadyRef.current) {
         pendingOfferRef.current = sdp;
+        pendingOfferIdRef.current = offerId;
         setPendingOfferAvailable(true);
         return;
       }
+      if (pc.signalingState !== "stable") return;
+      receivedOfferIdRef.current = offerId;
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       await flushPendingIce();
       const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      await send("webrtc_answer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+      await publishDescription(pc, answer, "webrtc_answer", offerId);
     }
 
     if (m.kind === "webrtc_answer" && role === "admin") {
       if (!pc) return;
       const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
+      if (m.payload?.offer_id && m.payload.offer_id !== activeOfferIdRef.current) return;
       // Renegociação (ex.: screen share) precisa aceitar novos answers.
       // Só aplica se estamos respondendo a um offer local (estado esperado).
       if (pc.signalingState !== "have-local-offer") return;
@@ -1332,8 +1500,11 @@ export default function SessionCall() {
       if (!pc) return;
       const c = m.payload?.candidate;
       if (!c) return;
-      if (!pc.remoteDescription) {
-        pendingIceRef.current.push(c);
+      const offerId = typeof m.payload?.offer_id === "string" ? m.payload.offer_id : null;
+      const expectedOfferId = role === "admin" ? activeOfferIdRef.current : receivedOfferIdRef.current;
+      if (offerId && expectedOfferId && offerId !== expectedOfferId) return;
+      if (!pc.remoteDescription || (offerId && !expectedOfferId)) {
+        pendingIceRef.current.push({ candidate: c, offerId });
         return;
       }
       try {
@@ -1343,47 +1514,21 @@ export default function SessionCall() {
       }
     }
 
-    // Reconexão: quando o paciente volta, ele pede um novo offer.
+    // O paciente solicita uma nova oferta ao entrar ou quando a rede muda.
     if (m.kind === "webrtc_reconnect" && role === "admin") {
-      if (mediaState !== "ready") return;
-
-      const pc = pcRef.current;
-      const bad =
-        !pc ||
-        pc.connectionState === "failed" ||
-        pc.connectionState === "closed" ||
-        pc.iceConnectionState === "failed";
-
-      if (bad) {
-        try {
-          try { pcRef.current?.close?.(); } catch {}
-          pcRef.current = null;
-          peerReadyRef.current = false;
-          ensurePeerRef.current = null;
-          setRemotePresent(false);
-        } catch {}
+      if (!mediaReadyRef.current) return;
+      try {
+        await sendOffer(true);
+      } catch (error) {
+        console.warn("[WebRTC] não foi possível enviar nova oferta", error);
+        scheduleRecovery(5000);
       }
+      return;
+    }
 
-      await ensurePeer();
-
-      // Garante que a câmera/mic do admin estejam anexadas (sem exigir novo clique)
-      const pc2 = pcRef.current;
-      if (pc2 && localStream && mediaState === "ready") {
-        const hasSenders = pc2.getSenders().some((s) => !!s.track);
-        if (!hasSenders) {
-          for (const track of localStream.getTracks()) {
-            try { pc2.addTrack(track, localStream); } catch {}
-          }
-        }
-      }
-
-      const pc3 = pcRef.current;
-      if (pc3) {
-        try {
-          const offer = await pc3.createOffer();
-          await pc3.setLocalDescription(offer);
-          await send("webrtc_offer", { sdp: { type: pc3.localDescription?.type, sdp: pc3.localDescription?.sdp } });
-        } catch {}
+    if (m.kind === "media_state") {
+      if (typeof m.payload?.camera_on === "boolean" && typeof m.payload?.microphone_on === "boolean") {
+        setRemoteMediaState({ cameraOn: m.payload.camera_on, microphoneOn: m.payload.microphone_on });
       }
       return;
     }
@@ -1490,6 +1635,8 @@ export default function SessionCall() {
           for (const t of localStream?.getVideoTracks?.() || []) t.enabled = false;
           setMicOn(false);
           setCamOn(false);
+          localMediaStateRef.current = { cameraOn: false, microphoneOn: false };
+          announceLocalMediaState();
         } catch {}
 
         setRtcPaymentLocked(true);
@@ -1598,26 +1745,16 @@ export default function SessionCall() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinInfo?.token, role]);
 
-  // Reconexão automática (sem refresh do admin):
-  // Quando o paciente entra/volta e o peer não está conectado, ele pede um novo offer.
+  // Uma mudança de rede pode acontecer sem desmontar a página.
   useEffect(() => {
     if (!joinInfo || !role) return;
-    if (role !== "user") return;
-    if (didReconnectRequestRef.current) return;
-    const pc = pcRef.current;
-    const bad =
-      !pc ||
-      pc.connectionState === "disconnected" ||
-      pc.connectionState === "failed" ||
-      pc.connectionState === "closed";
-    if (!bad) return;
-    didReconnectRequestRef.current = true;
-    void send("webrtc_reconnect", { ts: Date.now() }).catch(() => {});
-    window.setTimeout(() => {
-      didReconnectRequestRef.current = false;
-    }, 2500);
+    const onOnline = () => {
+      if (mediaReadyRef.current && pcRef.current?.connectionState !== "connected") scheduleRecovery(0);
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [joinInfo?.token, role, mediaState]);
+  }, [joinInfo?.token, role]);
 
   // Poll commands
   useEffect(() => {
@@ -1688,7 +1825,94 @@ export default function SessionCall() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [joinInfo?.token, role, user, inviteToken]);
 
+  useEffect(() => {
+    if (!joinInfo || mediaState !== "ready") return;
+    let cancelled = false;
+    const health = videoHealthRef.current;
+    health.frames = 0;
+    health.lastFrameAt = Date.now();
+    health.softRecoveryAt = 0;
+
+    const checkVideo = async () => {
+      const pc = pcRef.current;
+      if (document.visibilityState !== "visible" || !remotePresent || remoteMediaState?.cameraOn === false || pc?.connectionState !== "connected") {
+        health.lastFrameAt = Date.now();
+        health.frames = 0;
+        if (!cancelled) {
+          setRemoteVideoStalled(false);
+          if (pc?.connectionState === "connected") setShowReconnectButton(false);
+        }
+        return;
+      }
+
+      try {
+        const cameraTrack = remoteCamStream?.getVideoTracks()[0];
+        const cameraReceiver = pc.getReceivers().find((receiver) => receiver.track === cameraTrack);
+        if (!cameraReceiver) return;
+        const stats = await cameraReceiver.getStats();
+        if (cancelled || pcRef.current !== pc) return;
+        let frames: number | null = null;
+        stats.forEach((report) => {
+          const entry = report as any;
+          if (entry.type === "inbound-rtp" && (entry.kind === "video" || entry.mediaType === "video") && Number.isFinite(entry.framesDecoded)) {
+            frames = Math.max(frames ?? 0, entry.framesDecoded);
+          }
+        });
+        if (frames === null) return;
+
+        const now = Date.now();
+        if (frames > health.frames || frames < health.frames) {
+          health.frames = frames;
+          health.lastFrameAt = now;
+          health.softRecoveryAt = 0;
+          setRemoteVideoStalled(false);
+          setShowReconnectButton(false);
+          return;
+        }
+        if (now - health.lastFrameAt < 12000) return;
+
+        setRemoteVideoStalled(true);
+        if (!health.softRecoveryAt) {
+          health.softRecoveryAt = now;
+          const video = remoteVideoRef.current;
+          if (video?.srcObject) {
+            const stream = video.srcObject;
+            video.srcObject = null;
+            video.srcObject = stream;
+            void video.play().catch(() => {});
+          }
+          return;
+        }
+        if (now - health.softRecoveryAt < 8000 || now - health.iceRecoveryAt < 60000) return;
+
+        health.iceRecoveryAt = now;
+        setShowReconnectButton(true);
+        if (role === "admin") {
+          void sendOffer(true).catch((error) => console.warn("[WebRTC] vídeo não recuperado", error));
+        } else {
+          void send("webrtc_reconnect", { ts: now }).catch(() => {});
+        }
+      } catch (error) {
+        console.warn("[WebRTC] não foi possível verificar o vídeo", error);
+      }
+    };
+
+    const interval = window.setInterval(() => void checkVideo(), 4000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinInfo?.token, mediaState, remotePresent, remoteMediaState?.cameraOn, remoteCamStream, role]);
+
   const cleanup = () => {
+    if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
+    recoveryTimerRef.current = null;
+    recoveryDueAtRef.current = 0;
+    mediaReadyRef.current = false;
+    offerInFlightRef.current = false;
+    publishingSdpRef.current = false;
+    pendingLocalIceRef.current = [];
     try {
       pcRef.current?.close();
     } catch {}
@@ -1697,8 +1921,15 @@ export default function SessionCall() {
     pendingWebrtcRef.current = [];
     pendingIceRef.current = [];
     pendingOfferRef.current = null;
+    pendingOfferIdRef.current = null;
+    activeOfferIdRef.current = null;
+    receivedOfferIdRef.current = null;
+    lastOfferAtRef.current = 0;
     setRemotePresent(false);
-    safeStopStream(localStream);
+    setRemoteMediaState(null);
+    setRemoteVideoStalled(false);
+    safeStopStream(localStreamRef.current);
+    localStreamRef.current = null;
     safeStopStream(remoteStream);
     setLocalStream(null);
     setRemoteStream(null);
@@ -1749,14 +1980,20 @@ export default function SessionCall() {
     if (!localStream) return;
     const tracks = localStream.getAudioTracks();
     for (const t of tracks) t.enabled = !t.enabled;
-    setMicOn(tracks.every((t) => t.enabled));
+    const microphoneOn = tracks.every((t) => t.enabled);
+    setMicOn(microphoneOn);
+    localMediaStateRef.current.microphoneOn = microphoneOn;
+    announceLocalMediaState();
   };
 
   const toggleCam = () => {
     if (!localStream) return;
     const tracks = localStream.getVideoTracks();
     for (const t of tracks) t.enabled = !t.enabled;
-    setCamOn(tracks.every((t) => t.enabled));
+    const cameraOn = tracks.every((t) => t.enabled);
+    setCamOn(cameraOn);
+    localMediaStateRef.current.cameraOn = cameraOn;
+    announceLocalMediaState();
   };
 
   const startScreenShare = async () => {
@@ -1820,9 +2057,7 @@ export default function SessionCall() {
           } catch {
             // fallback: renegociação (alguns browsers podem exigir)
             try {
-              const offer = await pc.createOffer();
-              await pc.setLocalDescription(offer);
-              await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+              await sendOffer(false);
             } catch {}
           }
         }
@@ -1853,9 +2088,7 @@ export default function SessionCall() {
             } catch {
               // fallback: renegociação (se necessário)
               try {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                await send("webrtc_offer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+                await sendOffer(false);
               } catch {}
             }
           }
@@ -2076,6 +2309,7 @@ export default function SessionCall() {
           video: true,
           audio: true,
         }));
+      localStreamRef.current = stream;
 
       if (!localStream) {
         setLocalStream(stream);
@@ -2083,6 +2317,10 @@ export default function SessionCall() {
 
       setMicOn(stream.getAudioTracks().every((t) => t.enabled));
       setCamOn(stream.getVideoTracks().every((t) => t.enabled));
+      localMediaStateRef.current = {
+        cameraOn: stream.getVideoTracks().every((t) => t.enabled),
+        microphoneOn: stream.getAudioTracks().every((t) => t.enabled),
+      };
 
       // Evita addTrack duplicado (pode disparar exceções e "quebrar" a sessão em iOS)
       const pc = pcRef.current;
@@ -2115,6 +2353,7 @@ export default function SessionCall() {
       }
 
       setMediaState("ready");
+      mediaReadyRef.current = true;
       setMediaError(null);
       setStatusLabel("Aguardando o outro participante…");
 
@@ -2124,7 +2363,7 @@ export default function SessionCall() {
         if (audioCtxRef.current.state === "suspended") await audioCtxRef.current.resume();
       } catch {}
 
-      // Admin inicia offer ao ficar pronto
+      // A profissional continua sendo a única a criar ofertas.
       if (role === "admin") {
         const pc2 = pcRef.current;
         if (pc2) {
@@ -2148,27 +2387,32 @@ export default function SessionCall() {
               // ignore
             }
           }
-          const offer = await pc2.createOffer();
-          await pc2.setLocalDescription(offer);
-        await send("webrtc_offer", { sdp: { type: pc2.localDescription?.type, sdp: pc2.localDescription?.sdp } });
+          await sendOffer(false);
         }
       }
 
       // Se o usuário já recebeu offer antes, responde agora
+      let answeredPendingOffer = false;
       if (role === "user" && pendingOfferRef.current && pcRef.current) {
         const sdp = normalizeSdpInit(pendingOfferRef.current);
+        const offerId = pendingOfferIdRef.current;
         pendingOfferRef.current = null;
+        pendingOfferIdRef.current = null;
         setPendingOfferAvailable(false);
         if (!sdp) throw new Error("SDP inválido (offer pendente).");
+        receivedOfferIdRef.current = offerId;
         await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
         await flushPendingIce();
         const answer = await pcRef.current.createAnswer();
-        await pcRef.current.setLocalDescription(answer);
-        await send("webrtc_answer", {
-          sdp: { type: pcRef.current.localDescription?.type, sdp: pcRef.current.localDescription?.sdp },
-        });
+        await publishDescription(pcRef.current, answer, "webrtc_answer", offerId);
+        answeredPendingOffer = true;
       }
+      if (role === "user" && !answeredPendingOffer) {
+        void send("webrtc_reconnect", { ts: Date.now() }).catch(() => {});
+      }
+      if (role === "user" && pcRef.current?.connectionState !== "connected") scheduleRecovery(8000);
     } catch (e: any) {
+      mediaReadyRef.current = false;
       console.error("[WebRTC] falha ao iniciar sessão (mídia/webrtc)", e);
       const name = String(e?.name || "");
       const details = String(e?.message || "");
@@ -2208,7 +2452,9 @@ export default function SessionCall() {
         return;
       }
       const sdp = normalizeSdpInit(raw);
+      const offerId = pendingOfferIdRef.current;
       pendingOfferRef.current = null;
+      pendingOfferIdRef.current = null;
       setPendingOfferAvailable(false);
       if (!sdp) {
         toast({ title: "Sessão", description: "Oferta inválida. Tente novamente.", variant: "destructive" });
@@ -2216,11 +2462,11 @@ export default function SessionCall() {
       }
 
       // Atenção: isso conecta em modo “somente receber” (sem enviar áudio/vídeo).
+      receivedOfferIdRef.current = offerId;
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       await flushPendingIce();
       const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      await send("webrtc_answer", { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp } });
+      await publishDescription(pc, answer, "webrtc_answer", offerId);
 
       setMediaState("ready");
       setStatusLabel("Conectado (sem câmera/microfone)");
@@ -2417,6 +2663,24 @@ export default function SessionCall() {
               ) : null}
             </div>
           </div>
+          {showReconnectButton && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (pcRef.current?.signalingState === "closed") refreshPage();
+                else if (remoteVideoStalled && pcRef.current?.connectionState === "connected") {
+                  if (role === "admin") void sendOffer(true).catch(() => {});
+                  else void send("webrtc_reconnect", { ts: Date.now() }).catch(() => {});
+                }
+                else scheduleRecovery(0);
+              }}
+              title="Tentar reconectar à chamada"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Tentar novamente
+            </Button>
+          )}
         </div>
 
         <div className="sc-session-grid grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
@@ -2579,8 +2843,14 @@ export default function SessionCall() {
                   remoteSpeaking ? "border-brand-green shadow-[0_0_0_2px_rgba(34,197,94,0.35)]" : "border-border"
                 )}
               >
-                <div className="px-3 py-2 text-xs font-semibold text-foreground border-b border-border">
-                  {role === "admin" ? "Paciente" : "Fonoaudióloga"}
+                <div className="px-3 py-2 text-xs font-semibold text-foreground border-b border-border flex items-center justify-between gap-2">
+                  <span>{role === "admin" ? "Paciente" : "Fonoaudióloga"}</span>
+                  {remotePresent && remoteMediaState && (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      {!remoteMediaState.cameraOn && <span title="A outra pessoa desligou a câmera"><VideoOff className="h-4 w-4" aria-label="Câmera desligada" /></span>}
+                      {!remoteMediaState.microphoneOn && <span title="A outra pessoa desligou o microfone"><MicOff className="h-4 w-4" aria-label="Microfone desligado" /></span>}
+                    </span>
+                  )}
                 </div>
                 <div className="relative aspect-[4/3] bg-black lg:aspect-auto lg:flex-1 lg:min-h-0">
                   <video
@@ -2589,6 +2859,24 @@ export default function SessionCall() {
                     playsInline
                     className="h-full w-full object-cover"
                   />
+                  {remotePresent && remoteMediaState?.microphoneOn === false && (
+                    <div className="absolute top-2 left-2 z-10 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded bg-black/80 px-2 py-1 text-[11px] font-medium text-white">
+                      <MicOff className="h-3.5 w-3.5 shrink-0" />
+                      <span>Microfone desligado</span>
+                    </div>
+                  )}
+                  {remotePresent && remoteMediaState?.cameraOn === false && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black text-white text-center p-3">
+                      <VideoOff className="h-6 w-6" />
+                      <span className="text-sm font-medium">Câmera desligada pela outra pessoa</span>
+                    </div>
+                  )}
+                  {remotePresent && remoteMediaState?.cameraOn !== false && remoteVideoStalled && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black text-white text-center p-3">
+                      <RefreshCw className="h-6 w-6" />
+                      <span className="text-sm font-medium">Imagem interrompida. Tentando recuperar...</span>
+                    </div>
+                  )}
                   {!remotePresent && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white">
                       <img

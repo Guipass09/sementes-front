@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import FullscreenToggle from "@/components/FullscreenToggle";
+import { useSessionContentStatus } from "@/hooks/use-session-content-status";
 import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 
@@ -55,6 +56,7 @@ export default function PhonemeGameView() {
 
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<PhonemeGameRow | null>(null);
+  useSessionContentStatus(loading, !!game);
   const [notFound, setNotFound] = useState(false);
   const [forbidden, setForbidden] = useState(false);
 

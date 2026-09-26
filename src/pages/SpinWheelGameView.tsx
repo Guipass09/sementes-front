@@ -11,6 +11,7 @@ import type { SpinWheelGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { cn } from "@/lib/utils";
 import FullscreenToggle from "@/components/FullscreenToggle";
+import { useSessionContentStatus } from "@/hooks/use-session-content-status";
 
 export default function SpinWheelGameView() {
   const { id } = useParams<{ id: string }>();
@@ -40,6 +41,7 @@ export default function SpinWheelGameView() {
 
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<SpinWheelGameRow | null>(null);
+  useSessionContentStatus(loading, !!game);
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);

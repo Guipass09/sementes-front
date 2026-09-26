@@ -2581,7 +2581,7 @@ export type VideoJoinResponse = {
   room?: {
     appointment_id: number;
     created_at?: string;
-    content?: { path?: string } | null;
+    content?: { path?: string; title?: string; kind?: string; seed?: number | null; share_id?: string } | null;
     content_updated_at?: string | null;
     control_granted_to_user?: boolean;
     control_updated_at?: string | null;

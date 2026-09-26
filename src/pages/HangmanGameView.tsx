@@ -13,6 +13,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { emitUserProgressChanged } from "@/lib/user-events";
 import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 import FullscreenToggle from "@/components/FullscreenToggle";
+import { useSessionContentStatus } from "@/hooks/use-session-content-status";
 import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 
 const LETTERS = Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i));
@@ -57,6 +58,7 @@ export default function HangmanGameView() {
 
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<HangmanGameRow | null>(null);
+  useSessionContentStatus(loading, !!game);
   const [notFound, setNotFound] = useState(false);
   const [forbidden, setForbidden] = useState(false);
 

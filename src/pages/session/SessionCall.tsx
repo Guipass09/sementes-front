@@ -62,6 +62,8 @@ const ReportFormModalLazy = lazy(async () => {
 });
 
 type Role = "admin" | "user";
+type ContentStatus = "loading" | "ready" | "failed";
+type SharedContent = { path: string; title: string; kind: string; seed: number | null; share_id: string };
 
 function safeStopStream(s: MediaStream | null) {
   if (!s) return;
@@ -149,6 +151,13 @@ export default function SessionCall() {
   const [contentKind, setContentKind] = useState<string | null>(null);
   const [contentSeed, setContentSeed] = useState<number | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
+  const [contentShareId, setContentShareId] = useState<string | null>(null);
+  const [contentReloadKey, setContentReloadKey] = useState(0);
+  const [contentError, setContentError] = useState(false);
+  const [remoteContentStatus, setRemoteContentStatus] = useState<ContentStatus | "waiting" | "unconfirmed" | null>(null);
+  const activeContentRef = useRef<SharedContent | null>(null);
+  const localContentStatusRef = useRef<ContentStatus>("loading");
+  const remoteContentStatusRef = useRef<ContentStatus | "waiting" | "unconfirmed" | null>(null);
   const [controlGranted, setControlGranted] = useState<boolean>(false);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [packagesOpen, setPackagesOpen] = useState(false);
@@ -237,6 +246,14 @@ export default function SessionCall() {
     setShowReconnectButton(false);
     setRemoteMediaState(null);
     setRemoteVideoStalled(false);
+    activeContentRef.current = null;
+    localContentStatusRef.current = "loading";
+    remoteContentStatusRef.current = null;
+    setContentPath(null);
+    setContentShareId(null);
+    setContentLoading(false);
+    setContentError(false);
+    setRemoteContentStatus(null);
     videoHealthRef.current = { frames: 0, lastFrameAt: 0, softRecoveryAt: 0, iceRecoveryAt: 0 };
     joinedAtMsRef.current = 0;
   }, [appointmentId]);
@@ -683,14 +700,29 @@ export default function SessionCall() {
         const e = typeof (res as any)?.epoch === "string" ? ((res as any).epoch as string) : null;
         epochRef.current = e;
         setEpoch(e);
-        const initialPath = res.room?.content?.path || null;
-        setContentPath(typeof initialPath === "string" && initialPath ? initialPath : null);
-        setContentTitle(null);
-        setContentKind((res as any)?.room?.content?.kind ?? null);
-        setContentSeed(
-          typeof (res as any)?.room?.content?.seed === "number" ? (res as any).room.content.seed : null
-        );
-        setContentLoading(false);
+        const savedContent = res.room?.content;
+        const initialPath = typeof savedContent?.path === "string" ? savedContent.path : "";
+        const initialShareId = typeof savedContent?.share_id === "string" && savedContent.share_id
+          ? savedContent.share_id
+          : `saved:${initialPath}:${String(savedContent?.seed ?? "")}`;
+        activeContentRef.current = initialPath ? {
+          path: initialPath,
+          title: typeof savedContent?.title === "string" ? savedContent.title : "",
+          kind: typeof savedContent?.kind === "string" ? savedContent.kind : "",
+          seed: typeof savedContent?.seed === "number" ? savedContent.seed : null,
+          share_id: initialShareId,
+        } : null;
+        localContentStatusRef.current = "loading";
+        remoteContentStatusRef.current = initialPath && res.role === "admin" ? "waiting" : null;
+        setContentPath(initialPath || null);
+        setContentTitle(activeContentRef.current?.title || null);
+        setContentKind(activeContentRef.current?.kind || null);
+        setContentSeed(activeContentRef.current?.seed ?? null);
+        setContentShareId(initialPath ? initialShareId : null);
+        setContentReloadKey(0);
+        setContentLoading(!!initialPath);
+        setContentError(false);
+        setRemoteContentStatus(remoteContentStatusRef.current);
         setControlGranted(!!res.room?.control_granted_to_user);
         setScreenShareActive(!!(res as any)?.room?.screen_share_active);
         setStatusLabel("Toque em Participar");
@@ -1048,27 +1080,140 @@ export default function SessionCall() {
     }
   }, []);
 
+  const setLocalContentStatus = (status: ContentStatus) => {
+    localContentStatusRef.current = status;
+    setContentLoading(status === "loading");
+    setContentError(status === "failed");
+    const shareId = activeContentRef.current?.share_id;
+    if (role === "user" && shareId) {
+      void send("content_status", { share_id: shareId, status }).catch(() => {});
+    }
+  };
+
+  const retryLocalContent = () => {
+    if (!activeContentRef.current) return;
+    setLocalContentStatus("loading");
+    setContentReloadKey((value) => value + 1);
+  };
+
+  const resendContentToPatient = async (forceReload = false) => {
+    const content = activeContentRef.current;
+    if (role !== "admin" || !content) return;
+    remoteContentStatusRef.current = "waiting";
+    setRemoteContentStatus("waiting");
+    try {
+      await send("content_select", { ...content, force_reload: forceReload });
+    } catch {
+      if (activeContentRef.current?.share_id !== content.share_id) return;
+      remoteContentStatusRef.current = "unconfirmed";
+      setRemoteContentStatus("unconfirmed");
+      toast({ title: "Atividade", description: "Não foi possível enviar. Tente novamente.", variant: "destructive" });
+    }
+  };
+
   const selectContent = async (path: string, title: string, kind: string) => {
     if (!path) return;
     // Ao trocar conteúdo, limpa rabiscos (efeito "compartilhamento de tela" por atividade)
     clearDoodleLocal();
     void send("draw_event", { t: "clear" }).catch(() => {});
+    // Seed sempre que for conteúdo interno (evita "ordem diferente" entre admin/paciente)
+    const seed = path.startsWith("http") ? null : computeSeed(path);
+    const shareId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    activeContentRef.current = { path, title, kind, seed, share_id: shareId };
     setContentPath(path);
     setContentTitle(title || null);
     setContentKind(kind || null);
-    // Seed sempre que for conteúdo interno (evita "ordem diferente" entre admin/paciente)
-    const seed = path.startsWith("http") ? null : computeSeed(path);
     setContentSeed(seed);
-    setContentLoading(true);
-    try {
-      if (role === "admin") {
-        await send("content_select", { path, title, kind, seed });
-      }
-    } catch {
-      // se falhar, mantém estado local (admin ainda vê)
-    }
+    setContentShareId(shareId);
+    setContentReloadKey(0);
+    setLocalContentStatus("loading");
+    if (role === "admin") void resendContentToPatient();
     setCatalogOpen(false);
   };
+
+  useEffect(() => {
+    if (role !== "user" || !joinInfo || !contentShareId || !activeContentRef.current) return;
+    void send("content_status", { share_id: contentShareId, status: localContentStatusRef.current }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinInfo?.token, role, contentShareId]);
+
+  useEffect(() => {
+    if (!joinInfo || !contentShareId || !contentLoading || screenShareActive) return;
+    const timer = window.setTimeout(() => {
+      if (contentReloadKey === 0 && activeContentRef.current?.path.startsWith("/")) {
+        retryLocalContent();
+      } else {
+        setLocalContentStatus("failed");
+      }
+    }, 14000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinInfo?.token, contentShareId, contentLoading, contentReloadKey, screenShareActive]);
+
+  useEffect(() => {
+    if (role !== "admin" || !joinInfo || !contentShareId ||
+      (remoteContentStatus !== "waiting" && remoteContentStatus !== "loading")) return;
+    const resend = (delay: number) => window.setTimeout(() => {
+      if (remoteContentStatusRef.current !== "waiting" || activeContentRef.current?.share_id !== contentShareId) return;
+      void send("content_select", activeContentRef.current).catch(() => {});
+    }, delay);
+    const first = remoteContentStatus === "waiting" ? resend(6000) : null;
+    const second = remoteContentStatus === "waiting" ? resend(13000) : null;
+    const unconfirmed = window.setTimeout(() => {
+      if (activeContentRef.current?.share_id !== contentShareId || remoteContentStatusRef.current === "ready") return;
+      remoteContentStatusRef.current = "unconfirmed";
+      setRemoteContentStatus("unconfirmed");
+    }, 28000);
+    return () => {
+      if (first) window.clearTimeout(first);
+      if (second) window.clearTimeout(second);
+      window.clearTimeout(unconfirmed);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinInfo?.token, role, contentShareId, remoteContentStatus]);
+
+  useEffect(() => {
+    const onContentState = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== contentFrameRef.current?.contentWindow) return;
+      const data = event.data;
+      if (data?.type !== "SESSION_CONTENT_STATE" || data.share_id !== activeContentRef.current?.share_id) return;
+      if (data.status === "loading") return;
+      if (data.status === "ready") setLocalContentStatus("ready");
+      if (data.status === "failed") {
+        if (contentReloadKey === 0) retryLocalContent();
+        else setLocalContentStatus("failed");
+      }
+    };
+    window.addEventListener("message", onContentState);
+    return () => window.removeEventListener("message", onContentState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinInfo?.token, role, contentReloadKey]);
+
+  useEffect(() => {
+    if (!joinInfo || !contentShareId) return;
+    const onOnline = () => {
+      if (!screenShareActive && (contentLoading || contentError)) retryLocalContent();
+      if (role === "admin" && (remoteContentStatus === "failed" || remoteContentStatus === "unconfirmed")) {
+        void resendContentToPatient();
+      }
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinInfo?.token, contentShareId, screenShareActive, contentLoading, contentError, remoteContentStatus, role]);
+
+  const wasScreenShareActiveRef = useRef(false);
+  useEffect(() => {
+    if (wasScreenShareActiveRef.current && !screenShareActive && activeContentRef.current) {
+      if (role === "admin") {
+        remoteContentStatusRef.current = "waiting";
+        setRemoteContentStatus("waiting");
+      }
+      retryLocalContent();
+    }
+    wasScreenShareActiveRef.current = screenShareActive;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screenShareActive, role]);
 
   const sendPayment = async (sessions: number, url: string) => {
     if (role !== "admin") return;
@@ -1544,16 +1689,38 @@ export default function SessionCall() {
     if (m.kind === "content_select") {
       const p = m.payload?.path;
       if (typeof p === "string" && p) {
+        const shareId = typeof m.payload?.share_id === "string" && m.payload.share_id
+          ? m.payload.share_id : `legacy:${m.id}`;
+        if (activeContentRef.current?.share_id === shareId) {
+          if (m.payload?.force_reload) retryLocalContent();
+          else void send("content_status", { share_id: shareId, status: localContentStatusRef.current }).catch(() => {});
+          return;
+        }
         clearDoodleLocal();
+        const title = typeof m.payload?.title === "string" ? m.payload.title : "";
+        const kind = typeof m.payload?.kind === "string" ? m.payload.kind : "";
+        const seed = typeof m.payload?.seed === "number" ? m.payload.seed : null;
+        activeContentRef.current = { path: p, title, kind, seed, share_id: shareId };
         setContentPath(p);
-        const t = m.payload?.title;
-        setContentTitle(typeof t === "string" && t ? t : null);
-        const k = m.payload?.kind;
-        setContentKind(typeof k === "string" && k ? k : null);
-        const s = m.payload?.seed;
-        setContentSeed(typeof s === "number" ? s : null);
-        setContentLoading(true);
+        setContentTitle(title || null);
+        setContentKind(kind || null);
+        setContentSeed(seed);
+        setContentShareId(shareId);
+        setContentReloadKey(0);
+        setLocalContentStatus("loading");
       }
+      return;
+    }
+
+    if (m.kind === "content_status" && role === "admin") {
+      if (m.payload?.share_id !== activeContentRef.current?.share_id) return;
+      const status = m.payload?.status;
+      if (status === "loading" || status === "ready" || status === "failed") {
+        if (remoteContentStatusRef.current === "ready" && status !== "ready") return;
+        remoteContentStatusRef.current = status;
+        setRemoteContentStatus(status);
+      }
+      return;
     }
 
     if (m.kind === "control_set") {
@@ -2632,6 +2799,7 @@ export default function SessionCall() {
       if (joinInfo?.sessionId) base.searchParams.set("session_id", String(joinInfo.sessionId));
       if (role) base.searchParams.set("session_role", role);
       if (typeof contentSeed === "number") base.searchParams.set("session_seed", String(contentSeed));
+      if (contentShareId) base.searchParams.set("session_content_id", contentShareId);
       return base.pathname + (base.search ? base.search : "");
     } catch {
       return contentPath;
@@ -2652,7 +2820,7 @@ export default function SessionCall() {
   return (
     <div className="min-h-[100svh] bg-background">
       <div className="mx-auto max-w-[1400px] px-4 py-4 lg:py-6">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <img src={logoImage} alt="Sementes da Fala" className="h-8 w-8 rounded-lg object-cover" />
             <div className="leading-tight">
@@ -2663,6 +2831,26 @@ export default function SessionCall() {
               ) : null}
             </div>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+          {role === "admin" && contentPath && !screenShareActive && remoteContentStatus && (
+            <div className="flex items-center gap-2 text-xs" aria-live="polite">
+              <span className={cn(
+                remoteContentStatus === "ready" ? "text-green-700" :
+                  remoteContentStatus === "failed" || remoteContentStatus === "unconfirmed" ? "text-destructive" : "text-muted-foreground",
+              )}>
+                {remoteContentStatus === "waiting" ? "Enviando atividade ao paciente..." :
+                  remoteContentStatus === "loading" ? "Paciente abrindo atividade..." :
+                    remoteContentStatus === "ready" ? "Atividade aberta para o paciente" :
+                      remoteContentStatus === "failed" ? "Paciente não conseguiu abrir a atividade" :
+                        "Sem confirmação do paciente"}
+              </span>
+              {(remoteContentStatus === "ready" || remoteContentStatus === "failed" || remoteContentStatus === "unconfirmed") && (
+                <Button variant="outline" size="sm" onClick={() => void resendContentToPatient(true)} title="Reenviar atividade ao paciente">
+                  <RefreshCw className="h-4 w-4 mr-1" /> Reenviar
+                </Button>
+              )}
+            </div>
+          )}
           {showReconnectButton && (
             <Button
               variant="outline"
@@ -2681,6 +2869,7 @@ export default function SessionCall() {
               Tentar novamente
             </Button>
           )}
+          </div>
         </div>
 
         <div className="sc-session-grid grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
@@ -2751,20 +2940,19 @@ export default function SessionCall() {
                 </div>
               ) : iframeSrc ? (
                 <iframe
-                  key={iframeSrc}
+                  key={`${iframeSrc}:${contentShareId}:${contentReloadKey}`}
                   src={iframeSrc}
                   ref={contentFrameRef}
                   allow="autoplay"
                   className="absolute inset-0 h-full w-full rounded-xl bg-background"
                   title="Conteúdo da sessão"
                   onLoad={() => {
-                    setContentLoading(false);
+                    if (contentPath?.startsWith("http")) setLocalContentStatus("ready");
                     // Após load do iframe, reenviar o estado de controle (mobile pode montar o listener depois).
                     postToContentFrame({ type: "SESSION_CONTROL", granted: controlGranted });
                   }}
                   onError={() => {
-                    // Se houver erro no iframe, remove loading após delay
-                    setTimeout(() => setContentLoading(false), 1000);
+                    setLocalContentStatus("failed");
                   }}
                   style={{
                     // Sem reação visual: apenas bloqueia interação quando não liberado
@@ -2816,9 +3004,17 @@ export default function SessionCall() {
                 onPointerCancel={() => void onDrawPointerUp()}
               />
 
-              {contentLoading && (
+              {contentLoading && !screenShareActive && (
                 <div className="absolute inset-0 rounded-xl bg-background/60 backdrop-blur-[1px] flex items-center justify-center">
-                  <div className="text-sm font-semibold text-foreground">Carregando…</div>
+                  <div className="text-sm font-semibold text-foreground">Carregando atividade...</div>
+                </div>
+              )}
+              {contentError && !screenShareActive && (
+                <div className="absolute inset-0 rounded-xl bg-background/85 flex flex-col items-center justify-center gap-3 px-4 text-center">
+                  <div className="text-sm font-semibold text-foreground">Não foi possível abrir a atividade.</div>
+                  <Button variant="outline" onClick={retryLocalContent}>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Tentar novamente
+                  </Button>
                 </div>
               )}
             </div>

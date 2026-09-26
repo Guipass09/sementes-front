@@ -28,6 +28,7 @@ import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 import FullscreenToggle from "@/components/FullscreenToggle";
+import { useSessionContentStatus } from "@/hooks/use-session-content-status";
 
 const ActivityView = () => {
   const { id } = useParams();
@@ -63,6 +64,7 @@ const ActivityView = () => {
 
   const [loading, setLoading] = useState(true);
   const [activity, setActivity] = useState<ActivityRow | null>(null);
+  useSessionContentStatus(loading, !!activity);
   const [notFound, setNotFound] = useState(false);
   const [forbidden, setForbidden] = useState(false);
 

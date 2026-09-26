@@ -11,6 +11,7 @@ import type { CardGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { cn } from "@/lib/utils";
 import FullscreenToggle from "@/components/FullscreenToggle";
+import { useSessionContentStatus } from "@/hooks/use-session-content-status";
 import { playCardFlip, playCardShuffle, playFanfare } from "@/lib/sfx";
 
 type CardFace = {
@@ -84,6 +85,7 @@ export default function CardGameView() {
 
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<CardGameRow | null>(null);
+  useSessionContentStatus(loading, !!game);
 
   // Estado do baralho
   const [remaining, setRemaining] = useState<number[]>([]); // posições (0..n-1)

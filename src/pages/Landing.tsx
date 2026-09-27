@@ -25,7 +25,7 @@ const assets = {
   activityInUse: "/landing/atividade-em-uso-demo.png",
   wheel: "/landing/roleta-dos-sons-demo.png",
   mouth: "/landing/boca-3d-profissional.png",
-  activityBuilder: "/landing/criacao-atividade-demo.png",
+  activityBuilder: "/landing/criacao-memoria-demo.png",
 };
 
 const whatsappHref = "https://wa.me/message/GKL4EEB2NSI4A1";
@@ -69,12 +69,12 @@ const showcase = [
     number: "04",
     tone: "purple",
     shortLabel: "Criação",
-    tag: "Atividades personalizadas",
-    title: "Seu material nasce aqui.",
+    tag: "Criação de jogos",
+    title: "Crie um jogo com suas imagens.",
     description:
-      "Organize materiais, objetivos e destinatários em uma atividade própria. A plataforma acompanha o seu jeito de trabalhar.",
+      "Escolha as figuras, monte os pares e personalize o jogo da memória para o objetivo de cada atendimento.",
     image: assets.activityBuilder,
-    alt: "Formulário de criação de atividade com dados fictícios na área profissional",
+    alt: "Criação de jogo da memória com três figuras adicionadas e outros pares ainda vazios",
   },
   {
     number: "05",

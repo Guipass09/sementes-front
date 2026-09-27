@@ -77,7 +77,7 @@
 .lp-session { background: #eff9f2; }
 .lp-session__grid { display: grid; grid-template-columns: 1.18fr .82fr; align-items: center; gap: 7%; }
 .lp-session__visual { position: relative; min-width: 0; }
-.lp-session__visual img { width: 100%; display: block; aspect-ratio: 1.48; object-fit: cover; object-position: center top; border: 1px solid #b8dfc4; box-shadow: 18px 20px 0 #d3f1dd; }
+.lp-session__visual img { width: 100%; height: auto; display: block; border: 1px solid #b8dfc4; box-shadow: 18px 20px 0 #d3f1dd; }
 .lp-image-note { display: block; margin-top: 10px; color: var(--lp-muted); font-size: 11px; }
 .lp-session__copy h2 { margin-top: 16px; font-size: clamp(38px, 4vw, 60px); line-height: 1.08; font-weight: 900; }
 .lp-session__copy > p:not(.lp-kicker) { margin-top: 21px; max-width: 540px; color: var(--lp-muted); font-size: 18px; line-height: 1.58; }
@@ -120,10 +120,10 @@
 .lp-showcase__stage--blue { --lp-slide-accent: hsl(var(--brand-blue)); --lp-slide-tint: #e6f5ff; }
 .lp-showcase__stage--purple { --lp-slide-accent: hsl(var(--brand-purple)); --lp-slide-tint: #f2eafd; }
 .lp-showcase__stage--pink { --lp-slide-accent: #da6090; --lp-slide-tint: #fcecf2; }
-.lp-showcase__media { position: relative; min-width: 0; min-height: 0; height: 100%; padding: 18px; overflow: hidden; background: var(--lp-slide-tint); }
-.lp-showcase__media img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; background: white; border: 1px solid rgba(70, 58, 45, .08); animation: lp-enter .28s ease; }
-.lp-showcase__media img.lp-showcase__focus { object-fit: cover; object-position: center 52%; }
-.lp-showcase__media span { position: absolute; left: 30px; bottom: 30px; padding: 6px 8px; background: rgba(255,255,255,.95); color: var(--lp-ink); font-size: 11px; font-weight: 800; }
+.lp-showcase__media { display: flex; flex-direction: column; gap: 8px; min-width: 0; min-height: 0; height: 100%; padding: 18px; overflow: hidden; background: var(--lp-slide-tint); }
+.lp-showcase__media img { display: block; flex: 1; min-height: 0; width: 100%; height: 100%; object-fit: contain; object-position: center; background: white; border: 1px solid rgba(70, 58, 45, .08); animation: lp-enter .28s ease; }
+.lp-showcase__media img.lp-showcase__focus { object-fit: contain; }
+.lp-showcase__media span { flex: none; color: var(--lp-ink); font-size: 11px; font-weight: 800; }
 .lp-showcase__details { display: flex; flex-direction: column; justify-content: center; min-height: 0; padding: 44px; border-top: 7px solid var(--lp-slide-accent); }
 .lp-showcase__count { display: block; margin-bottom: 60px; color: var(--lp-slide-accent); font-size: 14px; font-weight: 900; }
 .lp-showcase__details .lp-kicker { color: var(--lp-ink); }
@@ -138,7 +138,7 @@
 .lp-showcase__preview--pink { --lp-preview-accent: #da6090; }
 .lp-showcase__preview[aria-selected="true"] { border-color: #cde6d3; border-bottom-color: var(--lp-preview-accent); background: #fbfffc; }
 .lp-showcase__preview:hover { background: #f5fcf7; }
-.lp-showcase__preview img { flex: none; width: 66px; height: 52px; object-fit: cover; object-position: center; border-radius: 3px; }
+.lp-showcase__preview img { flex: none; width: 66px; height: 52px; object-fit: contain; object-position: center; border-radius: 3px; background: var(--lp-slide-tint, #f4f8f5); }
 .lp-showcase__preview span { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .lp-showcase__preview small { color: var(--lp-preview-accent); font-size: 11px; }
 @keyframes lp-enter { from { opacity: .6; } to { opacity: 1; } }
@@ -229,7 +229,7 @@
   .lp-showcase__media { height: 295px; padding: 10px; }
   .lp-showcase__media img { object-fit: contain; }
   .lp-showcase__media img.lp-showcase__focus { object-fit: contain; }
-  .lp-showcase__media span { left: 18px; bottom: 18px; max-width: calc(100% - 36px); font-size: 9px; }
+  .lp-showcase__media span { font-size: 9px; }
   .lp-showcase__details { padding: 26px; }
   .lp-showcase__count { margin-bottom: 18px; }
   .lp-showcase__details h3 { font-size: 29px; }

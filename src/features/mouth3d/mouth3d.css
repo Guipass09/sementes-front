@@ -1,0 +1,108 @@
+.mouth3d-page {
+  width: min(100%, 1640px);
+  margin: 0 auto;
+  padding: 28px clamp(16px, 3vw, 46px) 44px;
+  color: #223b35;
+}
+
+.mouth3d-heading,
+.mouth3d-title-group,
+.mouth3d-stage-top,
+.mouth3d-stage-bottom,
+.mouth3d-controls-heading,
+.mouth3d-control-label,
+.mouth3d-range-ends {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mouth3d-heading { gap: 16px; margin-bottom: 22px; }
+.mouth3d-title-group { justify-content: flex-start; gap: 16px; min-width: 0; }
+.mouth3d-title-group h1 { margin: 1px 0 0; font-size: 29px; line-height: 1.15; font-weight: 700; letter-spacing: 0; }
+.mouth3d-eyebrow { color: #66827a; text-transform: uppercase; font-size: 10px; font-weight: 800; letter-spacing: 0; }
+.mouth3d-back,
+.mouth3d-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #cfdfd8;
+  border-radius: 7px;
+  background: #fff;
+  color: #285348;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.mouth3d-back:hover,
+.mouth3d-reset:hover { background: #ecf7f1; border-color: #83b79e; }
+.mouth3d-status { display: inline-flex; align-items: center; gap: 8px; color: #507268; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.mouth3d-status span { width: 7px; height: 7px; border-radius: 50%; background: #26b774; }
+
+.mouth3d-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 322px; min-height: 680px; overflow: hidden; background: #fff; }
+.mouth3d-stage { position: relative; min-width: 0; min-height: 680px; background: #e9f2ee; overflow: hidden; }
+.mouth3d-stage-top,
+.mouth3d-stage-bottom { position: absolute; left: 26px; right: 26px; z-index: 2; pointer-events: none; }
+.mouth3d-stage-top { top: 24px; gap: 14px; }
+.mouth3d-stage-bottom { bottom: 20px; color: #648178; font-size: 10px; font-weight: 800; letter-spacing: 0; justify-content: flex-end; }
+.mouth3d-stage-label { display: inline-flex; align-items: center; gap: 8px; color: #36554b; font-size: 13px; font-weight: 800; }
+.mouth3d-stage-label svg { color: #219b66; }
+.mouth3d-view-switch { display: flex; gap: 2px; padding: 3px; background: #ffffffcc; border: 1px solid #d5e5de; border-radius: 7px; pointer-events: auto; }
+.mouth3d-view-switch button { border: 0; border-radius: 4px; padding: 7px 11px; color: #638077; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.mouth3d-view-switch button.active { background: #247d59; color: #fff; }
+.mouth3d-view-switch button:not(.active):hover { background: #eaf4ef; }
+.mouth3d-canvas { position: absolute; inset: 0; touch-action: none; }
+.mouth3d-canvas canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.mouth3d-canvas[data-webgl="unsupported"]::after { content: "Não foi possível iniciar a visualização 3D neste dispositivo."; position: absolute; left: 18px; right: 18px; top: 50%; transform: translateY(-50%); color: #674850; text-align: center; }
+
+.mouth3d-controls { display: flex; flex-direction: column; min-width: 0; padding: 27px 24px 23px; border-left: 1px solid #dce8e2; background: #fff; }
+.mouth3d-controls-heading { justify-content: flex-start; gap: 11px; }
+.mouth3d-controls-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 36px; height: 36px; border-radius: 7px; color: #22805c; background: #eaf6ef; }
+.mouth3d-controls-heading h2 { margin: 0; color: #264139; font-size: 17px; font-weight: 800; line-height: 1.2; }
+.mouth3d-controls-heading p { margin: 3px 0 0; color: #82948d; font-size: 11px; }
+.mouth3d-reset { width: 34px; height: 34px; margin-left: auto; }
+.mouth3d-control-section { padding: 28px 0 27px; }
+.mouth3d-control-group + .mouth3d-control-group { margin-top: 30px; }
+.mouth3d-control-label { gap: 8px; margin-bottom: 16px; color: #37564c; font-size: 12px; font-weight: 800; }
+.mouth3d-control-label output { color: #237f59; font-size: 11px; font-variant-numeric: tabular-nums; }
+.mouth3d-control-group input[type="range"] { display: block; width: 100%; height: 5px; margin: 0; border-radius: 10px; outline: none; appearance: none; background: linear-gradient(to right, #299965 0 var(--range-progress), #dce9e2 var(--range-progress) 100%); cursor: pointer; }
+.mouth3d-control-group input[type="range"]::-webkit-slider-thumb { appearance: none; width: 17px; height: 17px; border: 4px solid #fff; border-radius: 50%; background: #258f60; box-shadow: 0 0 0 1px #258f60, 0 2px 7px #195d3d33; }
+.mouth3d-control-group input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border: 4px solid #fff; border-radius: 50%; background: #258f60; box-shadow: 0 0 0 1px #258f60; }
+.mouth3d-range-ends { margin-top: 11px; color: #869b92; font-size: 10px; }
+.mouth3d-presets { border-top: 1px solid #e6efea; padding-top: 23px; }
+.mouth3d-presets h3 { margin: 0 0 15px; color: #37564c; font-size: 12px; font-weight: 800; }
+.mouth3d-preset-list { border: 1px solid #e0eae4; border-radius: 7px; overflow: hidden; }
+.mouth3d-preset-list button { display: flex; align-items: center; width: 100%; min-height: 42px; gap: 10px; padding: 0 12px; border: 0; background: #fff; color: #39564d; text-align: left; font-size: 12px; font-weight: 700; }
+.mouth3d-preset-list button + button { border-top: 1px solid #e9f0ec; }
+.mouth3d-preset-list button:hover { background: #f2faf5; }
+.mouth3d-preset-number { color: #91ada0; font-size: 10px; font-weight: 800; }
+.mouth3d-preset-arrow { margin-left: auto; color: #2b9465; font-size: 17px; font-weight: 700; }
+.mouth3d-notice { margin-top: auto; padding-top: 20px; color: #81938c; font-size: 10px; line-height: 1.5; }
+
+@media (max-width: 900px) {
+  .mouth3d-workspace { grid-template-columns: minmax(0, 1fr); }
+  .mouth3d-stage { min-height: 520px; }
+  .mouth3d-controls { border-left: 0; border-top: 1px solid #dce8e2; }
+  .mouth3d-control-section { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  .mouth3d-control-group + .mouth3d-control-group { margin-top: 0; }
+  .mouth3d-notice { margin-top: 12px; }
+}
+
+@media (max-width: 600px) {
+  .mouth3d-page { padding: 18px 12px 32px; }
+  .mouth3d-heading { margin-bottom: 15px; }
+  .mouth3d-title-group { gap: 10px; }
+  .mouth3d-title-group h1 { font-size: 24px; }
+  .mouth3d-status { font-size: 10px; }
+  .mouth3d-status { display: none; }
+  .mouth3d-workspace { min-height: 0; }
+  .mouth3d-stage { min-height: 405px; }
+  .mouth3d-stage-top { left: 14px; right: 14px; top: 13px; }
+  .mouth3d-stage-label { font-size: 11px; }
+  .mouth3d-stage-label svg { width: 15px; }
+  .mouth3d-view-switch button { padding: 6px 8px; font-size: 11px; }
+  .mouth3d-stage-bottom { left: 15px; right: 15px; bottom: 12px; font-size: 8px; }
+  .mouth3d-controls { padding: 20px 18px; }
+  .mouth3d-control-section { grid-template-columns: 1fr; padding: 24px 0; gap: 24px; }
+}

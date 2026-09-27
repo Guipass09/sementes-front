@@ -1,9 +1,11 @@
-import { useNavigate } from "react-router-dom";
-import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon, ScanFace } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function AdminGamesHub() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const showMouthPrototype = location.pathname === "/admin/jogos";
 
   return (
     <div className="min-h-full py-8 lg:py-12">
@@ -14,6 +16,22 @@ export default function AdminGamesHub() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
+          {showMouthPrototype && <div className="bg-card rounded-2xl border border-border p-6 shadow-sm h-full">
+            <div className="flex items-start gap-4 h-full">
+              <div className="h-12 w-12 rounded-2xl bg-brand-green/10 flex items-center justify-center">
+                <ScanFace className="h-6 w-6 text-brand-green" />
+              </div>
+              <div className="flex-1 flex flex-col h-full">
+                <h2 className="font-display font-bold text-foreground text-xl">Boca 3D</h2>
+                <p className="text-sm text-muted-foreground mt-1">Modelo articulatório interativo.</p>
+                <div className="mt-auto pt-4">
+                  <Button onClick={() => navigate("/admin/jogos/boca-3d")} variant="default">
+                    Abrir <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>}
           <div className="bg-card rounded-2xl border border-border p-6 shadow-sm h-full">
             <div className="flex items-start gap-4 h-full">
               <div className="h-12 w-12 rounded-2xl bg-brand-green/10 flex items-center justify-center">

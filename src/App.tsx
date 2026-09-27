@@ -83,6 +83,7 @@ import { useOneSignal } from "@/hooks/use-onesignal";
 const queryClient = new QueryClient();
 
 const SessionCall = lazyWithRetry(() => import("./pages/session/SessionCall"), "SessionCall");
+const AdminMouth3D = lazyWithRetry(() => import("./pages/admin/AdminMouth3D"), "AdminMouth3D");
 const AppointmentPaymentPage = lazyWithRetry(() => import("./pages/payment/AppointmentPaymentPage"), "AppointmentPaymentPage");
 const PublicPaymentPage = lazyWithRetry(() => import("./pages/payment/PublicPaymentPage"), "PublicPaymentPage");
 
@@ -198,6 +199,7 @@ const App = () => {
                 <Route path="usuarios" element={<AdminUsers />} />
                 <Route path="atividades" element={<AdminActivities />} />
                 <Route path="jogos" element={<AdminGamesHub />} />
+                <Route path="jogos/boca-3d" element={<Suspense fallback={<FullScreenLogoLoader label="Carregando modelo..." />}><AdminMouth3D /></Suspense>} />
                 <Route path="jogos/memoria" element={<AdminMemoryGames />} />
                 <Route path="jogos/memoria/novo" element={<AdminMemoryGameCreate />} />
                 <Route path="jogos/memoria/:id/editar" element={<AdminMemoryGameEdit />} />

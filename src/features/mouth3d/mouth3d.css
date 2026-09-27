@@ -41,11 +41,11 @@
 .mouth3d-status span { width: 7px; height: 7px; border-radius: 50%; background: #26b774; }
 
 .mouth3d-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 322px; min-height: 680px; overflow: hidden; background: #fff; }
-.mouth3d-stage { position: relative; min-width: 0; min-height: 680px; background: #e9f2ee; overflow: hidden; }
+.mouth3d-stage { position: relative; min-width: 0; min-height: 720px; background: #eaf0f0; overflow: hidden; }
 .mouth3d-stage-top,
 .mouth3d-stage-bottom { position: absolute; left: 26px; right: 26px; z-index: 2; pointer-events: none; }
 .mouth3d-stage-top { top: 24px; gap: 14px; }
-.mouth3d-stage-bottom { bottom: 20px; color: #648178; font-size: 10px; font-weight: 800; letter-spacing: 0; justify-content: flex-end; }
+.mouth3d-stage-bottom { bottom: 20px; gap: 12px; color: #648178; font-size: 10px; font-weight: 800; letter-spacing: 0; }
 .mouth3d-stage-label { display: inline-flex; align-items: center; gap: 8px; color: #36554b; font-size: 13px; font-weight: 800; }
 .mouth3d-stage-label svg { color: #219b66; }
 .mouth3d-view-switch { display: flex; gap: 2px; padding: 3px; background: #ffffffcc; border: 1px solid #d5e5de; border-radius: 7px; pointer-events: auto; }
@@ -54,6 +54,19 @@
 .mouth3d-view-switch button:not(.active):hover { background: #eaf4ef; }
 .mouth3d-canvas { position: absolute; inset: 0; touch-action: none; }
 .mouth3d-canvas canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.mouth3d-landmark { position: absolute; z-index: 1; padding: 4px 9px; border-radius: 4px; background: #ffffffeb; border: 1px solid #bccbc7; color: #29443b; font-size: 11px; font-weight: 700; pointer-events: none; white-space: nowrap; }
+.mouth3d-landmark::before { content: ""; position: absolute; height: 1px; background: #647e75; width: 30px; top: 50%; }
+.mouth3d-landmark-palate { transform: translate(30px, -55px); }
+.mouth3d-landmark-palate::before { right: 100%; transform: rotate(-45deg); transform-origin: right; }
+.mouth3d-landmark-teeth { transform: translate(calc(-100% - 28px), -24px); }
+.mouth3d-landmark-teeth::before { left: 100%; }
+.mouth3d-landmark-tongue { transform: translate(28px, 34px); }
+.mouth3d-landmark-tongue::before { right: 100%; transform: rotate(45deg); transform-origin: right; }
+.mouth3d-unavailable { position: absolute; inset: 0; display: grid; place-content: center; padding: 32px; background: #eaf0f0; color: #674850; text-align: center; }
+.mouth3d-visibility { display: grid; gap: 12px; border-top: 1px solid #e6efea; margin-top: 22px; padding-top: 20px; }
+.mouth3d-visibility label { display: flex; align-items: center; gap: 9px; font-size: 12px; cursor: pointer; }
+.mouth3d-visibility input { width: 15px; height: 15px; accent-color: #247d59; }
+.mouth3d-page :is(button, a, input):focus-visible { outline: 2px solid #247d59; outline-offset: 4px; }
 .mouth3d-canvas[data-webgl="unsupported"]::after { content: "Não foi possível iniciar a visualização 3D neste dispositivo."; position: absolute; left: 18px; right: 18px; top: 50%; transform: translateY(-50%); color: #674850; text-align: center; }
 
 .mouth3d-controls { display: flex; flex-direction: column; min-width: 0; padding: 27px 24px 23px; border-left: 1px solid #dce8e2; background: #fff; }
@@ -98,7 +111,7 @@
   .mouth3d-status { display: none; }
   .mouth3d-workspace { min-height: 0; }
   .mouth3d-stage { min-height: 405px; }
-  .mouth3d-stage-top { left: 14px; right: 14px; top: 13px; }
+  .mouth3d-stage-top { left: 14px; right: 14px; top: 13px; flex-wrap: wrap; gap: 8px; }
   .mouth3d-stage-label { font-size: 11px; }
   .mouth3d-stage-label svg { width: 15px; }
   .mouth3d-view-switch button { padding: 6px 8px; font-size: 11px; }

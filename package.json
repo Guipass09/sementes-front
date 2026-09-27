@@ -10,6 +10,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "test:mouth3d": "node --experimental-strip-types --test tests/mouth3d.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

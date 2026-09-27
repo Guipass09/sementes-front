@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, RotateCcw, ScanFace, SlidersHorizontal } from "lucide-react";
-import MouthModelScene, { type MouthView } from "@/features/mouth3d/MouthModelScene";
+import { ArrowLeft, ArrowUpRight, RotateCcw, ScanFace, SlidersHorizontal } from "lucide-react";
+import MouthModelScene, { type MouthView, type MouthDragMode } from "@/features/mouth3d/MouthModelScene";
 import "@/features/mouth3d/mouth3d.css";
 
 type MouthPosition = {
@@ -10,7 +10,7 @@ type MouthPosition = {
   tongueReach: number;
 };
 
-const neutralPosition: MouthPosition = { opening: 0.48, tongueLift: 0.28, tongueReach: 0.38 };
+const neutralPosition: MouthPosition = { opening: 0.85, tongueLift: 0.12, tongueReach: 0.25 };
 
 const positions: { name: string; values: MouthPosition }[] = [
   { name: "Repouso", values: { opening: 0, tongueLift: 0.24, tongueReach: 0.26 } },
@@ -24,6 +24,9 @@ export default function AdminMouth3D() {
   const [tongueLift, setTongueLift] = useState(neutralPosition.tongueLift);
   const [tongueReach, setTongueReach] = useState(neutralPosition.tongueReach);
   const [view, setView] = useState<MouthView>("front");
+  const [dragMode, setDragMode] = useState<MouthDragMode>("jaw");
+  const [showFace, setShowFace] = useState(true);
+  const [showLabels, setShowLabels] = useState(false);
 
   const setPosition = ({ opening: nextOpening, tongueLift: nextLift, tongueReach: nextReach }: MouthPosition) => {
     setOpening(nextOpening);
@@ -53,6 +56,7 @@ export default function AdminMouth3D() {
             <div className="mouth3d-view-switch" role="group" aria-label="Vista do modelo">
               <button type="button" className={view === "front" ? "active" : ""} onClick={() => setView("front")} aria-pressed={view === "front"}>Frontal</button>
               <button type="button" className={view === "angle" ? "active" : ""} onClick={() => setView("angle")} aria-pressed={view === "angle"}>Oblíqua</button>
+              <button type="button" className={view === "section" ? "active" : ""} onClick={() => setView("section")} aria-pressed={view === "section"}>Em corte</button>
             </div>
           </div>
 
@@ -61,12 +65,21 @@ export default function AdminMouth3D() {
             tongueLift={tongueLift}
             tongueReach={tongueReach}
             view={view}
+            dragMode={dragMode}
+            showFace={showFace}
+            showLabels={showLabels}
             onOpeningChange={setOpening}
             onTongueLiftChange={setTongueLift}
             onTongueReachChange={setTongueReach}
           />
 
-          <div className="mouth3d-stage-bottom" aria-hidden="true">SEMENTES DA FALA</div>
+          <div className="mouth3d-stage-bottom">
+            <div className="mouth3d-view-switch" role="group" aria-label="Movimento ao arrastar">
+              <button type="button" title="Arrastar para abrir e fechar a boca" className={dragMode === "jaw" ? "active" : ""} onClick={() => setDragMode("jaw")} aria-pressed={dragMode === "jaw"}>Mandíbula</button>
+              <button type="button" title="Arrastar para elevar e avançar a língua" className={dragMode === "tongue" ? "active" : ""} onClick={() => setDragMode("tongue")} aria-pressed={dragMode === "tongue"}>Língua</button>
+            </div>
+            <span aria-hidden="true">SEMENTES DA FALA</span>
+          </div>
         </section>
 
         <aside className="mouth3d-controls" aria-label="Controles do modelo">
@@ -108,12 +121,16 @@ export default function AdminMouth3D() {
                 <button type="button" key={position.name} onClick={() => setPosition(position.values)}>
                   <span className="mouth3d-preset-number">0{index + 1}</span>
                   <span>{position.name}</span>
-                  <span className="mouth3d-preset-arrow" aria-hidden="true">↗</span>
+                  <ArrowUpRight className="mouth3d-preset-arrow" size={16} aria-hidden="true" />
                 </button>
               ))}
             </div>
           </div>
 
+          <div className="mouth3d-visibility">
+            <label><input type="checkbox" checked={showFace} onChange={(event) => setShowFace(event.target.checked)} /> Lábios e face</label>
+            <label><input type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} /> Identificar estruturas</label>
+          </div>
           <div className="mouth3d-notice">Modelo visual em desenvolvimento. Posições articulatórias ainda não validadas clinicamente.</div>
         </aside>
       </div>

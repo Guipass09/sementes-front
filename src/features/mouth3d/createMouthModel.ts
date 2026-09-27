@@ -79,8 +79,10 @@ export function createMouthModel() {
     materials.push(result);
     return result;
   };
-  const skin = material(0xc9957e, 0.83, 0.018);
-  const lips = material(0xb85864, 0.62, 0.009);
+  const skin = material(0xffffff, 0.86, 0.010);
+  skin.vertexColors = true;
+  const skinColor = new THREE.Color(0xcfa08a);
+  const lips = material(0xb85864, 0.69, 0.006);
   const gum = material(0xb65e63, 0.6, 0.008);
   const palateMaterial = material(0xc7807e, 0.72, 0.009);
   const tongueMaterial = material(0xb95f6d, 0.53, 0.015);
@@ -102,22 +104,24 @@ export function createMouthModel() {
     const upper = s >= 0;
     const arch = Math.pow(Math.abs(s), 0.85);
     const open = pose.opening;
-    const cupid = upper ? 0.065 * Math.exp(-Math.pow(c / 0.16, 2)) : 0;
-    const seam = (-0.035 * Math.exp(-Math.pow(c / 0.28, 2)) + 0.014 * Math.sin(Math.abs(c) * Math.PI)) * arch * (1 - open * 0.6);
+    const cupid = upper ? 0.045 * Math.exp(-Math.pow(c / 0.22, 2)) : 0;
+    const seam = (-0.024 * Math.exp(-Math.pow(c / 0.32, 2)) + 0.01 * Math.sin(Math.abs(c) * Math.PI)) * arch * (1 - open * 0.6);
     const innerY = seam + (upper ? open * 0.46 * arch - cupid * open : -open * 1.1 * arch);
-    const thickness = (upper ? 0.35 - 0.075 * Math.exp(-Math.pow(c / 0.19, 2)) : 0.39) * Math.pow(Math.abs(s), 0.95);
+    const thickness = (upper ? 0.34 - 0.055 * Math.exp(-Math.pow(c / 0.23, 2)) : 0.37) * Math.pow(Math.abs(s), 0.95);
     const x = c * (1.13 - open * 0.025 + radial * 0.13);
     const y = innerY + (upper ? 1 : -1) * thickness * radial;
-    const volume = (upper ? 0.21 : 0.26) * Math.pow(Math.abs(s), 0.7);
+    const volume = (upper ? 0.18 : 0.22) * Math.pow(Math.abs(s), 0.7);
     const z = 1.05 - 0.38 * Math.pow(Math.abs(c), 1.7) + volume * Math.sin(radial * Math.PI) - 0.055 * radial;
-    const folds = Math.sin(angle * 95 + Math.sin(angle * 17)) * 0.003 * Math.sin(radial * Math.PI);
+    const folds = Math.sin(angle * 95 + Math.sin(angle * 17)) * 0.001 * Math.sin(radial * Math.PI);
     point.set(x, y, z + folds);
   };
   const lipSurface = surface(144, 16, (u, v, p) => lipPoint(u * TAU, v, p));
   const lipMesh = add(lipSurface.geometry, lips);
   const lipColors: number[] = [];
   for (let j = 0; j <= 16; j++) {
-    const color = new THREE.Color(0x9e525d).lerp(new THREE.Color(0xc78483), Math.sin(j / 16 * Math.PI / 2));
+    const radial = j / 16;
+    const color = new THREE.Color(0xac6870).lerp(new THREE.Color(0xc78c8c), Math.sin(radial * Math.PI / 2));
+    color.lerp(skinColor, smooth(radial, 0.80, 1));
     for (let i = 0; i <= 144; i++) lipColors.push(color.r, color.g, color.b);
   }
   lips.color.set(0xffffff);
@@ -125,22 +129,50 @@ export function createMouthModel() {
   lipSurface.geometry.setAttribute("color", new THREE.Float32BufferAttribute(lipColors, 3));
 
   const edge = new THREE.Vector3();
+  const gaussian = (x: number, y: number, cx: number, cy: number, sx: number, sy: number) => Math.exp(-Math.pow((x - cx) / sx, 2) - Math.pow((y - cy) / sy, 2));
+  const noseY = (y: number) => y + 0.30 * (1 - pose.opening);
+  const nostrilAt = (x: number, y: number) => gaussian(Math.abs(x), noseY(y), 0.21, 0.985, 0.077, 0.042);
   const facePoint: Surface = (u, v, p) => {
     const a = u * TAU, c = Math.cos(a), s = Math.sin(a);
     lipPoint(a, 1, edge);
     const outerX = c * 1.8;
-    const outerY = s * (s > 0 ? 1.24 : 1.42 + pose.opening * 0.56);
+    const outerY = s * (s > 0 ? 1.75 + pose.opening * 0.17 : 1.42 + pose.opening * 0.56);
     const x = mix(edge.x, outerX, v), y = mix(edge.y, outerY, v);
     let z = edge.z - 0.07 * v - (edge.z + 0.45) * v ** 5;
-    // Philtrum and chin belong to the same facial surface as the lips.
-    z += 0.20 * Math.exp(-Math.pow(x / 0.3, 2) - Math.pow((y - 0.98) / 0.25, 2)) * Math.sin(Math.PI * v);
-    z -= 0.035 * Math.exp(-Math.pow(x / 0.07, 2)) * Math.sin(Math.PI * v) * Math.max(0, s);
+    // Keep the nasal surface continuous with the philtrum and the cropped face edge.
+    const ny = noseY(y);
+    const edgeFade = 1 - smooth(v, 0.65, 0.98);
+    const noseRegion = smooth(ny, 0.78, 0.96) * (1 - smooth(ny, 1.60, 1.88)) * (1 - smooth(Math.abs(x), 0.4, 0.66)) * edgeFade;
+    z = mix(z, 0.91 - 0.10 * (ny - 1.08) - x * x * 0.25, noseRegion);
+    const nose = 0.20 * gaussian(x, ny, 0, 1.48, 0.19, 0.38)
+      + 0.46 * gaussian(x, ny, 0, 1.17, 0.255, 0.20)
+      + 0.20 * gaussian(Math.abs(x), ny, 0.31, 1.08, 0.15, 0.135)
+      + 0.13 * gaussian(x, ny, 0, 0.97, 0.075, 0.105)
+      - 0.085 * nostrilAt(x, y);
+    z += nose * smooth(v, 0, 0.13) * edgeFade;
+    z -= 0.021 * gaussian(x, ny, 0, 0.69, 0.065, 0.20) * Math.sin(Math.PI * v);
     z += 0.10 * Math.exp(-Math.pow(x / 0.6, 2)) * Math.sin(Math.PI * v) * Math.max(0, -s);
     z -= 0.035 * Math.exp(-Math.pow((Math.abs(x) - 1.36 + y * 0.17) / 0.075, 2)) * Math.sin(Math.PI * v);
     p.set(x, y, z);
   };
-  const face = surface(144, 24, facePoint);
+  const face = surface(144, 64, facePoint);
   const faceMesh = add(face.geometry, skin);
+  const faceColors = new Float32Array(face.geometry.attributes.position.count * 3);
+  face.geometry.setAttribute("color", new THREE.BufferAttribute(faceColors, 3).setUsage(THREE.DynamicDrawUsage));
+  const noseShade = new THREE.Color(0x78504a);
+  const cheekTint = new THREE.Color(0xc99283);
+  const faceColor = new THREE.Color();
+  const updateFaceColors = () => {
+    const position = face.geometry.attributes.position;
+    for (let i = 0; i < position.count; i++) {
+      const x = position.getX(i), y = position.getY(i);
+      faceColor.copy(skinColor).lerp(cheekTint, 0.20 * gaussian(Math.abs(x), y, 0.65, 0.55, 0.35, 0.45));
+      faceColor.lerp(noseShade, nostrilAt(x, y) * 0.83);
+      faceColor.toArray(faceColors, i * 3);
+    }
+    face.geometry.attributes.color.needsUpdate = true;
+  };
+  updateFaceColors();
   const wallPoint: Surface = (u, v, p) => {
     lipPoint(u * TAU, 0, p);
     const s = Math.sin(u * TAU), c = Math.cos(u * TAU);
@@ -294,6 +326,7 @@ export function createMouthModel() {
     pose = next;
     lipSurface.update((u, v, p) => lipPoint(u * TAU, v, p));
     face.update(facePoint);
+    updateFaceColors();
     oralWall.update(wallPoint);
     jaw.rotation.x = pose.opening * 0.46;
     tongue.update(tonguePoint);

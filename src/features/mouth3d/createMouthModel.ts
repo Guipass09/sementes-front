@@ -115,12 +115,12 @@ export function createMouthModel() {
     const cupid = upper ? 0.045 * Math.exp(-Math.pow(c / 0.22, 2)) : 0;
     const seam = (-0.024 * Math.exp(-Math.pow(c / 0.32, 2)) + 0.01 * Math.sin(Math.abs(c) * Math.PI)) * arch * (1 - open * 0.6);
     const innerY = seam + (upper ? open * 0.46 * arch - cupid * open : -open * 1.1 * arch);
-    const thickness = (upper ? 0.34 - 0.055 * Math.exp(-Math.pow(c / 0.23, 2)) : 0.37) * Math.pow(Math.abs(s), 0.95) * (1 + pucker * 0.16 - smile * 0.25);
-    const x = c * (1.13 - open * 0.025 + radial * 0.13) * (1 - pucker * 0.40 + smile * 0.15);
-    const y = innerY + (upper ? 1 : -1) * thickness * radial + smile * (0.26 * c * c - 0.025) + pucker * 0.025 * c * c;
+    const thickness = (upper ? 0.34 - 0.055 * Math.exp(-Math.pow(c / 0.23, 2)) : 0.37) * Math.pow(Math.abs(s), 0.95) * (1 + pucker * 0.16 - smile * 0.12);
+    const x = c * (1.13 - open * 0.025 + radial * 0.13) * (1 - pucker * 0.40 + smile * 0.045);
+    const y = innerY + (upper ? 1 : -1) * thickness * radial + smile * (0.11 * c * c - 0.01) + pucker * 0.025 * c * c;
     const volume = (upper ? 0.18 : 0.22) * Math.pow(Math.abs(s), 0.7);
     const z = 1.05 - 0.38 * Math.pow(Math.abs(c), 1.7) + volume * Math.sin(radial * Math.PI) - 0.055 * radial
-      + pucker * (0.38 - 0.12 * Math.abs(c)) - smile * 0.12 * Math.abs(c);
+      + pucker * (0.38 - 0.12 * Math.abs(c)) - smile * 0.045 * Math.abs(c);
     const folds = Math.sin(angle * 95 + Math.sin(angle * 17)) * 0.001 * Math.sin(radial * Math.PI);
     point.set(x, y, z + folds);
   };

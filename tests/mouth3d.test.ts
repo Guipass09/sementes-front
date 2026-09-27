@@ -188,6 +188,7 @@ test("pucker and smile keep lips sealed and connected to the face", () => {
       }
     }
     assert.ok(sizes[0].x < sizes[1].x * 0.7);
-    assert.ok(sizes[2].x > sizes[1].x * 1.1);
+    assert.ok(sizes[2].x > sizes[1].x);
+    assert.ok(sizes[2].x < sizes[1].x * 1.08, "smile should only widen the lips slightly");
   } finally { model.dispose(); }
 });

@@ -1,774 +1,305 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   CalendarDays,
-  ClipboardCheck,
-  Gamepad2,
-  Users,
-  TrendingUp,
-  BookOpen,
-  BarChart3,
-  Video,
-  MessageCircle,
-  Volume2,
-  UserCheck,
-  Wifi,
+  ClipboardList,
   Instagram,
-  Mail,
+  Menu,
+  MessageCircle,
+  MousePointer2,
+  PenLine,
+  Video,
+  X,
 } from "lucide-react";
-import type React from "react";
-import logoImage from "@/assets/logo-sementes-da-fala.jpg";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { LandingPolicies } from "./LandingPolicies";
+import "./landing.css";
 
-type LandingFeature = {
-  key: string;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ size?: number | string; className?: string }>;
-  iconBgClassName: string;
-  cardClassName: string;
+const assets = {
+  logo: "/landing/sementes-logo-transparent.png",
+  hero: "/landing/teleatendimento-fono.png",
+  activity: "/landing/atividade-compartilhada.png",
+  session: "/landing/sessao-ao-vivo-demo.png",
+  mouth: "/landing/boca-3d-profissional.png",
+  activityBuilder: "/landing/criacao-atividade-demo.png",
 };
 
-function InfoCard({
-  feature,
-  subtitle,
-  showCta = true,
-  badge,
-}: {
-  feature: LandingFeature;
-  subtitle?: string;
-  showCta?: boolean;
-  badge?: React.ReactNode;
-}) {
-  const Icon = feature.icon;
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          className={[
-            "group w-full text-left rounded-3xl border border-border/70 bg-white/55 backdrop-blur-sm",
-            "shadow-[0_12px_40px_-18px_hsl(142_30%_30%_/_0.25)]",
-            "transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/75",
-            "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            "min-h-[180px]",
-            feature.cardClassName,
-          ].join(" ")}
-          aria-label={`Saiba mais: ${feature.title}`}
-        >
-          <div className="p-8">
-            {badge ? <div className="mb-3">{badge}</div> : null}
-            <div className={`w-16 h-16 rounded-2xl grid place-items-center ${feature.iconBgClassName}`}>
-              <Icon size={28} className="text-white" />
-            </div>
-            <h3 className="mt-5 text-xl font-display font-bold text-foreground">{feature.title}</h3>
-            {subtitle ? (
-              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{subtitle}</p>
-            ) : null}
-            {showCta ? (
-              <span className="mt-4 inline-flex text-sm font-semibold text-brand-orange group-hover:text-brand-orange-dark transition-colors">
-                Saiba mais →
-              </span>
-            ) : null}
-          </div>
-        </button>
-      </DialogTrigger>
+const whatsappHref = "https://wa.me/message/GKL4EEB2NSI4A1";
+const instagramHref = "https://www.instagram.com/sementes_dafalaoficial/";
 
-      <DialogContent className="sm:max-w-xl rounded-2xl bg-background/95 backdrop-blur border-border">
-        <DialogHeader className="space-y-3">
-          <div className="flex items-start gap-4 pr-8">
-            <div className={`w-14 h-14 rounded-2xl grid place-items-center ${feature.iconBgClassName}`}>
-              <Icon size={26} className="text-white" />
-            </div>
-            <div className="flex-1">
-              <DialogTitle className="text-2xl font-display">{feature.title}</DialogTitle>
-              <DialogDescription className="mt-3 text-base leading-relaxed text-muted-foreground">
-                {feature.description}
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-      </DialogContent>
-    </Dialog>
+const showcase = [
+  {
+    number: "01",
+    tag: "Sessão ao vivo",
+    title: "O atendimento acontece aqui.",
+    description:
+      "Vídeo, atividades e interação no mesmo ambiente. Profissional e paciente participam da sessão em tempo real, sem alternar entre várias ferramentas.",
+    image: assets.session,
+    alt: "Demonstração da sala de atendimento ao vivo da Sementes da Fala",
+  },
+  {
+    number: "02",
+    tag: "Modelo articulatório",
+    title: "Mostre o movimento, não só explique.",
+    description:
+      "A boca 3D permite demonstrar lábios e língua durante a sessão. Um recurso visual para tornar orientações articulatórias mais claras.",
+    image: assets.mouth,
+    alt: "Modelo de boca 3D aberto na área profissional",
+  },
+  {
+    number: "03",
+    tag: "Atividades personalizadas",
+    title: "Crie atividades com a sua intenção clínica.",
+    description:
+      "Organize materiais, objetivos e destinatários em uma atividade própria. A plataforma acompanha o seu jeito de trabalhar.",
+    image: assets.activityBuilder,
+    alt: "Formulário de criação de atividade com dados fictícios na área profissional",
+  },
+] as const;
+
+function Brand({ footer = false }: { footer?: boolean }) {
+  return (
+    <a className={`lp-brand ${footer ? "lp-brand--footer" : ""}`} href="#inicio" aria-label="Sementes da Fala, voltar ao início">
+      <img src={assets.logo} alt="" width="64" height="64" />
+      <span>Sementes <small>da</small> Fala</span>
+    </a>
   );
 }
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const touchStartX = useRef<number | null>(null);
 
-  // Redirecionar automaticamente se usuário já estiver logado
   useEffect(() => {
     try {
       const token = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
-      
-      if (token && storedUser) {
-        const user = JSON.parse(storedUser);
-        const role = String(user.role || "").toLowerCase().trim();
-        const isAdmin = role === "admin" || role.includes("admin") || role.includes("administrador");
-        
-        // Redirecionar para área apropriada
-        if (isAdmin) {
-          navigate("/admin", { replace: true });
-        } else {
-          navigate("/paciente", { replace: true });
-        }
-      }
+      if (!token || !storedUser) return;
+      const user = JSON.parse(storedUser);
+      const role = String(user.role || "").toLowerCase().trim();
+      if (role.includes("admin") || role.includes("administrador")) navigate("/admin", { replace: true });
+      else if (role.includes("profissional") || role.includes("professional") || role.includes("clinica") || role.includes("clinic")) navigate("/profissional", { replace: true });
+      else navigate("/paciente", { replace: true });
     } catch {
-      // Ignora erros de parse
+      // A sessão armazenada pode estar desatualizada; a landing continua acessível.
     }
   }, [navigate]);
 
-  const whatsappCtaHref = "https://wa.me/message/GKL4EEB2NSI4A1";
-  const instagramHref = "https://www.instagram.com/sementes_dafalaoficial/";
-  const contactEmail = "sementesdafala@gmail.com";
+  const changeSlide = (direction: number) => {
+    setActiveSlide((current) => (current + direction + showcase.length) % showcase.length);
+  };
 
-  const termsLastUpdated = "***/***/____";
-  const privacyLastUpdated = "***/***/____";
-
-  const howItWorks: LandingFeature[] = [
-    {
-      key: "avaliacao",
-      title: "Avaliação Personalizada",
-      description:
-        "Identificamos as necessidades específicas de cada criança para criar um plano individualizado. Tudo é pensado para apoiar o desenvolvimento de forma acolhedora e efetiva.",
-      icon: ClipboardCheck,
-      iconBgClassName: "bg-brand-purple",
-      cardClassName: "bg-brand-mint/35",
-    },
-    {
-      key: "atividades",
-      title: "Atividades Interativas",
-      description:
-        "Jogos educativos e atividades práticas desenvolvidas por especialistas para estimular fala, linguagem e cognição de um jeito leve e divertido.",
-      icon: Gamepad2,
-      iconBgClassName: "bg-brand-blue",
-      cardClassName: "bg-brand-mint/35",
-    },
-    {
-      key: "acompanhamento",
-      title: "Acompanhamento Profissional",
-      description:
-        "Fonoaudiólogos especializados acompanham de perto cada etapa. Você recebe orientações claras e consistentes para evoluir com segurança.",
-      icon: Users,
-      iconBgClassName: "bg-brand-green",
-      cardClassName: "bg-brand-mint/35",
-    },
-    {
-      key: "evolucao",
-      title: "Evolução Registrada",
-      description:
-        "Acompanhe o progresso com relatórios e indicadores claros. Assim, fica fácil entender conquistas, desafios e próximos passos.",
-      icon: TrendingUp,
-      iconBgClassName: "bg-brand-orange",
-      cardClassName: "bg-brand-mint/35",
-    },
-  ];
-
-  const platformFeatures: LandingFeature[] = [
-    {
-      key: "atividades-personalizadas",
-      title: "Atividades Personalizadas",
-      description:
-        "Cada criança recebe um programa de atividades desenvolvido especialmente para suas necessidades. Os exercícios são ajustados automaticamente conforme o progresso, garantindo sempre o nível ideal de desafio.",
-      icon: BookOpen,
-      iconBgClassName: "bg-brand-purple",
-      cardClassName: "bg-[#eef0f3]",
-    },
-    {
-      key: "jogos-educativos",
-      title: "Jogos Educativos",
-      description:
-        "Nossa biblioteca de jogos foi desenvolvida por fonoaudiólogos e game designers para tornar o aprendizado divertido. Cada jogo trabalha aspectos específicos da comunicação enquanto a criança se diverte.",
-      icon: Gamepad2,
-      iconBgClassName: "bg-gradient-to-br from-brand-green to-brand-blue",
-      cardClassName: "bg-[#e9f6fb]",
-    },
-    {
-      key: "acompanhamento-evolucao",
-      title: "Acompanhamento de Evolução",
-      description:
-        "Acompanhe cada conquista através de relatórios detalhados e gráficos de evolução. Visualize o progresso semanal e mensal, e celebre cada marco alcançado.",
-      icon: BarChart3,
-      iconBgClassName: "bg-gradient-to-br from-brand-green to-brand-yellow",
-      cardClassName: "bg-[#e9f5ea]",
-    },
-    {
-      key: "atendimento-profissional",
-      title: "Atendimento Profissional",
-      description:
-        "Sessões individuais com fonoaudiólogos experientes, realizadas no conforto da sua casa. Nossa equipe utiliza técnicas baseadas em evidências para garantir os melhores resultados.",
-      icon: Video,
-      iconBgClassName: "bg-brand-orange",
-      cardClassName: "bg-[#f7efe2]",
-    },
-  ];
+  const closeMenu = () => setMenuOpen(false);
 
   return (
-    <main className="min-h-screen gradient-hero">
-      {/* Background decorative blobs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-[520px] h-[520px] bg-brand-yellow/15 rounded-full blur-3xl" />
-        <div className="absolute -top-24 -right-24 w-[420px] h-[420px] bg-brand-purple/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -right-40 w-[560px] h-[560px] bg-brand-green/12 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-[520px] h-[520px] bg-brand-blue/10 rounded-full blur-3xl" />
-      </div>
-
-      {/* Top nav */}
-      <header className="relative z-10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <img
-              src={logoImage}
-              alt="Sementes da Fala"
-              className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg object-contain bg-white/60"
-            />
-            <span className="hidden sm:block font-display font-bold text-lg leading-none">
-              <span className="text-brand-green">Sementes</span>{" "}
-              <span className="text-brand-brown">da Fala</span>
-            </span>
-          </Link>
-
-          <nav className="flex items-center gap-3">
-            <Link
-              to="/entrar"
-              className="px-4 py-2 text-sm font-semibold text-foreground/80 hover:text-foreground transition-colors"
-            >
-              Entrar
-            </Link>
-            <Link
-              to="/cadastro"
-              className="inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-semibold text-white bg-brand-orange hover:bg-brand-orange-dark transition-colors shadow-sm"
-            >
-              Cadastrar-se
-            </Link>
+    <main className="lp" id="inicio">
+      <header className="lp-header">
+        <div className="lp-header__inner">
+          <Brand />
+          <nav className={`lp-nav ${menuOpen ? "lp-nav--open" : ""}`} aria-label="Navegação principal">
+            <a href="#plataforma" onClick={closeMenu}>A plataforma</a>
+            <a href="#recursos" onClick={closeMenu}>Recursos</a>
+            <a href="#experiencia" onClick={closeMenu}>Na prática</a>
+            <Link to="/entrar" onClick={closeMenu}>Entrar</Link>
+            <Link className="lp-nav__cta" to="/cadastro" onClick={closeMenu}>Começar agora <ArrowRight size={16} /></Link>
           </nav>
+          <button
+            className="lp-menu-button"
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={menuOpen}
+          >
+            {menuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="relative z-10">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-16 sm:pt-12 sm:pb-24">
-          <div className="flex flex-col items-center text-center">
-            <div className="relative mb-8 sm:mb-10">
-              <div className="absolute inset-0 bg-brand-green/15 rounded-3xl blur-2xl scale-110" />
-              <div className="relative bg-white/60 backdrop-blur rounded-2xl p-6 sm:p-8 shadow-[0_22px_70px_-40px_rgba(0,0,0,0.35)]">
-                <img
-                  src={logoImage}
-                  alt="Sementes da Fala"
-                  className="w-44 h-44 sm:w-56 sm:h-56 object-contain rounded-xl"
-                />
-              </div>
-            </div>
-
-            <h1 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-6xl tracking-tight text-foreground max-w-4xl">
-              Desenvolvendo a comunicação do seu filho com{" "}
-              <span className="text-brand-orange">cuidado</span>,{" "}
-              <span className="text-brand-green">afeto</span> e{" "}
-              <span className="text-brand-blue">tecnologia</span>
-            </h1>
-            <p className="mt-6 text-base sm:text-lg text-muted-foreground max-w-2xl leading-relaxed">
-              Uma plataforma completa de atividades, jogos e acompanhamento fonoaudiológico online.
-            </p>
-
-            <div className="mt-10">
-              <a
-                href={whatsappCtaHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-3 rounded-full px-8 py-4 text-base font-bold text-white bg-brand-orange hover:bg-brand-orange-dark transition-colors shadow-[0_16px_50px_-28px_rgba(0,0,0,0.45)]"
-              >
-                <CalendarDays size={20} />
-                Agendar sessão experimental gratuita
-              </a>
-              <p className="mt-4 text-sm text-muted-foreground">
-                <span className="mr-1">✨</span> Sem compromisso • 100% online • Especialistas qualificados
-              </p>
-            </div>
+      <section className="lp-hero" aria-labelledby="lp-hero-title">
+        <img className="lp-hero__image" src={assets.hero} alt="Fonoaudióloga em atendimento online, interagindo com uma criança na tela" fetchPriority="high" />
+        <div className="lp-hero__wash" />
+        <div className="lp-hero__content lp-container">
+          <p className="lp-eyebrow"><span /> A plataforma de quem faz fonoaudiologia</p>
+          <h1 id="lp-hero-title">Sementes<br />da Fala<span className="lp-hero__period">.</span></h1>
+          <p className="lp-hero__lead">Seu atendimento online pode ser tão vivo quanto a sua prática.</p>
+          <p className="lp-hero__body">Sessões ao vivo com atividades interativas, materiais criados por você e toda a rotina clínica em um só lugar.</p>
+          <div className="lp-hero__actions">
+            <Link to="/cadastro" className="lp-button lp-button--primary">Começar como profissional <ArrowRight size={18} /></Link>
+            <a href="#plataforma" className="lp-button lp-button--outline">Explorar a plataforma <ArrowDown size={17} /></a>
           </div>
         </div>
+        <div className="lp-hero__index" aria-hidden="true">01 / 04 &nbsp; SEMENTES DA FALA</div>
+      </section>
 
-        {/* Wave divider */}
-        <div className="w-full overflow-hidden leading-none">
-          <svg
-            viewBox="0 0 1440 120"
-            preserveAspectRatio="none"
-            className="w-full h-16 sm:h-20 text-white"
+      <div className="lp-proof" aria-label="Recursos da plataforma">
+        <div className="lp-container lp-proof__inner">
+          <span><Video size={21} /> Atendimento ao vivo</span>
+          <span><MousePointer2 size={21} /> Interação em tempo real</span>
+          <span><PenLine size={21} /> Atividades personalizadas</span>
+          <span><CalendarDays size={21} /> Rotina organizada</span>
+        </div>
+      </div>
+
+      <section className="lp-intro lp-section" id="plataforma">
+        <div className="lp-container lp-intro__grid">
+          <div>
+            <p className="lp-kicker">FEITA PARA A PRÁTICA CLÍNICA</p>
+            <h2>Não é só organizar consultas. <em>É fazer o atendimento acontecer.</em></h2>
+          </div>
+          <div className="lp-intro__aside">
+            <p>Da primeira atividade ao registro de evolução, a Sementes da Fala acompanha a fonoaudióloga em cada etapa do atendimento online.</p>
+            <a className="lp-text-link" href="#experiencia">Veja a plataforma por dentro <ArrowRight size={18} /></a>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-session lp-section" aria-labelledby="lp-session-title">
+        <div className="lp-container lp-session__grid">
+          <div className="lp-session__visual">
+            <img src={assets.session} alt="Sala de sessão ao vivo com atividade e modelo articulatório na tela" loading="lazy" />
+            <span className="lp-image-note">Demonstração ilustrativa com dados fictícios</span>
+          </div>
+          <div className="lp-session__copy">
+            <p className="lp-kicker">TELEATENDIMENTO QUE ENVOLVE</p>
+            <h2>A sessão vai muito além da chamada de vídeo.</h2>
+            <p>Você conduz, compartilha e interage. O paciente vê a mesma atividade e pode participar diretamente da tela, enquanto vocês conversam ao vivo.</p>
+            <div className="lp-session__line"><span>01</span> Vídeo e recursos no mesmo ambiente</div>
+            <div className="lp-session__line"><span>02</span> Atividades compartilhadas durante a sessão</div>
+            <div className="lp-session__line"><span>03</span> Interação em tempo real com o paciente</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-photo-story" aria-labelledby="lp-photo-title">
+        <img src={assets.activity} alt="Criança participando de uma atividade interativa em atendimento online" loading="lazy" />
+        <div className="lp-photo-story__shade" />
+        <div className="lp-container lp-photo-story__content">
+          <p className="lp-kicker">A CONEXÃO CONTINUA DO OUTRO LADO</p>
+          <h2 id="lp-photo-title">Não é assistir à tela.<br />É <em>participar dela.</em></h2>
+          <p>Quando a atividade responde ao toque e à criatividade, a distância deixa de ser o centro da sessão.</p>
+        </div>
+        <span className="lp-photo-story__note">Imagem ilustrativa</span>
+      </section>
+
+      <section className="lp-resources lp-section" id="recursos">
+        <div className="lp-container">
+          <div className="lp-resources__heading">
+            <p className="lp-kicker">UM ESPAÇO PARA O SEU JEITO DE ATENDER</p>
+            <h2>Seu trabalho tem método.<br /><em>Sua plataforma também.</em></h2>
+          </div>
+          <div className="lp-resources__grid">
+            <article className="lp-resource">
+              <span className="lp-resource__icon lp-resource__icon--coral"><PenLine size={25} /></span>
+              <span className="lp-resource__number">01 / CRIAR</span>
+              <h3>Atividades com a sua assinatura</h3>
+              <p>Monte materiais e jogos, adapte para cada objetivo terapêutico e compartilhe com outros profissionais.</p>
+            </article>
+            <article className="lp-resource">
+              <span className="lp-resource__icon lp-resource__icon--green"><CalendarDays size={25} /></span>
+              <span className="lp-resource__number">02 / ORGANIZAR</span>
+              <h3>Agenda sem perder o fio da rotina</h3>
+              <p>Visualize seus horários, acompanhe sessões e encontre o que precisa antes de cada atendimento.</p>
+            </article>
+            <article className="lp-resource">
+              <span className="lp-resource__icon lp-resource__icon--yellow"><ClipboardList size={25} /></span>
+              <span className="lp-resource__number">03 / ACOMPANHAR</span>
+              <h3>Relatórios e evolução no mesmo lugar</h3>
+              <p>Registre o percurso do paciente e reúna as informações que dão continuidade ao cuidado.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="lp-showcase lp-section" id="experiencia" aria-labelledby="lp-showcase-title">
+        <div className="lp-container">
+          <div className="lp-showcase__top">
+            <div>
+              <p className="lp-kicker">VEJA DE PERTO</p>
+              <h2 id="lp-showcase-title">Uma plataforma para <em>usar, não só gerenciar.</em></h2>
+            </div>
+            <div className="lp-showcase__controls">
+              <button type="button" onClick={() => changeSlide(-1)} aria-label="Imagem anterior"><ArrowLeft size={20} /></button>
+              <button type="button" onClick={() => changeSlide(1)} aria-label="Próxima imagem"><ArrowRight size={20} /></button>
+            </div>
+          </div>
+          <div
+            className="lp-showcase__stage"
+            onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
+            onTouchEnd={(event) => {
+              if (touchStartX.current === null) return;
+              const distance = event.changedTouches[0].clientX - touchStartX.current;
+              if (Math.abs(distance) > 45) changeSlide(distance < 0 ? 1 : -1);
+              touchStartX.current = null;
+            }}
           >
-            <path
-              fill="currentColor"
-              d="M0,64L60,74.7C120,85,240,107,360,101.3C480,96,600,64,720,53.3C840,43,960,53,1080,64C1200,75,1320,85,1380,90.7L1440,96L1440,120L1380,120C1320,120,1200,120,1080,120C960,120,840,120,720,120C600,120,480,120,360,120C240,120,120,120,60,120L0,120Z"
-            />
-          </svg>
-        </div>
-      </section>
-
-      {/* Como funciona */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-20">
-          <div className="text-center">
-            <h2 className="text-3xl sm:text-4xl font-display font-extrabold text-foreground">Como Funciona</h2>
-            <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
-              Um processo simples e acolhedor para ajudar no desenvolvimento da comunicação do seu filho
-            </p>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {howItWorks.map((f, idx) => (
-              <InfoCard
-                key={f.key}
-                feature={f}
-                showCta={false}
-                badge={
-                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-green/20 text-brand-green font-bold">
-                    {idx + 1}
-                  </span>
-                }
-                subtitle={
-                  f.key === "avaliacao"
-                    ? "Identificamos as necessidades específicas de cada criança para criar um plano de desenvolvimento único."
-                    : f.key === "atividades"
-                      ? "Jogos educativos desenvolvidos por especialistas para estimular a fala de forma divertida."
-                      : f.key === "acompanhamento"
-                        ? "Fonoaudiólogos especializados acompanham cada etapa do desenvolvimento."
-                        : "Acompanhe o progresso do seu filho com relatórios claros e acessíveis."
-                }
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Funcionalidades */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 pb-16 sm:pb-20">
-          <div className="text-center">
-            <h2 className="text-3xl sm:text-4xl font-display font-extrabold text-foreground">
-              Funcionalidades da Plataforma
-            </h2>
-            <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
-              Tudo que você precisa para apoiar o desenvolvimento do seu filho
-            </p>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-7">
-            {platformFeatures.map((f) => (
-              <InfoCard
-                key={f.key}
-                feature={f}
-                subtitle={
-                  f.key === "atividades-personalizadas"
-                    ? "Exercícios adaptados à dificuldade da criança"
-                    : f.key === "jogos-educativos"
-                      ? "Jogos interativos para estimular fala, linguagem e cognição"
-                      : f.key === "acompanhamento-evolucao"
-                        ? "Histórico, progresso e relatórios claros"
-                        : "Sessões online com fonoaudióloga especializada"
-                }
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Para quem é */}
-      <section className="bg-brand-mint">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-20">
-          <div className="text-center">
-            <h2 className="text-3xl sm:text-4xl font-display font-extrabold text-foreground">Para Quem É</h2>
-            <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
-              A Sementes da Fala foi criada pensando em famílias como a sua
-            </p>
-          </div>
-
-          {(() => {
-            const items: Array<{
-              title: string;
-              subtitle: string;
-              icon: React.ComponentType<{ size?: number | string; className?: string }>;
-              iconWrapClassName: string;
-              iconClassName: string;
-            }> = [
-              {
-                title: "Crianças com atraso na fala",
-                subtitle: "Apoio especializado para desenvolver a comunicação",
-                icon: MessageCircle,
-                iconWrapClassName: "bg-brand-purple/15",
-                iconClassName: "text-brand-purple",
-              },
-              {
-                title: "Dificuldades de pronúncia",
-                subtitle: "Exercícios para melhorar a articulação das palavras",
-                icon: Volume2,
-                iconWrapClassName: "bg-brand-blue/12",
-                iconClassName: "text-brand-blue",
-              },
-              {
-                title: "Acompanhamento profissional",
-                subtitle: "Para pais que buscam orientação especializada",
-                icon: UserCheck,
-                iconWrapClassName: "bg-brand-green/12",
-                iconClassName: "text-brand-green",
-              },
-              {
-                title: "Praticidade online",
-                subtitle: "Para famílias que valorizam flexibilidade",
-                icon: Wifi,
-                iconWrapClassName: "bg-brand-orange/12",
-                iconClassName: "text-brand-orange",
-              },
-            ];
-            return (
-              <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {items.map((it) => {
-                  const Icon = it.icon;
-                  return (
-                    <div
-                      key={it.title}
-                      className="rounded-3xl bg-white/80 backdrop-blur border border-border shadow-[0_14px_48px_-28px_rgba(0,0,0,0.25)] p-8 text-center"
-                    >
-                      <div className={`mx-auto w-16 h-16 rounded-2xl grid place-items-center ${it.iconWrapClassName}`}>
-                        <Icon size={26} className={it.iconClassName} />
-                      </div>
-                      <h3 className="mt-5 text-lg font-display font-bold text-foreground">{it.title}</h3>
-                      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{it.subtitle}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </div>
-      </section>
-
-      {/* CTA final (bloco laranja acima do rodapé) */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-orange via-brand-orange to-brand-yellow">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-28 -right-24 w-80 h-80 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute top-1/2 right-12 w-44 h-44 rounded-full bg-white/10 blur-2xl" />
-        </div>
-
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-20 text-center text-white">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-sm font-semibold">
-            <span aria-hidden>✨</span>
-            Sessão experimental gratuita
-          </div>
-
-          <h2 className="mt-7 font-display font-extrabold tracking-tight text-4xl sm:text-5xl lg:text-6xl">
-            Comece agora a jornada de desenvolvimento do seu filho
-          </h2>
-
-          <p className="mt-5 text-base sm:text-lg text-white/90 max-w-2xl mx-auto leading-relaxed">
-            Agende uma sessão experimental gratuita e descubra como podemos ajudar no desenvolvimento da comunicação da
-            sua criança.
-          </p>
-
-          <div className="mt-10 flex flex-col items-center gap-4">
-            <a
-              href={whatsappCtaHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-3 rounded-full bg-white px-8 py-4 text-base font-extrabold text-brand-orange shadow-[0_18px_60px_-28px_rgba(0,0,0,0.45)] hover:bg-white/95 transition-colors"
-            >
-              <CalendarDays size={20} />
-              Agendar Sessão Experimental Gratuita
-            </a>
-            <p className="text-sm text-white/85">
-              ✓ Sem compromisso &nbsp;•&nbsp; ✓ 100% online &nbsp;•&nbsp; ✓ Atendimento humanizado
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Rodapé (final da página) */}
-      <footer className="bg-[#203642] text-white">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-14">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-12 items-start">
-            {/* Coluna: Logo + descrição */}
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/10 grid place-items-center">
-                  <img src={logoImage} alt="Sementes da Fala" className="w-12 h-12 object-contain rounded-lg bg-white/80" />
-                </div>
-              </div>
-              <p className="text-white/70 text-sm leading-relaxed max-w-sm">
-                Desenvolvendo a comunicação infantil com cuidado, afeto e tecnologia. Uma plataforma completa de
-                fonoaudiologia online.
-              </p>
+            <div className="lp-showcase__media">
+              <img key={showcase[activeSlide].image} className={activeSlide === 2 ? "lp-showcase__fit" : ""} src={showcase[activeSlide].image} alt={showcase[activeSlide].alt} loading="lazy" />
+              <span>Demonstração ilustrativa com dados fictícios</span>
             </div>
-
-            {/* Coluna: Links úteis */}
-            <div className="text-center md:text-left">
-              <h3 className="text-lg font-display font-bold">Links Úteis</h3>
-              <div className="mt-4 flex flex-col gap-3 text-sm items-center md:items-start">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-white/70 hover:text-white transition-colors text-left bg-transparent p-0 m-0 border-0 appearance-none"
-                    >
-                      Termos de Uso
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-3xl rounded-2xl bg-background/95 backdrop-blur border-border max-h-[80vh] overflow-hidden">
-                    <div className="max-h-[70vh] overflow-auto pr-2">
-                      <DialogHeader className="text-left">
-                        <DialogTitle className="text-2xl font-display">Termos de Uso</DialogTitle>
-                        <DialogDescription>
-                          Última atualização: <strong>{termsLastUpdated}</strong>
-                        </DialogDescription>
-                      </DialogHeader>
-
-                      <div className="mt-5 space-y-5 text-sm sm:text-base leading-relaxed text-foreground">
-                        <p>
-                          Bem-vindo(a) à plataforma <strong>Sementes da Fala</strong>. Ao acessar ou utilizar nossos
-                          serviços, você concorda com os presentes Termos de Uso. Caso não concorde com qualquer
-                          condição aqui descrita, recomendamos que não utilize a plataforma.
-                        </p>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">1. OBJETIVO DA PLATAFORMA</h4>
-                          <p className="mt-2">
-                            A plataforma <strong>Sementes da Fala</strong> tem como objetivo oferecer conteúdos
-                            educativos, atividades terapêuticas, materiais digitais e, quando contratado, atendimentos
-                            online voltados ao desenvolvimento da fala, linguagem e aprendizagem.
-                          </p>
-                          <p className="mt-2">
-                            Os conteúdos disponibilizados <strong>não substituem avaliação ou acompanhamento presencial</strong>{" "}
-                            com profissional de saúde, quando necessário.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">2. CADASTRO E ACESSO</h4>
-                          <p className="mt-2">
-                            Para utilizar determinadas funcionalidades, o usuário poderá precisar criar uma conta,
-                            fornecendo informações verdadeiras e atualizadas. O usuário é responsável por manter a
-                            confidencialidade de seus dados de acesso.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">3. USO ADEQUADO DA PLATAFORMA</h4>
-                          <p className="mt-2">Ao utilizar a plataforma, o usuário compromete-se a:</p>
-                          <ul className="mt-2 list-disc pl-6 space-y-1">
-                            <li>Utilizar os conteúdos apenas para fins pessoais e educativos;</li>
-                            <li>Não copiar, reproduzir, distribuir ou comercializar materiais sem autorização;</li>
-                            <li>Não utilizar a plataforma para fins ilegais, ofensivos ou que violem direitos de terceiros.</li>
-                          </ul>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">4. PROPRIEDADE INTELECTUAL</h4>
-                          <p className="mt-2">
-                            Todo o conteúdo disponível (textos, vídeos, imagens, atividades, logotipo, marca, layout e
-                            materiais pedagógicos) é protegido por direitos autorais e pertence à{" "}
-                            <strong>Sementes da Fala</strong>, sendo proibida sua reprodução sem autorização prévia.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">5. ATENDIMENTOS ONLINE</h4>
-                          <p className="mt-2">
-                            Os atendimentos realizados têm caráter educativo e terapêutico, respeitando os limites
-                            éticos da profissão. Eles <strong>não substituem avaliação médica ou psicológica presencial</strong>,
-                            quando necessária.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">6. ALTERAÇÕES NOS TERMOS</h4>
-                          <p className="mt-2">
-                            A plataforma poderá atualizar estes Termos de Uso a qualquer momento. Recomenda-se a leitura
-                            periódica para se manter informado.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">7. CONTATO</h4>
-                          <p className="mt-2">
-                            Em caso de dúvidas, entre em contato pelo e-mail: <strong>{contactEmail}</strong>
-                          </p>
-                        </div>
-
-                        <p className="text-muted-foreground">
-                          Ao utilizar a plataforma, você declara estar de acordo com estes Termos de Uso.
-                        </p>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button
-                      type="button"
-                      className="text-white/70 hover:text-white transition-colors text-left bg-transparent p-0 m-0 border-0 appearance-none"
-                    >
-                      Política de Privacidade
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-3xl rounded-2xl bg-background/95 backdrop-blur border-border max-h-[80vh] overflow-hidden">
-                    <div className="max-h-[70vh] overflow-auto pr-2">
-                      <DialogHeader className="text-left">
-                        <DialogTitle className="text-2xl font-display">Política de Privacidade</DialogTitle>
-                        <DialogDescription>
-                          Última atualização: <strong>{privacyLastUpdated}</strong>
-                        </DialogDescription>
-                      </DialogHeader>
-
-                      <div className="mt-5 space-y-5 text-sm sm:text-base leading-relaxed text-foreground">
-                        <p>
-                          A <strong>Sementes da Fala</strong> valoriza a sua privacidade e está comprometida com a proteção
-                          dos seus dados pessoais, em conformidade com a Lei Geral de Proteção de Dados (Lei nº
-                          13.709/2018 – LGPD).
-                        </p>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">1. DADOS COLETADOS</h4>
-                          <p className="mt-2">Podemos coletar as seguintes informações:</p>
-                          <ul className="mt-2 list-disc pl-6 space-y-1">
-                            <li>Nome, e-mail e dados de cadastro;</li>
-                            <li>Informações fornecidas voluntariamente em formulários;</li>
-                            <li>Dados de navegação (cookies, IP, tipo de dispositivo);</li>
-                            <li>Informações necessárias para agendamento ou acesso a conteúdos.</li>
-                          </ul>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">2. FINALIDADE DO USO DOS DADOS</h4>
-                          <p className="mt-2">Os dados coletados são utilizados para:</p>
-                          <ul className="mt-2 list-disc pl-6 space-y-1">
-                            <li>Gerenciar o acesso à plataforma;</li>
-                            <li>Oferecer conteúdos personalizados;</li>
-                            <li>Realizar atendimentos online;</li>
-                            <li>Enviar comunicações importantes e informativas;</li>
-                            <li>Melhorar a experiência do usuário.</li>
-                          </ul>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">3. COMPARTILHAMENTO DE DADOS</h4>
-                          <p className="mt-2">
-                            Seus dados <strong>não são vendidos ou compartilhados com terceiros</strong>, exceto quando
-                            necessário para:
-                          </p>
-                          <ul className="mt-2 list-disc pl-6 space-y-1">
-                            <li>Cumprimento de obrigações legais;</li>
-                            <li>Processamento técnico da plataforma (hospedagem, pagamentos, segurança).</li>
-                          </ul>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">4. ARMAZENAMENTO E SEGURANÇA</h4>
-                          <p className="mt-2">
-                            Utilizamos medidas técnicas e organizacionais para proteger seus dados contra acessos não
-                            autorizados, vazamentos ou uso indevido.
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">5. DIREITOS DO USUÁRIO</h4>
-                          <p className="mt-2">Você pode, a qualquer momento:</p>
-                          <ul className="mt-2 list-disc pl-6 space-y-1">
-                            <li>Solicitar acesso aos seus dados;</li>
-                            <li>Corrigir informações;</li>
-                            <li>Solicitar exclusão de dados (quando permitido por lei);</li>
-                            <li>Revogar consentimentos.</li>
-                          </ul>
-                          <p className="mt-2">
-                            Para isso, entre em contato pelo e-mail: <strong>{contactEmail}</strong>
-                          </p>
-                        </div>
-
-                        <div>
-                          <h4 className="font-display font-bold text-lg">6. ALTERAÇÕES NA POLÍTICA</h4>
-                          <p className="mt-2">
-                            Esta Política de Privacidade pode ser atualizada a qualquer momento. Recomendamos a consulta
-                            periódica.
-                          </p>
-                        </div>
-
-                        <p className="text-muted-foreground">
-                          Ao utilizar a plataforma, você concorda com esta Política de Privacidade.
-                        </p>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                <a
-                  href={whatsappCtaHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white/70 hover:text-white transition-colors text-left"
-                >
-                  Contato
-                </a>
-              </div>
-            </div>
-
-            {/* Coluna: Redes sociais */}
-            <div className="md:text-right">
-              <h3 className="text-lg font-display font-bold">Redes Sociais</h3>
-              <div className="mt-4 flex items-center justify-center md:justify-end gap-3">
-                <a
-                  href={instagramHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Instagram"
-                  className="w-11 h-11 rounded-full bg-white/10 border border-white/10 grid place-items-center hover:bg-white/15 transition-colors"
-                >
-                  <Instagram size={18} className="text-white" />
-                </a>
-                <a
-                  href={whatsappCtaHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="WhatsApp"
-                  className="w-11 h-11 rounded-full bg-white/10 border border-white/10 grid place-items-center hover:bg-white/15 transition-colors"
-                >
-                  <MessageCircle size={18} className="text-white" />
-                </a>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="Email"
-                      className="w-11 h-11 rounded-full bg-white/10 border border-white/10 grid place-items-center hover:bg-white/15 transition-colors"
-                    >
-                      <Mail size={18} className="text-white" />
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-lg rounded-2xl bg-background/95 backdrop-blur border-border">
-                    <DialogHeader className="text-left">
-                      <DialogTitle className="text-2xl font-display">Contato por e-mail</DialogTitle>
-                      <DialogDescription>Você pode falar com a equipe da Sementes da Fala por este e-mail:</DialogDescription>
-                    </DialogHeader>
-                    <div className="mt-4 rounded-2xl border border-border bg-muted/30 px-4 py-3 font-semibold text-foreground">
-                      {contactEmail}
-                    </div>
-                  </DialogContent>
-                </Dialog>
+            <div className="lp-showcase__details" aria-live="polite">
+              <span className="lp-showcase__count">{showcase[activeSlide].number} / 0{showcase.length}</span>
+              <p className="lp-kicker">{showcase[activeSlide].tag}</p>
+              <h3>{showcase[activeSlide].title}</h3>
+              <p>{showcase[activeSlide].description}</p>
+              <div className="lp-showcase__dots" role="tablist" aria-label="Selecione uma demonstração">
+                {showcase.map((slide, index) => (
+                  <button
+                    key={slide.number}
+                    type="button"
+                    role="tab"
+                    aria-label={`Ver ${slide.tag}`}
+                    aria-selected={index === activeSlide}
+                    onClick={() => setActiveSlide(index)}
+                  />
+                ))}
               </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div className="mt-12 border-t border-white/10 pt-8 text-center text-white/50 text-sm">
-            © {new Date().getFullYear()} Sementes da Fala. Todos os direitos reservados.
+      <section className="lp-cta lp-section">
+        <div className="lp-container lp-cta__inner">
+          <div>
+            <p className="lp-kicker">SEU PRÓXIMO ATENDIMENTO COMEÇA AQUI</p>
+            <h2>Leve a sua prática para um espaço à altura dela.</h2>
           </div>
+          <div className="lp-cta__actions">
+            <Link to="/cadastro" className="lp-button lp-button--light">Criar conta profissional <ArrowRight size={19} /></Link>
+            <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="lp-cta__contact">Conversar sobre a plataforma <MessageCircle size={18} /></a>
+          </div>
+        </div>
+      </section>
+
+      <footer className="lp-footer">
+        <div className="lp-container lp-footer__main">
+          <div className="lp-footer__identity">
+            <Brand footer />
+            <p>Um espaço vivo para a fonoaudiologia online.</p>
+          </div>
+          <div className="lp-footer__links">
+            <strong>Plataforma</strong>
+            <a href="#plataforma">Conhecer</a>
+            <a href="#recursos">Recursos</a>
+            <Link to="/cadastro">Cadastrar-se</Link>
+            <Link to="/entrar">Entrar</Link>
+          </div>
+          <div className="lp-footer__links">
+            <strong>Contato</strong>
+            <a href={whatsappHref} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+            <a href={instagramHref} target="_blank" rel="noopener noreferrer">Instagram <Instagram size={14} /></a>
+            <a href="mailto:sementesdafala@gmail.com">E-mail</a>
+          </div>
+        </div>
+        <div className="lp-container lp-footer__bottom">
+          <span>© {new Date().getFullYear()} Sementes da Fala</span>
+          <LandingPolicies />
         </div>
       </footer>
     </main>
   );
 }
-
-

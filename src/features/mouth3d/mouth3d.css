@@ -77,6 +77,9 @@
 .mouth3d-reset { width: 34px; height: 34px; margin-left: auto; }
 .mouth3d-control-section { padding: 24px 0; }
 .mouth3d-control-group + .mouth3d-control-group { margin-top: 22px; }
+.mouth3d-shape-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 18px; }
+.mouth3d-shape-switch button { padding-inline: 5px; }
+.mouth3d-expression { padding-bottom: 20px; border-bottom: 1px solid #e6efea; }
 .mouth3d-control-label { gap: 8px; margin-bottom: 13px; color: #37564c; font-size: 12px; font-weight: 800; }
 .mouth3d-control-label output { color: #237f59; font-size: 11px; font-variant-numeric: tabular-nums; }
 .mouth3d-control-group input[type="range"] { display: block; width: 100%; height: 5px; margin: 0; border-radius: 10px; outline: none; appearance: none; background: linear-gradient(to right, #299965 0 var(--range-progress), #dce9e2 var(--range-progress) 100%); cursor: pointer; }
@@ -102,6 +105,7 @@
   .mouth3d-controls { border-left: 0; border-top: 1px solid #dce8e2; }
   .mouth3d-control-section { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
   .mouth3d-control-group + .mouth3d-control-group { margin-top: 0; }
+  .mouth3d-expression { padding-bottom: 0; border-bottom: 0; }
   .mouth3d-notice { margin-top: 12px; }
 }
 

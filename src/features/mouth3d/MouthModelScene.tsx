@@ -18,7 +18,7 @@ type MouthModelSceneProps = MouthPose & {
 };
 const clamp = (value: number) => THREE.MathUtils.clamp(value, 0, 1);
 const signedClamp = (value: number) => THREE.MathUtils.clamp(value, -1, 1);
-const poseKeys: (keyof MouthPose)[] = ["opening", "tongueLift", "tongueReach", "tongueCurl", "tongueSide"];
+const poseKeys: (keyof MouthPose)[] = ["opening", "tongueLift", "tongueReach", "tongueCurl", "tongueSide", "tongueWidth", "lipShape"];
 
 export default function MouthModelScene(props: MouthModelSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -26,7 +26,7 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
   const requestRenderRef = useRef<() => void>(() => {});
   const [unavailable, setUnavailable] = useState(false);
   callbacksRef.current = props;
-  useEffect(() => { requestRenderRef.current(); }, [props.opening, props.tongueLift, props.tongueReach, props.tongueCurl, props.tongueSide, props.view, props.showFace, props.showLabels]);
+  useEffect(() => { requestRenderRef.current(); }, [props.opening, props.tongueLift, props.tongueReach, props.tongueCurl, props.tongueSide, props.tongueWidth, props.lipShape, props.view, props.showFace, props.showLabels]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -72,7 +72,7 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
     camera.position.set(0, 0.35, 8);
     const targetCamera = new THREE.Vector3();
     const focus = new THREE.Vector3(0, -0.04, 0);
-    const pose: MouthPose = { opening: props.opening, tongueLift: props.tongueLift, tongueReach: props.tongueReach, tongueCurl: props.tongueCurl, tongueSide: props.tongueSide };
+    const pose: MouthPose = { opening: props.opening, tongueLift: props.tongueLift, tongueReach: props.tongueReach, tongueCurl: props.tongueCurl, tongueSide: props.tongueSide, tongueWidth: props.tongueWidth, lipShape: props.lipShape };
     let lastRender = performance.now();
     let frame = 0;
     let active = true;

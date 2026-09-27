@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three";
 import { createMouthModel } from "../src/features/mouth3d/createMouthModel.ts";
-const centered = { tongueCurl: 0, tongueSide: 0 };
+const centered = { tongueCurl: 0, tongueSide: 0, tongueWidth: 0, lipShape: 0 };
 
 test("two complete arches with 14 individually shaped crowns each", () => {
   const model = createMouthModel();
@@ -22,7 +22,7 @@ test("geometry remains finite at every combination of movement limits", () => {
       for (const tongueLift of [0, 0.5, 1]) {
         for (const tongueReach of [0, 0.5, 1]) {
           for (const tongueCurl of [-1, 0, 1]) for (const tongueSide of [-1, 0, 1]) {
-            model.update({ opening, tongueLift, tongueReach, tongueCurl, tongueSide }, false, true);
+            model.update({ ...centered, opening, tongueLift, tongueReach, tongueCurl, tongueSide }, false, true);
             model.group.traverse((object) => {
               if (!(object instanceof THREE.Mesh)) return;
               for (const key of ["position", "normal"]) {
@@ -88,8 +88,9 @@ test("full lips retain volume at rest and connect continuously to the face", () 
       const geometry = model.lipMesh.geometry;
       geometry.computeBoundingBox();
       assert.ok(geometry.boundingBox!.max.y - geometry.boundingBox!.min.y > 0.60);
-      for (let column = 0; column <= 144; column++) {
-        const lip = new THREE.Vector3().fromBufferAttribute(geometry.attributes.position, 16 * 145 + column);
+      const columns = geometry.attributes.position.count / 17;
+      for (let column = 0; column < columns; column++) {
+        const lip = new THREE.Vector3().fromBufferAttribute(geometry.attributes.position, 16 * columns + column);
         const face = new THREE.Vector3().fromBufferAttribute(model.faceMesh.geometry.attributes.position, column);
         assert.ok(lip.distanceTo(face) < 0.00001);
       }
@@ -147,4 +148,46 @@ test("all mesh buffers, materials and the shared tissue texture are disposed", (
   for (const resource of resources) resource.addEventListener("dispose", () => { disposed++; });
   model.dispose();
   assert.equal(disposed, resources.size);
+});
+
+test("width changes reshape the tongue without detaching its root or moving its tip", () => {
+  const model = createMouthModel();
+  try {
+    const pose = { ...centered, opening: 0.85, tongueLift: 0.2, tongueReach: 1 };
+    model.update(pose, false, true);
+    const point = (index: number) => new THREE.Vector3().fromBufferAttribute(model.tongueMesh.geometry.attributes.position, index);
+    const root = point(0), tip = point(76);
+    const widths: number[] = [];
+    for (const tongueWidth of [-1, 0, 1]) {
+      model.update({ ...pose, tongueWidth }, false, true);
+      widths.push(point(61).x - point(24 * 77 + 61).x);
+      assert.ok(point(0).distanceTo(root) < 0.00001);
+      assert.ok(point(76).distanceTo(tip) < 0.00001);
+      assert.ok(Array.from(model.tongueMesh.geometry.attributes.normal.array).every(Number.isFinite));
+    }
+    assert.ok(widths[0] < widths[1] * 0.65);
+    assert.ok(widths[2] > widths[1] * 1.25);
+  } finally { model.dispose(); }
+});
+
+test("pucker and smile keep lips sealed and connected to the face", () => {
+  const model = createMouthModel();
+  try {
+    const sizes: THREE.Vector3[] = [];
+    for (const lipShape of [-1, 0, 1]) {
+      model.update({ ...centered, opening: 0, tongueLift: 0.2, tongueReach: 0.2, lipShape }, false, true);
+      const geometry = model.lipMesh.geometry;
+      geometry.computeBoundingBox();
+      sizes.push(geometry.boundingBox!.getSize(new THREE.Vector3()));
+      const columns = geometry.attributes.position.count / 17;
+      for (let i = 0; i < columns; i++) {
+        const point = (index: number) => new THREE.Vector3().fromBufferAttribute(geometry.attributes.position, index);
+        assert.ok(point(i).distanceTo(point(columns - 1 - i)) < 0.00001, "upper and lower lips must meet");
+        const edge = new THREE.Vector3().fromBufferAttribute(model.faceMesh.geometry.attributes.position, i);
+        assert.ok(point(16 * columns + i).distanceTo(edge) < 0.00001, "lip edge must stay attached");
+      }
+    }
+    assert.ok(sizes[0].x < sizes[1].x * 0.7);
+    assert.ok(sizes[2].x > sizes[1].x * 1.1);
+  } finally { model.dispose(); }
 });

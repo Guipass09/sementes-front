@@ -6,6 +6,7 @@ import { createMouthModel, type MouthPose } from "./createMouthModel";
 export type MouthView = "front" | "angle" | "section";
 export type MouthDragMode = "jaw" | "tongue" | "tip";
 type MouthModelSceneProps = MouthPose & {
+  compact?: boolean;
   view: MouthView;
   dragMode: MouthDragMode;
   showFace: boolean;
@@ -33,18 +34,18 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
     if (!container) return;
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer = new THREE.WebGLRenderer({ antialias: !props.compact, preserveDrawingBuffer: true });
     } catch {
       setUnavailable(true);
       return;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, props.compact ? 1 : 1.75));
     renderer.setClearColor(0xeaf0f0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.02;
     renderer.localClippingEnabled = true;
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = !props.compact;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.setAttribute("aria-label", "Boca 3D interativa. Controles de movimento disponíveis ao lado.");
     container.prepend(renderer.domElement);
@@ -58,8 +59,8 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
     pmrem.dispose();
     const key = new THREE.DirectionalLight(0xfff5ec, 2.1);
     key.position.set(-3, 4, 7);
-    key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    key.castShadow = !props.compact;
+    key.shadow.mapSize.set(props.compact ? 1024 : 2048, props.compact ? 1024 : 2048);
     Object.assign(key.shadow.camera, { left: -2.5, right: 2.5, top: 2.5, bottom: -2.5, near: 0.5, far: 16 });
     key.shadow.normalBias = 0.025;
     key.shadow.bias = -0.0002;

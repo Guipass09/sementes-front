@@ -154,6 +154,7 @@ const App = () => {
                 <Route path="pacientes/:id/comentario" element={<ProfessionalPatientComment />} />
                 <Route path="atividades" element={<ProfessionalActivities />} />
                 <Route path="jogos" element={<ProfessionalGamesHub />} />
+                <Route path="jogos/boca-3d" element={<Suspense fallback={<FullScreenLogoLoader label="Carregando modelo..." />}><AdminMouth3D /></Suspense>} />
                 <Route path="jogos/memoria" element={<AdminMemoryGames />} />
                 <Route path="jogos/memoria/novo" element={<AdminMemoryGameCreate />} />
                 <Route path="jogos/memoria/:id/editar" element={<AdminMemoryGameEdit />} />

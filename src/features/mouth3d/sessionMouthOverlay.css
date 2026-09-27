@@ -1,0 +1,18 @@
+.sc-mouth-overlay { position: absolute; z-index: 35; overflow: hidden; min-width: 0; min-height: 0; background: #eaf0f0; border: 1px solid #c7d9d2; border-radius: 8px; box-shadow: 0 12px 35px #17392b45; }
+.sc-mouth-header { position: absolute; z-index: 3; inset: 0 0 auto; height: 38px; padding: 0 8px 0 11px; display: flex; align-items: center; justify-content: space-between; background: #fff; border-bottom: 1px solid #d6e1dc; color: #153d30; font-size: 12px; font-weight: 700; touch-action: none; cursor: move; user-select: none; }
+.sc-mouth-header > span, .sc-mouth-header-actions { display: flex; align-items: center; gap: 6px; }
+.sc-mouth-header-actions button, .sc-mouth-options-row button { border: 0; background: transparent; color: #315b4a; }
+.sc-mouth-header-actions button { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 4px; }
+.sc-mouth-header-actions button:hover, .sc-mouth-options-row button:hover { background: #e4f4e9; }
+.sc-mouth-model { position: absolute; inset: 38px 0 0; }
+.sc-mouth-options { position: absolute; z-index: 4; top: 38px; right: 0; bottom: 0; width: min(260px, 100%); overflow: auto; padding: 12px; background: #ffffffed; box-shadow: -4px 0 16px #183f3129; color: #153d30; font-size: 11px; }
+.sc-mouth-options-row { display: flex; align-items: center; justify-content: space-between; gap: 3px; margin-bottom: 10px; }
+.sc-mouth-options-row button { flex: 1; padding: 5px 3px; border-radius: 4px; font-size: 10px; }
+.sc-mouth-options-row button.selected { background: #087b52; color: white; }
+.sc-mouth-control { display: block; margin: 10px 0; }
+.sc-mouth-control > span { display: flex; justify-content: space-between; gap: 6px; }
+.sc-mouth-control input { display: block; width: 100%; margin-top: 5px; accent-color: #0b905f; }
+.sc-mouth-face { display: flex; align-items: center; gap: 7px; padding-top: 5px; }
+.sc-mouth-face input { accent-color: #0b905f; }
+.sc-mouth-resize { position: absolute; z-index: 5; right: 0; bottom: 0; width: 31px; height: 31px; display: grid; place-items: center; color: #fff; background: #087b52; border-radius: 6px 0 0 0; cursor: nwse-resize; touch-action: none; }
+.sc-mouth-overlay--readonly .sc-mouth-model { pointer-events: none; }

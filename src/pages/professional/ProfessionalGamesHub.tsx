@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon } from "lucide-react";
+import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon, ScanFace } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth/AuthContext";
 import ClinicProfessionalGamesView from "@/components/ClinicProfessionalGamesView";
@@ -26,6 +26,16 @@ function StandardProfessionalGamesHub() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 items-stretch">
+          <div className="bg-card rounded-xl border border-border p-4 sm:p-6 shadow-sm h-full">
+            <div className="flex items-start gap-3 sm:gap-4 h-full">
+              <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-brand-green/10 flex items-center justify-center flex-shrink-0"><ScanFace className="h-5 w-5 sm:h-6 sm:w-6 text-brand-green" /></div>
+              <div className="flex-1 flex flex-col min-w-0">
+                <h2 className="font-display font-bold text-foreground text-lg sm:text-xl">Boca 3D</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">Modelo articulatório interativo.</p>
+                <div className="mt-auto pt-3 sm:pt-4"><Button onClick={() => navigate("/profissional/jogos/boca-3d")} className="text-xs sm:text-sm w-full sm:w-auto">Abrir <ArrowRight className="h-4 w-4 ml-2" /></Button></div>
+              </div>
+            </div>
+          </div>
           <div className="bg-card rounded-xl sm:rounded-2xl border border-border p-4 sm:p-6 shadow-sm h-full">
             <div className="flex items-start gap-3 sm:gap-4 h-full">
               <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl sm:rounded-2xl bg-brand-green/10 flex items-center justify-center flex-shrink-0">

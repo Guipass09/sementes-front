@@ -16,6 +16,7 @@ import {
   VideoOff,
   Sparkles,
   RefreshCw,
+  ScanFace,
 } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
@@ -55,11 +56,13 @@ import { useToast } from "@/hooks/use-toast";
 import { playFanfare } from "@/lib/sfx";
 import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
 import { Textarea } from "@/components/ui/textarea";
+import { initialSessionMouthState, normalizeSessionMouthState, type SessionMouthState } from "@/features/mouth3d/sessionMouthState";
 
 const ReportFormModalLazy = lazy(async () => {
   const mod = await import("@/features/reports/ReportFormModal");
   return { default: mod.ReportFormModal };
 });
+const SessionMouthOverlay = lazy(() => import("@/features/mouth3d/SessionMouthOverlay"));
 
 type Role = "admin" | "user";
 type ContentStatus = "loading" | "ready" | "failed";
@@ -154,6 +157,14 @@ export default function SessionCall() {
   const [contentShareId, setContentShareId] = useState<string | null>(null);
   const [contentReloadKey, setContentReloadKey] = useState(0);
   const [contentError, setContentError] = useState(false);
+  const [mouthState, setMouthState] = useState<SessionMouthState>(initialSessionMouthState);
+  const mouthStateRef = useRef<SessionMouthState>(initialSessionMouthState);
+  const mouthLastMessageIdRef = useRef(0);
+  const mouthPublishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mouthPublishingRef = useRef(false);
+  const mouthDirtyRef = useRef(false);
+  const mouthGenerationRef = useRef(0);
+  const mouthSyncErrorAtRef = useRef(0);
   const [remoteContentStatus, setRemoteContentStatus] = useState<ContentStatus | "waiting" | "unconfirmed" | null>(null);
   const activeContentRef = useRef<SharedContent | null>(null);
   const localContentStatusRef = useRef<ContentStatus>("loading");
@@ -253,6 +264,14 @@ export default function SessionCall() {
     setContentShareId(null);
     setContentLoading(false);
     setContentError(false);
+    if (mouthPublishTimerRef.current) clearTimeout(mouthPublishTimerRef.current);
+    mouthGenerationRef.current += 1;
+    mouthPublishTimerRef.current = null;
+    mouthDirtyRef.current = false;
+    mouthPublishingRef.current = false;
+    mouthLastMessageIdRef.current = 0;
+    mouthStateRef.current = initialSessionMouthState;
+    setMouthState(initialSessionMouthState);
     setRemoteContentStatus(null);
     videoHealthRef.current = { frames: 0, lastFrameAt: 0, softRecoveryAt: 0, iceRecoveryAt: 0 };
     joinedAtMsRef.current = 0;
@@ -724,6 +743,10 @@ export default function SessionCall() {
         setContentError(false);
         setRemoteContentStatus(remoteContentStatusRef.current);
         setControlGranted(!!res.room?.control_granted_to_user);
+        const savedMouth = normalizeSessionMouthState(res.room?.mouth3d_state);
+        mouthStateRef.current = savedMouth;
+        setMouthState(savedMouth);
+        mouthLastMessageIdRef.current = Number(res.room?.mouth3d_message_id) || 0;
         setScreenShareActive(!!(res as any)?.room?.screen_share_active);
         setStatusLabel("Toque em Participar");
         setMediaState("idle");
@@ -1087,6 +1110,47 @@ export default function SessionCall() {
     const shareId = activeContentRef.current?.share_id;
     if (role === "user" && shareId) {
       void send("content_status", { share_id: shareId, status }).catch(() => {});
+    }
+  };
+
+  const flushMouthState = async () => {
+    mouthPublishTimerRef.current = null;
+    if (mouthPublishingRef.current || !mouthDirtyRef.current || role !== "admin" || !joinInfo) return;
+    const generation = mouthGenerationRef.current;
+    mouthPublishingRef.current = true;
+    mouthDirtyRef.current = false;
+    try {
+      await send("mouth3d_state", mouthStateRef.current);
+    } catch (error) {
+      if (generation !== mouthGenerationRef.current) return;
+      console.warn("[Boca 3D] Falha ao sincronizar estado", error);
+      if (Date.now() - mouthSyncErrorAtRef.current > 30000) {
+        mouthSyncErrorAtRef.current = Date.now();
+        toast({ title: "Boca 3D", description: "Não foi possível sincronizar. Tente mover ou ajustar novamente.", variant: "destructive" });
+      }
+    } finally {
+      if (generation !== mouthGenerationRef.current) return;
+      mouthPublishingRef.current = false;
+      if (mouthDirtyRef.current && !mouthPublishTimerRef.current) {
+        mouthPublishTimerRef.current = setTimeout(() => void flushMouthState(), 250);
+      }
+    }
+  };
+
+  useEffect(() => () => {
+    mouthGenerationRef.current += 1;
+    mouthDirtyRef.current = false;
+    if (mouthPublishTimerRef.current) clearTimeout(mouthPublishTimerRef.current);
+  }, []);
+
+  const changeMouthState = (next: SessionMouthState) => {
+    if (role !== "admin") return;
+    const normalized = normalizeSessionMouthState(next);
+    mouthStateRef.current = normalized;
+    setMouthState(normalized);
+    mouthDirtyRef.current = true;
+    if (!mouthPublishTimerRef.current) {
+      mouthPublishTimerRef.current = setTimeout(() => void flushMouthState(), 120);
     }
   };
 
@@ -1608,6 +1672,16 @@ export default function SessionCall() {
     }
 
     const pc = pcRef.current;
+
+    if (m.kind === "mouth3d_state" && role === "user" && m.from === "admin") {
+      if (m.id > mouthLastMessageIdRef.current) {
+        mouthLastMessageIdRef.current = m.id;
+        const next = normalizeSessionMouthState(m.payload);
+        mouthStateRef.current = next;
+        setMouthState(next);
+      }
+      return;
+    }
 
     if (m.kind === "webrtc_offer" && role === "user") {
       if (!pc) return;
@@ -3017,6 +3091,7 @@ export default function SessionCall() {
                   </Button>
                 </div>
               )}
+              {mouthState.open && <Suspense fallback={null}><SessionMouthOverlay state={mouthState} editable={role === "admin"} onChange={changeMouthState} /></Suspense>}
             </div>
           </div>
 
@@ -3131,6 +3206,9 @@ export default function SessionCall() {
             <>
               <Button variant="outline" onClick={() => setCatalogOpen(true)} className="rounded-xl">
                 Catálogo (atividades/jogos)
+              </Button>
+              <Button variant="outline" onClick={() => changeMouthState({ ...mouthStateRef.current, open: !mouthStateRef.current.open })} className={cn("rounded-xl", mouthState.open && "border-brand-green text-brand-green")} aria-pressed={mouthState.open}>
+                <ScanFace className="h-4 w-4 mr-2" /> Boca 3D
               </Button>
               <Button variant="outline" onClick={() => setPackagesOpen(true)} className="rounded-xl">
                 <Package className="h-4 w-4 mr-2" />

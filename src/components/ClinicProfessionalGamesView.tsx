@@ -8,8 +8,10 @@ import {
   Image as ImageIcon,
   Layers,
   Search,
+  ScanFace,
   Type,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import ClinicProfessionalScopeSelector from "@/components/ClinicProfessionalScopeSelector";
@@ -206,6 +208,9 @@ export default function ClinicProfessionalGamesView(): JSX.Element {
   return (
     <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
       <div className="container mx-auto px-3 sm:px-4">
+        <Link to="/profissional/jogos/boca-3d" className="mb-5 flex items-center gap-3 border-b border-border pb-4 text-foreground hover:text-brand-green">
+          <ScanFace className="h-6 w-6 text-brand-green" /><span className="font-semibold">Boca 3D</span><span className="text-sm text-muted-foreground">Modelo articulatório interativo</span>
+        </Link>
         <div className="mb-6 sm:mb-8 space-y-3">
           <div>
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Jogos</h1>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, RotateCcw, ScanFace, SlidersHorizontal } from "lucide-react";
 import MouthModelScene, { type MouthView, type MouthDragMode } from "@/features/mouth3d/MouthModelScene";
 import type { MouthPose } from "@/features/mouth3d/createMouthModel";
@@ -18,6 +18,7 @@ const positions: { name: string; values: Omit<MouthPosition, "tongueWidth" | "li
 ];
 
 export default function AdminMouth3D() {
+  const isProfessional = useLocation().pathname.startsWith("/profissional/");
   const [opening, setOpening] = useState(neutralPosition.opening);
   const [tongueLift, setTongueLift] = useState(neutralPosition.tongueLift);
   const [tongueReach, setTongueReach] = useState(neutralPosition.tongueReach);
@@ -63,7 +64,7 @@ export default function AdminMouth3D() {
     <main className="mouth3d-page">
       <div className="mouth3d-heading">
         <div className="mouth3d-title-group">
-          <Link to="/admin/jogos" className="mouth3d-back" title="Voltar aos jogos" aria-label="Voltar aos jogos">
+          <Link to={isProfessional ? "/profissional/jogos" : "/admin/jogos"} className="mouth3d-back" title="Voltar aos jogos" aria-label="Voltar aos jogos">
             <ArrowLeft size={19} />
           </Link>
           <div>
@@ -71,7 +72,7 @@ export default function AdminMouth3D() {
             <h1>Boca 3D</h1>
           </div>
         </div>
-        <div className="mouth3d-status"><span /> Protótipo admin</div>
+        <div className="mouth3d-status"><span /> Modelo articulatório</div>
       </div>
 
       <div className="mouth3d-workspace">

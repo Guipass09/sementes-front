@@ -2583,6 +2583,8 @@ export type VideoJoinResponse = {
     created_at?: string;
     content?: { path?: string; title?: string; kind?: string; seed?: number | null; share_id?: string } | null;
     content_updated_at?: string | null;
+    mouth3d_state?: import("@/features/mouth3d/sessionMouthState").SessionMouthState | null;
+    mouth3d_message_id?: number | null;
     control_granted_to_user?: boolean;
     control_updated_at?: string | null;
   } | null;

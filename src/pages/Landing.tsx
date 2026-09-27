@@ -21,7 +21,9 @@ const assets = {
   logo: "/landing/sementes-logo-transparent.png",
   hero: "/landing/teleatendimento-fono.png",
   activity: "/landing/atividade-compartilhada.png",
-  session: "/landing/sessao-ao-vivo-demo.png",
+  session: "/landing/sessao-atividade-demo.png",
+  activityInUse: "/landing/atividade-em-uso-demo.png",
+  wheel: "/landing/roleta-dos-sons-demo.png",
   mouth: "/landing/boca-3d-profissional.png",
   activityBuilder: "/landing/criacao-atividade-demo.png",
 };
@@ -32,15 +34,52 @@ const instagramHref = "https://www.instagram.com/sementes_dafalaoficial/";
 const showcase = [
   {
     number: "01",
-    tag: "Sessão ao vivo",
-    title: "O atendimento acontece aqui.",
+    tone: "green",
+    shortLabel: "Atividades",
+    tag: "Atividades em uso",
+    title: "Materiais que ganham vida na sessão.",
     description:
-      "Vídeo, atividades e interação no mesmo ambiente. Profissional e paciente participam da sessão em tempo real, sem alternar entre várias ferramentas.",
-    image: assets.session,
-    alt: "Demonstração da sala de atendimento ao vivo da Sementes da Fala",
+      "Crie sequências visuais do seu jeito e conduza cada etapa com a criança. A atividade é parte do atendimento, não um arquivo perdido em outra aba.",
+    image: assets.activityInUse,
+    alt: "Atividade demonstrativa Missão dos Sons aberta na plataforma, com figuras coloridas",
   },
   {
     number: "02",
+    tone: "orange",
+    shortLabel: "Jogos",
+    tag: "Jogos interativos",
+    title: "O jogo muda o ritmo do encontro.",
+    description:
+      "Roleta, memória, caça-palavras e outras propostas para você adaptar à sua prática e compartilhar com o paciente durante o atendimento.",
+    image: assets.wheel,
+    alt: "Roleta dos Sons demonstrativa com imagens e palavras coloridas",
+  },
+  {
+    number: "03",
+    tone: "blue",
+    shortLabel: "Ao vivo",
+    tag: "Sessão ao vivo",
+    title: "A atividade e a conversa acontecem juntas.",
+    description:
+      "Vídeo, atividades e interação no mesmo ambiente. Profissional e paciente participam da sessão em tempo real, sem alternar entre várias ferramentas.",
+    image: assets.session,
+    alt: "Sessão ao vivo demonstrativa com uma atividade visual aberta e janelas de vídeo",
+  },
+  {
+    number: "04",
+    tone: "purple",
+    shortLabel: "Criação",
+    tag: "Atividades personalizadas",
+    title: "Seu material nasce aqui.",
+    description:
+      "Organize materiais, objetivos e destinatários em uma atividade própria. A plataforma acompanha o seu jeito de trabalhar.",
+    image: assets.activityBuilder,
+    alt: "Formulário de criação de atividade com dados fictícios na área profissional",
+  },
+  {
+    number: "05",
+    tone: "pink",
+    shortLabel: "Boca 3D",
     tag: "Modelo articulatório",
     title: "Mostre o movimento, não só explique.",
     description:
@@ -48,22 +87,13 @@ const showcase = [
     image: assets.mouth,
     alt: "Modelo de boca 3D aberto na área profissional",
   },
-  {
-    number: "03",
-    tag: "Atividades personalizadas",
-    title: "Crie atividades com a sua intenção clínica.",
-    description:
-      "Organize materiais, objetivos e destinatários em uma atividade própria. A plataforma acompanha o seu jeito de trabalhar.",
-    image: assets.activityBuilder,
-    alt: "Formulário de criação de atividade com dados fictícios na área profissional",
-  },
 ] as const;
 
 function Brand({ footer = false }: { footer?: boolean }) {
   return (
     <a className={`lp-brand ${footer ? "lp-brand--footer" : ""}`} href="#inicio" aria-label="Sementes da Fala, voltar ao início">
       <img src={assets.logo} alt="" width="64" height="64" />
-      <span>Sementes <small>da</small> Fala</span>
+      <span className="lp-brand__name"><strong>Sementes</strong> <small>da</small> Fala</span>
     </a>
   );
 }
@@ -132,7 +162,7 @@ export default function Landing() {
             <a href="#plataforma" className="lp-button lp-button--outline">Explorar a plataforma <ArrowDown size={17} /></a>
           </div>
         </div>
-        <div className="lp-hero__index" aria-hidden="true">01 / 04 &nbsp; SEMENTES DA FALA</div>
+        <div className="lp-hero__index" aria-hidden="true">SEMENTES DA FALA &nbsp; / &nbsp; FONOAUDIOLOGIA ONLINE</div>
       </section>
 
       <div className="lp-proof" aria-label="Recursos da plataforma">
@@ -160,7 +190,7 @@ export default function Landing() {
       <section className="lp-session lp-section" aria-labelledby="lp-session-title">
         <div className="lp-container lp-session__grid">
           <div className="lp-session__visual">
-            <img src={assets.session} alt="Sala de sessão ao vivo com atividade e modelo articulatório na tela" loading="lazy" />
+            <img src={assets.session} alt="Sala de sessão ao vivo com uma atividade visual compartilhada e vídeo dos participantes" loading="lazy" />
             <span className="lp-image-note">Demonstração ilustrativa com dados fictícios</span>
           </div>
           <div className="lp-session__copy">
@@ -227,7 +257,7 @@ export default function Landing() {
             </div>
           </div>
           <div
-            className="lp-showcase__stage"
+            className={`lp-showcase__stage lp-showcase__stage--${showcase[activeSlide].tone}`}
             onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
             onTouchEnd={(event) => {
               if (touchStartX.current === null) return;
@@ -237,7 +267,7 @@ export default function Landing() {
             }}
           >
             <div className="lp-showcase__media">
-              <img key={showcase[activeSlide].image} className={activeSlide === 2 ? "lp-showcase__fit" : ""} src={showcase[activeSlide].image} alt={showcase[activeSlide].alt} loading="lazy" />
+              <img key={showcase[activeSlide].image} className={activeSlide === 0 ? "lp-showcase__focus" : "lp-showcase__fit"} src={showcase[activeSlide].image} alt={showcase[activeSlide].alt} loading="lazy" />
               <span>Demonstração ilustrativa com dados fictícios</span>
             </div>
             <div className="lp-showcase__details" aria-live="polite">
@@ -245,19 +275,31 @@ export default function Landing() {
               <p className="lp-kicker">{showcase[activeSlide].tag}</p>
               <h3>{showcase[activeSlide].title}</h3>
               <p>{showcase[activeSlide].description}</p>
-              <div className="lp-showcase__dots" role="tablist" aria-label="Selecione uma demonstração">
-                {showcase.map((slide, index) => (
-                  <button
-                    key={slide.number}
-                    type="button"
-                    role="tab"
-                    aria-label={`Ver ${slide.tag}`}
-                    aria-selected={index === activeSlide}
-                    onClick={() => setActiveSlide(index)}
-                  />
-                ))}
-              </div>
             </div>
+          </div>
+          <div className="lp-showcase__previews" role="tablist" aria-label="Selecione uma demonstração">
+            {showcase.map((slide, index) => (
+              <button
+                key={slide.number}
+                className={`lp-showcase__preview lp-showcase__preview--${slide.tone}`}
+                type="button"
+                role="tab"
+                aria-label={`Ver ${slide.tag}`}
+                aria-selected={index === activeSlide}
+                onClick={() => setActiveSlide(index)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    const next = (index + (event.key === "ArrowRight" ? 1 : -1) + showcase.length) % showcase.length;
+                    setActiveSlide(next);
+                    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
+                  }
+                }}
+              >
+                <img src={slide.image} alt="" loading="lazy" />
+                <span><small>{slide.number}</small>{slide.shortLabel}</span>
+              </button>
+            ))}
           </div>
         </div>
       </section>

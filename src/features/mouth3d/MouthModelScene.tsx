@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { createMouthModel } from "./createMouthModel";
+import { createMouthModel, type MouthPose } from "./createMouthModel";
 
 export type MouthView = "front" | "angle" | "section";
-export type MouthDragMode = "jaw" | "tongue";
-type MouthModelSceneProps = {
-  opening: number;
-  tongueLift: number;
-  tongueReach: number;
+export type MouthDragMode = "jaw" | "tongue" | "tip";
+type MouthModelSceneProps = MouthPose & {
   view: MouthView;
   dragMode: MouthDragMode;
   showFace: boolean;
@@ -16,8 +13,12 @@ type MouthModelSceneProps = {
   onOpeningChange: (value: number) => void;
   onTongueLiftChange: (value: number) => void;
   onTongueReachChange: (value: number) => void;
+  onTongueCurlChange: (value: number) => void;
+  onTongueSideChange: (value: number) => void;
 };
 const clamp = (value: number) => THREE.MathUtils.clamp(value, 0, 1);
+const signedClamp = (value: number) => THREE.MathUtils.clamp(value, -1, 1);
+const poseKeys: (keyof MouthPose)[] = ["opening", "tongueLift", "tongueReach", "tongueCurl", "tongueSide"];
 
 export default function MouthModelScene(props: MouthModelSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,7 +26,7 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
   const requestRenderRef = useRef<() => void>(() => {});
   const [unavailable, setUnavailable] = useState(false);
   callbacksRef.current = props;
-  useEffect(() => { requestRenderRef.current(); }, [props.opening, props.tongueLift, props.tongueReach, props.view, props.showFace, props.showLabels]);
+  useEffect(() => { requestRenderRef.current(); }, [props.opening, props.tongueLift, props.tongueReach, props.tongueCurl, props.tongueSide, props.view, props.showFace, props.showLabels]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -71,7 +72,8 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
     camera.position.set(0, 0.35, 8);
     const targetCamera = new THREE.Vector3();
     const focus = new THREE.Vector3(0, -0.25, 0);
-    const pose = { opening: props.opening, tongueLift: props.tongueLift, tongueReach: props.tongueReach };
+    const pose: MouthPose = { opening: props.opening, tongueLift: props.tongueLift, tongueReach: props.tongueReach, tongueCurl: props.tongueCurl, tongueSide: props.tongueSide };
+    let lastRender = performance.now();
     let frame = 0;
     let active = true;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -80,17 +82,17 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
       frame = 0;
       if (!active) return;
       const target = callbacksRef.current;
-      const smoothing = reducedMotion ? 1 : 0.24;
-      pose.opening = THREE.MathUtils.lerp(pose.opening, target.opening, smoothing);
-      pose.tongueLift = THREE.MathUtils.lerp(pose.tongueLift, target.tongueLift, smoothing);
-      pose.tongueReach = THREE.MathUtils.lerp(pose.tongueReach, target.tongueReach, smoothing);
+      const now = performance.now();
+      const delta = Math.min((now - lastRender) / 1000, 0.05);
+      lastRender = now;
+      for (const key of poseKeys) pose[key] = reducedMotion ? target[key] : THREE.MathUtils.damp(pose[key], target[key], 18, delta);
       model.update(pose, target.view === "section", target.showFace);
       const aspect = container.clientWidth / container.clientHeight;
       const distance = Math.max(7.5, 6.4 / Math.max(aspect, 0.5));
       if (target.view === "section") targetCamera.set(distance * 0.98, 0.1, distance * 0.20);
       else if (target.view === "angle") targetCamera.set(distance * 0.43, 0.65, distance * 0.90);
       else targetCamera.set(0, 0.25, distance);
-      camera.position.lerp(targetCamera, reducedMotion ? 1 : 0.18);
+      camera.position.lerp(targetCamera, reducedMotion ? 1 : THREE.MathUtils.damp(0, 1, 12, delta));
       camera.lookAt(focus);
       renderer.render(scene, camera);
       const landmarks = model.landmarks();
@@ -101,7 +103,7 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
         label.style.top = `${(-position.y * 0.5 + 0.5) * 100}%`;
         label.hidden = !target.showLabels || (target.showFace && target.view !== "section" && (pose.opening < 0.4 || name === "palate"));
       }
-      if (Math.abs(pose.opening - target.opening) > 0.001 || Math.abs(pose.tongueLift - target.tongueLift) > 0.001 || Math.abs(pose.tongueReach - target.tongueReach) > 0.001 || camera.position.distanceTo(targetCamera) > 0.005) frame = requestAnimationFrame(render);
+      if (poseKeys.some((key) => Math.abs(pose[key] - target[key]) > 0.001) || camera.position.distanceTo(targetCamera) > 0.005) frame = requestAnimationFrame(render);
     };
     const requestRender = () => { if (!frame && active) frame = requestAnimationFrame(render); };
     requestRenderRef.current = requestRender;
@@ -118,15 +120,18 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
     resize();
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    let drag: { id: number; mode: MouthDragMode; x: number; y: number; lift: number; reach: number; opening: number } | null = null;
+    let drag: { id: number; mode: MouthDragMode; view: MouthView; x: number; y: number; lift: number; reach: number; curl: number; side: number; opening: number } | null = null;
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0 || drag) return;
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
       raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObjects([model.tongueMesh, model.faceMesh, model.lipMesh].filter((mesh) => mesh.visible))[0];
       const current = callbacksRef.current;
-      drag = { id: event.pointerId, mode: hit?.object === model.tongueMesh ? "tongue" : current.dragMode, x: event.clientX, y: event.clientY, lift: current.tongueLift, reach: current.tongueReach, opening: current.opening };
+      const hit = raycaster.intersectObjects([model.tongueMesh, model.faceMesh, model.lipMesh].filter((mesh) => mesh.visible))
+        .find((intersection) => current.view !== "section" || intersection.object === model.tongueMesh || intersection.point.x <= 0);
+      let mode = current.dragMode;
+      if (mode === "jaw" && hit?.object === model.tongueMesh) mode = (hit.uv?.x ?? 0) > 0.72 ? "tip" : "tongue";
+      drag = { id: event.pointerId, mode, view: current.view, x: event.clientX, y: event.clientY, lift: current.tongueLift, reach: current.tongueReach, curl: current.tongueCurl, side: current.tongueSide, opening: current.opening };
       renderer.domElement.setPointerCapture(event.pointerId);
       renderer.domElement.style.cursor = "grabbing";
     };
@@ -134,10 +139,12 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
       if (!drag || drag.id !== event.pointerId) return;
       const distance = Math.max(150, Math.min(container.clientWidth, container.clientHeight) * 0.45);
       const current = callbacksRef.current;
-      if (drag.mode === "tongue") {
-        current.onTongueLiftChange(clamp(drag.lift - (event.clientY - drag.y) / distance));
-        // In the cutaway, anterior is on the left side of the screen.
-        current.onTongueReachChange(clamp(drag.reach + (event.clientX - drag.x) / distance * (current.view === "section" ? -1 : 1)));
+      if (drag.mode === "tongue" || drag.mode === "tip") {
+        if (drag.mode === "tip") current.onTongueCurlChange(signedClamp(drag.curl - (event.clientY - drag.y) / distance * 2));
+        else current.onTongueLiftChange(clamp(drag.lift - (event.clientY - drag.y) / distance));
+        // Screen-horizontal means advance in profile and lateral motion in front.
+        if (drag.view === "section") current.onTongueReachChange(clamp(drag.reach - (event.clientX - drag.x) / distance));
+        else current.onTongueSideChange(signedClamp(drag.side + (event.clientX - drag.x) / distance * 2));
       } else current.onOpeningChange(clamp(drag.opening + (event.clientY - drag.y) / distance));
     };
     const onPointerUp = (event: PointerEvent) => {

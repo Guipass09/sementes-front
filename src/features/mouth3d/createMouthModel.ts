@@ -1,6 +1,12 @@
 import * as THREE from "three";
 
-export type MouthPose = { opening: number; tongueLift: number; tongueReach: number };
+export type MouthPose = {
+  opening: number;
+  tongueLift: number;
+  tongueReach: number;
+  tongueCurl: number;
+  tongueSide: number;
+};
 type Surface = (u: number, v: number, point: THREE.Vector3) => void;
 const TAU = Math.PI * 2;
 const mix = THREE.MathUtils.lerp;
@@ -74,7 +80,7 @@ export function createMouthModel() {
     return result;
   };
   const skin = material(0xc9957e, 0.83, 0.018);
-  const lips = material(0xb85864, 0.48, 0.007);
+  const lips = material(0xb85864, 0.62, 0.009);
   const gum = material(0xb65e63, 0.6, 0.008);
   const palateMaterial = material(0xc7807e, 0.72, 0.009);
   const tongueMaterial = material(0xb95f6d, 0.53, 0.015);
@@ -90,26 +96,28 @@ export function createMouthModel() {
     parent.add(mesh);
     return mesh;
   };
-  let pose: MouthPose = { opening: 0.72, tongueLift: 0.12, tongueReach: 0.25 };
+  let pose: MouthPose = { opening: 0.72, tongueLift: 0.12, tongueReach: 0.25, tongueCurl: 0, tongueSide: 0 };
   const lipPoint = (angle: number, radial: number, point: THREE.Vector3) => {
     const c = Math.cos(angle), s = Math.sin(angle);
     const upper = s >= 0;
     const arch = Math.pow(Math.abs(s), 0.85);
     const open = pose.opening;
     const cupid = upper ? 0.065 * Math.exp(-Math.pow(c / 0.16, 2)) : 0;
-    const innerY = upper ? (0.002 + open * 0.46) * arch - cupid * open : -(0.002 + open * 1.1) * arch;
-    const thickness = (upper ? 0.18 - 0.045 * Math.exp(-Math.pow(c / 0.17, 2)) : 0.21) * Math.pow(Math.abs(s), 1.15);
-    const x = c * (1.16 - open * 0.055 + radial * 0.16);
+    const seam = (-0.035 * Math.exp(-Math.pow(c / 0.28, 2)) + 0.014 * Math.sin(Math.abs(c) * Math.PI)) * arch * (1 - open * 0.6);
+    const innerY = seam + (upper ? open * 0.46 * arch - cupid * open : -open * 1.1 * arch);
+    const thickness = (upper ? 0.35 - 0.075 * Math.exp(-Math.pow(c / 0.19, 2)) : 0.39) * Math.pow(Math.abs(s), 0.95);
+    const x = c * (1.13 - open * 0.025 + radial * 0.13);
     const y = innerY + (upper ? 1 : -1) * thickness * radial;
-    const z = 1.05 - 0.38 * Math.pow(Math.abs(c), 1.7) + 0.11 * Math.sin(radial * Math.PI) - 0.055 * radial;
-    const folds = Math.sin(angle * 95 + Math.sin(angle * 17)) * 0.0025 * Math.sin(radial * Math.PI);
+    const volume = (upper ? 0.21 : 0.26) * Math.pow(Math.abs(s), 0.7);
+    const z = 1.05 - 0.38 * Math.pow(Math.abs(c), 1.7) + volume * Math.sin(radial * Math.PI) - 0.055 * radial;
+    const folds = Math.sin(angle * 95 + Math.sin(angle * 17)) * 0.003 * Math.sin(radial * Math.PI);
     point.set(x, y, z + folds);
   };
   const lipSurface = surface(144, 16, (u, v, p) => lipPoint(u * TAU, v, p));
   const lipMesh = add(lipSurface.geometry, lips);
   const lipColors: number[] = [];
   for (let j = 0; j <= 16; j++) {
-    const color = new THREE.Color(0x8f3d4d).lerp(new THREE.Color(0xca7a7c), Math.sin(j / 16 * Math.PI / 2));
+    const color = new THREE.Color(0x9e525d).lerp(new THREE.Color(0xc78483), Math.sin(j / 16 * Math.PI / 2));
     for (let i = 0; i <= 144; i++) lipColors.push(color.r, color.g, color.b);
   }
   lips.color.set(0xffffff);
@@ -125,7 +133,7 @@ export function createMouthModel() {
     const x = mix(edge.x, outerX, v), y = mix(edge.y, outerY, v);
     let z = edge.z - 0.07 * v - (edge.z + 0.45) * v ** 5;
     // Philtrum and chin belong to the same facial surface as the lips.
-    z += 0.20 * Math.exp(-Math.pow(x / 0.3, 2) - Math.pow((y - 0.98) / 0.25, 2));
+    z += 0.20 * Math.exp(-Math.pow(x / 0.3, 2) - Math.pow((y - 0.98) / 0.25, 2)) * Math.sin(Math.PI * v);
     z -= 0.035 * Math.exp(-Math.pow(x / 0.07, 2)) * Math.sin(Math.PI * v) * Math.max(0, s);
     z += 0.10 * Math.exp(-Math.pow(x / 0.6, 2)) * Math.sin(Math.PI * v) * Math.max(0, -s);
     z -= 0.035 * Math.exp(-Math.pow((Math.abs(x) - 1.36 + y * 0.17) / 0.075, 2)) * Math.sin(Math.PI * v);
@@ -207,27 +215,50 @@ export function createMouthModel() {
       }
     });
   }
-  const tonguePoint: Surface = (u, v, p) => {
-    const t = u, a = v * TAU;
+  const center = new THREE.Vector3();
+  const before = new THREE.Vector3();
+  const after = new THREE.Vector3();
+  const tangent = new THREE.Vector3();
+  const across = new THREE.Vector3();
+  const dorsal = new THREE.Vector3();
+  const tongueCenter = (t: number, point: THREE.Vector3) => {
     const open = pose.opening;
-    const reach = pose.tongueReach * smooth(open, 0.03, 0.4);
+    const freedom = smooth(open, 0.03, 0.4);
+    const reach = pose.tongueReach * freedom;
     const lift = pose.tongueLift * smooth(open, 0, 0.4);
     const tipZ = 0.28 + reach * 1.13 - lift * 0.46;
+    const baseY = -0.22 - open * 0.58;
+    const bend = Math.pow(smooth(t, 0.3, 1), 1.55);
+    const side = pose.tongueSide * freedom * (0.14 + reach * 0.75);
+    let y = baseY + 0.27 * Math.sin(t * Math.PI) + lift * (0.50 - baseY) * bend + reach * (1 - lift) * 0.13 * bend;
+    let z = mix(-1.26, tipZ, t);
+    // The distal third bends along an arc instead of translating the whole tongue.
+    const angle = pose.tongueCurl * freedom * 1.3;
+    const distalLength = (tipZ + 1.26) * 0.34;
+    if (t > 0.66 && Math.abs(angle) > 0.0001) {
+      const curvature = angle / distalLength;
+      const distance = (t - 0.66) * (tipZ + 1.26);
+      y += (1 - Math.cos(curvature * distance)) / curvature;
+      z += Math.sin(curvature * distance) / curvature - distance;
+    }
+    // More travel is available beyond the incisors than inside the oral cavity.
+    const outside = smooth(z, 0.72, 1.15);
+    y = THREE.MathUtils.clamp(y, baseY - 0.12 - outside * 0.62, 0.50 + outside * 0.45);
+    point.set(side * Math.pow(smooth(t, 0.18, 1), 1.4), y, z);
+  };
+  const tonguePoint: Surface = (u, v, p) => {
+    const t = u, a = v * TAU;
     const width = 0.59 * (1 - 0.18 * t) * Math.sqrt(Math.max(0, 1 - t ** 8));
     const x = Math.cos(a) * width;
-    const baseY = -0.22 - open * 0.58;
-    const centerAt = (position: number) => {
-      const bend = Math.pow(smooth(position, 0.3, 1), 1.55);
-      return baseY + 0.27 * Math.sin(position * Math.PI) + lift * (0.50 - baseY) * bend + reach * (1 - lift) * 0.13 * bend;
-    };
-    const centerY = centerAt(t);
-    const tangentY = (centerAt(Math.min(1, t + 0.001)) - centerAt(Math.max(0, t - 0.001))) / (t === 0 || t === 1 ? 0.001 : 0.002);
-    const tangentZ = tipZ + 1.26;
-    const tangentLength = Math.hypot(tangentY, tangentZ);
+    tongueCenter(t, center);
+    tongueCenter(Math.max(0, t - 0.001), before);
+    tongueCenter(Math.min(1, t + 0.001), after);
+    tangent.subVectors(after, before).normalize();
+    across.set(tangent.z, 0, -tangent.x).normalize();
+    dorsal.crossVectors(tangent, across).normalize();
     const thickness = (0.26 - t * 0.14) * Math.sqrt(Math.max(0, 1 - t ** 8));
     const groove = 0.027 * Math.exp(-Math.pow(x / 0.065, 2)) * Math.sin(t * Math.PI) * Math.max(0, Math.sin(a));
-    const offset = Math.sin(a) * thickness;
-    p.set(x, centerY + offset * tangentZ / tangentLength - groove, mix(-1.26, tipZ, t) - offset * tangentY / tangentLength);
+    p.copy(center).addScaledVector(across, x).addScaledVector(dorsal, Math.sin(a) * thickness - groove);
   };
   const tongue = surface(76, 48, tonguePoint);
   const tongueMesh = add(tongue.geometry, tongueMaterial);
@@ -244,16 +275,6 @@ export function createMouthModel() {
   tongueMaterial.color.set(0xffffff);
   tongueMaterial.vertexColors = true;
   tongue.geometry.setAttribute("color", new THREE.Float32BufferAttribute(tongueColors, 3));
-  const tongueSectionPoint: Surface = (u, v, p) => {
-    tonguePoint(u, 0.25, p);
-    const top = p.y;
-    const topZ = p.z;
-    tonguePoint(u, 0.75, p);
-    p.set(0.002, mix(p.y, top, v), mix(p.z, topZ, v));
-  };
-  const tongueCap = surface(76, 14, tongueSectionPoint);
-  const tongueSection = add(tongueCap.geometry, sectionMaterial);
-  tongueSection.visible = false;
   const roofSection = add(surface(64, 1, (u, v, p) => {
     roofPoint(0.5, u, p);
     p.x = 0.002;
@@ -276,20 +297,20 @@ export function createMouthModel() {
     oralWall.update(wallPoint);
     jaw.rotation.x = pose.opening * 0.46;
     tongue.update(tonguePoint);
-    tongueCap.update(tongueSectionPoint);
     faceMesh.visible = showFace && !cutaway;
     lipMesh.visible = showFace;
     wallMesh.visible = !cutaway && showFace;
     throatMesh.visible = !cutaway && showFace;
-    tongueSection.visible = roofSection.visible = cutaway;
+    roofSection.visible = cutaway;
     gumSections.forEach((mesh) => { mesh.visible = cutaway; });
     const showInterior = cutaway || !showFace || pose.opening > 0.06;
     for (const child of group.children) {
-      if (child === faceMesh || child === lipMesh || child === wallMesh || child === throatMesh || child === tongueSection || child === roofSection || gumSections.includes(child as THREE.Mesh)) continue;
+      if (child === faceMesh || child === lipMesh || child === wallMesh || child === throatMesh || child === roofSection || gumSections.includes(child as THREE.Mesh)) continue;
       child.visible = showInterior;
     }
     for (const mat of materials) {
-      if (mat === sectionMaterial) continue;
+      // Keep the mobile tongue intact in the cutaway, including lateral movements.
+      if (mat === sectionMaterial || mat === tongueMaterial) continue;
       if (Boolean(mat.clippingPlanes?.length) !== cutaway) {
         mat.clippingPlanes = cutaway ? [clippingPlane] : null;
         mat.needsUpdate = true;

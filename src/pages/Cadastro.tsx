@@ -1,71 +1,49 @@
-import LoginHero from "@/components/LoginHero";
+import { Link } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import RegisterForm from "@/components/RegisterForm";
-import logoImage from "@/assets/logo-sementes-da-fala.jpg";
+import "./login.css";
 
-const Cadastro = () => {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-brand-mint/5 to-brand-yellow/5">
-      <div className="min-h-screen flex flex-col lg:flex-row">
-        {/* Hero Section - Left on Desktop */}
-        <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] bg-gradient-to-br from-brand-mint/20 via-background to-brand-green/5">
-          <LoginHero />
+const Cadastro = () => (
+  <main className="auth-login auth-login--register">
+    <header className="auth-login__nav">
+      <Link to="/" className="auth-login__brand" aria-label="Sementes da Fala, página inicial">
+        <img src="/landing/sementes-logo-transparent.png" alt="" width="68" height="68" />
+        <span><strong>Sementes</strong> da Fala</span>
+      </Link>
+      <Link to="/" className="auth-login__back">
+        <ArrowLeft size={17} />
+        <span>Voltar ao site</span>
+      </Link>
+    </header>
+
+    <div className="auth-login__grid">
+      <section className="auth-login__photo" aria-labelledby="auth-register-title">
+        <img
+          src="/landing/cadastro-teleatendimento.png"
+          alt="Criança e responsável participando de um atendimento fonoaudiológico online"
+          fetchPriority="high"
+        />
+        <div className="auth-login__photo-shade" />
+        <div className="auth-login__photo-copy">
+          <p className="auth-login__eyebrow">UM ESPAÇO PARA CUIDAR E EVOLUIR</p>
+          <h1 id="auth-register-title">Sementes da Fala</h1>
+          <p>O atendimento começa aqui.</p>
         </div>
+      </section>
 
-        {/* Form Section - Right on Desktop, Full on Mobile */}
-        <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-          <div className="w-full max-w-md">
-            {/* Mobile Logo - centralizado */}
-            <div className="lg:hidden mb-6 flex flex-col items-center justify-center">
-              <div className="relative mb-4 animate-float">
-                <div className="absolute inset-0 bg-brand-green/20 rounded-2xl blur-xl scale-110" />
-                <img
-                  src={logoImage}
-                  alt="Sementes da Fala - Logo"
-                  className="relative w-32 h-32 sm:w-40 sm:h-40 object-contain rounded-2xl shadow-lg"
-                />
-              </div>
-              <h1 className="text-xl sm:text-2xl font-display font-bold text-foreground mb-1">
-                <span className="text-brand-green">Sementes</span>{" "}
-                <span className="text-brand-brown">da Fala</span>
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Cultivando a comunicação, plantando o futuro
-              </p>
-              {/* Decorative line */}
-              <div className="mt-4 flex items-center justify-center gap-2">
-                <div className="w-8 h-1 bg-brand-green rounded-full" />
-                <div className="w-2 h-2 bg-brand-orange rounded-full" />
-                <div className="w-6 h-1 bg-brand-yellow rounded-full" />
-                <div className="w-2 h-2 bg-brand-blue rounded-full" />
-                <div className="w-8 h-1 bg-brand-purple rounded-full" />
-              </div>
-            </div>
-
-            {/* Login Card */}
-            <div className="login-card animate-slide-in-right">
-              {/* Header */}
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-display font-bold text-foreground mb-2">
-                  Criar Conta
-                </h2>
-                <p className="text-muted-foreground">
-                  Preencha os dados para criar sua conta
-                </p>
-              </div>
-
-              {/* Form */}
-              <RegisterForm />
-            </div>
-
-            {/* Footer */}
-            <p className="text-center text-xs text-muted-foreground mt-6">
-              © 2024 Sementes da Fala. Todos os direitos reservados.
-            </p>
-          </div>
+      <section className="auth-login__panel" aria-labelledby="auth-register-form-title">
+        <div className="auth-login__form">
+          <p className="auth-login__form-label">FAÇA PARTE DA PLATAFORMA</p>
+          <h2 id="auth-register-form-title">Crie sua conta.</h2>
+          <p className="auth-login__form-intro">Escolha seu perfil para começar.</p>
+          <RegisterForm />
         </div>
-      </div>
+        <footer className="auth-login__footer">
+          © {new Date().getFullYear()} Sementes da Fala
+        </footer>
+      </section>
     </div>
-  );
-};
+  </main>
+);
 
 export default Cadastro;

@@ -34,7 +34,7 @@ const Index = () => {
     <main className="auth-login">
       <header className="auth-login__nav">
         <Link to="/" className="auth-login__brand" aria-label="Sementes da Fala, página inicial">
-          <img src="/landing/sementes-logo-transparent.png" alt="" width="46" height="46" />
+          <img src="/landing/sementes-logo-transparent.png" alt="" width="68" height="68" />
           <span><strong>Sementes</strong> da Fala</span>
         </Link>
         <Link to="/" className="auth-login__back">

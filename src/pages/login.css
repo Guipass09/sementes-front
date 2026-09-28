@@ -15,7 +15,7 @@
   justify-content: space-between;
   gap: 16px;
   width: 45%;
-  height: 88px;
+  height: 104px;
   padding-inline: clamp(28px, 4vw, 68px);
 }
 
@@ -30,7 +30,7 @@
   font-weight: 800;
   white-space: nowrap;
 }
-.auth-login__brand img { width: 46px; height: 46px; object-fit: contain; }
+.auth-login__brand img { width: 68px; height: 68px; object-fit: contain; }
 .auth-login__brand strong { color: var(--auth-green); }
 .auth-login__back {
   display: inline-flex;
@@ -121,8 +121,19 @@
 .auth-login__form a:hover { color: #084f2c; }
 .auth-login__footer { width: min(100%, 430px); margin-top: 38px; color: #947e73; font-size: 12px; }
 
+.auth-login--register .auth-login__photo {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+}
+.auth-login--register .auth-login__photo > img { object-position: 52% center; }
+.auth-login--register .auth-login__panel { justify-content: flex-start; padding-top: 136px; }
+.auth-login--register .auth-login__form { margin: 0; }
+.auth-login--register .auth-login__form-intro { margin-bottom: 26px; }
+.auth-login--register .auth-login__footer { margin-top: 54px; }
+
 @media (max-width: 900px) {
-  .auth-login__nav { position: relative; width: 100%; height: 72px; padding-inline: 20px; }
+  .auth-login__nav { position: relative; width: 100%; height: 82px; padding-inline: 20px; }
   .auth-login__grid { display: block; min-height: 0; }
   .auth-login__photo { min-height: 0; height: clamp(240px, 34svh, 340px); }
   .auth-login__photo > img { object-position: 70% center; }
@@ -135,11 +146,14 @@
   .auth-login__form h2 { font-size: 32px; }
   .auth-login__form-intro { margin-bottom: 27px; }
   .auth-login__footer { margin-top: 38px; }
+  .auth-login--register .auth-login__photo { position: relative; top: auto; height: clamp(240px, 34svh, 340px); }
+  .auth-login--register .auth-login__panel { padding-top: 34px; }
+  .auth-login--register .auth-login__footer { margin-top: 38px; }
 }
 
 @media (max-width: 480px) {
   .auth-login__brand { font-size: 17px; }
-  .auth-login__brand img { width: 40px; height: 40px; }
+  .auth-login__brand img { width: 56px; height: 56px; }
   .auth-login__back span { display: none; }
   .auth-login__back { width: 38px; height: 38px; justify-content: center; }
 }

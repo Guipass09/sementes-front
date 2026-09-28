@@ -1,0 +1,145 @@
+.auth-login {
+  --auth-green: #0b7540;
+  min-height: 100svh;
+  background: #f6faf7;
+  color: #3d2c26;
+}
+
+.auth-login__nav {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 45%;
+  height: 88px;
+  padding-inline: clamp(28px, 4vw, 68px);
+}
+
+.auth-login__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #3d2c26;
+  font-family: "Quicksand", sans-serif;
+  font-size: 19px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.auth-login__brand img { width: 46px; height: 46px; object-fit: contain; }
+.auth-login__brand strong { color: var(--auth-green); }
+.auth-login__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  color: var(--auth-green);
+  font-size: 13px;
+  font-weight: 700;
+}
+.auth-login__back:hover { color: #084f2c; }
+
+.auth-login__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 55%) minmax(0, 45%);
+  min-height: 100svh;
+}
+.auth-login__photo {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #52675b;
+}
+.auth-login__photo > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 72% center;
+}
+.auth-login__photo-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 42%, rgba(17, 31, 25, .73));
+}
+.auth-login__photo-copy {
+  position: absolute;
+  left: clamp(32px, 5vw, 88px);
+  right: 32px;
+  bottom: clamp(48px, 8vh, 100px);
+  max-width: 650px;
+  color: #fff;
+}
+.auth-login__eyebrow { margin-bottom: 16px; font-size: 12px; font-weight: 800; }
+.auth-login__photo h1 {
+  font-family: "Quicksand", sans-serif;
+  font-size: clamp(46px, 5vw, 76px);
+  line-height: 1.05;
+  font-weight: 900;
+}
+.auth-login__photo-copy > p:last-child { margin-top: 16px; font-size: 19px; line-height: 1.4; }
+
+.auth-login__panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+  padding: 112px clamp(28px, 4vw, 68px) 35px;
+}
+.auth-login__form { width: min(100%, 430px); margin-block: auto; }
+.auth-login__form-label { margin-bottom: 14px; color: var(--auth-green); font-size: 11px; font-weight: 800; }
+.auth-login__form h2 {
+  font-family: "Quicksand", sans-serif;
+  font-size: clamp(31px, 3vw, 42px);
+  line-height: 1.13;
+  font-weight: 900;
+}
+.auth-login__form-intro { margin: 11px 0 34px; color: #79645a; font-size: 15px; }
+.auth-login__form form { width: 100%; }
+.auth-login .input-field {
+  min-height: 52px;
+  border: 1px solid #bcd6c5;
+  border-radius: 6px;
+  background: #fff;
+}
+.auth-login .input-field:focus { border-color: var(--auth-green); box-shadow: 0 0 0 3px rgba(11, 117, 64, .12); }
+.auth-login .btn-primary {
+  min-height: 52px;
+  border-radius: 6px;
+  background: var(--auth-green);
+  box-shadow: none;
+  transform: none;
+}
+.auth-login .btn-primary:hover { background: #095d33; box-shadow: none; transform: none; }
+.auth-login__form a { color: var(--auth-green); }
+.auth-login__form a:hover { color: #084f2c; }
+.auth-login__footer { width: min(100%, 430px); margin-top: 38px; color: #947e73; font-size: 12px; }
+
+@media (max-width: 900px) {
+  .auth-login__nav { position: relative; width: 100%; height: 72px; padding-inline: 20px; }
+  .auth-login__grid { display: block; min-height: 0; }
+  .auth-login__photo { min-height: 0; height: clamp(240px, 34svh, 340px); }
+  .auth-login__photo > img { object-position: 70% center; }
+  .auth-login__photo-copy { left: 22px; right: 22px; bottom: 23px; }
+  .auth-login__eyebrow { margin-bottom: 8px; font-size: 10px; }
+  .auth-login__photo h1 { font-size: clamp(32px, 6vw, 47px); }
+  .auth-login__photo-copy > p:last-child { margin-top: 6px; font-size: 14px; }
+  .auth-login__panel { padding: 34px 20px 36px; }
+  .auth-login__form { margin: 0; }
+  .auth-login__form h2 { font-size: 32px; }
+  .auth-login__form-intro { margin-bottom: 27px; }
+  .auth-login__footer { margin-top: 38px; }
+}
+
+@media (max-width: 480px) {
+  .auth-login__brand { font-size: 17px; }
+  .auth-login__brand img { width: 40px; height: 40px; }
+  .auth-login__back span { display: none; }
+  .auth-login__back { width: 38px; height: 38px; justify-content: center; }
+}

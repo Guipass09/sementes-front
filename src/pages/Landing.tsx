@@ -30,6 +30,7 @@ const assets = {
 
 const whatsappHref = "https://wa.me/message/GKL4EEB2NSI4A1";
 const instagramHref = "https://www.instagram.com/sementes_dafalaoficial/";
+const showcaseIntervalMs = 6500;
 
 const showcase = [
   {
@@ -102,7 +103,16 @@ export default function Landing() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [slideCycle, setSlideCycle] = useState(0);
+  const [carouselInView, setCarouselInView] = useState(false);
+  const [carouselHovered, setCarouselHovered] = useState(false);
+  const [carouselFocused, setCarouselFocused] = useState(false);
+  const [carouselTouching, setCarouselTouching] = useState(false);
+  const [pageVisible, setPageVisible] = useState(true);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const touchStartX = useRef<number | null>(null);
+  const showcaseRef = useRef<HTMLElement | null>(null);
+  const carouselPaused = carouselHovered || carouselFocused || carouselTouching;
 
   useEffect(() => {
     try {
@@ -119,11 +129,50 @@ export default function Landing() {
     }
   }, [navigate]);
 
+  useEffect(() => {
+    const section = showcaseRef.current;
+    if (!section) return;
+    if (!window.IntersectionObserver) {
+      setCarouselInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => setCarouselInView(entry.isIntersecting), { threshold: 0.2 });
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updateMotionPreference = () => setPrefersReducedMotion(motionPreference.matches);
+    const updateVisibility = () => setPageVisible(!document.hidden);
+    updateMotionPreference();
+    updateVisibility();
+    motionPreference.addEventListener("change", updateMotionPreference);
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => {
+      motionPreference.removeEventListener("change", updateMotionPreference);
+      document.removeEventListener("visibilitychange", updateVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!carouselInView || carouselPaused || !pageVisible || prefersReducedMotion) return;
+    const timer = window.setTimeout(() => setActiveSlide((current) => (current + 1) % showcase.length), showcaseIntervalMs);
+    return () => window.clearTimeout(timer);
+  }, [activeSlide, slideCycle, carouselInView, carouselPaused, pageVisible, prefersReducedMotion]);
+
   const changeSlide = (direction: number) => {
     setActiveSlide((current) => (current + direction + showcase.length) % showcase.length);
+    setSlideCycle((current) => current + 1);
+  };
+
+  const selectSlide = (index: number) => {
+    setActiveSlide(index);
+    setSlideCycle((current) => current + 1);
   };
 
   const closeMenu = () => setMenuOpen(false);
+  const autoPlaying = carouselInView && !carouselPaused && pageVisible && !prefersReducedMotion;
 
   return (
     <main className="lp" id="inicio">
@@ -244,7 +293,19 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="lp-showcase lp-section" id="experiencia" aria-labelledby="lp-showcase-title">
+      <section
+        ref={showcaseRef}
+        className="lp-showcase lp-section"
+        id="experiencia"
+        aria-labelledby="lp-showcase-title"
+        data-autoplay={autoPlaying}
+        onPointerEnter={(event) => { if (event.pointerType === "mouse") setCarouselHovered(true); }}
+        onPointerLeave={(event) => { if (event.pointerType === "mouse") setCarouselHovered(false); }}
+        onFocusCapture={(event) => { if ((event.target as HTMLElement).matches(":focus-visible")) setCarouselFocused(true); }}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCarouselFocused(false);
+        }}
+      >
         <div className="lp-container">
           <div className="lp-showcase__top">
             <div>
@@ -258,19 +319,23 @@ export default function Landing() {
           </div>
           <div
             className={`lp-showcase__stage lp-showcase__stage--${showcase[activeSlide].tone}`}
-            onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
+            role="group"
+            aria-roledescription="carrossel"
+            onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; setCarouselTouching(true); }}
             onTouchEnd={(event) => {
+              setCarouselTouching(false);
               if (touchStartX.current === null) return;
               const distance = event.changedTouches[0].clientX - touchStartX.current;
               if (Math.abs(distance) > 45) changeSlide(distance < 0 ? 1 : -1);
               touchStartX.current = null;
             }}
+            onTouchCancel={() => { touchStartX.current = null; setCarouselTouching(false); }}
           >
             <div className="lp-showcase__media">
               <img key={showcase[activeSlide].image} className={activeSlide === 0 ? "lp-showcase__focus" : "lp-showcase__fit"} src={showcase[activeSlide].image} alt={showcase[activeSlide].alt} loading="lazy" />
               <span>Demonstração ilustrativa com dados fictícios</span>
             </div>
-            <div className="lp-showcase__details" aria-live="polite">
+            <div className="lp-showcase__details" aria-live={carouselInView && !carouselPaused && !prefersReducedMotion ? "off" : "polite"}>
               <span className="lp-showcase__count">{showcase[activeSlide].number} / 0{showcase.length}</span>
               <p className="lp-kicker">{showcase[activeSlide].tag}</p>
               <h3>{showcase[activeSlide].title}</h3>
@@ -286,18 +351,19 @@ export default function Landing() {
                 role="tab"
                 aria-label={`Ver ${slide.tag}`}
                 aria-selected={index === activeSlide}
-                onClick={() => setActiveSlide(index)}
+                onClick={() => selectSlide(index)}
                 onKeyDown={(event) => {
                   if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
                     event.preventDefault();
                     const next = (index + (event.key === "ArrowRight" ? 1 : -1) + showcase.length) % showcase.length;
-                    setActiveSlide(next);
+                    selectSlide(next);
                     event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
                   }
                 }}
               >
                 <img src={slide.image} alt="" loading="lazy" />
                 <span><small>{slide.number}</small>{slide.shortLabel}</span>
+                {index === activeSlide && <i key={`${slide.number}-${slideCycle}-${autoPlaying}`} className="lp-showcase__preview-progress" aria-hidden="true" />}
               </button>
             ))}
           </div>

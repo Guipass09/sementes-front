@@ -139,7 +139,7 @@ export default function AdminAuditoryGames() {
           </div>
         </div>
 
-        {isProfessional && !loading ? <PrivateGamesShelf games={filteredGames} ownerId={myId} editPath={(id) => `${base}/jogos/auditivo/${id}/editar`} /> : null}
+        {isProfessional && !loading ? <PrivateGamesShelf games={filteredGames} ownerId={myId} editPath={(id) => `${base}/jogos/auditivo/${id}/editar`} onDelete={(game) => { setDeleteTarget(game); setDeleteOpen(true); }} /> : null}
         {loading ? (
           <div className="space-y-4">
             {[0, 1, 2].map((i) => (

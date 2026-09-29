@@ -109,7 +109,7 @@ export default function AdminMemoryGames() {
           </div>
         </div>
 
-        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/memoria/${id}/editar`} /> : null}
+        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/memoria/${id}/editar`} onDelete={(game) => { setDeleteTarget(game); setDeleteOpen(true); }} /> : null}
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">
@@ -284,6 +284,8 @@ export default function AdminMemoryGames() {
           void (isProfessional ? api.professionalDeleteMemoryGame(deleteTarget.id) : api.adminDeleteMemoryGame(deleteTarget.id)).then(() => {
             toast({ title: "Jogo excluído" });
             void refresh();
+          }).catch(() => {
+            toast({ title: "Não foi possível excluir o jogo", variant: "destructive" });
           });
         }}
       />

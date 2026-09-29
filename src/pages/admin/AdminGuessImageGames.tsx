@@ -108,7 +108,7 @@ export default function AdminGuessImageGames() {
           </div>
         </div>
 
-        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/acerte-imagem/${id}/editar`} /> : null}
+        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/acerte-imagem/${id}/editar`} onDelete={(game) => { setDeleteTarget(game); setDeleteOpen(true); }} /> : null}
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">
@@ -282,6 +282,8 @@ export default function AdminGuessImageGames() {
           void (isProfessional ? api.professionalDeleteGuessImageGame(deleteTarget.id) : api.adminDeleteGuessImageGame(deleteTarget.id)).then(() => {
             toast({ title: "Jogo excluído" });
             void refresh();
+          }).catch(() => {
+            toast({ title: "Não foi possível excluir o jogo", variant: "destructive" });
           });
         }}
       />

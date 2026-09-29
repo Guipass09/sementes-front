@@ -17,9 +17,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ProfessionalActivityFormModal } from "@/features/activities/ProfessionalActivityFormModal";
+import { ActivityThumbnail } from "@/features/activities/ActivityThumbnail";
 import { ShareActivityModal } from "@/features/activities/ShareActivityModal";
 import { useAuth } from "@/auth/AuthContext";
-import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import { useToast } from "@/hooks/use-toast";
 import ClinicProfessionalActivitiesView from "@/components/ClinicProfessionalActivitiesView";
 
 export default function ProfessionalActivities(): JSX.Element {
@@ -45,6 +46,7 @@ function StandardProfessionalActivities(): JSX.Element {
   const [shareTarget, setShareTarget] = useState<ActivityRow | null>(null);
   const auth = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const refresh = async () => {
     setLoading(true);
@@ -109,8 +111,7 @@ function StandardProfessionalActivities(): JSX.Element {
                 <Button
                   variant="outline"
                   className="w-full sm:w-auto"
-                  disabled={users.length === 0}
-                  title={users.length === 0 ? "Peça ao admin vincular usuários ao seu perfil" : "Criar jogo"}
+                  title="Criar jogo no meu perfil"
                 >
                   <Grid3X3 size={20} className="mr-2" />
                   Criar Jogo
@@ -137,8 +138,7 @@ function StandardProfessionalActivities(): JSX.Element {
                 setFormOpen(true);
               }}
               className="w-full sm:w-auto"
-              disabled={users.length === 0}
-              title={users.length === 0 ? "Peça ao admin vincular usuários ao seu perfil" : "Nova atividade"}
+              title="Criar atividade no meu perfil"
             >
               <Plus size={20} className="mr-2" />
               Nova Atividade
@@ -177,7 +177,7 @@ function StandardProfessionalActivities(): JSX.Element {
               ))}
             </div>
           ) : (
-            <Accordion type="multiple" className="w-full">
+            <Accordion type="multiple" defaultValue={["__unassigned__"]} className="w-full">
               {unassignedActivities.length > 0 && (
                 <AccordionItem value="__unassigned__" className="border-b border-border/60">
                   <AccordionTrigger className="text-left">
@@ -200,25 +200,14 @@ function StandardProfessionalActivities(): JSX.Element {
                           <div key={`unassigned-${activity.id}`} className="w-full text-left bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                               <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                  {activity.thumbnail?.media_type === "image" ? (
-                                    <img src={normalizeMediaUrl(activity.thumbnail.url)} alt="" className="w-full h-full object-cover" />
-                                  ) : activity.thumbnail?.media_type === "video" && activity.thumbnail.thumbnail_url ? (
-                                    <img
-                                      src={normalizeMediaUrl(activity.thumbnail.thumbnail_url)}
-                                      alt=""
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <Activity size={18} className="sm:w-5 sm:h-5 text-primary" />
-                                  )}
-                                </div>
+                                <ActivityThumbnail activity={activity} />
                                 <div className="min-w-0 flex-1">
-                                  <div className="font-semibold text-sm sm:text-base text-foreground truncate">{activity.title}</div>
+                                  <div className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">{activity.title}</div>
                                   <div className="text-xs text-muted-foreground truncate">
                                     {activity.category || "—"}
                                     {!createdByMe && !hasAssignedPatients ? " • Compartilhada" : ""}
                                   </div>
+                                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{activity.description}</p>
                                 </div>
                               </div>
 
@@ -303,22 +292,11 @@ function StandardProfessionalActivities(): JSX.Element {
                             >
                               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                                    {activity.thumbnail?.media_type === "image" ? (
-                                      <img src={normalizeMediaUrl(activity.thumbnail.url)} alt="" className="w-full h-full object-cover" />
-                                    ) : activity.thumbnail?.media_type === "video" && activity.thumbnail.thumbnail_url ? (
-                                      <img
-                                        src={normalizeMediaUrl(activity.thumbnail.thumbnail_url)}
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <Activity size={18} className="sm:w-5 sm:h-5 text-primary" />
-                                    )}
-                                  </div>
+                                  <ActivityThumbnail activity={activity} />
                                   <div className="min-w-0 flex-1">
-                                    <div className="font-semibold text-sm sm:text-base text-foreground truncate">{activity.title}</div>
+                                    <div className="font-semibold text-sm sm:text-base text-foreground line-clamp-2">{activity.title}</div>
                                     <div className="text-xs text-muted-foreground truncate">{activity.category || "—"}</div>
+                                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{activity.description}</p>
                                   </div>
                                 </div>
 
@@ -407,7 +385,9 @@ function StandardProfessionalActivities(): JSX.Element {
           variant="danger"
           onConfirm={() => {
             if (!deleteTarget) return;
-            void api.professionalDeleteActivity(deleteTarget.id).then(() => refresh());
+            void api.professionalDeleteActivity(deleteTarget.id).then(() => refresh()).catch(() => {
+              toast({ title: "Não foi possível excluir a atividade", variant: "destructive" });
+            });
           }}
         />
 

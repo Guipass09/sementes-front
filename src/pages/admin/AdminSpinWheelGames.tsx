@@ -138,7 +138,7 @@ export default function AdminSpinWheelGames() {
         </div>
 
         {/* Games List */}
-        {isProfessional && !loading ? <PrivateGamesShelf games={filteredGames} ownerId={myId} editPath={(id) => `${base}/jogos/roleta/${id}/editar`} /> : null}
+        {isProfessional && !loading ? <PrivateGamesShelf games={filteredGames} ownerId={myId} editPath={(id) => `${base}/jogos/roleta/${id}/editar`} onDelete={(game) => { setDeleteTarget(game); setDeleteOpen(true); }} /> : null}
         {loading ? (
           <div className="space-y-4">
             {[0, 1, 2].map((i) => (

@@ -99,13 +99,15 @@ export function ReportCard(props: {
                 variant="destructive"
                 size="sm"
                 className="w-full sm:w-auto"
+                aria-label={`Excluir relatório ${report.title}`}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   props.onDelete?.();
                 }}
               >
-                <Trash2 size={16} />
+                <Trash2 size={16} className="mr-2" />
+                Excluir
               </Button>
             </>
           )}

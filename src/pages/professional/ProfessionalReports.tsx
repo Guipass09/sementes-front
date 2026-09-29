@@ -251,7 +251,9 @@ function StandardProfessionalReports(): JSX.Element {
           variant="danger"
           onConfirm={() => {
             if (!deleteTarget) return;
-            void api.professionalDeleteReport(deleteTarget.id).then(() => refresh());
+            void api.professionalDeleteReport(deleteTarget.id).then(() => refresh()).catch(() => {
+              toast({ title: "Não foi possível excluir o relatório", variant: "destructive" });
+            });
           }}
         />
       </div>

@@ -116,7 +116,7 @@ export default function AdminPhonemeGames() {
           </div>
         </div>
 
-        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/fonema/${id}/editar`} /> : null}
+        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/fonema/${id}/editar`} onDelete={(game) => { setDeleteTarget(game); setDeleteOpen(true); }} /> : null}
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">

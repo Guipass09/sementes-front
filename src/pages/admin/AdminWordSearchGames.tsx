@@ -116,7 +116,7 @@ export default function AdminWordSearchGames() {
           </div>
         </div>
 
-        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/caca-palavras/${id}/editar`} /> : null}
+        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/caca-palavras/${id}/editar`} onDelete={(game) => { setDeleteTarget(game); setDeleteOpen(true); }} /> : null}
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">

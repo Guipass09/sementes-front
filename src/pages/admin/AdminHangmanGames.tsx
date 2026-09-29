@@ -103,7 +103,7 @@ export default function AdminHangmanGames() {
           </div>
         </div>
 
-        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/forca/${id}/editar`} /> : null}
+        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/forca/${id}/editar`} onDelete={(game) => { setDeleteTarget(game); setDeleteOpen(true); }} /> : null}
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">
@@ -270,6 +270,8 @@ export default function AdminHangmanGames() {
           void (isProfessional ? api.professionalDeleteHangmanGame(deleteTarget.id) : api.adminDeleteHangmanGame(deleteTarget.id)).then(() => {
             toast({ title: "Jogo excluído" });
             void refresh();
+          }).catch(() => {
+            toast({ title: "Não foi possível excluir o jogo", variant: "destructive" });
           });
         }}
       />

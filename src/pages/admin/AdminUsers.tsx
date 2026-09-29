@@ -57,6 +57,7 @@ import { ReportFormModal } from "@/features/reports/ReportFormModal";
 import type { AdminProfessionalRow, CustomPackageRow, ReportType } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
+import AdminProfessionalEarnings from "@/components/AdminProfessionalEarnings";
 
 type AdminUsersMode = "users" | "professionals" | "clinics";
 
@@ -2211,6 +2212,7 @@ const AdminUsers = () => {
                     </Button>
                   </div>
                 </div>
+                {!isClinicAccount(selectedProfessional) && <AdminProfessionalEarnings professionalId={selectedProfessional.id} />}
               </div>
             )}
           </DialogContent>

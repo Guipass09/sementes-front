@@ -41,6 +41,10 @@ type ProAppointmentRow = {
 };
 
 const patientDisplayName = (u: { name: string; child_name?: string | null }) => (u.child_name?.trim() ? u.child_name.trim() : u.name);
+const saoPauloMonth = (date: Date) => {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).formatToParts(date);
+  return `${parts.find((part) => part.type === "year")?.value}-${parts.find((part) => part.type === "month")?.value}`;
+};
 
 export default function ProfessionalSessions(): JSX.Element {
   const auth = useAuth();
@@ -59,14 +63,10 @@ function StandardProfessionalSessions(): JSX.Element {
   const [rows, setRows] = useState<ProAppointmentRow[]>([]);
   const [search, setSearch] = useState("");
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const currentEarningsMonth = saoPauloMonth(new Date(nowMs));
+  const [selectedEarningsMonth, setSelectedEarningsMonth] = useState(() => saoPauloMonth(new Date()));
   const [earningsLoading, setEarningsLoading] = useState(true);
-  const [earnings, setEarnings] = useState<null | {
-    from_date: string;
-    to_date: string;
-    total: number;
-    counts: { scheduled: number; evaluation: number };
-    amounts: { scheduled: number; evaluation: number };
-  }>(null);
+  const [earnings, setEarnings] = useState<(api.ProfessionalEarningsMonth & { earliest_year: number }) | null>(null);
   const [earningsHidden, setEarningsHidden] = useState(true);
 
   const [reschedOpen, setReschedOpen] = useState(false);
@@ -85,6 +85,8 @@ function StandardProfessionalSessions(): JSX.Element {
     return () => window.clearInterval(id);
   }, []);
 
+  useEffect(() => setSelectedEarningsMonth(currentEarningsMonth), [currentEarningsMonth]);
+
   const refresh = async () => {
     setLoading(true);
     try {
@@ -101,7 +103,7 @@ function StandardProfessionalSessions(): JSX.Element {
   const refreshEarnings = async () => {
     setEarningsLoading(true);
     try {
-      const res = await api.professionalGetEarningsLast30Days();
+      const res = await api.professionalGetEarningsMonth(selectedEarningsMonth);
       setEarnings(res);
     } catch {
       setEarnings(null);
@@ -113,11 +115,12 @@ function StandardProfessionalSessions(): JSX.Element {
   useEffect(() => {
     let cancelled = false;
     void refresh();
-    void refreshEarnings();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => { void refreshEarnings(); }, [selectedEarningsMonth]);
 
   // Atualizar lista quando a página ganha foco (ex: quando volta do histórico após marcar como realizada)
   useEffect(() => {
@@ -129,7 +132,7 @@ function StandardProfessionalSessions(): JSX.Element {
     return () => {
       window.removeEventListener("focus", handleFocus);
     };
-  }, []);
+  }, [selectedEarningsMonth]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -309,16 +312,25 @@ function StandardProfessionalSessions(): JSX.Element {
           </div>
 
           <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 font-semibold text-foreground">
                   <Wallet className="h-4 w-4 text-brand-green" />
-                  Ganhos (últimos 30 dias)
+                  Ganhos do mês
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Avaliação realizada: R$ 20 • Sessão agendada realizada: R$ 40
                 </div>
               </div>
+              <Input
+                type="month"
+                aria-label="Mês dos ganhos"
+                value={selectedEarningsMonth}
+                min={`${earnings?.earliest_year ?? 2020}-01`}
+                max={currentEarningsMonth}
+                onChange={(event) => { if (event.target.value) setSelectedEarningsMonth(event.target.value); }}
+                className="w-40 shrink-0"
+              />
               <button
                 type="button"
                 className="inline-flex items-center justify-center rounded-lg border border-border bg-background/70 p-2 text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
@@ -336,6 +348,7 @@ function StandardProfessionalSessions(): JSX.Element {
               </div>
             ) : earnings ? (
               <div className="mt-3">
+                {earnings.closed && <div className="mb-2 text-xs font-medium text-muted-foreground">{earnings.paid_at ? "Pago" : "Fechado, pagamento pendente"}</div>}
                 <div className="text-2xl font-bold text-foreground">
                   {earningsHidden ? "••••" : fmtMoney(earnings.total)}
                 </div>

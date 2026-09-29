@@ -2627,6 +2627,32 @@ export async function videoJoinInvite(params: {
   });
 }
 
+export type ProfessionalEarningsMonth = {
+  month: string;
+  from_date: string;
+  to_date: string;
+  total: number;
+  counts: { scheduled: number; evaluation: number };
+  amounts: { scheduled: number; evaluation: number };
+  rates: { scheduled: number; evaluation: number };
+  closed: boolean;
+  paid_at: string | null;
+  paid_by_user_id: number | null;
+};
+
+export async function professionalGetEarningsMonth(month: string): Promise<ProfessionalEarningsMonth & { earliest_year: number }> {
+  return request(`/api/professional/earnings?month=${encodeURIComponent(month)}`);
+}
+
+export async function adminGetProfessionalEarnings(id: number, year: number): Promise<{ year: number; earliest_year: number; months: ProfessionalEarningsMonth[] }> {
+  return request(`/api/admin/professionals/${id}/earnings?year=${year}`);
+}
+
+export async function adminMarkProfessionalEarningsPaid(id: number, month: string): Promise<ProfessionalEarningsMonth> {
+  await ensureCsrfCookie();
+  return request(`/api/admin/professionals/${id}/earnings/${month}/paid`, { method: "PATCH" });
+}
+
 export async function videoSendCommand(params: {
   appointment_id: number;
   token: string;

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -68,6 +69,21 @@ function StandardProfessionalSessions(): JSX.Element {
   const [earningsLoading, setEarningsLoading] = useState(true);
   const [earnings, setEarnings] = useState<(api.ProfessionalEarningsMonth & { earliest_year: number }) | null>(null);
   const [earningsHidden, setEarningsHidden] = useState(true);
+  const earningsMonthOptions = useMemo(() => {
+    const currentYear = Number(currentEarningsMonth.slice(0, 4));
+    const firstYear = Math.min(earnings?.earliest_year ?? currentYear, Number(selectedEarningsMonth.slice(0, 4)));
+    const months: { value: string; label: string }[] = [];
+    for (let year = currentYear; year >= firstYear; year--) {
+      for (let number = 12; number >= 1; number--) {
+        const value = `${year}-${String(number).padStart(2, "0")}`;
+        if (value > currentEarningsMonth) continue;
+        const label = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })
+          .format(new Date(Date.UTC(year, number - 1, 1)));
+        months.push({ value, label });
+      }
+    }
+    return months;
+  }, [currentEarningsMonth, earnings?.earliest_year, selectedEarningsMonth]);
 
   const [reschedOpen, setReschedOpen] = useState(false);
   const [reschedSaving, setReschedSaving] = useState(false);
@@ -322,23 +338,26 @@ function StandardProfessionalSessions(): JSX.Element {
                   Avaliação realizada: R$ 20 • Sessão agendada realizada: R$ 40
                 </div>
               </div>
-              <Input
-                type="month"
-                aria-label="Mês dos ganhos"
-                value={selectedEarningsMonth}
-                min={`${earnings?.earliest_year ?? 2020}-01`}
-                max={currentEarningsMonth}
-                onChange={(event) => { if (event.target.value) setSelectedEarningsMonth(event.target.value); }}
-                className="w-40 shrink-0"
-              />
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-lg border border-border bg-background/70 p-2 text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
-                onClick={() => setEarningsHidden((v) => !v)}
-                title={earningsHidden ? "Mostrar valores" : "Ocultar valores"}
-              >
-                {earningsHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-              </button>
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                <Select value={selectedEarningsMonth} onValueChange={setSelectedEarningsMonth}>
+                  <SelectTrigger aria-label="Mês dos ganhos" className="h-8 w-[170px] bg-muted/40 text-xs capitalize shadow-none">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {earningsMonthOptions.map((month) => (
+                      <SelectItem key={month.value} value={month.value} className="capitalize">{month.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background/70 text-muted-foreground hover:text-foreground hover:bg-background transition-colors"
+                  onClick={() => setEarningsHidden((v) => !v)}
+                  title={earningsHidden ? "Mostrar valores" : "Ocultar valores"}
+                >
+                  {earningsHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             {earningsLoading ? (

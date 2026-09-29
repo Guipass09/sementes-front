@@ -7,12 +7,13 @@ export type ReportAuthor = {
 };
 
 export type ReportPatient = {
-  id: number;
+  id: number | null;
   name: string;
 };
 
 export type ReportSummary = {
   status?: "draft" | "published";
+  isPrivate?: boolean;
   id: number;
   title: string;
   date: string; // YYYY-MM-DD

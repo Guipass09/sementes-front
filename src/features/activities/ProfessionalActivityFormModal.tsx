@@ -105,9 +105,8 @@ export function ProfessionalActivityFormModal(props: {
 
   const canSubmit = useMemo(() => {
     if (!title.trim() || !description.trim()) return false;
-    if (assignedTo.length === 0) return false;
     return true;
-  }, [title, description, assignedTo]);
+  }, [title, description]);
 
   const toggleUser = (userId: number) => {
     setAssignedTo((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]));
@@ -149,7 +148,7 @@ export function ProfessionalActivityFormModal(props: {
           description: description.trim(),
           category: category.trim() || undefined,
           estimated_time: estimatedTime.trim() || undefined,
-          assigned_to: assignedTo,
+          assigned_to: [],
           media: drafts
             .filter((d) => d.file)
             .map((d) => ({
@@ -186,7 +185,7 @@ export function ProfessionalActivityFormModal(props: {
       props.onOpenChange(false);
       toast({
         title: props.mode === "create" ? "Atividade criada!" : "Atividade atualizada!",
-        description: "A atividade foi salva e enviada para os usuários selecionados.",
+        description: props.mode === "create" ? "Salva somente no seu perfil. Envie aos pacientes quando quiser." : "Alterações salvas.",
       });
     } catch (e) {
       const msg = isApiError(e) ? e.message : "Não foi possível salvar agora.";
@@ -201,7 +200,7 @@ export function ProfessionalActivityFormModal(props: {
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{props.mode === "create" ? "Nova Atividade" : "Editar Atividade"}</DialogTitle>
-          <DialogDescription>Crie e envie atividades para os usuários atribuídos a você.</DialogDescription>
+          <DialogDescription>{props.mode === "create" ? "Salve no seu perfil e envie aos pacientes quando quiser." : "Edite a atividade e escolha os pacientes que terão acesso."}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
@@ -230,7 +229,7 @@ export function ProfessionalActivityFormModal(props: {
             <Input id="estimatedTime" value={estimatedTime} onChange={(e) => setEstimatedTime(e.target.value)} placeholder="Ex: 10 min" />
           </div>
 
-          <div className="space-y-2">
+          {props.mode === "edit" ? <div className="space-y-2">
             <Label>Enviar para</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {loadingUsers ? (
@@ -249,7 +248,7 @@ export function ProfessionalActivityFormModal(props: {
                 ))
               )}
             </div>
-          </div>
+          </div> : null}
 
           <div className="pt-2 border-t border-border">
             <div className="flex items-center justify-between gap-2">
@@ -382,7 +381,7 @@ export function ProfessionalActivityFormModal(props: {
             <Button variant="outline" onClick={() => props.onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={() => void handleSave()} disabled={!canSubmit || saving || users.length === 0}>
+            <Button onClick={() => void handleSave()} disabled={!canSubmit || saving}>
               {saving ? "Salvando..." : "Salvar"}
             </Button>
           </div>

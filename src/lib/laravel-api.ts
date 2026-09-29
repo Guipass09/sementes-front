@@ -64,11 +64,12 @@ export type ReportRow = {
   date: string; // YYYY-MM-DD
   type: ReportType;
   status?: "draft" | "published";
+  is_private?: boolean;
   professional_name: string;
   content: string;
   summary: string;
   patient_name?: string;
-  patient: { id: number; name: string };
+  patient: { id: number | null; name: string };
   created_by: { id?: number; name: string; role: AuthRole };
 };
 
@@ -749,7 +750,8 @@ export async function professionalListReports(params?: { professional_user_id?: 
 }
 
 export async function professionalCreateReport(payload: {
-  user_id: number;
+  user_id: number | null;
+  is_private?: boolean;
   patient_name: string;
   professional_name: string;
   title: string;
@@ -765,7 +767,8 @@ export async function professionalCreateReport(payload: {
 export async function professionalUpdateReport(
   id: number,
   payload: Partial<{
-    user_id: number;
+    user_id: number | null;
+    is_private: boolean;
     patient_name: string;
     professional_name: string;
     title: string;

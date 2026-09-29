@@ -12,6 +12,7 @@ import type { HangmanGameRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { ShareGameModal } from "@/features/games/ShareGameModal";
+import { PrivateGamesShelf } from "@/features/games/PrivateGamesShelf";
 
 export default function AdminHangmanGames() {
   const navigate = useNavigate();
@@ -102,6 +103,7 @@ export default function AdminHangmanGames() {
           </div>
         </div>
 
+        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/forca/${id}/editar`} /> : null}
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">

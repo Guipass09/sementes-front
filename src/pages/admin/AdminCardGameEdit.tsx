@@ -147,7 +147,7 @@ export default function AdminCardGameEdit() {
       toast({ title: "Informe uma descrição", description: "A descrição do jogo é obrigatória.", variant: "destructive" });
       return;
     }
-    if (selectedUserIds.length === 0) {
+    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) {
       toast({ title: "Selecione usuários", description: "Escolha pelo menos 1 usuário.", variant: "destructive" });
       return;
     }

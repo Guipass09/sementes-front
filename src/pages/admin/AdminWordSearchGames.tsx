@@ -12,6 +12,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import type { WordSearchGameRow } from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { ShareGameModal } from "@/features/games/ShareGameModal";
+import { PrivateGamesShelf } from "@/features/games/PrivateGamesShelf";
 
 export default function AdminWordSearchGames() {
   const navigate = useNavigate();
@@ -115,6 +116,7 @@ export default function AdminWordSearchGames() {
           </div>
         </div>
 
+        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/caca-palavras/${id}/editar`} /> : null}
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">

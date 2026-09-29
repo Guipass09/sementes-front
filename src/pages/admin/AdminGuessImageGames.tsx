@@ -12,6 +12,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import type { GuessImageGameRow } from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { ShareGameModal } from "@/features/games/ShareGameModal";
+import { PrivateGamesShelf } from "@/features/games/PrivateGamesShelf";
 
 export default function AdminGuessImageGames() {
   const navigate = useNavigate();
@@ -107,6 +108,7 @@ export default function AdminGuessImageGames() {
           </div>
         </div>
 
+        {isProfessional && !loading ? <PrivateGamesShelf games={filtered} ownerId={myId} editPath={(id) => `${base}/jogos/acerte-imagem/${id}/editar`} /> : null}
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">

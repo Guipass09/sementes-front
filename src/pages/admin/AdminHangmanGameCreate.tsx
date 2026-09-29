@@ -121,7 +121,7 @@ export default function AdminHangmanGameCreate() {
       toast({ title: "Palavra muito longa", description: "Máximo de 15 letras.", variant: "destructive" });
       return;
     }
-    if (selectedUserIds.length === 0) {
+    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) {
       toast({ title: "Selecione usuários", description: "Escolha pelo menos 1 usuário.", variant: "destructive" });
       return;
     }
@@ -132,10 +132,10 @@ export default function AdminHangmanGameCreate() {
         title: title.trim(),
         description: description.trim(),
         secret_word: secretWordInput,
-        assigned_to: selectedUserIds,
+        assigned_to: auth.user?.role === "professional" ? [] : selectedUserIds,
         support_images: support.map((s) => s.file!).filter(Boolean),
       });
-      toast({ title: "Jogo criado!", description: `“${created.title}” enviado para ${selectedUserIds.length} usuário(s).` });
+      toast({ title: "Jogo criado!", description: auth.user?.role === "professional" ? "Salvo somente no seu perfil. Envie aos pacientes quando quiser." : `Enviado para ${selectedUserIds.length} usuário(s).` });
       navigate(auth.user?.role === "professional" ? `/profissional/jogos/forca` : `/admin/jogos/forca`);
     } catch {
       toast({ title: "Não foi possível criar", description: "Verifique os campos e tente novamente.", variant: "destructive" });
@@ -257,7 +257,7 @@ export default function AdminHangmanGameCreate() {
           </div>
 
           {/* Assign users */}
-          <div className="lg:col-span-5 bg-card rounded-2xl border border-border p-6 shadow-sm">
+          <div className={`${auth.user?.role === "professional" ? "hidden" : "lg:col-span-5"} bg-card rounded-2xl border border-border p-6 shadow-sm`}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2 font-semibold text-foreground">

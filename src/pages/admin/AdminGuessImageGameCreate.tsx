@@ -156,16 +156,16 @@ export default function AdminGuessImageGameCreate() {
 
   const missing = useMemo(() => {
     if (!title.trim() || !description.trim()) return true;
-    if (selectedUserIds.length === 0) return true;
+    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) return true;
     return sessions.some((s) => !s.mainFile || !s.correctFile || !s.wrongFile);
-  }, [title, description, selectedUserIds.length, sessions]);
+  }, [title, description, selectedUserIds.length, sessions, auth.user?.role]);
 
   const onSubmit = async () => {
     if (!title.trim() || !description.trim()) {
       toast({ title: "Preencha título e descrição", variant: "destructive" });
       return;
     }
-    if (selectedUserIds.length === 0) {
+    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) {
       toast({ title: "Selecione usuários", description: "Escolha pelo menos 1 usuário.", variant: "destructive" });
       return;
     }
@@ -182,12 +182,12 @@ export default function AdminGuessImageGameCreate() {
         title: title.trim(),
         description: description.trim(),
         sessions_count: n,
-        assigned_to: selectedUserIds,
+        assigned_to: auth.user?.role === "professional" ? [] : selectedUserIds,
         main_images: slice.map((s) => s.mainFile!),
         correct_images: slice.map((s) => s.correctFile!),
         wrong_images: slice.map((s) => s.wrongFile!),
       });
-      toast({ title: "Jogo criado!", description: `"${created.title}" enviado para ${selectedUserIds.length} usuário(s).` });
+      toast({ title: "Jogo criado!", description: auth.user?.role === "professional" ? "Salvo somente no seu perfil. Envie aos pacientes quando quiser." : `Enviado para ${selectedUserIds.length} usuário(s).` });
       navigate(`/jogos/acerte-imagem/${created.id}`);
     } catch (err: any) {
       const apiMessage = err?.data?.message || err?.data?.error || err?.message;
@@ -366,7 +366,7 @@ export default function AdminGuessImageGameCreate() {
             </div>
           </div>
 
-          <div className="lg:col-span-5 bg-card rounded-2xl border border-border p-6 shadow-sm">
+          <div className={`${auth.user?.role === "professional" ? "hidden" : "lg:col-span-5"} bg-card rounded-2xl border border-border p-6 shadow-sm`}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2 font-semibold text-foreground">

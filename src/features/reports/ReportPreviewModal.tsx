@@ -49,7 +49,7 @@ export function ReportPreviewModal(props: {
     try {
       await downloadElementAsPdf({
         element: previewRef.current,
-        filename: buildReportPdfFilename(props.report.patientName || props.report.patient.name, props.report.date),
+        filename: buildReportPdfFilename(props.report.patientName || props.report.patient.name || "modelo", props.report.date),
       });
     } finally {
       setDownloading(false);
@@ -87,7 +87,7 @@ export function ReportPreviewModal(props: {
                 </span>
               )}
               <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                Paciente: {props.report.patientName || props.report.patient.name}
+                Paciente: {props.report.patientName || props.report.patient.name || "Não vinculado"}
               </span>
               <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
                 Profissional: {props.report.professionalName}
@@ -158,7 +158,7 @@ export function ReportPreviewModal(props: {
                   <div data-pdf-avoid className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <div className="rounded-md bg-slate-50 border border-slate-200 p-3.5">
                       <div className="text-[11px] uppercase tracking-[0.08em] text-slate-500">Paciente</div>
-                      <div className="font-semibold">{props.report.patientName || props.report.patient.name}</div>
+                      <div className="font-semibold">{props.report.patientName || props.report.patient.name || "Não vinculado"}</div>
                     </div>
                     <div className="rounded-md bg-slate-50 border border-slate-200 p-3.5">
                       <div className="text-[11px] uppercase tracking-[0.08em] text-slate-500">Profissional</div>

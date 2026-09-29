@@ -143,7 +143,7 @@ export default function AdminSpinWheelGameCreate() {
       toast({ title: "Informe um título", description: "O título do jogo é obrigatório.", variant: "destructive" });
       return;
     }
-    if (selectedUserIds.length === 0) {
+    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) {
       toast({ title: "Selecione usuários", description: "Escolha pelo menos 1 usuário para receber o jogo.", variant: "destructive" });
       return;
     }
@@ -172,13 +172,13 @@ export default function AdminSpinWheelGameCreate() {
         title: title.trim(),
         center_title: centerTitle.trim() || undefined,
         items_count: finalItemsCount,
-        assigned_to: selectedUserIds,
+        assigned_to: auth.user?.role === "professional" ? [] : selectedUserIds,
         background: backgroundFile || undefined,
         item_images: files,
         item_labels: labels,
       });
 
-      toast({ title: "Roleta criada!", description: `"${created.title}" foi enviada para ${selectedUserIds.length} usuário(s).` });
+      toast({ title: "Jogo criado!", description: auth.user?.role === "professional" ? "Salvo somente no seu perfil. Envie aos pacientes quando quiser." : `Enviado para ${selectedUserIds.length} usuário(s).` });
       navigate(`${base}/roleta`);
     } catch (e) {
       toast({ title: "Não foi possível criar", description: "Verifique os campos e tente novamente.", variant: "destructive" });
@@ -344,7 +344,7 @@ export default function AdminSpinWheelGameCreate() {
           </div>
 
           {/* Assign users */}
-          <div className="lg:col-span-5 bg-card rounded-2xl border border-border p-6 shadow-sm">
+          <div className={`${auth.user?.role === "professional" ? "hidden" : "lg:col-span-5"} bg-card rounded-2xl border border-border p-6 shadow-sm`}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <div className="flex items-center gap-2 font-semibold text-foreground">

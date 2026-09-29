@@ -12,6 +12,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ShareGameModal } from "@/features/games/ShareGameModal";
+import { PrivateGamesShelf } from "@/features/games/PrivateGamesShelf";
 
 export default function AdminSpinWheelGames() {
   const navigate = useNavigate();
@@ -137,6 +138,7 @@ export default function AdminSpinWheelGames() {
         </div>
 
         {/* Games List */}
+        {isProfessional && !loading ? <PrivateGamesShelf games={filteredGames} ownerId={myId} editPath={(id) => `${base}/jogos/roleta/${id}/editar`} /> : null}
         {loading ? (
           <div className="space-y-4">
             {[0, 1, 2].map((i) => (

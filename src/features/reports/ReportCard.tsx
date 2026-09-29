@@ -1,4 +1,4 @@
-import { FileText, Calendar, Download, Edit, Trash2 } from "lucide-react";
+import { FileText, Calendar, Download, Edit, Trash2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ReportSummary } from "./types";
 import { formatReportDate, reportTypeConfig } from "./report-config";
@@ -11,6 +11,7 @@ export function ReportCard(props: {
   canEdit?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
+  onSend?: () => void;
 }): JSX.Element {
   const { report } = props;
   const cfg = reportTypeConfig[report.type];
@@ -33,6 +34,7 @@ export function ReportCard(props: {
               {cfg.label}
             </span>
             {report.status === "draft" ? <span className="text-xs font-semibold text-brand-orange">Rascunho</span> : null}
+            {report.isPrivate ? <span className="text-xs font-semibold text-brand-green">Somente no meu perfil</span> : null}
             {report.createdBy.role === "admin" && (
               <span className="text-xs px-2 py-1 rounded-full bg-brand-orange/10 text-brand-orange">
                 Criado por Admin
@@ -43,7 +45,7 @@ export function ReportCard(props: {
           {props.showPatient && (
             <p className="text-sm text-muted-foreground mb-2">
               <span className="font-medium text-foreground/80">Paciente:</span>{" "}
-              {report.patientName || report.patient.name}
+              {report.patientName || report.patient.name || "Não vinculado"}
             </p>
           )}
 
@@ -58,6 +60,9 @@ export function ReportCard(props: {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          {props.onSend ? <Button type="button" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); props.onSend?.(); }}>
+            <Send size={16} className="mr-2" /> Enviar
+          </Button> : null}
           {report.status !== "draft" ? <Button
             type="button"
             variant="outline"

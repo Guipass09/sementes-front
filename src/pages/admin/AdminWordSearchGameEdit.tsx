@@ -198,9 +198,9 @@ export default function AdminWordSearchGameEdit() {
   const missing = useMemo(() => {
     if (!title.trim() || !description.trim()) return true;
     if (!background && !bgExistingUrl) return true;
-    if (selectedUserIds.length === 0) return true;
+    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) return true;
     return words.some((w) => !w.word.trim() || (!w.imageFile && !w.existingImageUrl));
-  }, [title, description, background, bgExistingUrl, selectedUserIds.length, words]);
+  }, [title, description, background, bgExistingUrl, selectedUserIds.length, words, auth.user?.role]);
 
   const onSubmit = async () => {
     if (!gameId) return;
@@ -212,7 +212,7 @@ export default function AdminWordSearchGameEdit() {
       toast({ title: "Escolha a imagem de fundo", variant: "destructive" });
       return;
     }
-    if (selectedUserIds.length === 0) {
+    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) {
       toast({ title: "Selecione usuários", description: "Escolha pelo menos 1 usuário.", variant: "destructive" });
       return;
     }

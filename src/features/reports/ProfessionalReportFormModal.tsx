@@ -46,7 +46,8 @@ export function ProfessionalReportFormModal(props: {
   onMinimize?: (draft: ReportFormDraft) => void;
   onOpenChange: (open: boolean) => void;
   onSubmit: (payload: {
-    user_id: number;
+    user_id: number | null;
+    is_private: boolean;
     patient_name: string;
     professional_name: string;
     title: string;
@@ -90,8 +91,6 @@ export function ProfessionalReportFormModal(props: {
 
   const canSubmit = useMemo(() => {
     return (
-      !!form.userId &&
-      form.patientName.trim().length > 0 &&
       form.professionalName.trim().length > 0 &&
       form.title.trim().length > 0 &&
       form.reportDate.trim().length > 0 &&
@@ -100,11 +99,12 @@ export function ProfessionalReportFormModal(props: {
   }, [form]);
 
   const handleSubmit = async () => {
-    if (!canSubmit || !form.userId) return;
+    if (!canSubmit) return;
     setSaving(true);
     try {
       await props.onSubmit({
         user_id: form.userId,
+        is_private: props.mode === "create" ? true : (props.initial?.isPrivate ?? true),
         patient_name: form.patientName.trim(),
         professional_name: form.professionalName.trim(),
         title: form.title.trim(),
@@ -130,15 +130,16 @@ export function ProfessionalReportFormModal(props: {
         <DialogHeader>
           <DialogTitle>{props.mode === "create" ? "Novo Relatório" : "Editar Relatório"}</DialogTitle>
         </DialogHeader>
+        {props.mode === "create" && !props.fixedUser ? <p className="text-sm text-muted-foreground">Este relatório ficará somente no seu perfil. Você poderá enviá-lo depois.</p> : null}
 
         <div className="space-y-4 mt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
+            {props.mode === "edit" || props.fixedUser ? <div className="space-y-2">
               <Label htmlFor="patientName">Nome completo da criança</Label>
               <Input id="patientName" value={form.patientName} onChange={(e) => setForm((p) => ({ ...p, patientName: e.target.value }))} />
-            </div>
+            </div> : null}
 
-            <div className="space-y-2">
+            {props.mode === "edit" && form.userId ? <div className="space-y-2">
               <Label>Usuário (conta)</Label>
               {props.mode === "create" && props.fixedUser?.id ? (
                 <Input value={props.fixedUser.name} disabled />
@@ -160,7 +161,7 @@ export function ProfessionalReportFormModal(props: {
                   </SelectContent>
                 </Select>
               )}
-            </div>
+            </div> : null}
 
             <div className="space-y-2">
               <Label htmlFor="professionalName">Profissional</Label>

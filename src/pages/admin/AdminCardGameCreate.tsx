@@ -129,7 +129,7 @@ export default function AdminCardGameCreate() {
       toast({ title: "Informe uma descrição", description: "A descrição do jogo é obrigatória.", variant: "destructive" });
       return;
     }
-    if (selectedUserIds.length === 0) {
+    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) {
       toast({ title: "Selecione usuários", description: "Escolha pelo menos 1 usuário para receber o jogo.", variant: "destructive" });
       return;
     }
@@ -152,11 +152,11 @@ export default function AdminCardGameCreate() {
         title: title.trim(),
         description: description.trim(),
         cards_count: n,
-        assigned_to: selectedUserIds,
+        assigned_to: auth.user?.role === "professional" ? [] : selectedUserIds,
         background: backgroundFile || undefined,
         card_images: files,
       });
-      toast({ title: "Jogo criado!", description: `"${created.title}" foi enviado para ${selectedUserIds.length} usuário(s).` });
+      toast({ title: "Jogo criado!", description: auth.user?.role === "professional" ? "Salvo somente no seu perfil. Envie aos pacientes quando quiser." : `Enviado para ${selectedUserIds.length} usuário(s).` });
       navigate(`${base}/cartas`);
     } catch {
       toast({ title: "Não foi possível criar", description: "Verifique os campos e tente novamente.", variant: "destructive" });
@@ -317,7 +317,7 @@ export default function AdminCardGameCreate() {
           </div>
 
           {/* Users */}
-          <div className="lg:col-span-5 bg-card rounded-2xl border border-border p-6 shadow-sm">
+          <div className={`${auth.user?.role === "professional" ? "hidden" : "lg:col-span-5"} bg-card rounded-2xl border border-border p-6 shadow-sm`}>
             <div className="flex items-center justify-between gap-3 mb-4">
               <div className="font-semibold text-foreground">Enviar para usuários</div>
               <div className="text-xs text-muted-foreground">{selectedUserIds.length} selecionado(s)</div>

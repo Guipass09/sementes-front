@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { FileText, Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
 import ClinicProfessionalReportsView from "@/components/ClinicProfessionalReportsView";
@@ -11,6 +13,7 @@ import { ReportPreviewModal } from "@/features/reports/ReportPreviewModal";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
 import { ProfessionalReportFormModal } from "@/features/reports/ProfessionalReportFormModal";
+import { useToast } from "@/hooks/use-toast";
 
 function toDetail(r: any): ReportDetail {
   return {
@@ -19,7 +22,8 @@ function toDetail(r: any): ReportDetail {
     date: r.date,
     type: r.type,
     status: r.status,
-    patient: r.patient,
+    isPrivate: !!r.is_private,
+    patient: r.patient ?? { id: null, name: "" },
     patientName: r.patient_name ?? r.patient?.name ?? "",
     createdBy: r.created_by,
     professionalName: r.professional_name ?? "",
@@ -40,6 +44,7 @@ export default function ProfessionalReports(): JSX.Element {
 
 function StandardProfessionalReports(): JSX.Element {
   const auth = useAuth();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<ReportDetail[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,6 +53,10 @@ function StandardProfessionalReports(): JSX.Element {
   const [editing, setEditing] = useState<ReportDetail | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ReportDetail | null>(null);
+  const [sendTarget, setSendTarget] = useState<ReportDetail | null>(null);
+  const [recipients, setRecipients] = useState<api.ProfessionalUserRow[]>([]);
+  const [selectedRecipients, setSelectedRecipients] = useState<number[]>([]);
+  const [sending, setSending] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -138,6 +147,13 @@ function StandardProfessionalReports(): JSX.Element {
                   }}
                   onDownload={() => { if (report.status !== "draft") setSelected(report); }}
                   canEdit={report.createdBy.id === auth.user?.id}
+                  onSend={report.isPrivate && report.type !== "evolucao" && report.status !== "draft" && report.createdBy.id === auth.user?.id ? () => {
+                    setSendTarget(report);
+                    setSelectedRecipients([]);
+                    void api.professionalListUsers().then((res) => setRecipients(res.data ?? [])).catch(() => {
+                      toast({ title: "Não foi possível carregar os pacientes", variant: "destructive" });
+                    });
+                  } : undefined}
                   onEdit={() => {
                     setEditing(report);
                     setFormOpen(true);
@@ -176,11 +192,51 @@ function StandardProfessionalReports(): JSX.Element {
             if (editing) {
               await api.professionalUpdateReport(editing.id, { ...payload, status: "published" });
             } else {
-              await api.professionalCreateReport(payload);
+              await api.professionalCreateReport({ ...payload, is_private: true });
             }
             await refresh();
           }}
         />
+
+        <Dialog open={!!sendTarget} onOpenChange={(open) => { if (!open) setSendTarget(null); }}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader><DialogTitle>Enviar relatório</DialogTitle></DialogHeader>
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {recipients.filter((user) => !sendTarget?.patient.id || user.id === sendTarget.patient.id).map((user) => (
+                <label key={user.id} className="flex cursor-pointer items-center gap-3 rounded-md border border-border p-3">
+                  <Checkbox checked={selectedRecipients.includes(user.id)} onCheckedChange={(checked) => setSelectedRecipients((old) => checked ? [...old, user.id] : old.filter((id) => id !== user.id))} />
+                  <span className="text-sm">{user.name}</span>
+                </label>
+              ))}
+            </div>
+            <Button disabled={!selectedRecipients.length || sending} onClick={async () => {
+              if (!sendTarget) return;
+              setSending(true);
+              try {
+                for (const user of recipients.filter((item) => selectedRecipients.includes(item.id))) {
+                  await api.professionalCreateReport({
+                    user_id: user.id,
+                    patient_name: sendTarget.patientName || user.name,
+                    professional_name: sendTarget.professionalName,
+                    title: sendTarget.title,
+                    report_date: sendTarget.date,
+                    type: sendTarget.type,
+                    content: sendTarget.content,
+                    status: "published",
+                    is_private: false,
+                  });
+                }
+                setSendTarget(null);
+                toast({ title: "Relatório enviado" });
+                await refresh();
+              } catch {
+                toast({ title: "Não foi possível enviar o relatório", variant: "destructive" });
+              } finally {
+                setSending(false);
+              }
+            }}>{sending ? "Enviando..." : "Enviar aos pacientes"}</Button>
+          </DialogContent>
+        </Dialog>
 
         <BrandedConfirmDialog
           open={deleteOpen}

@@ -12,6 +12,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { useAuth } from "@/auth/AuthContext";
 import { ShareGameModal } from "@/features/games/ShareGameModal";
+import { PrivateGamesShelf } from "@/features/games/PrivateGamesShelf";
 
 export default function AdminCardGames() {
   const navigate = useNavigate();
@@ -138,6 +139,7 @@ export default function AdminCardGames() {
           </div>
         </div>
 
+        {isProfessional && !loading ? <PrivateGamesShelf games={filteredGames} ownerId={myId} editPath={(id) => `${base}/jogos/cartas/${id}/editar`} /> : null}
         {loading ? (
           <div className="space-y-4">
             {[0, 1, 2].map((i) => (

@@ -14,6 +14,7 @@ function toDetail(report: any): ReportDetail {
     title: report.title,
     date: report.date,
     type: report.type,
+    status: report.status,
     patient: report.patient,
     patientName: report.patient_name ?? report.patient?.name ?? "",
     createdBy: report.created_by,

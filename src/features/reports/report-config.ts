@@ -4,6 +4,10 @@ export const reportTypeConfig: Record<
   ReportType,
   { label: string; badgeClassName: string }
 > = {
+  evolucao: {
+    label: "Evolução",
+    badgeClassName: "bg-brand-green/10 text-brand-green",
+  },
   mensal: {
     label: "Relatório Mensal",
     badgeClassName: "bg-brand-green/10 text-brand-green",

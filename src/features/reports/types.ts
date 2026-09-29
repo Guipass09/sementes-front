@@ -1,4 +1,4 @@
-export type ReportType = "mensal" | "trimestral" | "avaliacao";
+export type ReportType = "mensal" | "trimestral" | "avaliacao" | "evolucao";
 
 export type ReportAuthor = {
   id?: number;
@@ -12,6 +12,7 @@ export type ReportPatient = {
 };
 
 export type ReportSummary = {
+  status?: "draft" | "published";
   id: number;
   title: string;
   date: string; // YYYY-MM-DD

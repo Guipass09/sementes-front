@@ -18,6 +18,7 @@ function toDetail(r: any): ReportDetail {
     title: r.title,
     date: r.date,
     type: r.type,
+    status: r.status,
     patient: r.patient,
     patientName: r.patient_name ?? r.patient?.name ?? "",
     createdBy: r.created_by,
@@ -127,9 +128,16 @@ function StandardProfessionalReports(): JSX.Element {
                 <ReportCard
                   report={report}
                   showPatient
-                  onOpen={() => setSelected(report)}
-                  onDownload={() => setSelected(report)}
-                  canEdit
+                  onOpen={() => {
+                    if (report.status === "draft") {
+                      setEditing(report);
+                      setFormOpen(true);
+                    } else {
+                      setSelected(report);
+                    }
+                  }}
+                  onDownload={() => { if (report.status !== "draft") setSelected(report); }}
+                  canEdit={report.createdBy.id === auth.user?.id}
                   onEdit={() => {
                     setEditing(report);
                     setFormOpen(true);
@@ -166,7 +174,7 @@ function StandardProfessionalReports(): JSX.Element {
           onOpenChange={setFormOpen}
           onSubmit={async (payload) => {
             if (editing) {
-              await api.professionalUpdateReport(editing.id, payload);
+              await api.professionalUpdateReport(editing.id, { ...payload, status: "published" });
             } else {
               await api.professionalCreateReport(payload);
             }

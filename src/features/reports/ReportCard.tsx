@@ -32,6 +32,7 @@ export function ReportCard(props: {
             <span className={`text-xs px-2 py-1 rounded-full ${cfg.badgeClassName}`}>
               {cfg.label}
             </span>
+            {report.status === "draft" ? <span className="text-xs font-semibold text-brand-orange">Rascunho</span> : null}
             {report.createdBy.role === "admin" && (
               <span className="text-xs px-2 py-1 rounded-full bg-brand-orange/10 text-brand-orange">
                 Criado por Admin
@@ -57,7 +58,7 @@ export function ReportCard(props: {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-          <Button
+          {report.status !== "draft" ? <Button
             type="button"
             variant="outline"
             size="sm"
@@ -70,7 +71,7 @@ export function ReportCard(props: {
           >
             <Download size={16} className="mr-2" />
             PDF
-          </Button>
+          </Button> : null}
 
           {props.canEdit && (
             <>

@@ -56,13 +56,14 @@ export type ProfessionalUserRow = {
   profile_photo_url?: string | null;
 };
 
-export type ReportType = "mensal" | "trimestral" | "avaliacao";
+export type ReportType = "mensal" | "trimestral" | "avaliacao" | "evolucao";
 
 export type ReportRow = {
   id: number;
   title: string;
   date: string; // YYYY-MM-DD
   type: ReportType;
+  status?: "draft" | "published";
   professional_name: string;
   content: string;
   summary: string;
@@ -755,6 +756,7 @@ export async function professionalCreateReport(payload: {
   report_date: string;
   type: ReportType;
   content: string;
+  status?: "draft" | "published";
 }): Promise<ReportRow> {
   await ensureCsrfCookie();
   return await request<ReportRow>("/api/professional/reports", { method: "POST", json: payload });
@@ -770,6 +772,7 @@ export async function professionalUpdateReport(
     report_date: string;
     type: ReportType;
     content: string;
+    status: "draft" | "published";
   }>
 ): Promise<ReportRow> {
   await ensureCsrfCookie();

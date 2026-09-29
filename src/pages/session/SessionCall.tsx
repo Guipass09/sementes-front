@@ -55,8 +55,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { playFanfare } from "@/lib/sfx";
 import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
-import { Textarea } from "@/components/ui/textarea";
 import { initialSessionMouthState, normalizeSessionMouthState, type SessionMouthState } from "@/features/mouth3d/sessionMouthState";
+import { SessionDocumentation } from "@/features/reports/SessionDocumentation";
 
 const ReportFormModalLazy = lazy(async () => {
   const mod = await import("@/features/reports/ReportFormModal");
@@ -277,9 +277,11 @@ export default function SessionCall() {
     joinedAtMsRef.current = 0;
   }, [appointmentId]);
 
-  const [proCommentOpen, setProCommentOpen] = useState(false);
-  const [proCommentText, setProCommentText] = useState("");
-  const [proCommentSaving, setProCommentSaving] = useState(false);
+  const [documentationOpen, setDocumentationOpen] = useState(false);
+  const documentationFlushRef = useRef<(() => Promise<void>) | null>(null);
+  const registerDocumentationFlush = useCallback((flush: (() => Promise<void>) | null) => {
+    documentationFlushRef.current = flush;
+  }, []);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportDraft, setReportDraft] = useState<ReportFormDraft | null>(null);
@@ -1332,7 +1334,7 @@ export default function SessionCall() {
     return Number.isFinite(n) ? n : 0;
   };
 
-  // Carrega dados mínimos do paciente para pré-preencher relatório (admin)
+  // Carrega o paciente vinculado à sessão para a documentação clínica.
   useEffect(() => {
     if (role !== "admin") return;
     if (!joinInfo?.token) return;
@@ -1341,7 +1343,9 @@ export default function SessionCall() {
     let cancelled = false;
     (async () => {
       try {
-        const list = await api.adminListAppointments();
+        const list = appRole === "professional"
+          ? (await api.professionalListAppointments()).data
+          : await api.adminListAppointments();
         if (cancelled) return;
         const appt = list.find((a) => a.id === appointmentId);
         const u = appt?.user;
@@ -1353,7 +1357,7 @@ export default function SessionCall() {
     return () => {
       cancelled = true;
     };
-  }, [role, joinInfo?.token, appointmentId, fixedUser]);
+  }, [role, appRole, joinInfo?.token, appointmentId, fixedUser, documentationOpen]);
 
   const toggleControl = async () => {
     if (role !== "admin") return;
@@ -2389,6 +2393,10 @@ export default function SessionCall() {
   };
 
   const hangup = async () => {
+    try { await documentationFlushRef.current?.(); } catch {
+      toast({ title: "Rascunho não salvo", description: "Tente novamente antes de sair da chamada.", variant: "destructive" });
+      return;
+    }
     // Marca para forçar reload quando voltar (limpa sessão WebRTC travada), mas mantém timer via sessionStorage
     if (appointmentId) {
       sessionStorage.setItem(`call_force_reload:${appointmentId}`, String(Date.now()));
@@ -2399,6 +2407,11 @@ export default function SessionCall() {
 
   const handleEndSession = async (markCompleted: boolean) => {
     setEndingSession(true);
+    try { await documentationFlushRef.current?.(); } catch {
+      setEndingSession(false);
+      toast({ title: "Rascunho não salvo", description: "Tente novamente antes de encerrar a sessão.", variant: "destructive" });
+      return;
+    }
     if (markCompleted && appointmentId) {
       try {
         if (appRole === "professional") {
@@ -3217,17 +3230,19 @@ export default function SessionCall() {
               {appRole === "professional" ? (
                 <Button
                   variant="outline"
-                  onClick={() => setProCommentOpen(true)}
+                  onClick={() => setDocumentationOpen(true)}
                   className="rounded-xl border-brand-purple text-brand-purple hover:bg-brand-purple/10"
-                  title="Comentário privado (somente admin/profissional veem)"
+                  title="Documentação clínica do paciente"
                 >
-                  Comentário
+                  Evolução
                 </Button>
               ) : null}
-              <Button variant="outline" onClick={() => setReportOpen(true)} className="rounded-xl">
-                <FileText className="h-4 w-4 mr-2" />
-                Relatório
-              </Button>
+              {appRole === "admin" ? (
+                <Button variant="outline" onClick={() => setReportOpen(true)} className="rounded-xl">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Relatório
+                </Button>
+              ) : null}
               <Button variant="outline" onClick={() => void toggleControl()} className="rounded-xl">
                 {controlGranted ? "Retirar controle do paciente" : "Dar controle ao paciente"}
               </Button>
@@ -3913,62 +3928,15 @@ export default function SessionCall() {
         />
       ) : null}
 
-      {/* Comentário do profissional (na transmissão) */}
-      <Dialog
-        open={proCommentOpen}
-        onOpenChange={(open) => {
-          setProCommentOpen(open);
-          if (!open) {
-            setProCommentSaving(false);
-          }
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Comentário do profissional</DialogTitle>
-          </DialogHeader>
-          <div className="text-sm text-muted-foreground">
-            Este comentário é <strong>privado</strong> (o paciente não vê) e aparecerá na página de comentários do paciente abaixo do comentário do admin.
-          </div>
-          <div className="mt-3 space-y-2">
-            <Textarea
-              value={proCommentText}
-              onChange={(e) => setProCommentText(e.target.value)}
-              placeholder="Escreva aqui suas observações..."
-              className="min-h-[140px]"
-            />
-            <div className="flex items-center justify-end gap-2">
-              <Button variant="outline" className="rounded-xl" onClick={() => setProCommentOpen(false)} disabled={proCommentSaving}>
-                Cancelar
-              </Button>
-              <Button
-                className="rounded-xl"
-                onClick={async () => {
-                  if (!appointmentId) return;
-                  const text = proCommentText.trim();
-                  if (!text) {
-                    toast({ title: "Comentário", description: "Escreva um comentário antes de enviar.", variant: "destructive" });
-                    return;
-                  }
-                  setProCommentSaving(true);
-                  try {
-                    await api.professionalUpsertAppointmentComment(appointmentId, text);
-                    toast({ title: "Comentário", description: "Comentário salvo com sucesso." });
-                    setProCommentOpen(false);
-                  } catch {
-                    toast({ title: "Comentário", description: "Não foi possível salvar agora. Tente novamente.", variant: "destructive" });
-                  } finally {
-                    setProCommentSaving(false);
-                  }
-                }}
-                disabled={proCommentSaving}
-              >
-                {proCommentSaving ? "Salvando..." : "Salvar"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {appRole === "professional" && user?.id ? (
+        <SessionDocumentation
+          open={documentationOpen}
+          onOpenChange={setDocumentationOpen}
+          patient={fixedUser}
+          author={{ id: user.id, name: user.name }}
+          registerFlush={registerDocumentationFlush}
+        />
+      ) : null}
 
       {/* Pagamento (user): abre só com clique */}
       <Dialog
@@ -4076,7 +4044,7 @@ export default function SessionCall() {
       </Dialog>
 
       {/* Relatório (admin) */}
-      {role === "admin" ? (
+      {appRole === "admin" ? (
         <Suspense fallback={null}>
           <ReportFormModalLazy
             open={reportOpen}

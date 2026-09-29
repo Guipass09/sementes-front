@@ -26,6 +26,7 @@ const formatYmd = (ymd?: string | null) => {
 };
 
 const patientDisplayName = (p: ProfessionalPatientRow) => (p.child_name?.trim() ? p.child_name.trim() : p.name);
+const patientNameCollator = new Intl.Collator("pt-BR", { sensitivity: "base" });
 
 export default function ProfessionalPatients(): JSX.Element {
   const auth = useAuth();
@@ -58,12 +59,15 @@ export default function ProfessionalPatients(): JSX.Element {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return patients;
-    return patients.filter((p) => {
-      const name = patientDisplayName(p).toLowerCase();
-      const resp = (p.responsible_name ?? "").toLowerCase();
-      return name.includes(q) || resp.includes(q) || p.email.toLowerCase().includes(q);
-    });
+    const matched = q
+      ? patients.filter((p) => {
+          const name = patientDisplayName(p).toLowerCase();
+          const resp = (p.responsible_name ?? "").toLowerCase();
+          return name.includes(q) || resp.includes(q) || p.email.toLowerCase().includes(q);
+        })
+      : patients;
+
+    return [...matched].sort((a, b) => patientNameCollator.compare(patientDisplayName(a), patientDisplayName(b)));
   }, [patients, search]);
 
   const openPatient = async (p: ProfessionalPatientRow) => {

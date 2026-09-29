@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowLeft,
-  ArrowUpRight,
   CircleDot,
+  ChevronLeft,
+  ChevronRight,
   Ear,
   Gamepad2,
   Grid3X3,
@@ -26,6 +26,8 @@ import type {
 } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import { gameNoticeKey, markGameOpened, reconcileGameNotices, type GameNoticeState } from "./game-notices";
+import "./patient-games.css";
 
 type GameItem = {
   id: number;
@@ -46,12 +48,44 @@ type GameCategory = {
 };
 
 const gameCount = (count: number) => `${count} ${count === 1 ? "jogo disponível" : "jogos disponíveis"}`;
+const noticeStorageKey = (userId: number) => `sementes:patient-game-notices:v1:${userId}`;
+
+const readGameNotices = (userId: number): GameNoticeState | null => {
+  try {
+    const stored = localStorage.getItem(noticeStorageKey(userId));
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed?.known) && Array.isArray(parsed?.pending)) {
+      return {
+        known: parsed.known.filter((key: unknown): key is string => typeof key === "string"),
+        pending: parsed.pending.filter((key: unknown): key is string => typeof key === "string"),
+      };
+    }
+  } catch {
+    // Storage can be disabled or contain data from an older version.
+  }
+  return null;
+};
+
+const saveGameNotices = (userId: number, state: GameNoticeState) => {
+  try {
+    localStorage.setItem(noticeStorageKey(userId), JSON.stringify(state));
+  } catch {
+    // Keep the current page usable even when storage is unavailable.
+  }
+};
 
 export default function PatientMemoryGames() {
   const auth = useAuth();
+  const userId = auth.user?.id;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const categoryScrollerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [canTrackNew, setCanTrackNew] = useState(false);
+  const [pendingGameKeys, setPendingGameKeys] = useState<Set<string>>(() => new Set());
   const [games, setGames] = useState<MemoryGameRow[]>([]);
   const [gamesV2, setGamesV2] = useState<MemoryGameRow[]>([]);
   const [phonemeGames, setPhonemeGames] = useState<PhonemeGameRow[]>([]);
@@ -63,45 +97,57 @@ export default function PatientMemoryGames() {
   const [guessImageGames, setGuessImageGames] = useState<GuessImageGameRow[]>([]);
 
   useEffect(() => {
-    if (!auth.user) return;
+    if (!userId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setCanTrackNew(false);
+      setPendingGameKeys(new Set());
+      let hadLoadError = false;
       try {
         const [memClassic, memV2, phon, aud, hang, spin, ws, cards, guessImg] = await Promise.all([
           api.userListMemoryGames({ variant: "classic" }).catch(err => {
+            hadLoadError = true;
             console.error("[Jogos] Erro ao buscar memory games:", err);
             return [];
           }),
           api.userListMemoryGames({ variant: "v2" }).catch(err => {
+            hadLoadError = true;
             console.error("[Jogos] Erro ao buscar memory games v2:", err);
             return [];
           }),
           api.userListPhonemeGames().catch(err => {
+            hadLoadError = true;
             console.error("[Jogos] Erro ao buscar phoneme games:", err);
             return [];
           }),
           api.userListAuditoryGames().catch(err => {
+            hadLoadError = true;
             console.error("[Jogos] Erro ao buscar auditory games:", err);
             return [];
           }),
           api.userListHangmanGames().catch(err => {
+            hadLoadError = true;
             console.error("[Jogos] Erro ao buscar hangman games:", err);
             return [];
           }),
           api.userListSpinWheelGames().catch(err => {
+            hadLoadError = true;
             console.error("[Jogos] Erro ao buscar spin wheel games:", err);
             return [];
           }),
           api.userListWordSearchGames().catch(err => {
+            hadLoadError = true;
             console.error("[Jogos] Erro ao buscar word search games:", err);
             return [];
           }),
           api.userListCardGames().catch(err => {
+            hadLoadError = true;
             console.error("[Jogos] Erro ao buscar card games:", err);
             return [];
           }),
           api.userListGuessImageGames().catch(err => {
+            hadLoadError = true;
             console.error("[Jogos] Erro ao buscar guess image games:", err);
             return [];
           }),
@@ -116,6 +162,7 @@ export default function PatientMemoryGames() {
           setWordSearchGames(ws);
           setCardGames(cards);
           setGuessImageGames(guessImg);
+          setCanTrackNew(!hadLoadError);
         }
       } catch (error) {
         console.error("[Jogos] Erro geral ao buscar jogos:", error);
@@ -137,9 +184,9 @@ export default function PatientMemoryGames() {
     return () => {
       cancelled = true;
     };
-  }, [auth.user]);
+  }, [userId]);
 
-  const categories: GameCategory[] = [
+  const categories = useMemo<GameCategory[]>(() => [
     {
       id: "memoria",
       title: "Jogos da Memória",
@@ -275,20 +322,55 @@ export default function PatientMemoryGames() {
         path: `/jogos/acerte-imagem/${g.id}`,
       })),
     },
-  ];
+  ], [games, gamesV2, phonemeGames, auditoryGames, hangmanGames, wordSearchGames, spinWheelGames, cardGames, guessImageGames]);
+
+  useEffect(() => {
+    if (!userId || loading || !canTrackNew) return;
+    const availableKeys = categories.flatMap(category => category.items.map(game => gameNoticeKey(category.id, game.id)));
+    const next = reconcileGameNotices(readGameNotices(userId), availableKeys);
+    saveGameNotices(userId, next);
+    setPendingGameKeys(new Set(next.pending));
+  }, [categories, canTrackNew, loading, userId]);
 
   const availableCategories = categories.filter(category => category.items.length > 0);
   const totalGames = categories.reduce((total, category) => total + category.items.length, 0);
-  const activeCategory = availableCategories.find(category => category.id === searchParams.get("tipo"));
+  const activeCategory = searchParams.get("fechado") === "1"
+    ? undefined
+    : availableCategories.find(category => category.id === searchParams.get("tipo")) ?? availableCategories[0];
+
+  useEffect(() => {
+    const scroller = categoryScrollerRef.current;
+    if (!scroller || loading) return;
+    const updateScrollButtons = () => {
+      setCanScrollLeft(scroller.scrollLeft > 1);
+      setCanScrollRight(scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 1);
+    };
+    updateScrollButtons();
+    scroller.addEventListener("scroll", updateScrollButtons, { passive: true });
+    window.addEventListener("resize", updateScrollButtons);
+    return () => {
+      scroller.removeEventListener("scroll", updateScrollButtons);
+      window.removeEventListener("resize", updateScrollButtons);
+    };
+  }, [loading, availableCategories.length]);
 
   const selectCategory = (id: string) => {
-    setSearchParams({ tipo: id });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setSearchParams(activeCategory?.id === id ? { fechado: "1" } : { tipo: id });
   };
 
-  const showCategories = () => {
-    setSearchParams({});
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const scrollCategories = (direction: -1 | 1) => {
+    categoryScrollerRef.current?.scrollBy({ left: direction * 320, behavior: "smooth" });
+  };
+
+  const openGame = (categoryId: string, game: GameItem) => {
+    if (userId) {
+      const key = gameNoticeKey(categoryId, game.id);
+      const stored = readGameNotices(userId) ?? { known: [], pending: [...pendingGameKeys] };
+      const next = markGameOpened(stored, key);
+      saveGameNotices(userId, next);
+      setPendingGameKeys(new Set(next.pending));
+    }
+    navigate(game.path);
   };
 
   return (
@@ -303,13 +385,9 @@ export default function PatientMemoryGames() {
         </header>
 
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4" aria-label="Carregando jogos">
+          <div className="flex flex-wrap gap-2" aria-label="Carregando jogos">
             {Array.from({ length: 8 }, (_, index) => (
-              <div key={index} className="h-[178px] rounded-lg border border-border bg-card p-4">
-                <Skeleton className="h-14 w-14 rounded-md" />
-                <Skeleton className="mt-5 h-4 w-4/5" />
-                <Skeleton className="mt-2 h-3 w-1/2" />
-              </div>
+              <Skeleton key={index} className="h-10 w-36 rounded-md" />
             ))}
           </div>
         ) : totalGames === 0 ? (
@@ -317,96 +395,92 @@ export default function PatientMemoryGames() {
             <Gamepad2 size={48} className="mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">Nenhum jogo disponível ainda.</p>
           </div>
-        ) : activeCategory ? (
-          <section aria-labelledby="selected-game-category">
-            <button
-              type="button"
-              onClick={showCategories}
-              className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-brand-green hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
-            >
-              <ArrowLeft size={18} />
-              Todos os jogos
-            </button>
-            <div className="mb-5 flex items-center gap-3">
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-md ${activeCategory.iconBackgroundClassName}`}>
-                <activeCategory.icon className={`h-6 w-6 ${activeCategory.iconClassName}`} />
-              </div>
-              <div className="min-w-0">
-                <h2 id="selected-game-category" className="font-display text-xl font-bold text-foreground sm:text-2xl">
-                  {activeCategory.title}
-                </h2>
-                <p className="text-sm text-muted-foreground">{gameCount(activeCategory.items.length)}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
-              {activeCategory.items.map(game => (
-                <button
-                  key={game.id}
-                  type="button"
-                  onClick={() => navigate(game.path)}
-                  className="group flex min-h-[126px] min-w-0 items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
-                >
-                  <div className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md ${activeCategory.iconBackgroundClassName}`}>
-                    {game.imageUrl ? (
-                      <img
-                        src={normalizeMediaUrl(game.imageUrl)}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                        onError={event => { event.currentTarget.src = "/placeholder.svg"; }}
-                      />
-                    ) : (
-                      <activeCategory.icon className={`h-7 w-7 ${activeCategory.iconClassName}`} />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="line-clamp-2 font-semibold leading-snug text-foreground">{game.title}</h3>
-                    {game.description ? <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{game.description}</p> : null}
-                    <p className={`mt-2 text-xs font-semibold ${activeCategory.iconClassName}`}>{game.detail}</p>
-                  </div>
-                  <ArrowUpRight size={17} className="shrink-0 text-muted-foreground transition-colors group-hover:text-brand-green" aria-hidden="true" />
-                </button>
-              ))}
-            </div>
-          </section>
         ) : (
-          <section aria-label="Tipos de jogos">
-            <p className="mb-4 text-sm text-muted-foreground">{totalGames} jogos disponíveis</p>
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
-              {availableCategories.map(category => {
-                const preview = category.items.find(item => item.imageUrl)?.imageUrl;
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => selectCategory(category.id)}
-                    className="group flex min-h-[176px] min-w-0 flex-col rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
-                  >
-                    <div className="flex w-full items-start justify-between gap-2">
-                      <div className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md ${category.iconBackgroundClassName}`}>
-                        {preview ? (
-                          <img
-                            src={normalizeMediaUrl(preview)}
-                            alt=""
-                            loading="lazy"
-                            className="h-full w-full object-cover"
-                            onError={event => { event.currentTarget.src = "/placeholder.svg"; }}
-                          />
-                        ) : (
-                          <category.icon className={`h-7 w-7 ${category.iconClassName}`} />
-                        )}
-                      </div>
-                      <ArrowUpRight size={17} className="shrink-0 text-muted-foreground transition-colors group-hover:text-brand-green" aria-hidden="true" />
-                    </div>
-                    <div className="mt-auto min-w-0 pt-4">
-                      <h2 className="font-display text-sm font-bold leading-snug text-foreground sm:text-base">{category.title}</h2>
-                      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{gameCount(category.items.length)}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          <>
+            <section aria-label="Tipos de jogos">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">{totalGames} jogos disponíveis</p>
+                {canScrollLeft || canScrollRight ? (
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => scrollCategories(-1)} disabled={!canScrollLeft} aria-label="Categorias anteriores" title="Categorias anteriores" className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card text-foreground disabled:opacity-35">
+                      <ChevronLeft size={17} />
+                    </button>
+                    <button type="button" onClick={() => scrollCategories(1)} disabled={!canScrollRight} aria-label="Próximas categorias" title="Próximas categorias" className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-card text-foreground disabled:opacity-35">
+                      <ChevronRight size={17} />
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <div ref={categoryScrollerRef} className="patient-game-categories flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2">
+                {availableCategories.map(category => {
+                  const selected = activeCategory?.id === category.id;
+                  const hasNew = category.items.some(game => pendingGameKeys.has(gameNoticeKey(category.id, game.id)));
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => selectCategory(category.id)}
+                      aria-pressed={selected}
+                      className={`inline-flex min-h-11 flex-none snap-start items-center gap-2 whitespace-nowrap rounded-md border px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green ${selected ? "border-brand-green bg-brand-green/10 text-brand-green" : "border-border bg-card text-foreground hover:border-brand-green/50 hover:bg-muted/30"} ${hasNew ? "patient-game-new" : ""}`}
+                    >
+                      <category.icon size={16} className={selected ? "text-brand-green" : category.iconClassName} aria-hidden="true" />
+                      <span>{category.title}</span>
+                      <span className="rounded-sm bg-foreground/5 px-1.5 py-0.5 text-[11px] font-bold">{category.items.length}</span>
+                      {hasNew ? <span className="sr-only">Há jogos novos nesta categoria</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {activeCategory ? (
+              <section aria-labelledby="selected-game-category" className="mt-7 border-t border-border pt-6">
+                <div className="mb-5 flex items-center gap-3">
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-md ${activeCategory.iconBackgroundClassName}`}>
+                    <activeCategory.icon className={`h-6 w-6 ${activeCategory.iconClassName}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 id="selected-game-category" className="font-display text-lg font-bold text-foreground sm:text-xl">{activeCategory.title}</h2>
+                    <p className="text-sm text-muted-foreground">{gameCount(activeCategory.items.length)}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
+                  {activeCategory.items.map(game => {
+                    const isNew = pendingGameKeys.has(gameNoticeKey(activeCategory.id, game.id));
+                    return (
+                      <button
+                        key={game.id}
+                        type="button"
+                        onClick={() => openGame(activeCategory.id, game)}
+                        className={`flex min-h-[132px] min-w-0 items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green ${isNew ? "patient-game-new" : ""}`}
+                      >
+                        <div className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md ${activeCategory.iconBackgroundClassName}`}>
+                          {game.imageUrl ? (
+                            <img
+                              src={normalizeMediaUrl(game.imageUrl)}
+                              alt=""
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                              onError={event => { event.currentTarget.src = "/placeholder.svg"; }}
+                            />
+                          ) : (
+                            <activeCategory.icon className={`h-6 w-6 ${activeCategory.iconClassName}`} />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="line-clamp-2 font-semibold leading-snug text-foreground">{game.title}</h3>
+                          {game.description ? <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{game.description}</p> : null}
+                          <p className={`mt-2 text-xs font-semibold ${activeCategory.iconClassName}`}>
+                            {game.detail}{isNew ? <span className="ml-2 text-brand-green">Novo</span> : null}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+          </>
         )}
       </div>
     </div>

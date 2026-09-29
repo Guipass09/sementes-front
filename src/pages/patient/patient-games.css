@@ -1,0 +1,24 @@
+@keyframes patient-game-new-border {
+  0%, 100% { border-color: #b8ddc8; box-shadow: 0 0 0 0 rgba(20, 173, 92, 0); }
+  50% { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(20, 173, 92, .18); }
+}
+
+.patient-game-new {
+  animation: patient-game-new-border 1.8s ease-in-out infinite;
+}
+
+.patient-game-categories {
+  scrollbar-width: none;
+}
+
+.patient-game-categories::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .patient-game-new {
+    animation: none;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 2px rgba(20, 173, 92, .18);
+  }
+}

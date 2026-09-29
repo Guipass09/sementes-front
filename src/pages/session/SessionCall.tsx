@@ -57,6 +57,10 @@ import { playFanfare } from "@/lib/sfx";
 import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
 import { initialSessionMouthState, normalizeSessionMouthState, type SessionMouthState } from "@/features/mouth3d/sessionMouthState";
 import { SessionDocumentation } from "@/features/reports/SessionDocumentation";
+import { SessionCatalogTile, activityCatalogImage, gameCatalogImage } from "@/features/session/SessionCatalogTile";
+
+const catalogGridClass = "grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5";
+const catalogTileClass = "group w-full overflow-hidden rounded-md border border-border bg-card text-left transition-colors hover:border-brand-green hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green";
 
 const ReportFormModalLazy = lazy(async () => {
   const mod = await import("@/features/reports/ReportFormModal");
@@ -3412,7 +3416,7 @@ export default function SessionCall() {
 
       {/* Catálogo (admin): atividades + jogos */}
       <Dialog open={catalogOpen} onOpenChange={setCatalogOpen}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Catálogo (atividades e jogos)</DialogTitle>
           </DialogHeader>
@@ -3436,9 +3440,9 @@ export default function SessionCall() {
               {/* Seção: Atividades */}
               <div>
                 <div className="text-base font-semibold text-foreground mb-3">Atividades</div>
-                <div className="space-y-2">
+                <div className={catalogGridClass}>
                   {catActivities.length === 0 ? (
-                    <div className="text-sm text-muted-foreground py-2">Nenhuma atividade disponível</div>
+                    <div className="col-span-full py-2 text-sm text-muted-foreground">Nenhuma atividade disponível</div>
                   ) : (
                     catActivities.map((a) => (
                       <button
@@ -3452,10 +3456,9 @@ export default function SessionCall() {
                             void selectContent(path, a.title, "activity");
                           }
                         }}
-                        className="w-full text-left rounded-xl border border-border bg-card hover:bg-accent hover:border-brand-green transition-colors px-4 py-3"
+                        className={catalogTileClass}
                       >
-                        <div className="text-sm font-semibold text-foreground line-clamp-1">{a.title}</div>
-                        <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{a.category || "Atividade"}</div>
+                        <SessionCatalogTile title={a.title} subtitle={a.category || "Atividade"} imageUrl={activityCatalogImage(a)} kind="activity" />
                       </button>
                     ))
                   )}
@@ -3473,7 +3476,7 @@ export default function SessionCall() {
                         Jogo da Memória ({catMemGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
-                        <div className="space-y-2">
+                        <div className={catalogGridClass}>
                           {catMemGames.map((g) => (
                             <button
                               key={`mem-${g.id}`}
@@ -3486,9 +3489,9 @@ export default function SessionCall() {
                                   void selectContent(path, g.title, "memory_game");
                                 }
                               }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                              className={catalogTileClass}
                             >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                              <SessionCatalogTile title={g.title} subtitle={g.description} imageUrl={gameCatalogImage(g)} kind="memory_game" />
                             </button>
                           ))}
                         </div>
@@ -3503,7 +3506,7 @@ export default function SessionCall() {
                         Jogo da Memória 2.0 ({catMemGames2.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
-                        <div className="space-y-2">
+                        <div className={catalogGridClass}>
                           {catMemGames2.map((g) => (
                             <button
                               key={`mem2-${g.id}`}
@@ -3516,9 +3519,9 @@ export default function SessionCall() {
                                   void selectContent(path, g.title, "memory_game_v2");
                                 }
                               }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                              className={catalogTileClass}
                             >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                              <SessionCatalogTile title={g.title} subtitle={g.description} imageUrl={gameCatalogImage(g)} kind="memory_game_v2" />
                             </button>
                           ))}
                         </div>
@@ -3533,7 +3536,7 @@ export default function SessionCall() {
                         Discriminação de Fonemas ({catPhonemeGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
-                        <div className="space-y-2">
+                        <div className={catalogGridClass}>
                           {catPhonemeGames.map((g) => (
                             <button
                               key={`phon-${g.id}`}
@@ -3546,9 +3549,9 @@ export default function SessionCall() {
                                   void selectContent(path, g.title, "phoneme_game");
                                 }
                               }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                              className={catalogTileClass}
                             >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                              <SessionCatalogTile title={g.title} subtitle={g.description} imageUrl={gameCatalogImage(g)} kind="phoneme_game" />
                             </button>
                           ))}
                         </div>
@@ -3563,7 +3566,7 @@ export default function SessionCall() {
                         Estimulação Auditiva ({catAudGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
-                        <div className="space-y-2">
+                        <div className={catalogGridClass}>
                           {catAudGames.map((g) => (
                             <button
                               key={`aud-${g.id}`}
@@ -3576,9 +3579,9 @@ export default function SessionCall() {
                                   void selectContent(path, g.title, "auditory_game");
                                 }
                               }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                              className={catalogTileClass}
                             >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                              <SessionCatalogTile title={g.title} subtitle={g.description} imageUrl={gameCatalogImage(g)} kind="auditory_game" />
                             </button>
                           ))}
                         </div>
@@ -3593,7 +3596,7 @@ export default function SessionCall() {
                         Jogo da Forca ({catHangGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
-                        <div className="space-y-2">
+                        <div className={catalogGridClass}>
                           {catHangGames.map((g) => (
                             <button
                               key={`hang-${g.id}`}
@@ -3606,9 +3609,9 @@ export default function SessionCall() {
                                   void selectContent(path, g.title, "hangman_game");
                                 }
                               }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                              className={catalogTileClass}
                             >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                              <SessionCatalogTile title={g.title} subtitle={g.description} imageUrl={gameCatalogImage(g)} kind="hangman_game" />
                             </button>
                           ))}
                         </div>
@@ -3623,7 +3626,7 @@ export default function SessionCall() {
                         Roleta ({catSpinGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
-                        <div className="space-y-2">
+                        <div className={catalogGridClass}>
                           {catSpinGames.map((g) => (
                             <button
                               key={`spin-${g.id}`}
@@ -3636,9 +3639,9 @@ export default function SessionCall() {
                                   void selectContent(path, g.title, "spin_wheel_game");
                                 }
                               }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                              className={catalogTileClass}
                             >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                              <SessionCatalogTile title={g.title} imageUrl={gameCatalogImage(g)} kind="spin_wheel_game" />
                             </button>
                           ))}
                         </div>
@@ -3653,7 +3656,7 @@ export default function SessionCall() {
                         Caça-palavras ({catWordSearchGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
-                        <div className="space-y-2">
+                        <div className={catalogGridClass}>
                           {catWordSearchGames.map((g) => (
                             <button
                               key={`ws-${g.id}`}
@@ -3666,9 +3669,9 @@ export default function SessionCall() {
                                   void selectContent(path, g.title, "word_search_game");
                                 }
                               }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                              className={catalogTileClass}
                             >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                              <SessionCatalogTile title={g.title} subtitle={g.description} imageUrl={gameCatalogImage(g)} kind="word_search_game" />
                             </button>
                           ))}
                         </div>
@@ -3683,7 +3686,7 @@ export default function SessionCall() {
                         Jogo das Cartas ({catCardGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
-                        <div className="space-y-2">
+                        <div className={catalogGridClass}>
                           {catCardGames.map((g) => (
                             <button
                               key={`cards-${g.id}`}
@@ -3696,9 +3699,9 @@ export default function SessionCall() {
                                   void selectContent(path, g.title, "card_game");
                                 }
                               }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                              className={catalogTileClass}
                             >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                              <SessionCatalogTile title={g.title} subtitle={g.description} imageUrl={gameCatalogImage(g)} kind="card_game" />
                             </button>
                           ))}
                         </div>
@@ -3713,7 +3716,7 @@ export default function SessionCall() {
                         Acerte a Imagem ({catGuessImageGames.length})
                       </AccordionTrigger>
                       <AccordionContent className="pb-3">
-                        <div className="space-y-2">
+                        <div className={catalogGridClass}>
                           {catGuessImageGames.map((g) => (
                             <button
                               key={`guess-${g.id}`}
@@ -3726,9 +3729,9 @@ export default function SessionCall() {
                                   void selectContent(path, g.title, "guess_image_game");
                                 }
                               }}
-                              className="w-full text-left rounded-lg border border-border bg-muted/30 hover:bg-accent hover:border-brand-green transition-colors px-3 py-2"
+                              className={catalogTileClass}
                             >
-                              <div className="text-sm font-medium text-foreground line-clamp-1">{g.title}</div>
+                              <SessionCatalogTile title={g.title} subtitle={g.description} imageUrl={gameCatalogImage(g)} kind="guess_image_game" />
                             </button>
                           ))}
                         </div>

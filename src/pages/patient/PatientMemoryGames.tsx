@@ -1,21 +1,56 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Grid3X3, Play, Image as ImageIcon, Ear, Type, ChevronDown, Gamepad2, CircleDot, Layers } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  CircleDot,
+  Ear,
+  Gamepad2,
+  Grid3X3,
+  Image as ImageIcon,
+  Layers,
+  Type,
+  type LucideIcon,
+} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
-import type { MemoryGameRow, AuditoryGameRow, HangmanGameRow, SpinWheelGameRow, PhonemeGameRow, WordSearchGameRow, CardGameRow, GuessImageGameRow } from "@/lib/laravel-api";
+import type {
+  AuditoryGameRow,
+  CardGameRow,
+  GuessImageGameRow,
+  HangmanGameRow,
+  MemoryGameRow,
+  PhonemeGameRow,
+  SpinWheelGameRow,
+  WordSearchGameRow,
+} from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+
+type GameItem = {
+  id: number;
+  title: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  detail: string;
+  path: string;
+};
+
+type GameCategory = {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  iconClassName: string;
+  iconBackgroundClassName: string;
+  items: GameItem[];
+};
+
+const gameCount = (count: number) => `${count} ${count === 1 ? "jogo disponível" : "jogos disponíveis"}`;
 
 export default function PatientMemoryGames() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [games, setGames] = useState<MemoryGameRow[]>([]);
   const [gamesV2, setGamesV2] = useState<MemoryGameRow[]>([]);
@@ -72,16 +107,6 @@ export default function PatientMemoryGames() {
           }),
         ]);
         if (!cancelled) {
-          console.log("[Jogos] Resultados:", {
-            mem: memClassic.length,
-            mem2: memV2.length,
-            phon: phon.length,
-            aud: aud.length,
-            hang: hang.length,
-            spin: spin.length,
-            ws: ws.length,
-            guessImg: guessImg.length,
-          });
           setGames(memClassic);
           setGamesV2(memV2);
           setPhonemeGames(phon);
@@ -114,590 +139,274 @@ export default function PatientMemoryGames() {
     };
   }, [auth.user]);
 
-  const totalGames =
-    games.length +
-    gamesV2.length +
-    phonemeGames.length +
-    auditoryGames.length +
-    hangmanGames.length +
-    spinWheelGames.length +
-    wordSearchGames.length +
-    cardGames.length +
-    guessImageGames.length;
+  const categories: GameCategory[] = [
+    {
+      id: "memoria",
+      title: "Jogos da Memória",
+      icon: Grid3X3,
+      iconClassName: "text-brand-green",
+      iconBackgroundClassName: "bg-brand-green/10",
+      items: games.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        imageUrl: g.thumbnail?.url,
+        detail: `${g.pairs_count} pares`,
+        path: `/jogos/${g.id}`,
+      })),
+    },
+    {
+      id: "memoria2",
+      title: "Memória 2.0",
+      icon: Grid3X3,
+      iconClassName: "text-brand-green",
+      iconBackgroundClassName: "bg-brand-green/10",
+      items: gamesV2.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        imageUrl: g.thumbnail?.url,
+        detail: `${g.pairs_count} pares`,
+        path: `/jogos/memoria2/${g.id}`,
+      })),
+    },
+    {
+      id: "fonema",
+      title: "Discriminação Fonema",
+      icon: Ear,
+      iconClassName: "text-brand-purple",
+      iconBackgroundClassName: "bg-brand-purple/10",
+      items: phonemeGames.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        imageUrl: g.thumbnail?.left_url,
+        detail: `${g.sessions_count} sessões`,
+        path: `/jogos/fonema/${g.id}`,
+      })),
+    },
+    {
+      id: "auditivo",
+      title: "Estimulação Auditiva",
+      icon: Ear,
+      iconClassName: "text-brand-blue",
+      iconBackgroundClassName: "bg-brand-blue/10",
+      items: auditoryGames.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        imageUrl: g.background_url,
+        detail: `${g.items_count} imagens`,
+        path: `/jogos/auditivo/${g.id}`,
+      })),
+    },
+    {
+      id: "forca",
+      title: "Jogo da Forca",
+      icon: Type,
+      iconClassName: "text-brand-orange",
+      iconBackgroundClassName: "bg-brand-orange/10",
+      items: hangmanGames.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        imageUrl: g.thumbnail?.url,
+        detail: `${g.word_length} letras`,
+        path: `/jogos/forca/${g.id}`,
+      })),
+    },
+    {
+      id: "caca-palavras",
+      title: "Caça-palavras",
+      icon: Grid3X3,
+      iconClassName: "text-brand-green",
+      iconBackgroundClassName: "bg-brand-green/10",
+      items: wordSearchGames.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        imageUrl: g.items?.[0]?.image_url,
+        detail: `${g.words_count} palavra(s)`,
+        path: `/jogos/caca-palavras/${g.id}`,
+      })),
+    },
+    {
+      id: "roleta",
+      title: "Roleta Musical",
+      icon: CircleDot,
+      iconClassName: "text-amber-500",
+      iconBackgroundClassName: "bg-amber-500/10",
+      items: spinWheelGames.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.center_title || "Gire a roleta!",
+        imageUrl: g.thumbnail?.url,
+        detail: `${g.items_count} itens`,
+        path: `/jogos/roleta/${g.id}`,
+      })),
+    },
+    {
+      id: "cartas",
+      title: "Jogo das Cartas",
+      icon: Layers,
+      iconClassName: "text-brand-brown",
+      iconBackgroundClassName: "bg-brand-brown/10",
+      items: cardGames.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        imageUrl: g.background_url,
+        detail: `${g.cards_count} carta(s)`,
+        path: `/jogos/cartas/${g.id}`,
+      })),
+    },
+    {
+      id: "acerte-imagem",
+      title: "Acerte a Imagem",
+      icon: ImageIcon,
+      iconClassName: "text-pink-500",
+      iconBackgroundClassName: "bg-pink-500/10",
+      items: guessImageGames.map(g => ({
+        id: g.id,
+        title: g.title,
+        description: g.description,
+        imageUrl: g.thumbnail?.main_url,
+        detail: `${g.sessions_count} sessão(ões)`,
+        path: `/jogos/acerte-imagem/${g.id}`,
+      })),
+    },
+  ];
+
+  const availableCategories = categories.filter(category => category.items.length > 0);
+  const totalGames = categories.reduce((total, category) => total + category.items.length, 0);
+  const activeCategory = availableCategories.find(category => category.id === searchParams.get("tipo"));
+
+  const selectCategory = (id: string) => {
+    setSearchParams({ tipo: id });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const showCategories = () => {
+    setSearchParams({});
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
-    <div className="min-h-full py-8 lg:py-12">
+    <div className="min-h-full py-6 lg:py-10">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-2 inline-flex items-center gap-2">
+        <header className="mb-6 sm:mb-8">
+          <h1 className="inline-flex items-center gap-2 text-2xl lg:text-3xl font-display font-bold text-foreground">
             <Gamepad2 className="h-7 w-7 text-brand-green" />
             Jogos
           </h1>
-          <p className="text-muted-foreground">
-            Jogos interativos para treinar habilidades com diversão
-          </p>
-        </div>
-
-        {/* Summary Card */}
-        <div className="bg-card rounded-xl border border-border p-6 mb-8 shadow-sm">
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-brand-green"></div>
-              <span className="text-muted-foreground">Jogos da Memória:</span>
-              <span className="font-semibold text-foreground">{games.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-brand-green/60"></div>
-              <span className="text-muted-foreground">Memória 2.0:</span>
-              <span className="font-semibold text-foreground">{gamesV2.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-brand-purple"></div>
-              <span className="text-muted-foreground">Discriminação Fonema:</span>
-              <span className="font-semibold text-foreground">{phonemeGames.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-brand-blue"></div>
-              <span className="text-muted-foreground">Estimulação Auditiva:</span>
-              <span className="font-semibold text-foreground">{auditoryGames.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-brand-orange"></div>
-              <span className="text-muted-foreground">Jogo da Forca:</span>
-              <span className="font-semibold text-foreground">{hangmanGames.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-amber-500"></div>
-              <span className="text-muted-foreground">Roleta:</span>
-              <span className="font-semibold text-foreground">{spinWheelGames.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-brand-brown"></div>
-              <span className="text-muted-foreground">Jogo das Cartas:</span>
-              <span className="font-semibold text-foreground">{cardGames.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-pink-500"></div>
-              <span className="text-muted-foreground">Acerte a Imagem:</span>
-              <span className="font-semibold text-foreground">{guessImageGames.length}</span>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-muted-foreground">Total:</span>
-              <span className="font-bold text-foreground">{totalGames} jogos</span>
-            </div>
-          </div>
-        </div>
+          <p className="mt-1 text-muted-foreground">Jogos interativos para treinar habilidades com diversão</p>
+        </header>
 
         {loading ? (
-          <div className="space-y-4">
-            {[0, 1, 2].map((i) => (
-              <div key={i} className="bg-card rounded-xl border border-border p-5 shadow-sm">
-                <div className="flex gap-4">
-                  <Skeleton className="h-12 w-12 rounded-xl" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-1/2" />
-                    <Skeleton className="h-4 w-2/3" />
-                  </div>
-                  <Skeleton className="h-8 w-28 rounded-full" />
-                </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4" aria-label="Carregando jogos">
+            {Array.from({ length: 8 }, (_, index) => (
+              <div key={index} className="h-[178px] rounded-lg border border-border bg-card p-4">
+                <Skeleton className="h-14 w-14 rounded-md" />
+                <Skeleton className="mt-5 h-4 w-4/5" />
+                <Skeleton className="mt-2 h-3 w-1/2" />
               </div>
             ))}
           </div>
         ) : totalGames === 0 ? (
-          <div className="bg-card rounded-xl border border-border p-8 shadow-sm text-center">
-            <Gamepad2 size={48} className="mx-auto text-muted-foreground mb-4" />
+          <div className="py-14 text-center">
+            <Gamepad2 size={48} className="mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">Nenhum jogo disponível ainda.</p>
           </div>
+        ) : activeCategory ? (
+          <section aria-labelledby="selected-game-category">
+            <button
+              type="button"
+              onClick={showCategories}
+              className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-brand-green hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+            >
+              <ArrowLeft size={18} />
+              Todos os jogos
+            </button>
+            <div className="mb-5 flex items-center gap-3">
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-md ${activeCategory.iconBackgroundClassName}`}>
+                <activeCategory.icon className={`h-6 w-6 ${activeCategory.iconClassName}`} />
+              </div>
+              <div className="min-w-0">
+                <h2 id="selected-game-category" className="font-display text-xl font-bold text-foreground sm:text-2xl">
+                  {activeCategory.title}
+                </h2>
+                <p className="text-sm text-muted-foreground">{gameCount(activeCategory.items.length)}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
+              {activeCategory.items.map(game => (
+                <button
+                  key={game.id}
+                  type="button"
+                  onClick={() => navigate(game.path)}
+                  className="group flex min-h-[126px] min-w-0 items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+                >
+                  <div className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md ${activeCategory.iconBackgroundClassName}`}>
+                    {game.imageUrl ? (
+                      <img
+                        src={normalizeMediaUrl(game.imageUrl)}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        onError={event => { event.currentTarget.src = "/placeholder.svg"; }}
+                      />
+                    ) : (
+                      <activeCategory.icon className={`h-7 w-7 ${activeCategory.iconClassName}`} />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="line-clamp-2 font-semibold leading-snug text-foreground">{game.title}</h3>
+                    {game.description ? <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{game.description}</p> : null}
+                    <p className={`mt-2 text-xs font-semibold ${activeCategory.iconClassName}`}>{game.detail}</p>
+                  </div>
+                  <ArrowUpRight size={17} className="shrink-0 text-muted-foreground transition-colors group-hover:text-brand-green" aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          </section>
         ) : (
-          <Accordion type="multiple" defaultValue={["memoria", "memoria2", "fonema", "auditivo", "forca", "roleta", "cartas", "acerte-imagem"]} className="space-y-4">
-            {/* Jogos da Memória */}
-            {games.length > 0 && (
-              <AccordionItem value="memoria" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-green/10 flex items-center justify-center">
-                      <Grid3X3 className="h-5 w-5 text-brand-green" />
+          <section aria-label="Tipos de jogos">
+            <p className="mb-4 text-sm text-muted-foreground">{totalGames} jogos disponíveis</p>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
+              {availableCategories.map(category => {
+                const preview = category.items.find(item => item.imageUrl)?.imageUrl;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => selectCategory(category.id)}
+                    className="group flex min-h-[176px] min-w-0 flex-col rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+                  >
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <div className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md ${category.iconBackgroundClassName}`}>
+                        {preview ? (
+                          <img
+                            src={normalizeMediaUrl(preview)}
+                            alt=""
+                            loading="lazy"
+                            className="h-full w-full object-cover"
+                            onError={event => { event.currentTarget.src = "/placeholder.svg"; }}
+                          />
+                        ) : (
+                          <category.icon className={`h-7 w-7 ${category.iconClassName}`} />
+                        )}
+                      </div>
+                      <ArrowUpRight size={17} className="shrink-0 text-muted-foreground transition-colors group-hover:text-brand-green" aria-hidden="true" />
                     </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-display font-bold text-foreground">
-                        Jogos da Memória
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {games.length} jogo{games.length !== 1 ? "s" : ""} disponível{games.length !== 1 ? "is" : ""}
-                      </p>
+                    <div className="mt-auto min-w-0 pt-4">
+                      <h2 className="font-display text-sm font-bold leading-snug text-foreground sm:text-base">{category.title}</h2>
+                      <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{gameCount(category.items.length)}</p>
                     </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                    {games.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/jogos/${g.id}`)}
-                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-green/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-brand-green/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {g.thumbnail ? (
-                              <img
-                                src={normalizeMediaUrl(g.thumbnail.url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            ) : (
-                              <ImageIcon size={24} className="text-brand-green" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
-                            <span className="text-xs text-brand-green font-medium">{g.pairs_count} pares</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {/* Jogos da Memória 2.0 */}
-            {gamesV2.length > 0 && (
-              <AccordionItem value="memoria2" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-green/10 flex items-center justify-center">
-                      <Grid3X3 className="h-5 w-5 text-brand-green" />
-                    </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-display font-bold text-foreground">Memória 2.0</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {gamesV2.length} jogo{gamesV2.length !== 1 ? "s" : ""} disponível{gamesV2.length !== 1 ? "is" : ""}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                    {gamesV2.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/jogos/memoria2/${g.id}`)}
-                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-green/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-brand-green/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {g.thumbnail ? (
-                              <img
-                                src={normalizeMediaUrl(g.thumbnail.url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            ) : (
-                              <ImageIcon size={24} className="text-brand-green" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
-                            <span className="text-xs text-brand-green font-medium">{g.pairs_count} pares</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {/* Discriminação Fonema */}
-            {phonemeGames.length > 0 && (
-              <AccordionItem value="fonema" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-purple/10 flex items-center justify-center">
-                      <Ear className="h-5 w-5 text-brand-purple" />
-                    </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-display font-bold text-foreground">Discriminação Fonema</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {phonemeGames.length} jogo{phonemeGames.length !== 1 ? "s" : ""} disponível{phonemeGames.length !== 1 ? "is" : ""}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                    {phonemeGames.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/jogos/fonema/${g.id}`)}
-                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-purple/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-purple/40"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-brand-purple/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {g.thumbnail?.left_url ? (
-                              <img
-                                src={normalizeMediaUrl(g.thumbnail.left_url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            ) : (
-                              <Ear size={24} className="text-brand-purple" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
-                            <span className="text-xs text-brand-purple font-medium">{g.sessions_count} sessões</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {/* Estimulação Auditiva */}
-            {auditoryGames.length > 0 && (
-              <AccordionItem value="auditivo" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center">
-                      <Ear className="h-5 w-5 text-brand-blue" />
-                    </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-display font-bold text-foreground">
-                        Estimulação Auditiva
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {auditoryGames.length} jogo{auditoryGames.length !== 1 ? "s" : ""} disponível{auditoryGames.length !== 1 ? "is" : ""}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                    {auditoryGames.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/jogos/auditivo/${g.id}`)}
-                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-blue/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/40"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-brand-blue/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {g.background_url ? (
-                              <img
-                                src={normalizeMediaUrl(g.background_url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            ) : (
-                              <Ear size={24} className="text-brand-blue" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
-                            <span className="text-xs text-brand-blue font-medium">{g.items_count} imagens</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {/* Jogo da Forca */}
-            {hangmanGames.length > 0 && (
-              <AccordionItem value="forca" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-orange/10 flex items-center justify-center">
-                      <Type className="h-5 w-5 text-brand-orange" />
-                    </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-display font-bold text-foreground">
-                        Jogo da Forca
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {hangmanGames.length} jogo{hangmanGames.length !== 1 ? "s" : ""} disponível{hangmanGames.length !== 1 ? "is" : ""}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                    {hangmanGames.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/jogos/forca/${g.id}`)}
-                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-orange/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange/40"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-brand-orange/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {g.thumbnail?.url ? (
-                              <img
-                                src={normalizeMediaUrl(g.thumbnail.url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            ) : (
-                              <Type size={24} className="text-brand-orange" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
-                            <span className="text-xs text-brand-orange font-medium">{g.word_length} letras</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {/* Roleta Musical */}
-            {spinWheelGames.length > 0 && (
-              <AccordionItem value="roleta" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                      <CircleDot className="h-5 w-5 text-amber-500" />
-                    </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-display font-bold text-foreground">
-                        Roleta Musical
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        {spinWheelGames.length} jogo{spinWheelGames.length !== 1 ? "s" : ""} disponível{spinWheelGames.length !== 1 ? "is" : ""}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                    {spinWheelGames.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/jogos/roleta/${g.id}`)}
-                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-amber-500/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-amber-500/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {g.thumbnail?.url ? (
-                              <img
-                                src={normalizeMediaUrl(g.thumbnail.url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            ) : (
-                              <CircleDot size={24} className="text-amber-500" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                              {g.center_title || "Gire a roleta!"}
-                            </p>
-                            <span className="text-xs text-amber-500 font-medium">{g.items_count} itens</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {/* Caça-palavras */}
-            {wordSearchGames.length > 0 && (
-              <AccordionItem value="caca-palavras" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-green/10 flex items-center justify-center">
-                      <Grid3X3 className="h-5 w-5 text-brand-green" />
-                    </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-display font-bold text-foreground">Caça-palavras</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {wordSearchGames.length} jogo{wordSearchGames.length !== 1 ? "s" : ""} disponível{wordSearchGames.length !== 1 ? "is" : ""}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                    {wordSearchGames.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/jogos/caca-palavras/${g.id}`)}
-                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-green/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green/40"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-brand-green/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {g.items?.[0]?.image_url ? (
-                              <img
-                                src={normalizeMediaUrl(g.items[0].image_url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            ) : (
-                              <Grid3X3 size={24} className="text-brand-green" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
-                            <span className="text-xs text-brand-green font-medium">{g.words_count} palavra(s)</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {/* Jogo das Cartas */}
-            {cardGames.length > 0 && (
-              <AccordionItem value="cartas" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-brand-brown/10 flex items-center justify-center">
-                      <Layers className="h-5 w-5 text-brand-brown" />
-                    </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-display font-bold text-foreground">Jogo das Cartas</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {cardGames.length} jogo{cardGames.length !== 1 ? "s" : ""} disponível{cardGames.length !== 1 ? "is" : ""}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                    {cardGames.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/jogos/cartas/${g.id}`)}
-                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-brand-brown/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-brown/40"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-brand-brown/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {g.background_url ? (
-                              <img
-                                src={normalizeMediaUrl(g.background_url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            ) : (
-                              <Layers size={24} className="text-brand-brown" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
-                            <span className="text-xs text-brand-brown font-medium">{g.cards_count} carta(s)</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-
-            {/* Acerte a Imagem */}
-            {guessImageGames.length > 0 && (
-              <AccordionItem value="acerte-imagem" className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center">
-                      <ImageIcon className="h-5 w-5 text-pink-500" />
-                    </div>
-                    <div className="text-left">
-                      <h2 className="text-lg font-display font-bold text-foreground">Acerte a Imagem</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {guessImageGames.length} jogo{guessImageGames.length !== 1 ? "s" : ""} disponível{guessImageGames.length !== 1 ? "is" : ""}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-                    {guessImageGames.map((g) => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => navigate(`/jogos/acerte-imagem/${g.id}`)}
-                        className="text-left bg-background rounded-xl border border-border p-4 hover:shadow-md hover:border-pink-500/30 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500/40"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-pink-500/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {g.thumbnail?.main_url ? (
-                              <img
-                                src={normalizeMediaUrl(g.thumbnail.main_url)}
-                                alt=""
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src = "/placeholder.svg";
-                                }}
-                              />
-                            ) : (
-                              <ImageIcon size={24} className="text-pink-500" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-foreground mb-1 line-clamp-1">{g.title}</h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{g.description}</p>
-                            <span className="text-xs text-pink-500 font-medium">{g.sessions_count} sessão(ões)</span>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-          </Accordion>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
         )}
       </div>
     </div>

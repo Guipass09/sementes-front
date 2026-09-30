@@ -1,11 +1,11 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, BadgeCheck, Briefcase, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, Phone, User, Users } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import { isApiError } from "@/lib/laravel-api";
 
-type RegisterMode = "patient" | "professional" | "clinic";
+export type RegisterMode = "patient" | "professional" | "clinic";
 
 type FieldValidation = {
   valid: boolean;
@@ -62,14 +62,9 @@ const createValidationField = (): FieldValidation => ({
   message: "",
 });
 
-const RegisterForm = () => {
+const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeProfile: () => void }) => {
   const { toast } = useToast();
   const auth = useAuth();
-  const [searchParams] = useSearchParams();
-
-  const [mode, setMode] = useState<RegisterMode>(() =>
-    searchParams.get("perfil") === "profissional" ? "professional" : "patient"
-  );
 
   const [formData, setFormData] = useState<FormState>({
     name: "",
@@ -112,6 +107,11 @@ const RegisterForm = () => {
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registerError, setRegisterError] = useState("");
+
+  useEffect(() => {
+    setRegisterError("");
+    setIsButtonClicked(false);
+  }, [mode]);
 
   const validateName = useCallback((name: string, label = "Nome"): { valid: boolean; message: string } => {
     if (!name.trim()) {
@@ -294,7 +294,7 @@ const RegisterForm = () => {
         result = validateAttestation(Boolean(value));
         break;
       case "clinicName":
-        result = validateName(String(value), "Nome da clínica");
+        result = validateName(String(value), "Nome da empresa ou clínica");
         break;
       case "clinicArea":
         result = validateOptionalText(String(value), "Área de atuação");
@@ -356,7 +356,7 @@ const RegisterForm = () => {
         result = validateAttestation(formData.professionalAttestation);
         break;
       case "clinicName":
-        result = validateName(formData.clinicName, "Nome da clínica");
+        result = validateName(formData.clinicName, "Nome da empresa ou clínica");
         break;
       case "clinicArea":
         result = validateOptionalText(formData.clinicArea, "Área de atuação");
@@ -411,7 +411,7 @@ const RegisterForm = () => {
       mode === "professional" ? validateBirthdate(formData.professionalBirthdate, { label: "Data de nascimento", minAgeYears: 18 }) : { valid: true, message: "" };
     const professionalCrfaResult = mode === "professional" ? validateProfessionalCrfa(formData.professionalCrfa) : { valid: true, message: "" };
     const professionalAttestationResult = mode === "professional" ? validateAttestation(formData.professionalAttestation) : { valid: true, message: "" };
-    const clinicNameResult = mode === "clinic" ? validateName(formData.clinicName, "Nome da clínica") : { valid: true, message: "" };
+    const clinicNameResult = mode === "clinic" ? validateName(formData.clinicName, "Nome da empresa ou clínica") : { valid: true, message: "" };
     const clinicAreaResult = mode === "clinic" ? validateOptionalText(formData.clinicArea, "Área de atuação") : { valid: true, message: "" };
     const clinicCityStateResult = mode === "clinic" ? validateRequiredText(formData.clinicCityState, "Cidade/Estado") : { valid: true, message: "" };
     const clinicTeamSizeResult = mode === "clinic" ? validateChoice(formData.clinicTeamSize, "a quantidade de profissionais") : { valid: true, message: "" };
@@ -545,37 +545,13 @@ const RegisterForm = () => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      <div className="text-center">
-        <div className="text-sm font-semibold text-foreground">Paciente / Profissional / Clínica</div>
-        <div className="mt-3 grid w-full grid-cols-3 rounded-xl border border-border bg-background/70 p-1">
-          <button
-            type="button"
-            onClick={() => setMode("patient")}
-            className={`px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
-              mode === "patient" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Paciente
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("professional")}
-            className={`px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
-              mode === "professional" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Profissional
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("clinic")}
-            className={`px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
-              mode === "clinic" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Clínica
-          </button>
+      <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+        <div className="text-sm font-semibold text-foreground">
+          Cadastro como {mode === "patient" ? "Paciente" : mode === "professional" ? "Profissional" : "Empresa"}
         </div>
+        <button type="button" onClick={onChangeProfile} className="shrink-0 text-sm font-semibold text-[#0b7540] hover:underline focus-visible:outline-none focus-visible:underline">
+          Trocar perfil
+        </button>
       </div>
 
       {registerError && (
@@ -695,12 +671,12 @@ const RegisterForm = () => {
       {mode === "clinic" && (
         <>
           <div className="pt-1">
-            <div className="text-sm font-semibold text-foreground">Dados da clínica</div>
+            <div className="text-sm font-semibold text-foreground">Dados da empresa</div>
           </div>
 
           <div className="space-y-2">
             <label htmlFor="clinicName" className="block text-sm font-semibold text-foreground">
-              Nome da clínica
+              Nome da empresa ou clínica
             </label>
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
@@ -713,9 +689,9 @@ const RegisterForm = () => {
                 value={formData.clinicName}
                 onChange={handleInputChange("clinicName")}
                 onBlur={handleInputBlur("clinicName")}
-                placeholder="Nome da clínica"
+                placeholder="Nome da empresa ou clínica"
                 autoComplete="organization"
-                aria-label="Nome da clínica"
+                aria-label="Nome da empresa ou clínica"
                 aria-invalid={validation.clinicName.touched && !validation.clinicName.valid}
                 className={`${getInputClassName("clinicName")} pl-11 pr-10`}
               />
@@ -797,7 +773,7 @@ const RegisterForm = () => {
                 onBlur={handleInputBlur("responsibleName")}
                 placeholder="Nome completo do responsável"
                 autoComplete="name"
-                aria-label="Nome do responsável pela clínica"
+                aria-label="Nome do responsável pela empresa"
                 aria-invalid={validation.responsibleName.touched && !validation.responsibleName.valid}
                 className={`${getInputClassName("responsibleName")} pl-11 pr-10`}
               />

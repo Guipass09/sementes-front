@@ -340,7 +340,7 @@ export default function HangmanGameView() {
 
   const chooseLetter = useCallback(
     (letter: string) => {
-      if (!secret) return;
+      if (!secret || allDone || (inSession && sessionRole === "user" && !controlAllowedRef.current)) return;
       if (guessed.includes(letter) || wrong.includes(letter)) return;
 
       if (secret.includes(letter)) {
@@ -366,8 +366,43 @@ export default function HangmanGameView() {
         toast({ title: "Ops!", description: `A letra "${letter}" não aparece na palavra.`, variant: "destructive" });
       }
     },
-    [guessed, wrong, secret, toast],
+    [allDone, guessed, inSession, wrong, secret, sessionRole, toast],
   );
+
+  useEffect(() => {
+    const isStaff = auth.user?.role === "admin" || auth.user?.role === "professional";
+    if (!isStaff && !(inSession && sessionRole === "user")) return;
+
+    const handleLetter = (letter: string) => {
+      if ((inSession && sessionRole === "user" && !controlAllowedRef.current) || !/^[A-Z]$/.test(letter)) return;
+      chooseLetter(letter);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        event.defaultPrevented || event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey ||
+        (target instanceof Element && target.closest("input, textarea, select, [contenteditable]"))
+      ) return;
+
+      const letter = event.key.toUpperCase();
+      if ((inSession && sessionRole === "user" && !controlAllowedRef.current) || !/^[A-Z]$/.test(letter) || !secret || allDone) return;
+      event.preventDefault();
+      handleLetter(letter);
+    };
+    const onMsg = (event: MessageEvent) => {
+      if (!inSession) return;
+      if (event.origin !== window.location.origin || event.source !== window.parent) return;
+      if (event.data?.type !== "SESSION_HANGMAN_KEY") return;
+      handleLetter(String(event.data.letter ?? ""));
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("message", onMsg);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("message", onMsg);
+    };
+  }, [allDone, auth.user?.role, chooseLetter, inSession, secret, sessionRole]);
 
   if (loading) {
     return (

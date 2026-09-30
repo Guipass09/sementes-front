@@ -2221,6 +2221,28 @@ export default function SessionCall() {
   }, [contentPath, role, controlGranted, joinInfo?.token]);
 
   useEffect(() => {
+    if (role !== "admin" && !(role === "user" && controlGranted)) return;
+    if (!contentPath?.startsWith("/jogos/forca/") || screenShareActive || drawOn) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        event.defaultPrevented || event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey ||
+        (target instanceof Element && target.closest("input, textarea, select, [contenteditable], [role='dialog'], [role='menu']"))
+      ) return;
+
+      const letter = event.key.toUpperCase();
+      if (!/^[A-Z]$/.test(letter)) return;
+      if (!contentFrameRef.current?.contentWindow) return;
+      event.preventDefault();
+      postToContentFrame({ type: "SESSION_HANGMAN_KEY", letter });
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [role, controlGranted, contentPath, screenShareActive, drawOn]);
+
+  useEffect(() => {
     return () => cleanup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -1174,7 +1174,8 @@ export async function professionalListPatients(): Promise<ProfessionalPatientRow
 
 export type PatientLinkRequestRow = {
   id: number;
-  status: "pending" | "accepted" | "declined";
+  status: "pending" | "accepted" | "declined" | "canceled";
+  requests_sent: number;
   patient_name: string | null;
   patient_email: string | null;
   professional_name: string | null;
@@ -1185,7 +1186,11 @@ export async function professionalLookupPatient(email: string): Promise<{
   patient_name: string;
   email: string;
   linked: boolean;
+  linked_elsewhere: boolean;
   request_status: PatientLinkRequestRow["status"] | null;
+  requests_sent: number;
+  requests_remaining: number;
+  max_requests: number;
 }> {
   await ensureCsrfCookie();
   return request("/api/professional/patient-requests/lookup", { method: "POST", json: { email } });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { AlertTriangle, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,7 @@ export default function ProfessionalPatientRequestPanel(): JSX.Element {
   };
 
   const send = async () => {
-    if (!result || result.linked || result.request_status === "pending") return;
+    if (!result || result.linked || result.linked_elsewhere || result.request_status === "pending" || result.requests_remaining < 1) return;
     setBusy(true);
     try {
       await professionalRequestPatient(result.email);
@@ -98,7 +98,9 @@ export default function ProfessionalPatientRequestPanel(): JSX.Element {
               <div key={request.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                 <div className="min-w-0">
                   <span className="font-medium text-foreground">{request.patient_name}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">{request.status === "pending" ? "Aguardando autorização" : "Recusada"}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {request.status === "pending" ? "Aguardando autorização" : "Recusada"} · {request.requests_sent}/5 solicitações
+                  </span>
                 </div>
                 {request.status === "pending" && (
                   <Button variant="ghost" size="sm" disabled={cancelingId === request.id}
@@ -138,17 +140,26 @@ export default function ProfessionalPatientRequestPanel(): JSX.Element {
               <div className="border-t border-border pt-4">
                 <p className="font-semibold text-foreground">{result.patient_name}</p>
                 <p className="text-sm text-muted-foreground">{result.email}</p>
-                {result.linked ? (
+                {result.linked_elsewhere ? (
+                  <p role="alert" className="mt-3 flex items-start gap-2 text-sm text-destructive">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    Este paciente já está vinculado a outro profissional e não pode ser vinculado a você.
+                  </p>
+                ) : result.linked ? (
                   <p className="mt-3 text-sm text-brand-green">Este paciente já está vinculado a você.</p>
                 ) : result.request_status === "pending" ? (
                   <p className="mt-3 text-sm text-muted-foreground">Solicitação aguardando resposta.</p>
-                ) : result.request_status === "declined" ? (
-                  <div className="mt-3 space-y-3">
-                    <p className="text-sm text-muted-foreground">A solicitação anterior foi recusada. Um novo pedido só pode ser enviado após sete dias.</p>
-                    <Button onClick={() => void send()} disabled={busy} className="w-full">Enviar nova solicitação</Button>
-                  </div>
+                ) : result.requests_remaining < 1 ? (
+                  <p role="alert" className="mt-3 text-sm text-destructive">O limite de cinco solicitações para este paciente foi atingido.</p>
                 ) : (
-                  <Button onClick={() => void send()} disabled={busy} className="mt-4 w-full">Enviar solicitação</Button>
+                  <Button onClick={() => void send()} disabled={busy} className="mt-4 w-full">
+                    {result.requests_sent > 0 ? "Enviar novamente" : "Enviar solicitação"}
+                  </Button>
+                )}
+                {!result.linked && !result.linked_elsewhere && result.requests_sent > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {result.requests_sent} de {result.max_requests} solicitações enviadas.
+                  </p>
                 )}
               </div>
             )}

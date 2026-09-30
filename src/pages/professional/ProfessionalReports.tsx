@@ -9,6 +9,8 @@ import { useAuth } from "@/auth/AuthContext";
 import ClinicProfessionalReportsView from "@/components/ClinicProfessionalReportsView";
 import type { ReportDetail } from "@/features/reports/types";
 import { ReportCard } from "@/features/reports/ReportCard";
+import { ReportsByPatient } from "@/features/reports/ReportsByPatient";
+import { filterReports } from "@/features/reports/report-groups";
 import { ReportPreviewModal } from "@/features/reports/ReportPreviewModal";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
@@ -75,9 +77,7 @@ function StandardProfessionalReports(): JSX.Element {
   }, [auth.user?.id]);
 
   const filtered = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return reports;
-    return reports.filter((r) => r.title.toLowerCase().includes(q) || r.patient.name.toLowerCase().includes(q) || r.type.toLowerCase().includes(q));
+    return filterReports(reports, searchTerm);
   }, [reports, searchTerm]);
 
   return (
@@ -131,12 +131,10 @@ function StandardProfessionalReports(): JSX.Element {
                 </div>
               ))}
             </div>
-          ) : (
-            filtered.map((report, index) => (
-              <div key={report.id} className="animate-fade-in" style={{ animationDelay: `${0.05 * index}s` }}>
+          ) : filtered.length > 0 ? (
+            <ReportsByPatient reports={filtered} renderReport={(report) => (
                 <ReportCard
                   report={report}
-                  showPatient
                   onOpen={() => {
                     if (report.status === "draft") {
                       setEditing(report);
@@ -163,9 +161,8 @@ function StandardProfessionalReports(): JSX.Element {
                     setDeleteOpen(true);
                   }}
                 />
-              </div>
-            ))
-          )}
+            )} />
+          ) : null}
         </div>
 
         {!loading && filtered.length === 0 && (

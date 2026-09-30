@@ -7,6 +7,8 @@ import { useAuth } from "@/auth/AuthContext";
 import { listReports } from "@/features/reports/data";
 import type { ReportDetail } from "@/features/reports/types";
 import { ReportCard } from "@/features/reports/ReportCard";
+import { ReportsByPatient } from "@/features/reports/ReportsByPatient";
+import { filterReports } from "@/features/reports/report-groups";
 import { ReportPreviewModal } from "@/features/reports/ReportPreviewModal";
 import { ReportFormModal } from "@/features/reports/ReportFormModal";
 import * as api from "@/lib/laravel-api";
@@ -49,15 +51,7 @@ const AdminReports = () => {
   };
 
   const filtered = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return reports;
-    return reports.filter((r) => {
-      return (
-        r.title.toLowerCase().includes(q) ||
-        r.patient.name.toLowerCase().includes(q) ||
-        r.type.toLowerCase().includes(q)
-      );
-    });
+    return filterReports(reports, searchTerm);
   }, [reports, searchTerm]);
 
   return (
@@ -123,16 +117,10 @@ const AdminReports = () => {
                 </div>
               ))}
             </div>
-          ) : (
-            filtered.map((report, index) => (
-              <div
-                key={report.id}
-                className="animate-fade-in"
-                style={{ animationDelay: `${0.05 * index}s` }}
-              >
+          ) : filtered.length > 0 ? (
+            <ReportsByPatient reports={filtered} renderReport={(report) => (
                 <ReportCard
                   report={report}
-                  showPatient
                   onOpen={() => setSelected(report)}
                   onDownload={() => setSelected(report)}
                   canEdit
@@ -145,9 +133,8 @@ const AdminReports = () => {
                     setDeleteOpen(true);
                   }}
                 />
-              </div>
-            ))
-          )}
+            )} />
+          ) : null}
         </div>
 
         {!loading && filtered.length === 0 && (

@@ -5,6 +5,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ClinicProfessionalScopeSelector from "@/components/ClinicProfessionalScopeSelector";
 import type { ReportDetail } from "@/features/reports/types";
 import { ReportCard } from "@/features/reports/ReportCard";
+import { ReportsByPatient } from "@/features/reports/ReportsByPatient";
+import { filterReports } from "@/features/reports/report-groups";
 import { ReportPreviewModal } from "@/features/reports/ReportPreviewModal";
 import * as api from "@/lib/laravel-api";
 
@@ -15,7 +17,8 @@ function toDetail(report: any): ReportDetail {
     date: report.date,
     type: report.type,
     status: report.status,
-    patient: report.patient,
+    isPrivate: !!report.is_private,
+    patient: report.patient ?? { id: null, name: "" },
     patientName: report.patient_name ?? report.patient?.name ?? "",
     createdBy: report.created_by,
     professionalName: report.professional_name ?? "",
@@ -95,14 +98,7 @@ export default function ClinicProfessionalReportsView(): JSX.Element {
   }, [selectedProfessionalId]);
 
   const filtered = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) return reports;
-    return reports.filter(
-      (report) =>
-        report.title.toLowerCase().includes(query) ||
-        report.patient.name.toLowerCase().includes(query) ||
-        report.type.toLowerCase().includes(query)
-    );
+    return filterReports(reports, searchTerm);
   }, [reports, searchTerm]);
 
   const selectedProfessionalName = useMemo(
@@ -176,18 +172,15 @@ export default function ClinicProfessionalReportsView(): JSX.Element {
                 </div>
               ))}
             </div>
-          ) : (
-            filtered.map((report, index) => (
-              <div key={report.id} className="animate-fade-in" style={{ animationDelay: `${0.05 * index}s` }}>
+          ) : filtered.length > 0 ? (
+            <ReportsByPatient reports={filtered} renderReport={(report) => (
                 <ReportCard
                   report={report}
-                  showPatient
                   onOpen={() => setSelected(report)}
                   onDownload={() => setSelected(report)}
                 />
-              </div>
-            ))
-          )}
+            )} />
+          ) : null}
         </div>
 
         {!loading && professionals.length === 0 && (

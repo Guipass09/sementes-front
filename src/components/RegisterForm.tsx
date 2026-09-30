@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { AlertCircle, BadgeCheck, Briefcase, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, Phone, User, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import { isApiError } from "@/lib/laravel-api";
@@ -65,8 +65,11 @@ const createValidationField = (): FieldValidation => ({
 const RegisterForm = () => {
   const { toast } = useToast();
   const auth = useAuth();
+  const [searchParams] = useSearchParams();
 
-  const [mode, setMode] = useState<RegisterMode>("patient");
+  const [mode, setMode] = useState<RegisterMode>(() =>
+    searchParams.get("perfil") === "profissional" ? "professional" : "patient"
+  );
 
   const [formData, setFormData] = useState<FormState>({
     name: "",

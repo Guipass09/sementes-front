@@ -5,12 +5,16 @@ import {
   ArrowLeft,
   ArrowRight,
   CalendarDays,
+  Check,
   ClipboardList,
+  Gamepad2,
   Instagram,
   Menu,
   MessageCircle,
   MousePointer2,
   PenLine,
+  ScanFace,
+  UsersRound,
   Video,
   X,
 } from "lucide-react";
@@ -31,6 +35,32 @@ const assets = {
 const whatsappHref = "https://wa.me/message/GKL4EEB2NSI4A1";
 const instagramHref = "https://www.instagram.com/sementes_dafalaoficial/";
 const showcaseIntervalMs = 6500;
+const professionalSignup = "/cadastro?perfil=profissional";
+
+const planBenefits = [
+  { icon: Video, title: "Atendimento ao vivo", detail: "Vídeo e materiais no mesmo espaço de atendimento." },
+  { icon: MousePointer2, title: "Interação na tela", detail: "Paciente e profissional participam da atividade em tempo real." },
+  { icon: Gamepad2, title: "Jogos terapêuticos", detail: "Uma biblioteca lúdica para usar durante e entre sessões." },
+  { icon: PenLine, title: "Atividades personalizadas", detail: "Crie propostas com seus próprios objetivos e imagens." },
+  { icon: ClipboardList, title: "Relatórios e evolução", detail: "Documente o percurso clínico sem sair da plataforma." },
+  { icon: CalendarDays, title: "Agenda organizada", detail: "Horários e sessões reunidos na sua rotina de trabalho." },
+  { icon: UsersRound, title: "Perfis conectados", detail: "Você e seu paciente têm espaços próprios e vinculados." },
+  { icon: ScanFace, title: "Boca 3D", detail: "Mostre movimentos articulatórios durante o atendimento." },
+];
+
+const plans = [
+  { number: "01", name: "Mensal", description: "Comece no seu ritmo.", price: "249,90", cadence: "por mês", charge: "Cobrança mensal de R$ 249,90", saving: "Liberdade para começar", featured: false },
+  { number: "02", name: "Trimestral", description: "Mais fôlego para a sua prática.", price: "224,90", cadence: "por mês, equivalente", charge: "R$ 674,70 a cada 3 meses", saving: "R$ 75,00 de economia por trimestre", featured: false },
+  { number: "03", name: "Anual", description: "O melhor valor para crescer.", price: "199,90", cadence: "por mês, equivalente", charge: "R$ 2.398,80 por ano", saving: "R$ 600,00 de economia por ano", featured: true },
+];
+
+const planInclusions = [
+  "Sessões ao vivo com interação na tela",
+  "Jogos terapêuticos e atividades personalizadas",
+  "Agenda e perfis de paciente vinculados",
+  "Relatórios, avaliações e evoluções",
+  "Boca 3D durante o atendimento",
+];
 
 const showcase = [
   {
@@ -183,8 +213,9 @@ export default function Landing() {
             <a href="#plataforma" onClick={closeMenu}>A plataforma</a>
             <a href="#recursos" onClick={closeMenu}>Recursos</a>
             <a href="#experiencia" onClick={closeMenu}>Na prática</a>
+            <a href="#planos" onClick={closeMenu}>Planos</a>
             <Link to="/entrar" onClick={closeMenu}>Entrar</Link>
-            <Link className="lp-nav__cta" to="/cadastro" onClick={closeMenu}>Começar agora <ArrowRight size={16} /></Link>
+            <Link className="lp-nav__cta" to={professionalSignup} onClick={closeMenu}>Começar agora <ArrowRight size={16} /></Link>
           </nav>
           <button
             className="lp-menu-button"
@@ -207,7 +238,7 @@ export default function Landing() {
           <p className="lp-hero__lead">Seu atendimento online pode ser tão vivo quanto a sua prática.</p>
           <p className="lp-hero__body">Sessões ao vivo com atividades interativas, materiais criados por você e toda a rotina clínica em um só lugar.</p>
           <div className="lp-hero__actions">
-            <Link to="/cadastro" className="lp-button lp-button--primary">Começar como profissional <ArrowRight size={18} /></Link>
+            <Link to={professionalSignup} className="lp-button lp-button--primary">Começar como profissional <ArrowRight size={18} /></Link>
             <a href="#plataforma" className="lp-button lp-button--outline">Explorar a plataforma <ArrowDown size={17} /></a>
           </div>
         </div>
@@ -370,6 +401,64 @@ export default function Landing() {
         </div>
       </section>
 
+      <section className="lp-plans lp-section" id="planos" aria-labelledby="lp-plans-title">
+        <div className="lp-container">
+          <div className="lp-plans__intro">
+            <div>
+              <p className="lp-kicker">PARA PROFISSIONAIS QUE ATENDEM ONLINE</p>
+              <h2 id="lp-plans-title">Tudo para a sua prática <em>acontecer aqui.</em></h2>
+            </div>
+            <p>Mais que organizar atendimentos: um ambiente para criar, conduzir, acompanhar e se conectar com cada paciente.</p>
+          </div>
+
+          <div className="lp-plans__benefits" aria-label="O que está incluído">
+            {planBenefits.map(({ icon: Icon, title, detail }) => (
+              <div className="lp-plans__benefit" key={title}>
+                <span className="lp-plans__benefit-icon"><Icon size={22} strokeWidth={1.8} aria-hidden="true" /></span>
+                <div><h3>{title}</h3><p>{detail}</p></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="lp-plans__pricing">
+          <div className="lp-container">
+          <div className="lp-plans__pricing-head">
+            <div>
+              <p className="lp-kicker">SEU ESPAÇO PROFISSIONAL</p>
+              <h3>Um jeito melhor de atender.<br /><em>Um plano no seu ritmo.</em></h3>
+            </div>
+            <p>O acesso é completo nos três planos. Você escolhe apenas por quanto tempo quer contratar.</p>
+          </div>
+
+          <div className="lp-plans__grid">
+            {plans.map((plan) => (
+              <article className={`lp-plan${plan.featured ? " lp-plan--featured" : ""}`} key={plan.name}>
+                <div className="lp-plan__top">
+                  <span className="lp-plan__number">{plan.number} / ACESSO COMPLETO</span>
+                  {plan.featured && <span className="lp-plan__badge">Melhor valor</span>}
+                </div>
+                <h4>{plan.name}</h4>
+                <p className="lp-plan__description">{plan.description}</p>
+                <div className="lp-plan__price"><span>R$</span> {plan.price}</div>
+                <p className="lp-plan__cadence">{plan.cadence}</p>
+                <p className="lp-plan__charge">{plan.charge}</p>
+                <p className="lp-plan__saving"><Check size={16} aria-hidden="true" /> {plan.saving}</p>
+                <div className="lp-plan__included">
+                  <p>O QUE VOCÊ RECEBE</p>
+                  <ul>
+                    {planInclusions.map((item) => <li key={item}><Check size={15} aria-hidden="true" /> <span>{item}</span></li>)}
+                  </ul>
+                </div>
+                <Link className="lp-plan__action" to={professionalSignup}>Criar conta profissional <ArrowRight size={17} aria-hidden="true" /></Link>
+              </article>
+            ))}
+          </div>
+          <p className="lp-plans__footnote">Valores para profissionais individuais. O cadastro não realiza cobrança.</p>
+          </div>
+        </div>
+      </section>
+
       <section className="lp-cta lp-section">
         <div className="lp-container lp-cta__inner">
           <div>
@@ -377,7 +466,7 @@ export default function Landing() {
             <h2>Leve a sua prática para um espaço à altura dela.</h2>
           </div>
           <div className="lp-cta__actions">
-            <Link to="/cadastro" className="lp-button lp-button--light">Criar conta profissional <ArrowRight size={19} /></Link>
+            <Link to={professionalSignup} className="lp-button lp-button--light">Criar conta profissional <ArrowRight size={19} /></Link>
             <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="lp-cta__contact">Conversar sobre a plataforma <MessageCircle size={18} /></a>
           </div>
         </div>
@@ -393,6 +482,7 @@ export default function Landing() {
             <strong>Plataforma</strong>
             <a href="#plataforma">Conhecer</a>
             <a href="#recursos">Recursos</a>
+            <a href="#planos">Planos</a>
             <Link to="/cadastro">Cadastrar-se</Link>
             <Link to="/entrar">Entrar</Link>
           </div>

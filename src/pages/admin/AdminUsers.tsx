@@ -90,6 +90,7 @@ interface ProfessionalData {
   email: string;
   phone?: string | null;
   entity_type?: "professional" | "clinic";
+  professional_account_type?: "individual" | "clinic_member" | "clinic";
   profile_photo_url?: string | null;
   blocked: boolean;
   access: UserAccess;
@@ -127,6 +128,8 @@ const formatYmd = (ymd?: string | null) => {
 const userDisplayName = (u: { name: string; child_name?: string | null }) => (u.child_name?.trim() ? u.child_name.trim() : u.name);
 const professionalDisplayName = (p: ProfessionalData) => (p.clinic_name?.trim() ? p.clinic_name.trim() : p.name);
 const isClinicAccount = (p: ProfessionalData) => !!p.clinic_name?.trim();
+const professionalAccountType = (p: ProfessionalData) =>
+  p.professional_account_type ?? (isClinicAccount(p) ? "clinic" : p.clinic_user_id != null ? "clinic_member" : "individual");
 
 const formatMoney = (value: number | string) => {
   const num = Number(value);
@@ -140,6 +143,7 @@ const mapAdminProfessional = (p: AdminProfessionalRow): ProfessionalData => ({
   email: p.email,
   phone: p.phone ?? null,
   entity_type: p.entity_type ?? (p.clinic_name?.trim() ? "clinic" : "professional"),
+  professional_account_type: p.professional_account_type,
   profile_photo_url: p.profile_photo_url ?? null,
   blocked: !!p.blocked,
   access: p.access ?? { atividades: true, horarios: true, relatorios: true },
@@ -160,6 +164,7 @@ const mapAdminProfessional = (p: AdminProfessionalRow): ProfessionalData => ({
 const AdminUsers = () => {
   const { toast } = useToast();
   const [mode, setMode] = useState<AdminUsersMode>("users");
+  const [professionalFilter, setProfessionalFilter] = useState<"all" | "individual" | "clinic_member">("all");
   const [users, setUsers] = useState<UserData[]>([]);
   const [professionals, setProfessionals] = useState<ProfessionalData[]>([]);
   const [clinics, setClinics] = useState<ProfessionalData[]>([]);
@@ -585,9 +590,11 @@ const AdminUsers = () => {
 
   const filteredProfessionals = useMemo(() => {
     return professionals.filter(
-      (p) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (p) =>
+        (professionalFilter === "all" || professionalAccountType(p) === professionalFilter) &&
+        (p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [professionals, searchTerm]);
+  }, [professionals, professionalFilter, searchTerm]);
 
   const filteredClinics = useMemo(() => {
     return clinics.filter((clinic) => {
@@ -958,6 +965,31 @@ const AdminUsers = () => {
           </div>
         </div>
 
+        {mode === "professionals" && (
+          <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Tipo de profissional">
+            {([
+              { value: "all", label: "Todos", count: professionals.length },
+              { value: "individual", label: "Individuais", count: professionals.filter((p) => professionalAccountType(p) === "individual").length },
+              { value: "clinic_member", label: "De clínicas", count: professionals.filter((p) => professionalAccountType(p) === "clinic_member").length },
+            ] as const).map(({ value, label, count }) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={professionalFilter === value}
+                onClick={() => setProfessionalFilter(value)}
+                className={`inline-flex min-h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors ${
+                  professionalFilter === value
+                    ? "border-brand-green bg-brand-green/10 text-brand-green-dark"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+                <span className="text-xs tabular-nums opacity-70">{count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Search Bar */}
         <div className="mb-6">
           <div className="relative">
@@ -1215,8 +1247,17 @@ const AdminUsers = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-foreground">{p.name}</h3>
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="min-w-0 break-words font-semibold text-foreground">{p.name}</h3>
+                        <span
+                          className={`shrink-0 rounded border px-2 py-0.5 text-xs font-medium ${
+                            professionalAccountType(p) === "clinic_member"
+                              ? "border-sky-200 bg-sky-50 text-sky-800"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          }`}
+                        >
+                          {professionalAccountType(p) === "clinic_member" ? "Da clínica" : "Individual"}
+                        </span>
                         {p.blocked && (
                           <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive border border-destructive/20">
                             Bloqueado
@@ -1930,6 +1971,17 @@ const AdminUsers = () => {
                   <div className="min-w-0">
                     <h3 className="font-semibold text-foreground text-lg">{professionalDisplayName(selectedProfessional)}</h3>
                     <p className="text-sm text-muted-foreground">{selectedProfessional.email}</p>
+                    {!isClinicAccount(selectedProfessional) && (
+                      <div className="mt-2">
+                        <span className="text-xs font-semibold uppercase text-muted-foreground">Modalidade da conta</span>
+                        <p className="text-sm font-medium text-foreground">
+                          {professionalAccountType(selectedProfessional) === "clinic_member"
+                            ? "Profissional de clínica"
+                            : "Profissional individual (assinatura própria)"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Esta classificação não indica assinatura ativa.</p>
+                      </div>
+                    )}
                     {selectedProfessional.phone && <p className="text-sm text-muted-foreground">Celular: {selectedProfessional.phone}</p>}
                     {isClinicAccount(selectedProfessional) ? (
                       <>

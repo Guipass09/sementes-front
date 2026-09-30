@@ -852,6 +852,7 @@ export type AdminProfessionalRow = {
   phone?: string | null;
   role: "professional";
   entity_type?: "professional" | "clinic";
+  professional_account_type?: "individual" | "clinic_member" | "clinic";
   blocked: boolean;
   access: UserAccess;
   profile_photo_url?: string | null;

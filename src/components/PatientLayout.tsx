@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
 import { Home, Activity, FileText, Calendar, Menu, X, LogOut, User, Grid3X3, UserRoundCheck } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
@@ -9,6 +9,8 @@ import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import NotificationsBell from "@/components/NotificationsBell";
 import PwaInstallButton from "@/components/PwaInstallButton";
+import PatientLinkRequests from "@/pages/patient/PatientLinkRequests";
+import { patientListLinkRequests } from "@/lib/laravel-api";
 
 interface UserData {
   name: string;
@@ -18,7 +20,6 @@ interface UserData {
 }
 
 const navItems = [
-  { path: "/paciente/solicitacoes", label: "Solicitações", icon: UserRoundCheck, previewPath: "/preview-paciente/solicitacoes" },
   { path: "/paciente", label: "Início", icon: Home, previewPath: "/preview-paciente" },
   { path: "/paciente/atividades", label: "Atividades", icon: Activity, previewPath: "/preview-paciente/atividades" },
   { path: "/paciente/jogos", label: "Jogos", icon: Grid3X3, previewPath: "/preview-paciente/jogos" },
@@ -30,10 +31,51 @@ const PatientLayout = () => {
   const [user, setUser] = useState<UserData | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { checkAccess, isBlocked } = useAccessControl();
   const auth = useAuth();
+  const isPreview = location.pathname.startsWith("/preview-paciente");
+
+  const refreshPendingRequests = useCallback(async () => {
+    if (isPreview || !auth.user || auth.user.role !== "user") return;
+    try {
+      setPendingRequests((await patientListLinkRequests()).length);
+    } catch {
+      // The notification remains available if this count cannot be refreshed.
+    }
+  }, [isPreview, auth.user?.id, auth.user?.role]);
+
+  useEffect(() => {
+    if (isPreview || !auth.user || auth.user.role !== "user") return;
+    void refreshPendingRequests();
+    const onFocus = () => void refreshPendingRequests();
+    window.addEventListener("focus", onFocus);
+    const interval = window.setInterval(() => void refreshPendingRequests(), 60_000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(interval);
+    };
+  }, [isPreview, auth.user?.id, auth.user?.role, refreshPendingRequests]);
+
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get("solicitacoes") === "1") {
+      setRequestsOpen(true);
+    }
+  }, [location.search]);
+
+  const changeRequestsOpen = (open: boolean) => {
+    setRequestsOpen(open);
+    if (!open) {
+      const params = new URLSearchParams(location.search);
+      if (params.has("solicitacoes")) {
+        params.delete("solicitacoes");
+        navigate({ pathname: location.pathname, search: params.toString() ? `?${params}` : "" }, { replace: true });
+      }
+    }
+  };
 
   // Early return if admin - redirect immediately before rendering anything
   if (!auth.loading && auth.user && !location.pathname.startsWith("/preview-paciente")) {
@@ -127,14 +169,14 @@ const PatientLayout = () => {
               alt="Sementes da Fala"
               className="w-10 h-10 rounded-lg object-contain"
             />
-            <span className="hidden lg:block font-display font-bold text-lg">
+            <span className={`hidden font-display font-bold text-lg ${pendingRequests > 0 ? "2xl:block" : "xl:block"}`}>
               <span className="text-brand-green">Sementes</span>{" "}
               <span className="text-brand-brown">da Fala</span>
             </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 justify-center">
+          <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 justify-center overflow-x-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = isActivePath(item.path);
@@ -159,7 +201,7 @@ const PatientLayout = () => {
                   }`}
                 >
                   <Icon size={18} />
-                  <span className="hidden 2xl:inline">{item.label}</span>
+                  <span className="hidden lg:inline">{item.label}</span>
                 </Link>
               );
             })}
@@ -167,6 +209,20 @@ const PatientLayout = () => {
 
           {/* User Profile & Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {pendingRequests > 0 && (
+              <button
+                type="button"
+                onClick={() => changeRequestsOpen(true)}
+                className="relative inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-brand-green transition-colors hover:bg-primary/10"
+                aria-label={`${pendingRequests} solicitações de acompanhamento pendentes`}
+                title="Solicitações de acompanhamento"
+              >
+                <UserRoundCheck size={18} />
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-orange px-0.5 text-[10px] text-white">
+                  {pendingRequests > 9 ? "9+" : pendingRequests}
+                </span>
+              </button>
+            )}
             <NotificationsBell />
             <PwaInstallButton />
             {/* User Info - Desktop */}
@@ -295,6 +351,7 @@ const PatientLayout = () => {
           onSaved={(u) => auth.setAuthUser(u)}
         />
       )}
+      <PatientLinkRequests open={requestsOpen} onOpenChange={changeRequestsOpen} onResolved={() => void refreshPendingRequests()} />
     </div>
   );
 };

@@ -21,7 +21,6 @@ import PatientActivities from "./pages/patient/PatientActivities";
 import PatientSessions from "./pages/patient/PatientSessions";
 import PatientReports from "./pages/patient/PatientReports";
 import PatientPackages from "./pages/patient/PatientPackages";
-import PatientLinkRequests from "./pages/patient/PatientLinkRequests";
 import ProfessionalLayout from "./components/ProfessionalLayout";
 import ProfessionalHome from "./pages/professional/ProfessionalHome";
 import ProfessionalDashboard from "./pages/professional/ProfessionalDashboard";
@@ -139,7 +138,7 @@ const App = () => {
                 <Route path="sessoes" element={<PatientSessions />} />
                 <Route path="relatorios" element={<PatientReports />} />
                 <Route path="pacotes" element={<PatientPackages />} />
-                <Route path="solicitacoes" element={<PatientLinkRequests />} />
+                <Route path="solicitacoes" element={<Navigate to="/paciente?solicitacoes=1" replace />} />
               </Route>
 
               {/* Professional Routes (novo ambiente) */}
@@ -247,7 +246,7 @@ const App = () => {
               {/* Preview Paciente (sem autenticação - apenas para visualização) */}
               <Route path="/preview-paciente" element={<PatientLayout />}>
                 <Route index element={<PatientHome />} />
-                <Route path="solicitacoes" element={<PatientLinkRequests />} />
+                <Route path="solicitacoes" element={<Navigate to="/preview-paciente?solicitacoes=1" replace />} />
                 <Route path="atividades" element={<PatientActivities />} />
                 <Route path="jogos" element={<PatientMemoryGames />} />
                 <Route path="sessoes" element={<PatientSessions />} />

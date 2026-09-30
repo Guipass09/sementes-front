@@ -1172,6 +1172,69 @@ export async function professionalListPatients(): Promise<ProfessionalPatientRow
   return res.data ?? [];
 }
 
+export type PatientLinkRequestRow = {
+  id: number;
+  status: "pending" | "accepted" | "declined";
+  patient_name: string | null;
+  patient_email: string | null;
+  professional_name: string | null;
+  created_at: string | null;
+};
+
+export async function professionalLookupPatient(email: string): Promise<{
+  patient_name: string;
+  email: string;
+  linked: boolean;
+  request_status: PatientLinkRequestRow["status"] | null;
+}> {
+  await ensureCsrfCookie();
+  return request("/api/professional/patient-requests/lookup", { method: "POST", json: { email } });
+}
+
+export async function professionalListPatientRequests(): Promise<PatientLinkRequestRow[]> {
+  const res = await request<{ data: PatientLinkRequestRow[] }>("/api/professional/patient-requests");
+  return res.data ?? [];
+}
+
+export async function professionalRequestPatient(email: string): Promise<PatientLinkRequestRow> {
+  await ensureCsrfCookie();
+  const res = await request<{ data: PatientLinkRequestRow }>("/api/professional/patient-requests", {
+    method: "POST",
+    json: { email },
+  });
+  return res.data;
+}
+
+export async function professionalCancelPatientRequest(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request(`/api/professional/patient-requests/${id}`, { method: "DELETE" });
+}
+
+export async function patientListLinkRequests(): Promise<PatientLinkRequestRow[]> {
+  const res = await request<{ data: PatientLinkRequestRow[] }>("/api/user/patient-link-requests");
+  return res.data ?? [];
+}
+
+export async function patientRespondLinkRequest(id: number, decision: "accepted" | "declined"): Promise<PatientLinkRequestRow> {
+  await ensureCsrfCookie();
+  const res = await request<{ data: PatientLinkRequestRow }>(`/api/user/patient-link-requests/${id}/respond`, {
+    method: "POST",
+    json: { decision },
+  });
+  return res.data;
+}
+
+export async function professionalCreateAppointments(payload: {
+  user_id: number;
+  session_date: string;
+  session_time: string;
+  session_kind: "scheduled" | "evaluation";
+  quantity: number;
+}): Promise<{ message: string; data: Array<{ id: number; session_date: string; session_time: string }> }> {
+  await ensureCsrfCookie();
+  return request("/api/professional/appointments", { method: "POST", json: payload });
+}
+
 export async function professionalGetPatientOverview(userId: number): Promise<any> {
   return await request(`/api/professional/patients/${userId}/overview`);
 }

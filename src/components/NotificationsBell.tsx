@@ -55,6 +55,9 @@ function inferActionPath(n: AppNotificationRow, isAdmin: boolean): string | null
   if (kind === "appointment_30min" || kind === "appointment_completed") {
     return isAdmin ? "/admin/horarios" : "/paciente/sessoes";
   }
+  if (kind === "patient_link_request" || kind === "patient_link_response") {
+    return String(n?.data?.action_path || "");
+  }
   return null;
 }
 

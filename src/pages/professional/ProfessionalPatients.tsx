@@ -9,6 +9,7 @@ import type { ProfessionalPatientRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { useAuth } from "@/auth/AuthContext";
 import ClinicPeopleManagement from "@/components/ClinicPeopleManagement";
+import ProfessionalPatientRequestPanel from "@/components/ProfessionalPatientRequestPanel";
 
 type PatientOverview = {
   user: ProfessionalPatientRow;
@@ -38,10 +39,13 @@ export default function ProfessionalPatients(): JSX.Element {
   const [overviewLoading, setOverviewLoading] = useState(false);
   const clinicName = String(auth.user?.clinic_name ?? "").trim();
   const isClinicAccount = clinicName.length > 0;
+  const isIndividualProfessional = !isClinicAccount && auth.user?.clinic_user_id == null;
   const pageTitle = "Pacientes";
   const emptyLabel = "Nenhum paciente vinculado.";
   const dialogTitle = "Perfil do Paciente";
-  const pageDescription = "Você verá apenas pacientes que o admin vinculou a você.";
+  const pageDescription = isIndividualProfessional
+    ? "Pacientes que autorizaram seu acompanhamento ou foram vinculados pelo admin."
+    : "Pacientes vinculados a você pela clínica ou pelo admin.";
 
   const refresh = async () => {
     setLoading(true);
@@ -55,6 +59,9 @@ export default function ProfessionalPatients(): JSX.Element {
 
   useEffect(() => {
     void refresh();
+    const onFocus = () => void refresh();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   const filtered = useMemo(() => {
@@ -93,6 +100,8 @@ export default function ProfessionalPatients(): JSX.Element {
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">{pageTitle}</h1>
           <p className="text-sm sm:text-base text-muted-foreground">{pageDescription}</p>
         </div>
+
+        {isIndividualProfessional && <ProfessionalPatientRequestPanel />}
 
         <div className="mb-4 sm:mb-6">
           <div className="relative">

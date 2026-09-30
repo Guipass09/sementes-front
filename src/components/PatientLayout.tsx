@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { Home, Activity, FileText, Calendar, Menu, X, LogOut, User, Grid3X3 } from "lucide-react";
+import { Home, Activity, FileText, Calendar, Menu, X, LogOut, User, Grid3X3, UserRoundCheck } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { useAccessControl } from "@/hooks/use-access-control";
@@ -18,6 +18,7 @@ interface UserData {
 }
 
 const navItems = [
+  { path: "/paciente/solicitacoes", label: "Solicitações", icon: UserRoundCheck, previewPath: "/preview-paciente/solicitacoes" },
   { path: "/paciente", label: "Início", icon: Home, previewPath: "/preview-paciente" },
   { path: "/paciente/atividades", label: "Atividades", icon: Activity, previewPath: "/preview-paciente/atividades" },
   { path: "/paciente/jogos", label: "Jogos", icon: Grid3X3, previewPath: "/preview-paciente/jogos" },
@@ -133,7 +134,7 @@ const PatientLayout = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 justify-center overflow-x-auto">
+          <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 justify-center">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = isActivePath(item.path);
@@ -150,6 +151,7 @@ const PatientLayout = () => {
                 <Link
                   key={item.path}
                   to={getNavPath(item)}
+                  title={item.label}
                   className={`flex items-center gap-2 px-3 lg:px-4 py-2 rounded-lg font-medium transition-all duration-200 flex-shrink-0 ${
                     isActive
                       ? "bg-primary/10 text-primary"
@@ -157,7 +159,7 @@ const PatientLayout = () => {
                   }`}
                 >
                   <Icon size={18} />
-                  <span className="hidden lg:inline">{item.label}</span>
+                  <span className="hidden 2xl:inline">{item.label}</span>
                 </Link>
               );
             })}

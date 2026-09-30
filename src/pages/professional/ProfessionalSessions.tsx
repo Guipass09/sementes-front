@@ -12,6 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import ClinicProfessionalAppointmentsPanel from "@/components/ClinicProfessionalAppointmentsPanel";
+import ProfessionalAppointmentDialog from "@/components/ProfessionalAppointmentDialog";
 import * as api from "@/lib/laravel-api";
 import type { JoinSessionMeta } from "@/lib/laravel-api";
 import { JoinSessionButton } from "@/components/JoinSessionButton";
@@ -60,6 +61,9 @@ export default function ProfessionalSessions(): JSX.Element {
 function StandardProfessionalSessions(): JSX.Element {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const auth = useAuth();
+  const isIndividualProfessional = auth.user?.clinic_user_id == null;
+  const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ProAppointmentRow[]>([]);
   const [search, setSearch] = useState("");
@@ -311,6 +315,11 @@ function StandardProfessionalSessions(): JSX.Element {
             <p className="text-sm sm:text-base text-muted-foreground">Visualize suas sessões agendadas e entre na transmissão ao vivo.</p>
           </div>
           <div>
+            {isIndividualProfessional && (
+              <Button type="button" className="mb-2 mr-2 w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
+                <CalendarClock className="mr-2 h-4 w-4" /> Agendar sessão
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -583,6 +592,10 @@ function StandardProfessionalSessions(): JSX.Element {
           )
         )}
       </div>
+
+      {isIndividualProfessional && (
+        <ProfessionalAppointmentDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={() => void refresh()} />
+      )}
 
       {/* Link de pagamento (fora da transmissão) */}
       <Dialog

@@ -1,23 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Calendar, FileText, Grid3X3, Users, Shield } from "lucide-react";
+import { Activity, Calendar, FileText, Grid3X3, Users, Shield, RefreshCw, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
-import { professionalListUsers } from "@/lib/laravel-api";
-import { useToast } from "@/hooks/use-toast";
+import { professionalGetDashboardSummary, type ProfessionalDashboardSummary } from "@/lib/laravel-api";
 import { useAuth } from "@/auth/AuthContext";
+import { Skeleton } from "@/components/ui/skeleton";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 
 type StatCard = {
   label: string;
-  value: string;
-  icon: any;
+  value: number | null;
+  detail?: string;
+  icon: LucideIcon;
   color: string;
   path: string;
 };
 
 export default function ProfessionalDashboard(): JSX.Element {
-  const { toast } = useToast();
   const auth = useAuth();
-  const [assignedUsersCount, setAssignedUsersCount] = useState(0);
+  const [summary, setSummary] = useState<ProfessionalDashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const clinicName = useMemo(() => String(auth.user?.clinic_name ?? "").trim(), [auth.user?.clinic_name]);
   const affiliatedClinicName = useMemo(() => String(auth.user?.affiliated_clinic_name ?? "").trim(), [auth.user?.affiliated_clinic_name]);
   const isClinicAccount = clinicName.length > 0;
@@ -30,70 +33,77 @@ export default function ProfessionalDashboard(): JSX.Element {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    let requestId = 0;
+    const load = async () => {
+      const currentRequest = ++requestId;
+      setLoading(true);
       try {
-        const res = await professionalListUsers();
-        if (cancelled) return;
-        setAssignedUsersCount((res.data ?? []).length);
+        const data = await professionalGetDashboardSummary();
+        if (cancelled || currentRequest !== requestId) return;
+        setSummary(data);
+        setLoadError(false);
       } catch {
-        if (cancelled) return;
-        toast({
-          title: "Não foi possível carregar seus dados",
-          description: "Tente novamente em instantes.",
-          variant: "destructive",
-        });
+        if (cancelled || currentRequest !== requestId) return;
+        setSummary(null);
+        setLoadError(true);
+      } finally {
+        if (!cancelled && currentRequest === requestId) setLoading(false);
       }
-    })();
+    };
+    void load();
+    window.addEventListener("focus", load);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", load);
     };
-  }, [toast]);
+  }, [auth.user?.id, reloadKey]);
 
   const stats: StatCard[] = useMemo(
     () => [
       {
-        label: "Usuários vinculados",
-        value: String(assignedUsersCount),
+        label: isClinicAccount ? "Pacientes da clínica" : "Pacientes vinculados",
+        value: summary?.patients ?? null,
         icon: Users,
         color: "from-brand-blue to-brand-purple",
-        path: "/profissional/relatorios",
+        path: "/profissional/pacientes",
       },
       {
-        label: "Atividades",
-        value: "—",
+        label: isClinicAccount ? "Atividades da equipe" : "Atividades próprias",
+        value: summary?.activities_own ?? null,
+        detail: summary ? `+${summary.activities_shared} compartilhadas` : undefined,
         icon: Activity,
         color: "from-brand-green to-brand-green-dark",
         path: "/profissional/atividades",
       },
       {
-        label: "Sessões",
-        value: "—",
+        label: "Sessões agendadas",
+        value: summary?.scheduled_sessions ?? null,
         icon: Calendar,
         color: "from-brand-orange to-brand-orange-dark",
         path: "/profissional/horarios",
       },
     ],
-    [assignedUsersCount]
+    [isClinicAccount, summary]
   );
 
   const quickActions = [
     {
       title: "Atividades",
-      description: "Criar e enviar atividades para seus usuários",
+      description: isClinicAccount ? "Consultar atividades dos terapeutas" : "Criar e enviar atividades para seus pacientes",
       icon: Activity,
       path: "/profissional/atividades",
       color: "from-brand-green to-brand-green-dark",
     },
     {
       title: "Jogos",
-      description: "Criar jogos e atribuir aos seus usuários",
+      description: isClinicAccount ? "Consultar jogos dos terapeutas" : "Criar jogos e atribuir aos seus pacientes",
       icon: Grid3X3,
       path: "/profissional/jogos",
       color: "from-brand-brown to-brand-brown/70",
     },
     {
       title: "Horários",
-      description: "Ver sessões agendadas pelo admin",
+      description: "Ver suas sessões agendadas",
       icon: Calendar,
       path: "/profissional/horarios",
       color: "from-brand-orange to-brand-orange-dark",
@@ -185,6 +195,14 @@ export default function ProfessionalDashboard(): JSX.Element {
 
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 lg:py-12">
 
+        {loadError && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm text-destructive" role="alert">
+            <span>Não foi possível carregar os indicadores.</span>
+            <button type="button" onClick={() => setReloadKey((current) => current + 1)} className="inline-flex items-center gap-2 font-semibold underline underline-offset-4">
+              <RefreshCw size={15} /> Tentar novamente
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {stats.map((s) => {
             const Icon = s.icon;
@@ -197,7 +215,8 @@ export default function ProfessionalDashboard(): JSX.Element {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-sm text-muted-foreground">{s.label}</div>
-                    <div className="text-2xl font-bold text-foreground mt-1">{s.value}</div>
+                    {loading ? <Skeleton className="mt-2 h-7 w-14" /> : <div className="text-2xl font-bold text-foreground mt-1">{s.value ?? "—"}</div>}
+                    {!loading && s.detail && <div className="mt-1 text-xs font-semibold text-brand-green-dark">{s.detail}</div>}
                   </div>
                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white`}>
                     <Icon size={18} />

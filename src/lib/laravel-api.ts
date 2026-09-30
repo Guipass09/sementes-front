@@ -542,6 +542,18 @@ export async function professionalListUsers(): Promise<{ data: ProfessionalUserR
   return await request<{ data: ProfessionalUserRow[] }>("/api/professional/users");
 }
 
+export type ProfessionalDashboardSummary = {
+  patients: number;
+  activities_own: number;
+  activities_shared: number;
+  scheduled_sessions: number;
+};
+
+export async function professionalGetDashboardSummary(): Promise<ProfessionalDashboardSummary> {
+  const res = await request<{ data: ProfessionalDashboardSummary }>("/api/professional/dashboard");
+  return res.data;
+}
+
 export type ProfessionalDirectoryRow = {
   id: number;
   name: string;

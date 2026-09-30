@@ -38,7 +38,8 @@ export default function ProfessionalDashboard(): JSX.Element {
       const currentRequest = ++requestId;
       setLoading(true);
       try {
-        const data = await professionalGetDashboardSummary();
+        if (!auth.user) return;
+        const data = await professionalGetDashboardSummary(auth.user);
         if (cancelled || currentRequest !== requestId) return;
         setSummary(data);
         setLoadError(false);

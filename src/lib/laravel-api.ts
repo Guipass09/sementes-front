@@ -549,9 +549,29 @@ export type ProfessionalDashboardSummary = {
   scheduled_sessions: number;
 };
 
-export async function professionalGetDashboardSummary(): Promise<ProfessionalDashboardSummary> {
-  const res = await request<{ data: ProfessionalDashboardSummary }>("/api/professional/dashboard");
-  return res.data;
+export async function professionalGetDashboardSummary(profile: Pick<AuthUser, "id" | "clinic_name">): Promise<ProfessionalDashboardSummary> {
+  const isClinic = Boolean(profile.clinic_name?.trim());
+  const [users, professionals] = await Promise.all([
+    professionalListUsers(),
+    isClinic ? clinicListProfessionals() : Promise.resolve(null),
+  ]);
+  const professionalIds = isClinic
+    ? (professionals?.data ?? []).map((professional) => professional.id)
+    : [profile.id];
+  const [activitiesByProfessional, appointmentsByProfessional] = await Promise.all([
+    Promise.all(professionalIds.map((id) => professionalListActivities(isClinic ? { professional_user_id: id } : undefined))),
+    Promise.all(professionalIds.map((id) => professionalListAppointments(isClinic ? { professional_user_id: id } : undefined))),
+  ]);
+  const ownIds = new Set(professionalIds);
+  const activities = new Map(activitiesByProfessional.flat().map((activity) => [activity.id, activity]));
+  const appointments = new Map(appointmentsByProfessional.flatMap((result) => result.data ?? []).map((appointment) => [appointment.id, appointment]));
+
+  return {
+    patients: users.data?.length ?? 0,
+    activities_own: [...activities.values()].filter((activity) => ownIds.has(activity.created_by?.id ?? -1)).length,
+    activities_shared: [...activities.values()].filter((activity) => !ownIds.has(activity.created_by?.id ?? -1)).length,
+    scheduled_sessions: [...appointments.values()].filter((appointment) => String(appointment.status).toLowerCase() === "active").length,
+  };
 }
 
 export type ProfessionalDirectoryRow = {

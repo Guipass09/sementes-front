@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, BadgeCheck, Briefcase, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, Phone, User, Users } from "lucide-react";
+import { AlertCircle, BadgeCheck, Briefcase, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, User, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import { isApiError } from "@/lib/laravel-api";
+import InternationalPhoneField, { validateRegistrationPhone } from "@/components/InternationalPhoneField";
 
 export type RegisterMode = "patient" | "professional" | "clinic";
 
@@ -163,20 +164,6 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
     return { valid: true, message: "" };
   }, []);
 
-  const validatePhone = useCallback((phone: string): { valid: boolean; message: string } => {
-    const digits = phone.replace(/\D+/g, "");
-    if (!digits) {
-      return { valid: false, message: "Celular é obrigatório" };
-    }
-    if (digits.length !== 11) {
-      return { valid: false, message: "Informe um celular com DDD (11 dígitos)" };
-    }
-    if (digits[2] !== "9") {
-      return { valid: false, message: "Celular inválido (deve começar com 9 após o DDD)" };
-    }
-    return { valid: true, message: "" };
-  }, []);
-
   const validateBirthdate = useCallback(
     (value: string, opts?: { label?: string; minAgeYears?: number }): { valid: boolean; message: string } => {
       const label = opts?.label ?? "Data de nascimento";
@@ -281,9 +268,6 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
       case "email":
         result = validateEmail(String(value));
         break;
-      case "phone":
-        result = validatePhone(String(value));
-        break;
       case "professionalBirthdate":
         result = validateBirthdate(String(value), { label: "Data de nascimento", minAgeYears: 18 });
         break;
@@ -325,6 +309,13 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
     }));
   };
 
+  const handlePhoneChange = (phone: string) => {
+    setFormData((prev) => ({ ...prev, phone }));
+    if (validation.phone.touched) {
+      setValidation((prev) => ({ ...prev, phone: { ...validateRegistrationPhone(phone), touched: true } }));
+    }
+  };
+
   const handleInputBlur = (field: keyof FormState) => () => {
     let result;
     switch (field) {
@@ -344,7 +335,7 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
         result = validateEmail(formData.email);
         break;
       case "phone":
-        result = validatePhone(formData.phone);
+        result = validateRegistrationPhone(formData.phone);
         break;
       case "professionalBirthdate":
         result = validateBirthdate(formData.professionalBirthdate, { label: "Data de nascimento", minAgeYears: 18 });
@@ -406,7 +397,7 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
     const childBirthdateResult =
       mode === "patient" ? validateBirthdate(formData.childBirthdate, { label: "Data de nascimento da criança" }) : { valid: true, message: "" };
     const emailResult = validateEmail(formData.email);
-    const phoneResult = validatePhone(formData.phone);
+    const phoneResult = validateRegistrationPhone(formData.phone);
     const professionalBirthdateResult =
       mode === "professional" ? validateBirthdate(formData.professionalBirthdate, { label: "Data de nascimento", minAgeYears: 18 }) : { valid: true, message: "" };
     const professionalCrfaResult = mode === "professional" ? validateProfessionalCrfa(formData.professionalCrfa) : { valid: true, message: "" };
@@ -812,27 +803,18 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
 
       <div className="space-y-2">
         <label htmlFor="phone" className="block text-sm font-semibold text-foreground">
-          Celular (DDD)
+          Celular
         </label>
-        <div className="relative">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-            <Phone size={18} />
-          </div>
-          <input
-            type="tel"
+        <div className="relative min-w-0">
+          <InternationalPhoneField
             id="phone"
-            name="phone"
             value={formData.phone}
-            onChange={handleInputChange("phone")}
+            onChange={handlePhoneChange}
             onBlur={handleInputBlur("phone")}
-            placeholder="(11) 9XXXX-XXXX"
-            autoComplete="tel"
-            inputMode="tel"
-            aria-label="Celular com DDD"
-            aria-invalid={validation.phone.touched && !validation.phone.valid}
-            className={`${getInputClassName("phone")} pl-11 pr-10`}
+            invalid={validation.phone.touched && !validation.phone.valid}
+            className="pr-8"
           />
-          <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("phone")}</div>
+          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">{renderValidationIcon("phone")}</div>
         </div>
         {renderFieldError("phone")}
       </div>

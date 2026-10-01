@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import InternationalPhoneField, { validateRegistrationPhone } from "@/components/InternationalPhoneField";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import * as api from "@/lib/laravel-api";
@@ -230,6 +231,12 @@ export default function ClinicPeopleManagement(): JSX.Element {
       return;
     }
 
+    const professionalPhone = validateRegistrationPhone(professionalForm.phone);
+    if (!professionalPhone.valid) {
+      toast({ title: "Celular inválido", description: professionalPhone.message, variant: "destructive" });
+      return;
+    }
+
     if (professionalForm.password !== professionalForm.password_confirmation) {
       toast({
         title: "As senhas não conferem",
@@ -277,6 +284,12 @@ export default function ClinicPeopleManagement(): JSX.Element {
         description: "Responsável, paciente, nascimento, email, celular e senha são obrigatórios.",
         variant: "destructive",
       });
+      return;
+    }
+
+    const patientPhone = validateRegistrationPhone(patientForm.phone);
+    if (!patientPhone.valid) {
+      toast({ title: "Celular inválido", description: patientPhone.message, variant: "destructive" });
       return;
     }
 
@@ -642,7 +655,7 @@ export default function ClinicPeopleManagement(): JSX.Element {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="clinic-professional-phone">Celular</Label>
-                <Input id="clinic-professional-phone" value={professionalForm.phone} onChange={(e) => setProfessionalForm((prev) => ({ ...prev, phone: e.target.value }))} />
+                <InternationalPhoneField id="clinic-professional-phone" value={professionalForm.phone} onChange={(phone) => setProfessionalForm((prev) => ({ ...prev, phone }))} />
               </div>
             </div>
 
@@ -724,7 +737,7 @@ export default function ClinicPeopleManagement(): JSX.Element {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="clinic-patient-phone">Celular</Label>
-                <Input id="clinic-patient-phone" value={patientForm.phone} onChange={(e) => setPatientForm((prev) => ({ ...prev, phone: e.target.value }))} />
+                <InternationalPhoneField id="clinic-patient-phone" value={patientForm.phone} onChange={(phone) => setPatientForm((prev) => ({ ...prev, phone }))} />
               </div>
             </div>
 

@@ -1,0 +1,51 @@
+.international-phone-field {
+  --PhoneInput-color--focus: #0b7540;
+  --PhoneInputCountryFlag-height: 18px;
+  min-height: 52px;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #bcd6c5;
+  border-radius: 6px;
+  background: #fff;
+  color: #253e32;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.international-phone-field.PhoneInput--focus,
+.international-phone-field:focus-within {
+  border-color: #0b7540;
+  box-shadow: 0 0 0 3px rgb(11 117 64 / 12%);
+}
+
+.international-phone-field--invalid {
+  border-color: hsl(var(--destructive));
+}
+
+.international-phone-field .PhoneInputCountry {
+  flex: none;
+  min-width: 63px;
+  justify-content: center;
+  margin: 0;
+  border-right: 1px solid #dce9e0;
+  background: #f3f8f5;
+}
+
+.international-phone-field .PhoneInputCountrySelect:focus-visible {
+  outline: 2px solid #0b7540;
+  outline-offset: -3px;
+}
+
+.international-phone-field .PhoneInputInput {
+  min-width: 0;
+  height: 50px;
+  padding: 0 15px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.international-phone-field .PhoneInputInput::placeholder {
+  color: #9b8073;
+}

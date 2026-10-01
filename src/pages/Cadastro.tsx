@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Building2, Stethoscope, Users, X } from "lucide-react";
 import RegisterForm, { type RegisterMode } from "@/components/RegisterForm";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,14 +17,36 @@ const profileOptions: Array<{
   { mode: "clinic", label: "Empresa", detail: "Para clínicas e equipes", icon: Building2, iconClassName: "bg-[#fff1e2] text-[#a76524]" },
 ];
 
+const profileFromSearch = (search: string): RegisterMode | null => {
+  const profile = new URLSearchParams(search).get("perfil")?.toLowerCase();
+  if (profile === "profissional") return "professional";
+  if (profile === "paciente") return "patient";
+  if (profile === "empresa" || profile === "clinica") return "clinic";
+  return null;
+};
+
+const profileQuery: Record<RegisterMode, string> = {
+  patient: "paciente",
+  professional: "profissional",
+  clinic: "empresa",
+};
+
 const Cadastro = () => {
   const navigate = useNavigate();
-  const [selectedMode, setSelectedMode] = useState<RegisterMode | null>(null);
-  const [choiceOpen, setChoiceOpen] = useState(true);
+  const location = useLocation();
+  const [selectedMode, setSelectedMode] = useState<RegisterMode | null>(() => profileFromSearch(location.search));
+  const [choiceOpen, setChoiceOpen] = useState(() => !profileFromSearch(location.search));
+
+  useEffect(() => {
+    const profile = profileFromSearch(location.search);
+    setSelectedMode(profile);
+    setChoiceOpen(!profile);
+  }, [location.search]);
 
   const selectMode = (mode: RegisterMode) => {
     setSelectedMode(mode);
     setChoiceOpen(false);
+    navigate(`/cadastro?perfil=${profileQuery[mode]}`, { replace: true });
   };
 
   const closeChoice = () => {

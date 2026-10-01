@@ -12,7 +12,9 @@ import {
   Menu,
   MessageCircle,
   MousePointer2,
+  Pause,
   PenLine,
+  Play,
   ScanFace,
   UsersRound,
   Video,
@@ -26,8 +28,8 @@ const assets = {
   hero: "/landing/teleatendimento-fono.png",
   activity: "/landing/atividade-compartilhada.png",
   session: "/landing/sessao-atividade-demo.png",
-  activityInUse: "/landing/atividade-em-uso-demo.png",
-  wheel: "/landing/roleta-dos-sons-demo.png",
+  activityInUse: "/landing/atividade-em-uso-demo-hd.png",
+  wheel: "/landing/roleta-dos-sons-demo-hd.png",
   mouth: "/landing/boca-3d-profissional.png",
   activityBuilder: "/landing/criacao-memoria-demo.png",
 };
@@ -135,14 +137,15 @@ export default function Landing() {
   const [activeSlide, setActiveSlide] = useState(0);
   const [slideCycle, setSlideCycle] = useState(0);
   const [carouselInView, setCarouselInView] = useState(false);
-  const [carouselHovered, setCarouselHovered] = useState(false);
-  const [carouselFocused, setCarouselFocused] = useState(false);
   const [carouselTouching, setCarouselTouching] = useState(false);
+  const [carouselUserPaused, setCarouselUserPaused] = useState(false);
+  const [playbackOverride, setPlaybackOverride] = useState(false);
   const [pageVisible, setPageVisible] = useState(true);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const showcaseRef = useRef<HTMLElement | null>(null);
-  const carouselPaused = carouselHovered || carouselFocused || carouselTouching;
+  const playbackPaused = carouselUserPaused || (prefersReducedMotion && !playbackOverride);
+  const autoPlaying = carouselInView && !playbackPaused && !carouselTouching && pageVisible;
 
   useEffect(() => {
     try {
@@ -186,10 +189,16 @@ export default function Landing() {
   }, []);
 
   useEffect(() => {
-    if (!carouselInView || carouselPaused || !pageVisible || prefersReducedMotion) return;
+    if (!autoPlaying) return;
     const timer = window.setTimeout(() => setActiveSlide((current) => (current + 1) % showcase.length), showcaseIntervalMs);
     return () => window.clearTimeout(timer);
-  }, [activeSlide, slideCycle, carouselInView, carouselPaused, pageVisible, prefersReducedMotion]);
+  }, [activeSlide, slideCycle, autoPlaying]);
+
+  useEffect(() => {
+    if (!carouselInView) return;
+    const nextImage = new Image();
+    nextImage.src = showcase[(activeSlide + 1) % showcase.length].image;
+  }, [activeSlide, carouselInView]);
 
   const changeSlide = (direction: number) => {
     setActiveSlide((current) => (current + direction + showcase.length) % showcase.length);
@@ -202,7 +211,16 @@ export default function Landing() {
   };
 
   const closeMenu = () => setMenuOpen(false);
-  const autoPlaying = carouselInView && !carouselPaused && pageVisible && !prefersReducedMotion;
+
+  const togglePlayback = () => {
+    if (playbackPaused) {
+      setPlaybackOverride(true);
+      setCarouselUserPaused(false);
+    } else {
+      setCarouselUserPaused(true);
+    }
+    setSlideCycle((current) => current + 1);
+  };
 
   return (
     <main className="lp" id="inicio">
@@ -330,12 +348,6 @@ export default function Landing() {
         id="experiencia"
         aria-labelledby="lp-showcase-title"
         data-autoplay={autoPlaying}
-        onPointerEnter={(event) => { if (event.pointerType === "mouse") setCarouselHovered(true); }}
-        onPointerLeave={(event) => { if (event.pointerType === "mouse") setCarouselHovered(false); }}
-        onFocusCapture={(event) => { if ((event.target as HTMLElement).matches(":focus-visible")) setCarouselFocused(true); }}
-        onBlurCapture={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCarouselFocused(false);
-        }}
       >
         <div className="lp-container">
           <div className="lp-showcase__top">
@@ -345,6 +357,9 @@ export default function Landing() {
             </div>
             <div className="lp-showcase__controls">
               <button type="button" onClick={() => changeSlide(-1)} aria-label="Imagem anterior"><ArrowLeft size={20} /></button>
+              <button type="button" onClick={togglePlayback} aria-label={playbackPaused ? "Reproduzir carrossel" : "Pausar carrossel"} aria-pressed={playbackPaused}>
+                {playbackPaused ? <Play size={19} /> : <Pause size={19} />}
+              </button>
               <button type="button" onClick={() => changeSlide(1)} aria-label="Próxima imagem"><ArrowRight size={20} /></button>
             </div>
           </div>
@@ -363,10 +378,10 @@ export default function Landing() {
             onTouchCancel={() => { touchStartX.current = null; setCarouselTouching(false); }}
           >
             <div className="lp-showcase__media">
-              <img key={showcase[activeSlide].image} className={activeSlide === 0 ? "lp-showcase__focus" : "lp-showcase__fit"} src={showcase[activeSlide].image} alt={showcase[activeSlide].alt} loading="lazy" />
+              <img key={showcase[activeSlide].image} className={activeSlide === 0 ? "lp-showcase__focus" : "lp-showcase__fit"} src={showcase[activeSlide].image} alt={showcase[activeSlide].alt} loading="lazy" decoding="async" />
               <span>Demonstração ilustrativa com dados fictícios</span>
             </div>
-            <div className="lp-showcase__details" aria-live={carouselInView && !carouselPaused && !prefersReducedMotion ? "off" : "polite"}>
+            <div className="lp-showcase__details" aria-live={autoPlaying ? "off" : "polite"}>
               <span className="lp-showcase__count">{showcase[activeSlide].number} / 0{showcase.length}</span>
               <p className="lp-kicker">{showcase[activeSlide].tag}</p>
               <h3>{showcase[activeSlide].title}</h3>

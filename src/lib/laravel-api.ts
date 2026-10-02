@@ -48,6 +48,7 @@ export type AuthUser = {
   affiliated_clinic_name?: string | null;
   professional_subscription_status?: "not_applicable" | "clinic" | "legacy" | "active" | "inactive";
   professional_subscription_expires_on?: string | null;
+  professional_subscription?: ProfessionalSubscription;
 };
 
 export type ProfessionalUserRow = {
@@ -888,6 +889,7 @@ export type AdminProfessionalRow = {
   entity_type?: "professional" | "clinic";
   professional_account_type?: "individual" | "clinic_member" | "clinic";
   professional_subscription_status?: "clinic" | "legacy" | "active" | "inactive";
+  professional_subscription?: ProfessionalSubscription;
   professional_subscription_expires_on?: string | null;
   blocked: boolean;
   access: UserAccess;
@@ -981,6 +983,23 @@ export async function adminUpdateProfessional(
 ): Promise<AdminProfessionalRow> {
   await ensureCsrfCookie();
   return await request<AdminProfessionalRow>(`/api/admin/professionals/${id}`, { method: "PATCH", json: payload });
+}
+
+export interface ProfessionalSubscription {
+  status: "active" | "pending" | "expired" | "suspended" | "legacy" | "clinic" | "not_applicable";
+  expires_at: string | null;
+  server_now: string;
+  period: { plan: string; quantity: number; unit: string } | null;
+}
+
+export interface SubscriptionResponse {
+  subscription: ProfessionalSubscription;
+  events: { id: number; admin_id: number; action: string; created_at: string; after: string }[];
+}
+
+export async function adminSubscription(id: number, payload?: { action: string; plan?: string; quantity?: number; unit?: string }): Promise<SubscriptionResponse> {
+  if (payload) await ensureCsrfCookie();
+  return request<SubscriptionResponse>(`/api/admin/professionals/${id}/subscription`, payload ? { method: "PATCH", json: payload } : {});
 }
 
 export async function adminDeleteUser(id: number): Promise<void> {

@@ -10,6 +10,8 @@ import NotificationsBell from "@/components/NotificationsBell";
 import PwaInstallButton from "@/components/PwaInstallButton";
 import SaleSchedulerListener from "@/components/SaleSchedulerListener";
 import ProfessionalSubscriptionPreview from "@/components/ProfessionalSubscriptionPreview";
+import SubscriptionTimer, { useSubscriptionRemaining } from "@/components/SubscriptionTimer";
+import { me, isApiError } from "@/lib/laravel-api";
 
 interface UserData {
   name: string;
@@ -28,7 +30,8 @@ const ProfessionalLayout = () => {
   const clinicName = String(auth.user?.clinic_name ?? "").trim();
   const affiliatedClinicName = String(auth.user?.affiliated_clinic_name ?? "").trim();
   const isClinicAccount = clinicName.length > 0;
-  const needsSubscription = auth.user?.professional_subscription_status === "inactive" && !isClinicAccount && !auth.user?.clinic_user_id;
+  const remaining = useSubscriptionRemaining(auth.user?.professional_subscription);
+  const needsSubscription = (auth.user?.professional_subscription_status === "inactive" || (auth.user?.professional_subscription_status === "active" && remaining === 0)) && !isClinicAccount && !auth.user?.clinic_user_id;
   const navItems = [
     { path: "/profissional", label: "Dashboard", icon: LayoutDashboard },
     { path: "/profissional/pacientes", label: isClinicAccount ? "Terapeutas" : "Pacientes", icon: Users },
@@ -65,15 +68,29 @@ const ProfessionalLayout = () => {
 
   useEffect(() => {
     if (!auth.user || auth.user.role !== "professional" || isClinicAccount || auth.user.clinic_user_id
-      || !["active", "inactive"].includes(auth.user.professional_subscription_status ?? "")) return;
-    const syncSubscription = () => void auth.refresh();
+      || !["active", "inactive", "legacy"].includes(auth.user.professional_subscription_status ?? "")) return;
+    let cancelled = false;
+    let pending = false;
+    const syncSubscription = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const freshUser = await me();
+        if (!cancelled && freshUser.id === auth.user?.id) auth.setAuthUser(freshUser);
+      } catch (error) {
+        if (!cancelled && isApiError(error) && error.status === 401) void auth.refresh();
+      } finally {
+        pending = false;
+      }
+    };
     window.addEventListener("focus", syncSubscription);
     const timer = window.setInterval(syncSubscription, 60_000);
     return () => {
+      cancelled = true;
       window.removeEventListener("focus", syncSubscription);
       window.clearInterval(timer);
     };
-  }, [auth.user?.id, auth.user?.role, auth.user?.clinic_user_id, auth.user?.professional_subscription_status, isClinicAccount, auth.refresh]);
+  }, [auth.user?.id, auth.user?.role, auth.user?.clinic_user_id, auth.user?.professional_subscription_status, isClinicAccount, auth.refresh, auth.setAuthUser]);
 
   const handleLogout = () => {
     void auth.logout().finally(() => navigate("/"));
@@ -217,7 +234,8 @@ const ProfessionalLayout = () => {
       </header>
 
       <main className="pt-14 sm:pt-16 min-h-screen">
-        {needsSubscription ? <ProfessionalSubscriptionPreview expiresOn={auth.user?.professional_subscription_expires_on} onRefresh={() => void auth.refresh()} /> : <Outlet />}
+        {!isClinicAccount && !auth.user?.clinic_user_id && auth.user?.professional_subscription && <div className="border-b border-border px-4 py-3 text-right text-sm text-primary"><SubscriptionTimer subscription={auth.user.professional_subscription} /></div>}
+        {needsSubscription ? <><p className="px-4 pt-4 text-center text-sm text-muted-foreground">Seus pacientes, atividades e documentos continuam preservados. Reative sua assinatura para retomar o acesso.</p><ProfessionalSubscriptionPreview expiresOn={auth.user?.professional_subscription_expires_on} onRefresh={() => void auth.refresh()} /></> : <Outlet />}
       </main>
 
       {auth.user && (

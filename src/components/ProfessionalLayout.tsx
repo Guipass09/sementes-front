@@ -9,6 +9,7 @@ import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import NotificationsBell from "@/components/NotificationsBell";
 import PwaInstallButton from "@/components/PwaInstallButton";
 import SaleSchedulerListener from "@/components/SaleSchedulerListener";
+import ProfessionalSubscriptionPreview from "@/components/ProfessionalSubscriptionPreview";
 
 interface UserData {
   name: string;
@@ -27,6 +28,7 @@ const ProfessionalLayout = () => {
   const clinicName = String(auth.user?.clinic_name ?? "").trim();
   const affiliatedClinicName = String(auth.user?.affiliated_clinic_name ?? "").trim();
   const isClinicAccount = clinicName.length > 0;
+  const needsSubscription = auth.user?.professional_subscription_status === "inactive" && !isClinicAccount && !auth.user?.clinic_user_id;
   const navItems = [
     { path: "/profissional", label: "Dashboard", icon: LayoutDashboard },
     { path: "/profissional/pacientes", label: isClinicAccount ? "Terapeutas" : "Pacientes", icon: Users },
@@ -61,6 +63,18 @@ const ProfessionalLayout = () => {
     });
   }, [navigate, auth.loading, auth.user]);
 
+  useEffect(() => {
+    if (!auth.user || auth.user.role !== "professional" || isClinicAccount || auth.user.clinic_user_id
+      || !["active", "inactive"].includes(auth.user.professional_subscription_status ?? "")) return;
+    const syncSubscription = () => void auth.refresh();
+    window.addEventListener("focus", syncSubscription);
+    const timer = window.setInterval(syncSubscription, 60_000);
+    return () => {
+      window.removeEventListener("focus", syncSubscription);
+      window.clearInterval(timer);
+    };
+  }, [auth.user?.id, auth.user?.role, auth.user?.clinic_user_id, auth.user?.professional_subscription_status, isClinicAccount, auth.refresh]);
+
   const handleLogout = () => {
     void auth.logout().finally(() => navigate("/"));
   };
@@ -75,7 +89,7 @@ const ProfessionalLayout = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <SaleSchedulerListener />
+      {!needsSubscription && <SaleSchedulerListener />}
       <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
         <div className="container mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2 max-w-[1920px]">
           <Link to="/profissional" className="flex items-center gap-1.5 flex-shrink-0">
@@ -203,7 +217,7 @@ const ProfessionalLayout = () => {
       </header>
 
       <main className="pt-14 sm:pt-16 min-h-screen">
-        <Outlet />
+        {needsSubscription ? <ProfessionalSubscriptionPreview expiresOn={auth.user?.professional_subscription_expires_on} onRefresh={() => void auth.refresh()} /> : <Outlet />}
       </main>
 
       {auth.user && (

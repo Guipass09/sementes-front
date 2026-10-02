@@ -91,6 +91,8 @@ interface ProfessionalData {
   phone?: string | null;
   entity_type?: "professional" | "clinic";
   professional_account_type?: "individual" | "clinic_member" | "clinic";
+  professional_subscription_status?: "clinic" | "legacy" | "active" | "inactive";
+  professional_subscription_expires_on?: string | null;
   profile_photo_url?: string | null;
   blocked: boolean;
   access: UserAccess;
@@ -144,6 +146,8 @@ const mapAdminProfessional = (p: AdminProfessionalRow): ProfessionalData => ({
   phone: p.phone ?? null,
   entity_type: p.entity_type ?? (p.clinic_name?.trim() ? "clinic" : "professional"),
   professional_account_type: p.professional_account_type,
+  professional_subscription_status: p.professional_subscription_status,
+  professional_subscription_expires_on: p.professional_subscription_expires_on ?? null,
   profile_photo_url: p.profile_photo_url ?? null,
   blocked: !!p.blocked,
   access: p.access ?? { atividades: true, horarios: true, relatorios: true },
@@ -172,6 +176,8 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [selectedProfessional, setSelectedProfessional] = useState<ProfessionalData | null>(null);
+  const [subscriptionDate, setSubscriptionDate] = useState("");
+  const [savingSubscription, setSavingSubscription] = useState(false);
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentUserId, setCommentUserId] = useState<string>("");
   const [commentProfessionalId, setCommentProfessionalId] = useState<string>("");
@@ -816,7 +822,28 @@ const AdminUsers = () => {
 
   const openProfessionalProfile = (p: ProfessionalData) => {
     setSelectedProfessional(p);
+    setSubscriptionDate(p.professional_subscription_expires_on ?? "");
     setIsProfessionalDialogOpen(true);
+  };
+
+  const saveProfessionalSubscription = async (expiresOn: string | null) => {
+    if (!selectedProfessional || professionalAccountType(selectedProfessional) !== "individual") return;
+    setSavingSubscription(true);
+    try {
+      const updated = await adminUpdateProfessional(selectedProfessional.id, {
+        professional_subscription_expires_on: expiresOn,
+      });
+      const mapped = mapAdminProfessional(updated);
+      setSelectedProfessional(mapped);
+      setSubscriptionDate(mapped.professional_subscription_expires_on ?? "");
+      setProfessionals((previous) => previous.map((item) => item.id === mapped.id ? mapped : item));
+      toast({ title: expiresOn ? "Assinatura ativada" : "Acesso encerrado", description: expiresOn ? `Acesso liberado até ${formatYmd(expiresOn)}.` : "O profissional verá as prévias das abas." });
+      emitAdminDataChanged();
+    } catch (error) {
+      toast({ title: "Erro ao atualizar assinatura", description: isApiError(error) ? error.message : "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingSubscription(false);
+    }
   };
 
   const confirmDeleteProfessional = async () => {
@@ -2035,6 +2062,35 @@ const AdminUsers = () => {
                     </Button>
                   </div>
                 ) : null}
+
+                {professionalAccountType(selectedProfessional) === "individual" && (
+                  <section className="space-y-3 rounded-lg border border-[#bfdacb] bg-[#f4faf6] p-4" aria-label="Assinatura profissional">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-semibold text-foreground">Assinatura individual</h4>
+                        <p className="text-sm text-muted-foreground">Acesso completo até o fim da data informada, no horário de Brasília.</p>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#087a42]">
+                        {selectedProfessional.professional_subscription_status === "active" ? "Ativa" : selectedProfessional.professional_subscription_status === "legacy" ? "Acesso anterior preservado" : "Sem assinatura ativa"}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <div className="min-w-[180px] flex-1 space-y-1">
+                        <Label htmlFor="professional-subscription-date">Válida até</Label>
+                        <Input id="professional-subscription-date" type="date" value={subscriptionDate} onChange={(event) => setSubscriptionDate(event.target.value)} />
+                      </div>
+                      <Button type="button" onClick={() => void saveProfessionalSubscription(subscriptionDate)} disabled={!subscriptionDate || savingSubscription}>
+                        Salvar validade
+                      </Button>
+                      {selectedProfessional.professional_subscription_status === "active" && (
+                        <Button type="button" variant="outline" onClick={() => void saveProfessionalSubscription(null)} disabled={savingSubscription}>
+                          Encerrar acesso
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">A ativação é manual nesta etapa. Pacientes, clínicas e profissionais vinculados à clínica não são afetados.</p>
+                  </section>
+                )}
 
                 {/* Block Professional */}
                 <div className="flex items-center justify-between p-4 border border-border rounded-lg">

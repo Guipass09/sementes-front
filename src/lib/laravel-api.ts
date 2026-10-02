@@ -46,6 +46,8 @@ export type AuthUser = {
   clinic_user_id?: number | null;
   affiliated_clinic_user_id?: number | null;
   affiliated_clinic_name?: string | null;
+  professional_subscription_status?: "not_applicable" | "clinic" | "legacy" | "active" | "inactive";
+  professional_subscription_expires_on?: string | null;
 };
 
 export type ProfessionalUserRow = {
@@ -885,6 +887,8 @@ export type AdminProfessionalRow = {
   role: "professional";
   entity_type?: "professional" | "clinic";
   professional_account_type?: "individual" | "clinic_member" | "clinic";
+  professional_subscription_status?: "clinic" | "legacy" | "active" | "inactive";
+  professional_subscription_expires_on?: string | null;
   blocked: boolean;
   access: UserAccess;
   profile_photo_url?: string | null;
@@ -971,6 +975,7 @@ export async function adminUpdateProfessional(
       | "clinic_area"
       | "clinic_city_state"
       | "clinic_team_size"
+      | "professional_subscription_expires_on"
     >
   >
 ): Promise<AdminProfessionalRow> {

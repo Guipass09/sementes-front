@@ -106,7 +106,13 @@ export default function WordSearchGameView() {
         if (cancelled) return;
         setGame(g);
         // Restaura progresso se existir
-        if (g.progress) {
+        setFoundWords(new Set());
+        setFoundImages(new Set());
+        setPendingWordId(null);
+        setRemovedCells(new Set());
+        setLock(false);
+        setCelebrate(false);
+        if (!inSession && g.progress) {
           const p = g.progress as any;
           if (p.found_words) setFoundWords(new Set(p.found_words));
           if (p.found_images) setFoundImages(new Set(p.found_images));

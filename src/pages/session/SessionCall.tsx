@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { isCurrentSessionGameEvent } from "@/lib/session-game-event";
 import type { ReportFormDraft } from "@/features/reports/ReportFormModal";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -1951,6 +1952,8 @@ export default function SessionCall() {
     }
 
     if (m.kind === "game_event") {
+      const active = activeContentRef.current;
+      if (!isCurrentSessionGameEvent(active, m.payload)) return;
       const evt = m.payload?.event;
       if (!evt) return;
       try {
@@ -2211,10 +2214,13 @@ export default function SessionCall() {
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
       if (data.type !== "SESSION_GAME_EVENT") return;
+      if (ev.source !== contentFrameRef.current?.contentWindow) return;
       if (!contentPath) return;
       // Admin sempre envia; user só envia quando controle está liberado
       if (role === "user" && !controlGranted) return;
-      void send("game_event", { path: contentPath, event: data.event });
+      const active = activeContentRef.current;
+      if (!active || active.path !== contentPath) return;
+      void send("game_event", { path: active.path, share_id: active.share_id, event: data.event });
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);

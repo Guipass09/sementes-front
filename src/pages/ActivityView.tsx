@@ -743,7 +743,7 @@ const ActivityView = () => {
             try {
               const all = Array.from({ length: count }).map((_, i) => i);
               setCompletedSteps(all);
-              await api.userUpdateActivityProgress(activityId, {
+              if (!inSession) await api.userUpdateActivityProgress(activityId, {
                 current_step: Math.max(0, count - 1),
                 completed_steps: all,
               });

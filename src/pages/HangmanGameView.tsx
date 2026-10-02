@@ -189,7 +189,7 @@ export default function HangmanGameView() {
         setGame(g);
 
         // Restaura progresso (user) - prioriza API, depois localStorage
-        if (auth.user?.role === "user" && auth.user?.id) {
+        if (!inSession && auth.user?.role === "user" && auth.user?.id) {
           const key = `hang-progress:${auth.user.id}:${g.id}`;
           const fromApi = (g as any).progress ?? null;
           const fromLocal = (() => {
@@ -297,6 +297,7 @@ export default function HangmanGameView() {
 
   // Persistência do progresso (localStorage + backend) para não perder no refresh
   useEffect(() => {
+    if (inSession) return;
     if (!game || !auth.user || auth.user.role !== "user") return;
     const key = `hang-progress:${auth.user.id}:${game.id}`;
     const payload = {
@@ -328,7 +329,7 @@ export default function HangmanGameView() {
       if (persistTimerRef.current) window.clearTimeout(persistTimerRef.current);
       persistTimerRef.current = null;
     };
-  }, [guessed, wrong, selectedImage, allDone, game?.id, auth.user?.id, auth.user?.role]);
+  }, [guessed, wrong, selectedImage, allDone, game?.id, auth.user?.id, auth.user?.role, inSession]);
 
   const restart = useCallback(() => {
     setGuessed([]);

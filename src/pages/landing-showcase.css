@@ -1,0 +1,66 @@
+.lp-tour { background: #f5f9f7; border-top: 1px solid #dce8e0; letter-spacing: 0; }
+.lp-tour .lp-showcase__top { align-items: end; gap: 60px; margin-bottom: 40px; }
+.lp-tour .lp-showcase__top h2 { max-width: 790px; font-size: 52px; line-height: 1.12; }
+.lp-tour__intro { max-width: 300px; color: #55685e; font-size: 16px; line-height: 1.7; padding-bottom: 5px; }
+.lp-tour__navigation { display: flex; align-items: center; justify-content: space-between; gap: 24px; border-block: 1px solid #d4e2da; margin-bottom: 40px; }
+.lp-tour__tabs { position: relative; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; min-width: 0; scroll-padding: 12px; }
+.lp-tour__tabs button { position: relative; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; gap: 10px; padding: 22px 24px; background: transparent; border: 0; color: #617167; font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: color .2s, background .2s; }
+.lp-tour__tabs button[aria-selected="true"] { color: #076c45; background: #e7f1eb; }
+.lp-tour__tabs button:hover { background: #edf3ef; color: #174e38; }
+.lp-tour__progress { position: absolute; bottom: 0; left: 0; height: 3px; width: 100%; background: #0a8351; }
+.lp-tour[data-autoplay="true"] .lp-tour__progress { animation: lp-slide-progress 6500ms linear forwards; }
+.lp-tour .lp-showcase__controls { gap: 5px; }
+.lp-tour .lp-showcase__controls button { height: 36px; width: 36px; background: transparent; border: 1px solid #cadbd1; color: #28533e; }
+.lp-tour .lp-showcase__controls button:hover { background: #e0eee5; }
+.lp-tour .lp-showcase__stage { grid-template-columns: minmax(0, 1.9fr) minmax(285px, .8fr); height: auto; gap: 52px; align-items: center; }
+.lp-tour__figure { margin: 0; min-width: 0; }
+.lp-tour__image { position: relative; aspect-ratio: 1.48; display: grid; place-items: center; background: #fff; border: 1px solid #d7e4dd; border-radius: 8px; box-shadow: 0 16px 36px -24px #1c513a55; overflow: hidden; }
+.lp-tour__image > img { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; animation: lp-tour-enter .4s ease both; }
+.lp-tour__expand { position: absolute; bottom: 14px; right: 14px; width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #c7d9cc; background: #ffffffed; color: #15533a; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 8px #183d2310; }
+.lp-tour__expand:hover { background: #e5f3eb; }
+.lp-tour__figure figcaption { display: flex; justify-content: space-between; gap: 10px; margin-top: 13px; font-size: 11px; color: #607168; }
+.lp-tour__figure figcaption > :last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lp-tour .lp-showcase__details { padding: 10px 0 28px; height: auto; min-height: 390px; animation: lp-tour-enter .4s ease both; }
+.lp-tour__chapter { display: flex; align-items: center; gap: 9px; color: #096d45; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.lp-tour .lp-showcase__details h3 { font-size: 32px; line-height: 1.16; margin-top: 20px; color: #243c2f; }
+.lp-tour .lp-showcase__details > p:not(.lp-kicker) { color: #55685e; font-size: 15px; line-height: 1.75; margin-top: 16px; }
+.lp-tour .lp-showcase__details::after { display: none; }
+.lp-tour__benefits { list-style: none; padding: 0; margin: 22px 0 24px; display: grid; gap: 12px; }
+.lp-tour__benefits li { display: flex; align-items: start; gap: 10px; font-size: 13px; line-height: 1.5; color: #344c3e; }
+.lp-tour__benefits svg { flex: none; color: #0c8754; margin-top: 2px; }
+.lp-tour__link { align-self: flex-start; font-size: 13px; margin-top: auto; }
+.lp-tour__footer { margin-top: 32px; padding-top: 22px; border-top: 1px solid #d4e2da; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: #5a7061; font-size: 13px; }
+.lp-tour__footer span, .lp-tour__footer a { display: inline-flex; align-items: center; gap: 10px; }
+.lp-tour__footer a { color: #0d7047; font-weight: 700; }
+.lp-tour button:focus-visible, .lp-tour a:focus-visible { outline: 2px solid #076c45; outline-offset: -3px; }
+.lp-tour-lightbox { width: calc(100% - 32px); max-width: 1300px; max-height: 94dvh; padding: 20px; gap: 14px; background: #fff; border-radius: 8px; letter-spacing: 0; }
+.lp-tour-lightbox__top { display: flex; justify-content: space-between; gap: 20px; align-items: center; color: #244631; }
+.lp-tour-lightbox__top h2 { letter-spacing: 0; margin-bottom: 6px; }
+.lp-tour-lightbox__top button { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #d4e2da; border-radius: 6px; }
+.lp-tour-lightbox > img { width: 100%; max-height: calc(94dvh - 120px); object-fit: contain; }
+@keyframes lp-tour-enter { from { opacity: .4; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 1100px) {
+  .lp-tour .lp-showcase__top { gap: 30px; }
+  .lp-tour .lp-showcase__top h2 { font-size: 44px; }
+  .lp-tour__tabs button { padding: 20px 16px; font-size: 14px; }
+  .lp-tour .lp-showcase__stage { grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr); gap: 30px; }
+  .lp-tour .lp-showcase__details h3 { font-size: 28px; }
+}
+@media (max-width: 760px) {
+  .lp-tour .lp-showcase__top { display: block; margin-bottom: 25px; }
+  .lp-tour .lp-showcase__top h2 { font-size: 36px; }
+  .lp-tour__intro { max-width: 440px; margin-top: 18px; font-size: 14px; }
+  .lp-tour__navigation { display: block; position: relative; margin-bottom: 22px; border-bottom: 0; }
+  .lp-tour__tabs { border-bottom: 1px solid #d4e2da; }
+  .lp-tour__tabs button { padding: 18px 15px; gap: 8px; }
+  .lp-tour .lp-showcase__controls { justify-content: flex-end; margin-top: 14px; }
+  .lp-tour .lp-showcase__stage { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .lp-tour .lp-showcase__details { min-height: 350px; padding: 0; }
+  .lp-tour .lp-showcase__details h3 { font-size: 28px; max-width: 420px; margin-top: 14px; }
+  .lp-tour__benefits { margin-block: 18px; }
+  .lp-tour__footer { align-items: flex-start; flex-direction: column; margin-top: 24px; }
+  .lp-tour__figure figcaption { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-tour *, .lp-tour *::before, .lp-tour *::after { animation: none !important; scroll-behavior: auto !important; }
+}

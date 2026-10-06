@@ -19,9 +19,12 @@ import {
   UsersRound,
   Video,
   X,
+  Maximize2,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { LandingPolicies } from "./LandingPolicies";
 import "./landing.css";
+import "./landing-showcase.css";
 
 const assets = {
   logo: "/landing/sementes-logo-transparent.png",
@@ -69,10 +72,12 @@ const showcase = [
     number: "01",
     tone: "green",
     shortLabel: "Atividades",
+    icon: ClipboardList,
+    benefits: ["Sequências visuais personalizadas", "Etapas no ritmo de cada paciente", "Materiais disponíveis durante a sessão"],
     tag: "Atividades em uso",
     title: "Materiais que ganham vida na sessão.",
     description:
-      "Crie sequências visuais do seu jeito e conduza cada etapa com a criança. A atividade é parte do atendimento, não um arquivo perdido em outra aba.",
+      "Dê forma às suas ideias e conduza cada etapa com a criança, sem sair do atendimento.",
     image: assets.activityInUse,
     alt: "Atividade demonstrativa Missão dos Sons aberta na plataforma, com figuras coloridas",
   },
@@ -80,10 +85,12 @@ const showcase = [
     number: "02",
     tone: "orange",
     shortLabel: "Jogos",
+    icon: Gamepad2,
+    benefits: ["Memória, roleta, forca e muito mais", "Participação do paciente na tela", "Novas rodadas sempre que precisar"],
     tag: "Jogos interativos",
     title: "O jogo muda o ritmo do encontro.",
     description:
-      "Roleta, memória, caça-palavras e outras propostas para você adaptar à sua prática e compartilhar com o paciente durante o atendimento.",
+      "Transforme seus objetivos em propostas lúdicas que convidam o paciente a participar.",
     image: assets.wheel,
     alt: "Roleta dos Sons demonstrativa com imagens e palavras coloridas",
   },
@@ -91,10 +98,12 @@ const showcase = [
     number: "03",
     tone: "blue",
     shortLabel: "Ao vivo",
+    icon: Video,
+    benefits: ["Vídeo e materiais juntos", "Controle de interação do paciente", "Troca de atividades sem sair da chamada"],
     tag: "Sessão ao vivo",
     title: "A atividade e a conversa acontecem juntas.",
     description:
-      "Vídeo, atividades e interação no mesmo ambiente. Profissional e paciente participam da sessão em tempo real, sem alternar entre várias ferramentas.",
+      "Compartilhe mais que uma chamada. Vocês conversam, exploram e interagem no mesmo espaço.",
     image: assets.session,
     alt: "Sessão ao vivo demonstrativa com uma atividade visual aberta e janelas de vídeo",
   },
@@ -102,6 +111,8 @@ const showcase = [
     number: "04",
     tone: "purple",
     shortLabel: "Criação",
+    icon: PenLine,
+    benefits: ["Suas próprias imagens", "Pares alinhados ao objetivo terapêutico", "Biblioteca pessoal para reutilizar"],
     tag: "Criação de jogos",
     title: "Crie um jogo com suas imagens.",
     description:
@@ -113,6 +124,8 @@ const showcase = [
     number: "05",
     tone: "pink",
     shortLabel: "Boca 3D",
+    icon: ScanFace,
+    benefits: ["Demonstração de lábios e língua", "Ajustes dos movimentos articulatórios", "Recurso disponível no atendimento"],
     tag: "Modelo articulatório",
     title: "Mostre o movimento, não só explique.",
     description:
@@ -135,6 +148,8 @@ export default function Landing() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const tabsRef = useRef<HTMLDivElement | null>(null);
   const [slideCycle, setSlideCycle] = useState(0);
   const [carouselInView, setCarouselInView] = useState(false);
   const [carouselTouching, setCarouselTouching] = useState(false);
@@ -145,7 +160,14 @@ export default function Landing() {
   const touchStartX = useRef<number | null>(null);
   const showcaseRef = useRef<HTMLElement | null>(null);
   const playbackPaused = carouselUserPaused || (prefersReducedMotion && !playbackOverride);
-  const autoPlaying = carouselInView && !playbackPaused && !carouselTouching && pageVisible;
+  const autoPlaying = carouselInView && !playbackPaused && !carouselTouching && pageVisible && !expanded;
+  const slide = showcase[activeSlide];
+
+  useEffect(() => {
+    const tabs = tabsRef.current;
+    const active = tabs?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (tabs && active) tabs.scrollTo({ left: active.offsetLeft - tabs.offsetLeft - (tabs.clientWidth - active.clientWidth) / 2, behavior: prefersReducedMotion ? "auto" : "smooth" });
+  }, [activeSlide, prefersReducedMotion]);
 
   useEffect(() => {
     try {
@@ -344,7 +366,7 @@ export default function Landing() {
 
       <section
         ref={showcaseRef}
-        className="lp-showcase lp-section"
+        className="lp-showcase lp-section lp-tour"
         id="experiencia"
         aria-labelledby="lp-showcase-title"
         data-autoplay={autoPlaying}
@@ -352,21 +374,42 @@ export default function Landing() {
         <div className="lp-container">
           <div className="lp-showcase__top">
             <div>
-              <p className="lp-kicker">VEJA DE PERTO</p>
+              <p className="lp-kicker">POR DENTRO DA SEMENTES DA FALA</p>
               <h2 id="lp-showcase-title">Uma plataforma para <em>usar, não só gerenciar.</em></h2>
             </div>
+            <p className="lp-tour__intro">Da sua primeira ideia ao encontro com o paciente. Conheça o que faz parte da sua prática aqui.</p>
+          </div>
+          <div className="lp-tour__navigation">
+            <div ref={tabsRef} className="lp-tour__tabs" role="tablist" aria-label="Recursos da plataforma">
+              {showcase.map((item, index) => (
+                <button key={item.number} id={`tour-tab-${index}`} role="tab" type="button" aria-selected={index === activeSlide} aria-controls="tour-panel" tabIndex={index === activeSlide ? 0 : -1}
+                  onClick={() => selectSlide(index)}
+                  onKeyDown={event => {
+                    if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
+                    event.preventDefault();
+                    const next = event.key === "Home" ? 0 : event.key === "End" ? showcase.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + showcase.length) % showcase.length;
+                    selectSlide(next);
+                    tabsRef.current?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
+                  }}>
+                  <item.icon size={20} aria-hidden="true" /><span>{item.shortLabel}</span>
+                  {index === activeSlide && <i key={`${index}-${slideCycle}-${autoPlaying}`} className="lp-tour__progress" aria-hidden="true" />}
+                </button>
+              ))}
+            </div>
             <div className="lp-showcase__controls">
-              <button type="button" onClick={() => changeSlide(-1)} aria-label="Imagem anterior"><ArrowLeft size={20} /></button>
-              <button type="button" onClick={togglePlayback} aria-label={playbackPaused ? "Reproduzir carrossel" : "Pausar carrossel"} aria-pressed={playbackPaused}>
+              <button type="button" onClick={() => changeSlide(-1)} title="Demonstração anterior" aria-label="Imagem anterior"><ArrowLeft size={18} /></button>
+              <button type="button" onClick={togglePlayback} title={playbackPaused ? "Reproduzir carrossel" : "Pausar carrossel"} aria-label={playbackPaused ? "Reproduzir carrossel" : "Pausar carrossel"} aria-pressed={playbackPaused}>
                 {playbackPaused ? <Play size={19} /> : <Pause size={19} />}
               </button>
-              <button type="button" onClick={() => changeSlide(1)} aria-label="Próxima imagem"><ArrowRight size={20} /></button>
+              <button type="button" onClick={() => changeSlide(1)} title="Próxima demonstração" aria-label="Próxima imagem"><ArrowRight size={18} /></button>
             </div>
           </div>
           <div
             className={`lp-showcase__stage lp-showcase__stage--${showcase[activeSlide].tone}`}
-            role="group"
-            aria-roledescription="carrossel"
+            id="tour-panel"
+            role="tabpanel"
+            aria-labelledby={`tour-tab-${activeSlide}`}
+            tabIndex={0}
             onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; setCarouselTouching(true); }}
             onTouchEnd={(event) => {
               setCarouselTouching(false);
@@ -377,43 +420,32 @@ export default function Landing() {
             }}
             onTouchCancel={() => { touchStartX.current = null; setCarouselTouching(false); }}
           >
-            <div className="lp-showcase__media">
-              <img key={showcase[activeSlide].image} className={activeSlide === 0 ? "lp-showcase__focus" : "lp-showcase__fit"} src={showcase[activeSlide].image} alt={showcase[activeSlide].alt} loading="lazy" decoding="async" />
-              <span>Demonstração ilustrativa com dados fictícios</span>
-            </div>
-            <div className="lp-showcase__details" aria-live={autoPlaying ? "off" : "polite"}>
-              <span className="lp-showcase__count">{showcase[activeSlide].number} / 0{showcase.length}</span>
-              <p className="lp-kicker">{showcase[activeSlide].tag}</p>
-              <h3>{showcase[activeSlide].title}</h3>
-              <p>{showcase[activeSlide].description}</p>
+            <figure className="lp-tour__figure">
+              <div className="lp-tour__image">
+                <img key={slide.image} src={slide.image} alt={slide.alt} loading="lazy" decoding="async" />
+                <button type="button" className="lp-tour__expand" title="Ampliar demonstração" aria-label="Ampliar demonstração" onClick={() => setExpanded(true)}><Maximize2 size={19} /></button>
+              </div>
+              <figcaption><span>Demonstração ilustrativa · Dados fictícios</span><span>{slide.number} / 05</span></figcaption>
+            </figure>
+            <div key={slide.number} className="lp-showcase__details" aria-live={autoPlaying ? "off" : "polite"}>
+              <span className="lp-tour__chapter"><slide.icon size={20} aria-hidden="true" /> {slide.tag}</span>
+              <h3>{slide.title}</h3>
+              <p>{slide.description}</p>
+              <ul className="lp-tour__benefits">{slide.benefits.map(benefit => <li key={benefit}><Check size={16} aria-hidden="true" /><span>{benefit}</span></li>)}</ul>
+              <Link className="lp-text-link lp-tour__link" to={professionalSignup}>Quero esse espaço para atender <ArrowRight size={18} /></Link>
             </div>
           </div>
-          <div className="lp-showcase__previews" role="tablist" aria-label="Selecione uma demonstração">
-            {showcase.map((slide, index) => (
-              <button
-                key={slide.number}
-                className={`lp-showcase__preview lp-showcase__preview--${slide.tone}`}
-                type="button"
-                role="tab"
-                aria-label={`Ver ${slide.tag}`}
-                aria-selected={index === activeSlide}
-                onClick={() => selectSlide(index)}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-                    event.preventDefault();
-                    const next = (index + (event.key === "ArrowRight" ? 1 : -1) + showcase.length) % showcase.length;
-                    selectSlide(next);
-                    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
-                  }
-                }}
-              >
-                <img src={slide.image} alt="" loading="lazy" />
-                <span><small>{slide.number}</small>{slide.shortLabel}</span>
-                {index === activeSlide && <i key={`${slide.number}-${slideCycle}-${autoPlaying}`} className="lp-showcase__preview-progress" aria-hidden="true" />}
-              </button>
-            ))}
+          <div className="lp-tour__footer">
+            <span><UsersRound size={18} /> Seu jeito de atender. Um só lugar.</span>
+            <a href="#planos">Conhecer os planos <ArrowDown size={16} /></a>
           </div>
         </div>
+        <Dialog open={expanded} onOpenChange={setExpanded}>
+          <DialogContent className="lp-tour-lightbox" hideClose>
+            <div className="lp-tour-lightbox__top"><div><DialogTitle>{slide.shortLabel}</DialogTitle><DialogDescription>Demonstração ilustrativa com dados fictícios</DialogDescription></div><DialogClose aria-label="Fechar demonstração" title="Fechar demonstração"><X size={23} /></DialogClose></div>
+            <img src={slide.image} alt={slide.alt} />
+          </DialogContent>
+        </Dialog>
       </section>
 
       <section className="lp-plans lp-section" id="planos" aria-labelledby="lp-plans-title">

@@ -7,6 +7,7 @@ export type MouthView = "front" | "angle" | "section";
 export type MouthDragMode = "jaw" | "tongue" | "tip";
 type MouthModelSceneProps = MouthPose & {
   compact?: boolean;
+  controlsOutside?: boolean;
   view: MouthView;
   dragMode: MouthDragMode;
   showFace: boolean;
@@ -89,7 +90,7 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
       for (const key of poseKeys) pose[key] = reducedMotion ? target[key] : THREE.MathUtils.damp(pose[key], target[key], 18, delta);
       model.update(pose, target.view === "section", target.showFace);
       const aspect = container.clientWidth / container.clientHeight;
-      const toolbarClearance = container.clientWidth < 600 ? 1.2 : 1;
+      const toolbarClearance = props.controlsOutside ? 0.9 : container.clientWidth < 600 ? 1.2 : 1;
       const distance = Math.max(8.1, 6.6 / Math.max(aspect, 0.5)) * toolbarClearance;
       if (target.view === "section") targetCamera.set(distance * 0.98, 0.1, distance * 0.20);
       else if (target.view === "angle") targetCamera.set(distance * 0.43, 0.65, distance * 0.90);

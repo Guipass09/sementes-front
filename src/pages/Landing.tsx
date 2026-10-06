@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowDown,
@@ -23,9 +23,11 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { LandingPolicies } from "./LandingPolicies";
-import { LandingShowcaseMedia } from "./LandingShowcaseMedia";
+import LandingWheelDemo from "./LandingWheelDemo";
 import "./landing.css";
 import "./landing-showcase.css";
+
+const LandingMouthDemo = lazy(() => import("./LandingMouthDemo"));
 
 const assets = {
   logo: "/landing/sementes-logo-transparent.png",
@@ -93,8 +95,8 @@ const showcase = [
     description:
       "Transforme seus objetivos em propostas lúdicas que convidam o paciente a participar.",
     image: assets.wheel,
-    video: "/landing/jogos-em-movimento.webm",
-    alt: "Demonstração dos jogos: roleta dos sons girando e pares sendo encontrados no jogo da memória",
+    demo: "wheel",
+    alt: "Roleta dos sons com figuras e palavras coloridas",
   },
   {
     number: "03",
@@ -133,6 +135,7 @@ const showcase = [
     description:
       "A boca 3D permite demonstrar lábios e língua durante a sessão. Um recurso visual para tornar orientações articulatórias mais claras.",
     image: assets.mouth,
+    demo: "mouth",
     alt: "Modelo de boca 3D aberto na área profissional",
   },
 ] as const;
@@ -164,14 +167,21 @@ export default function Landing() {
   const playbackPaused = carouselUserPaused || (prefersReducedMotion && !playbackOverride);
   const autoPlaying = carouselInView && !playbackPaused && !carouselTouching && pageVisible && !expanded;
   const slide = showcase[activeSlide];
-  const slideVideo = "video" in slide ? slide.video : undefined;
-  const slideDuration = slideVideo ? 14000 : showcaseIntervalMs;
-  const motionAllowed = !prefersReducedMotion || playbackOverride;
+  const interactiveSlide = "demo" in slide;
+  const slideDuration = showcaseIntervalMs;
+  const pauseForInteraction = () => setCarouselUserPaused(true);
 
   useEffect(() => {
     const tabs = tabsRef.current;
-    const active = tabs?.querySelector<HTMLElement>('[aria-selected="true"]');
-    if (tabs && active) tabs.scrollTo({ left: active.offsetLeft - tabs.offsetLeft - (tabs.clientWidth - active.clientWidth) / 2, behavior: prefersReducedMotion ? "auto" : "smooth" });
+    if (!tabs) return;
+    const centerActiveTab = () => {
+      const active = tabs.querySelector<HTMLElement>('[aria-selected="true"]');
+      if (active) tabs.scrollTo({ left: active.offsetLeft - tabs.offsetLeft - (tabs.clientWidth - active.clientWidth) / 2, behavior: prefersReducedMotion ? "auto" : "smooth" });
+    };
+    centerActiveTab();
+    const observer = new ResizeObserver(centerActiveTab);
+    observer.observe(tabs);
+    return () => observer.disconnect();
   }, [activeSlide, prefersReducedMotion]);
 
   useEffect(() => {
@@ -416,7 +426,11 @@ export default function Landing() {
             role="tabpanel"
             aria-labelledby={`tour-tab-${activeSlide}`}
             tabIndex={0}
-            onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; setCarouselTouching(true); }}
+            onTouchStart={(event) => {
+              if ((event.target as Element).closest(".lp-demo")) { touchStartX.current = null; return; }
+              touchStartX.current = event.touches[0].clientX;
+              setCarouselTouching(true);
+            }}
             onTouchEnd={(event) => {
               setCarouselTouching(false);
               if (touchStartX.current === null) return;
@@ -427,15 +441,20 @@ export default function Landing() {
             onTouchCancel={() => { touchStartX.current = null; setCarouselTouching(false); }}
           >
             <figure className="lp-tour__figure">
-              <div className="lp-tour__image">
+              <div className="lp-tour__image" data-interactive={interactiveSlide}>
                 {showcase.map((item, index) => (
                   <div key={item.number} className="lp-tour__scene" aria-hidden={index !== activeSlide}
                     data-position={index === activeSlide ? "active" : index < activeSlide ? "before" : "after"}>
-                    <LandingShowcaseMedia image={item.image} alt={item.alt} video={"video" in item ? item.video : undefined}
-                      loadVideo={index === activeSlide && carouselInView && motionAllowed} playing={index === activeSlide && autoPlaying} />
+                    {index === activeSlide && carouselInView && "demo" in item ? (
+                      item.demo === "wheel" ? <LandingWheelDemo onInteract={pauseForInteraction} reducedMotion={prefersReducedMotion} /> : (
+                        <Suspense fallback={<img className="lp-tour__still" src={item.image} alt={item.alt} />}>
+                          <LandingMouthDemo onInteract={pauseForInteraction} />
+                        </Suspense>
+                      )
+                    ) : <img className="lp-tour__still" src={item.image} alt={item.alt} loading="lazy" decoding="async" />}
                   </div>
                 ))}
-                <button type="button" className="lp-tour__expand" title="Ampliar demonstração" aria-label="Ampliar demonstração" onClick={() => setExpanded(true)}><Maximize2 size={19} /></button>
+                {!interactiveSlide && <button type="button" className="lp-tour__expand" title="Ampliar demonstração" aria-label="Ampliar demonstração" onClick={() => setExpanded(true)}><Maximize2 size={19} /></button>}
               </div>
               <figcaption><span>Demonstração ilustrativa · Dados fictícios</span><span>{slide.number} / 05</span></figcaption>
             </figure>
@@ -455,8 +474,7 @@ export default function Landing() {
         <Dialog open={expanded} onOpenChange={setExpanded}>
           <DialogContent className="lp-tour-lightbox" hideClose>
             <div className="lp-tour-lightbox__top"><div><DialogTitle>{slide.shortLabel}</DialogTitle><DialogDescription>Demonstração ilustrativa com dados fictícios</DialogDescription></div><DialogClose aria-label="Fechar demonstração" title="Fechar demonstração"><X size={23} /></DialogClose></div>
-            <LandingShowcaseMedia image={slide.image} alt={slide.alt} video={slideVideo}
-              loadVideo={expanded && motionAllowed} playing={expanded && !playbackPaused && pageVisible} controls />
+            <img src={slide.image} alt={slide.alt} />
           </DialogContent>
         </Dialog>
       </section>

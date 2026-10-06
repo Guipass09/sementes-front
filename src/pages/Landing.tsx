@@ -469,7 +469,7 @@ export default function Landing() {
               <h3>{slide.title}</h3>
               <p>{slide.description}</p>
               <ul className="lp-tour__benefits">{slide.benefits.map(benefit => <li key={benefit}><Check size={16} aria-hidden="true" /><span>{benefit}</span></li>)}</ul>
-              {"notice" in slide && <aside className="lp-tour__notice" aria-label={slide.notice.title}><strong>{slide.notice.title}</strong><p>{slide.notice.text}</p></aside>}
+              {"notice" in slide && <aside className="lp-tour__notice" data-highlight={"demo" in slide && slide.demo === "mouth"} aria-label={slide.notice.title}><strong>{slide.notice.title}</strong><p>{slide.notice.text}</p></aside>}
               <Link className="lp-text-link lp-tour__link" to={professionalSignup}>Quero esse espaço para atender <ArrowRight size={18} /></Link>
             </div>
           </div>

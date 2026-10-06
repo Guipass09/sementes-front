@@ -40,6 +40,9 @@
 .lp-tour__notice { border-left: 3px solid #169465; padding: 2px 0 2px 14px; margin: 0 0 24px; }
 .lp-tour__notice strong { display: block; font-size: 13px; line-height: 1.5; color: #15583e; }
 .lp-tour__notice p { margin: 6px 0 0; font-size: 13px; line-height: 1.65; color: #55685e; }
+.lp-tour__notice[data-highlight="true"] { border-left: 0; padding: 0; }
+.lp-tour__notice[data-highlight="true"] strong { display: inline-block; max-width: 100%; padding: 9px 12px; border-radius: 4px; background: #ffdf8b; color: #263c2f; font-size: 16px; font-weight: 800; line-height: 1.4; }
+.lp-tour__notice[data-highlight="true"] p { margin-top: 12px; }
 .lp-tour__footer { margin-top: 32px; padding-top: 22px; border-top: 1px solid #d4e2da; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: #5a7061; font-size: 13px; }
 .lp-tour__footer span, .lp-tour__footer a { display: inline-flex; align-items: center; gap: 10px; }
 .lp-tour__footer a { color: #0d7047; font-weight: 700; }

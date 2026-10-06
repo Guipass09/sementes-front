@@ -15,6 +15,7 @@ import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 import FullscreenToggle from "@/components/FullscreenToggle";
 import { useSessionContentStatus } from "@/hooks/use-session-content-status";
 import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
+import { shuffle } from "@/lib/shuffle";
 
 type DeckCard = {
   instanceId: string;
@@ -23,15 +24,6 @@ type DeckCard = {
   flipped: boolean;
   matched: boolean;
 };
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 function calcCols(totalCards: number, isSmall: boolean): number {
   // Mantém grid bonito e jogável até 30 cartas.

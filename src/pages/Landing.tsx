@@ -24,6 +24,7 @@ import {
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { LandingPolicies } from "./LandingPolicies";
 import LandingWheelDemo from "./LandingWheelDemo";
+import LandingSessionDemo from "./LandingSessionDemo";
 import "./landing.css";
 import "./landing-showcase.css";
 
@@ -109,6 +110,7 @@ const showcase = [
     description:
       "Compartilhe mais que uma chamada. Vocês conversam, exploram e interagem no mesmo espaço.",
     image: assets.session,
+    demo: "session",
     alt: "Sessão ao vivo demonstrativa com uma atividade visual aberta e janelas de vídeo",
   },
   {
@@ -427,7 +429,7 @@ export default function Landing() {
             aria-labelledby={`tour-tab-${activeSlide}`}
             tabIndex={0}
             onTouchStart={(event) => {
-              if ((event.target as Element).closest(".lp-demo")) { touchStartX.current = null; return; }
+              if ((event.target as Element).closest(".lp-demo, .lp-session-demo")) { touchStartX.current = null; return; }
               touchStartX.current = event.touches[0].clientX;
               setCarouselTouching(true);
             }}
@@ -441,12 +443,14 @@ export default function Landing() {
             onTouchCancel={() => { touchStartX.current = null; setCarouselTouching(false); }}
           >
             <figure className="lp-tour__figure">
-              <div className="lp-tour__image" data-interactive={interactiveSlide}>
+              <div className="lp-tour__image" data-interactive={interactiveSlide} data-demo={"demo" in slide ? slide.demo : undefined}>
                 {showcase.map((item, index) => (
                   <div key={item.number} className="lp-tour__scene" aria-hidden={index !== activeSlide}
                     data-position={index === activeSlide ? "active" : index < activeSlide ? "before" : "after"}>
                     {index === activeSlide && carouselInView && "demo" in item ? (
-                      item.demo === "wheel" ? <LandingWheelDemo onInteract={pauseForInteraction} reducedMotion={prefersReducedMotion} /> : (
+                      item.demo === "wheel" ? <LandingWheelDemo onInteract={pauseForInteraction} reducedMotion={prefersReducedMotion} /> : item.demo === "session" ? (
+                        <LandingSessionDemo image={item.image} onInteract={pauseForInteraction} />
+                      ) : (
                         <Suspense fallback={<img className="lp-tour__still" src={item.image} alt={item.alt} />}>
                           <LandingMouthDemo onInteract={pauseForInteraction} />
                         </Suspense>

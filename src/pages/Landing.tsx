@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } fr
 import { LandingPolicies } from "./LandingPolicies";
 import LandingWheelDemo from "./LandingWheelDemo";
 import LandingSessionDemo from "./LandingSessionDemo";
+import LandingActivityDemo from "./LandingActivityDemo";
 import "./landing.css";
 import "./landing-showcase.css";
 
@@ -83,6 +84,7 @@ const showcase = [
     description:
       "Dê forma às suas ideias e conduza cada etapa com a criança, sem sair do atendimento.",
     image: assets.activityInUse,
+    demo: "activity",
     alt: "Atividade demonstrativa Missão dos Sons aberta na plataforma, com figuras coloridas",
   },
   {
@@ -172,7 +174,7 @@ export default function Landing() {
   const autoPlaying = carouselInView && !playbackPaused && !carouselTouching && pageVisible && !expanded;
   const slide = showcase[activeSlide];
   const interactiveSlide = "demo" in slide;
-  const slideDuration = showcaseIntervalMs;
+  const slideDuration = "demo" in slide && slide.demo === "activity" ? 18000 : showcaseIntervalMs;
   const pauseForInteraction = () => setCarouselUserPaused(true);
 
   useEffect(() => {
@@ -450,7 +452,7 @@ export default function Landing() {
                   <div key={item.number} className="lp-tour__scene" aria-hidden={index !== activeSlide}
                     data-position={index === activeSlide ? "active" : index < activeSlide ? "before" : "after"}>
                     {index === activeSlide && carouselInView && "demo" in item ? (
-                      item.demo === "wheel" ? <LandingWheelDemo onInteract={pauseForInteraction} reducedMotion={prefersReducedMotion} /> : item.demo === "session" ? (
+                      item.demo === "activity" ? <LandingActivityDemo onInteract={pauseForInteraction} playing={autoPlaying} reducedMotion={prefersReducedMotion} /> : item.demo === "wheel" ? <LandingWheelDemo onInteract={pauseForInteraction} reducedMotion={prefersReducedMotion} /> : item.demo === "session" ? (
                         <LandingSessionDemo image={item.image} onInteract={pauseForInteraction} />
                       ) : (
                         <Suspense fallback={<img className="lp-tour__still" src={item.image} alt={item.alt} />}>

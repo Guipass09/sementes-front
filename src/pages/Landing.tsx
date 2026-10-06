@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowDown,
@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { LandingPolicies } from "./LandingPolicies";
+import { LandingShowcaseMedia } from "./LandingShowcaseMedia";
 import "./landing.css";
 import "./landing-showcase.css";
 
@@ -92,7 +93,8 @@ const showcase = [
     description:
       "Transforme seus objetivos em propostas lúdicas que convidam o paciente a participar.",
     image: assets.wheel,
-    alt: "Roleta dos Sons demonstrativa com imagens e palavras coloridas",
+    video: "/landing/jogos-em-movimento.webm",
+    alt: "Demonstração dos jogos: roleta dos sons girando e pares sendo encontrados no jogo da memória",
   },
   {
     number: "03",
@@ -162,6 +164,9 @@ export default function Landing() {
   const playbackPaused = carouselUserPaused || (prefersReducedMotion && !playbackOverride);
   const autoPlaying = carouselInView && !playbackPaused && !carouselTouching && pageVisible && !expanded;
   const slide = showcase[activeSlide];
+  const slideVideo = "video" in slide ? slide.video : undefined;
+  const slideDuration = slideVideo ? 14000 : showcaseIntervalMs;
+  const motionAllowed = !prefersReducedMotion || playbackOverride;
 
   useEffect(() => {
     const tabs = tabsRef.current;
@@ -212,9 +217,9 @@ export default function Landing() {
 
   useEffect(() => {
     if (!autoPlaying) return;
-    const timer = window.setTimeout(() => setActiveSlide((current) => (current + 1) % showcase.length), showcaseIntervalMs);
+    const timer = window.setTimeout(() => setActiveSlide((current) => (current + 1) % showcase.length), slideDuration);
     return () => window.clearTimeout(timer);
-  }, [activeSlide, slideCycle, autoPlaying]);
+  }, [activeSlide, slideCycle, autoPlaying, slideDuration]);
 
   useEffect(() => {
     if (!carouselInView) return;
@@ -370,6 +375,7 @@ export default function Landing() {
         id="experiencia"
         aria-labelledby="lp-showcase-title"
         data-autoplay={autoPlaying}
+        style={{ "--tour-duration": `${slideDuration}ms` } as CSSProperties}
       >
         <div className="lp-container">
           <div className="lp-showcase__top">
@@ -422,7 +428,13 @@ export default function Landing() {
           >
             <figure className="lp-tour__figure">
               <div className="lp-tour__image">
-                <img key={slide.image} src={slide.image} alt={slide.alt} loading="lazy" decoding="async" />
+                {showcase.map((item, index) => (
+                  <div key={item.number} className="lp-tour__scene" aria-hidden={index !== activeSlide}
+                    data-position={index === activeSlide ? "active" : index < activeSlide ? "before" : "after"}>
+                    <LandingShowcaseMedia image={item.image} alt={item.alt} video={"video" in item ? item.video : undefined}
+                      loadVideo={index === activeSlide && carouselInView && motionAllowed} playing={index === activeSlide && autoPlaying} />
+                  </div>
+                ))}
                 <button type="button" className="lp-tour__expand" title="Ampliar demonstração" aria-label="Ampliar demonstração" onClick={() => setExpanded(true)}><Maximize2 size={19} /></button>
               </div>
               <figcaption><span>Demonstração ilustrativa · Dados fictícios</span><span>{slide.number} / 05</span></figcaption>
@@ -443,7 +455,8 @@ export default function Landing() {
         <Dialog open={expanded} onOpenChange={setExpanded}>
           <DialogContent className="lp-tour-lightbox" hideClose>
             <div className="lp-tour-lightbox__top"><div><DialogTitle>{slide.shortLabel}</DialogTitle><DialogDescription>Demonstração ilustrativa com dados fictícios</DialogDescription></div><DialogClose aria-label="Fechar demonstração" title="Fechar demonstração"><X size={23} /></DialogClose></div>
-            <img src={slide.image} alt={slide.alt} />
+            <LandingShowcaseMedia image={slide.image} alt={slide.alt} video={slideVideo}
+              loadVideo={expanded && motionAllowed} playing={expanded && !playbackPaused && pageVisible} controls />
           </DialogContent>
         </Dialog>
       </section>

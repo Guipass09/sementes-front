@@ -111,6 +111,7 @@ const showcase = [
       "Compartilhe mais que uma chamada. Vocês conversam, exploram e interagem no mesmo espaço.",
     image: assets.session,
     demo: "session",
+    notice: { title: "Uma demonstração para experimentar", text: "O jogo da memória nesta cena é clicável e demonstrativo. Na plataforma, você personaliza jogos e atividades com suas imagens e objetivos para cada paciente." },
     alt: "Sessão ao vivo demonstrativa com uma atividade visual aberta e janelas de vídeo",
   },
   {
@@ -138,6 +139,7 @@ const showcase = [
       "A boca 3D permite demonstrar lábios e língua durante a sessão. Um recurso visual para tornar orientações articulatórias mais claras.",
     image: assets.mouth,
     demo: "mouth",
+    notice: { title: "Mais movimentos no plano pago", text: "Com a assinatura, você pode mover a língua para diferentes lados, colocá-la para fora, demonstrar bico e sorriso e explorar outros movimentos para os exercícios articulatórios." },
     alt: "Modelo de boca 3D aberto na área profissional",
   },
 ] as const;
@@ -467,6 +469,7 @@ export default function Landing() {
               <h3>{slide.title}</h3>
               <p>{slide.description}</p>
               <ul className="lp-tour__benefits">{slide.benefits.map(benefit => <li key={benefit}><Check size={16} aria-hidden="true" /><span>{benefit}</span></li>)}</ul>
+              {"notice" in slide && <aside className="lp-tour__notice" aria-label={slide.notice.title}><strong>{slide.notice.title}</strong><p>{slide.notice.text}</p></aside>}
               <Link className="lp-text-link lp-tour__link" to={professionalSignup}>Quero esse espaço para atender <ArrowRight size={18} /></Link>
             </div>
           </div>

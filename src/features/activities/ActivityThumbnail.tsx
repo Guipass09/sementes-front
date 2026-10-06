@@ -3,7 +3,10 @@ import type { ActivityRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 export function ActivityThumbnail({ activity }: { activity: ActivityRow }): JSX.Element {
-  const media = activity.thumbnail ?? activity.media.find((item) => item.media_type === "image") ?? activity.media[0];
+  const media = activity.media.find((item) => item.id === activity.thumbnail?.id && (item.media_type === "image" || item.thumbnail_url))
+    ?? activity.media.find((item) => item.media_type === "image" || item.thumbnail_url)
+    ?? activity.thumbnail
+    ?? activity.media[0];
   const imageUrl = media?.media_type === "video" ? media.thumbnail_url : media?.url;
 
   return (

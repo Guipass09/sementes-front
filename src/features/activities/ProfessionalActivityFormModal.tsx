@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isApiError } from "@/lib/laravel-api";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import { activityUploadError, uploadActivityDrafts } from "./activity-upload";
 
 type MediaDraft = {
   id: string;
@@ -39,6 +40,7 @@ export function ProfessionalActivityFormModal(props: {
 }): JSX.Element {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [users, setUsers] = useState<ProfessionalUserRow[]>([]);
 
@@ -51,6 +53,7 @@ export function ProfessionalActivityFormModal(props: {
   const [existingMedia, setExistingMedia] = useState<ActivityRow["media"]>([]);
   const [drafts, setDrafts] = useState<MediaDraft[]>([]);
   const [formError, setFormError] = useState<string>("");
+  const [pendingActivityId, setPendingActivityId] = useState<number | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState("Confirmar");
   const [confirmDescription, setConfirmDescription] = useState<string | undefined>(undefined);
@@ -92,6 +95,9 @@ export function ProfessionalActivityFormModal(props: {
       setExistingMedia([]);
     }
     setDrafts([]);
+    setPendingActivityId(null);
+    setFormError("");
+    setUploadProgress(null);
   }, [props.open, props.mode, props.initial]);
 
   useEffect(() => {
@@ -139,25 +145,43 @@ export function ProfessionalActivityFormModal(props: {
 
   const handleSave = async () => {
     if (!canSubmit) return;
+    for (const [index, draft] of drafts.entries()) {
+      const error = !draft.file
+        ? `Selecione um arquivo para a etapa ${index + 1} ou remova essa etapa.`
+        : activityUploadError(draft.file, `Etapa ${index + 1}`, draft.media_type === "video" ? draft.thumbnail : null);
+      if (error) {
+        setFormError(error);
+        return;
+      }
+    }
     setFormError("");
     setSaving(true);
+    let activityId = pendingActivityId;
     try {
       if (props.mode === "create") {
-        await api.professionalCreateActivity({
-          title: title.trim(),
-          description: description.trim(),
-          category: category.trim() || undefined,
-          estimated_time: estimatedTime.trim() || undefined,
-          assigned_to: [],
-          media: drafts
-            .filter((d) => d.file)
-            .map((d) => ({
-              file: d.file!,
-              media_type: d.media_type,
-              caption: d.caption,
-              thumbnail: d.media_type === "video" ? d.thumbnail : null,
-            })),
-        });
+        if (activityId === null) {
+          const created = await api.professionalCreateActivity({
+            title: title.trim(),
+            description: description.trim(),
+            category: category.trim() || undefined,
+            estimated_time: estimatedTime.trim() || undefined,
+            assigned_to: [],
+            media: [],
+          });
+          activityId = created.id;
+          setPendingActivityId(activityId);
+        } else {
+          await api.professionalUpdateActivity(activityId, {
+            title: title.trim(),
+            description: description.trim(),
+            category: category.trim(),
+            estimated_time: estimatedTime.trim(),
+          });
+        }
+        await uploadActivityDrafts(activityId, drafts, existingMedia, api.professionalAddActivityMedia, (draftId, media) => {
+          setExistingMedia((current) => [...current, media]);
+          setDrafts((current) => current.filter((item) => item.id !== draftId));
+        }, (current, total) => setUploadProgress(`Enviando etapa ${current}/${total}...`));
       } else if (props.initial) {
         await api.professionalUpdateActivity(props.initial.id, {
           title: title.trim(),
@@ -167,18 +191,10 @@ export function ProfessionalActivityFormModal(props: {
           assigned_to: assignedTo,
         });
 
-        const toUpload = drafts.filter((d) => d.file);
-        for (let i = 0; i < toUpload.length; i++) {
-          const d = toUpload[i];
-          await api.professionalAddActivityMedia({
-            activity_id: props.initial.id,
-            file: d.file!,
-            media_type: d.media_type,
-            caption: d.caption,
-            position: existingMedia.length + i,
-            thumbnail: d.media_type === "video" ? d.thumbnail : null,
-          });
-        }
+        await uploadActivityDrafts(props.initial.id, drafts, existingMedia, api.professionalAddActivityMedia, (draftId, media) => {
+          setExistingMedia((current) => [...current, media]);
+          setDrafts((current) => current.filter((item) => item.id !== draftId));
+        }, (current, total) => setUploadProgress(`Enviando etapa ${current}/${total}...`));
       }
 
       await props.onSaved();
@@ -188,15 +204,21 @@ export function ProfessionalActivityFormModal(props: {
         description: props.mode === "create" ? "Salva somente no seu perfil. Envie aos pacientes quando quiser." : "Alterações salvas.",
       });
     } catch (e) {
-      const msg = isApiError(e) ? e.message : "Não foi possível salvar agora.";
-      setFormError(msg);
+      const msg = isApiError(e) && e.status === 413
+        ? "Arquivo muito grande para o servidor. Use um arquivo de até 95 MB."
+        : isApiError(e) ? e.data?.message || `Não foi possível salvar (erro ${e.status}).` : "Não foi possível salvar agora.";
+      setFormError(activityId !== null
+        ? `${msg} As etapas enviadas foram mantidas. Clique em Salvar para continuar.`
+        : msg);
+      if (activityId !== null) void props.onSaved().catch(() => {});
     } finally {
+      setUploadProgress(null);
       setSaving(false);
     }
   };
 
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+    <Dialog open={props.open} onOpenChange={(open) => { if (!saving) props.onOpenChange(open); }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{props.mode === "create" ? "Nova Atividade" : "Editar Atividade"}</DialogTitle>
@@ -313,7 +335,7 @@ export function ProfessionalActivityFormModal(props: {
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => updateDraft(d.id, { media_type: "image", thumbnail: null })}
+                              onClick={() => updateDraft(d.id, d.media_type === "image" ? {} : { media_type: "image", file: null, thumbnail: null })}
                               className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border ${
                                 d.media_type === "image" ? "bg-primary/10 text-primary border-primary/20" : "border-border text-muted-foreground"
                               }`}
@@ -322,7 +344,7 @@ export function ProfessionalActivityFormModal(props: {
                             </button>
                             <button
                               type="button"
-                              onClick={() => updateDraft(d.id, { media_type: "video" })}
+                              onClick={() => updateDraft(d.id, d.media_type === "video" ? {} : { media_type: "video", file: null })}
                               className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border ${
                                 d.media_type === "video" ? "bg-primary/10 text-primary border-primary/20" : "border-border text-muted-foreground"
                               }`}
@@ -335,6 +357,7 @@ export function ProfessionalActivityFormModal(props: {
                             <div className="space-y-2">
                               <Label>Arquivo</Label>
                               <Input
+                                key={d.media_type}
                                 type="file"
                                 accept={d.media_type === "image" ? "image/*" : "video/*"}
                                 onChange={(e) => updateDraft(d.id, { file: e.target.files?.[0] ?? null })}
@@ -382,7 +405,7 @@ export function ProfessionalActivityFormModal(props: {
               Cancelar
             </Button>
             <Button onClick={() => void handleSave()} disabled={!canSubmit || saving}>
-              {saving ? "Salvando..." : "Salvar"}
+              {saving ? uploadProgress || "Salvando..." : "Salvar"}
             </Button>
           </div>
         </div>

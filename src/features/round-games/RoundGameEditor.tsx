@@ -18,6 +18,7 @@ import "./round-games.css";
 
 const newRound = (): GameRound => ({ id: crypto.randomUUID(), prompt: "", choices: [] });
 function message(error: unknown) {
+  if (api.isApiError(error) && error.status === 404 && String(error.data?.message || "").includes('round-game')) return "O servidor ainda não recebeu a atualização destes jogos. Seus campos foram mantidos; tente novamente após a atualização do sistema.";
   if (api.isApiError(error)) return Object.values(error.data?.errors || {}).flat().join(" ") || error.data?.message || "Não foi possível salvar.";
   return "Não foi possível concluir. Verifique a conexão e tente novamente.";
 }

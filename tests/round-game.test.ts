@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { initialRoundState, reduceRoundGame, roundSolved, shuffledChoices, validateRounds } from "../src/features/round-games/round-game.ts";
-import { roundGameExamples } from "../src/features/round-games/round-game-examples.ts";
 
 const rounds = [0, 1].map(n => ({ id: `round-${n}`, prompt: "Qual figura?", choices: [
   { id: "sun", label: "Sol", path: "sun.png", correct: true },
@@ -73,21 +72,4 @@ test("editor rejects incomplete rounds and accepts multiple correct images", () 
   const noCorrect = [{ ...rounds[0], choices: rounds[0].choices.map(c => ({ ...c, correct: false })) }];
   assert.ok(validateRounds(noCorrect, "sound"));
   assert.equal(validateRounds(noCorrect, "sequence"), null);
-});
-
-test("landing examples complete every round through the real game reducer", () => {
-  for (const game of Object.values(roundGameExamples)) {
-    assert.equal(validateRounds(game.rounds, game.kind), null);
-    let state = initialRoundState();
-    for (const [round, data] of game.rounds.entries()) {
-      for (const choice of data.choices.filter(c => game.kind === "sequence" || c.correct)) {
-        state = reduceRoundGame(state, { kind: "choose", round, choice: choice.id }, game.rounds, game.kind);
-      }
-      state = reduceRoundGame(state, { kind: "next", round }, game.rounds, game.kind);
-    }
-    assert.equal(state.completed, true);
-    assert.equal(state.celebration, true);
-  }
-  assert.equal(roundGameExamples.sound.rounds.length, 3);
-  assert.equal(roundGameExamples.sequence.rounds.length, 2);
 });

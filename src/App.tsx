@@ -80,7 +80,6 @@ import GuessImageGameView from "./pages/GuessImageGameView";
 import RoundGameView from "./features/round-games/RoundGameView";
 import RoundGameEditor from "./features/round-games/RoundGameEditor";
 import RoundGameLibrary from "./features/round-games/RoundGameLibrary";
-import RoundGameExample from "./features/round-games/RoundGameExample";
 import RouteChangeLoader from "./components/RouteChangeLoader";
 import GameplayBackground from "./components/GameplayBackground";
 import { installSfxUnlock } from "@/lib/sfx";
@@ -315,8 +314,6 @@ const App = () => {
               <Route path="/jogos/caca-palavras/:id" element={<WordSearchGameView />} />
               <Route path="/jogos/cartas/:id" element={<CardGameView />} />
               <Route path="/jogos/acerte-imagem/:id" element={<GuessImageGameView />} />
-              <Route path="/exemplos/sons-imagens" element={<RoundGameExample kind="sound" />} />
-              <Route path="/exemplos/sequencia-imagens" element={<RoundGameExample kind="sequence" />} />
               <Route path="/jogos/sons-imagens/:id" element={<RoundGameView kind="sound" />} />
               <Route path="/jogos/sequencia-imagens/:id" element={<RoundGameView kind="sequence" />} />
               <Route path="*" element={<NotFound />} />

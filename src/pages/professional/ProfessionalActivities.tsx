@@ -123,6 +123,8 @@ function StandardProfessionalActivities(): JSX.Element {
                 <DropdownMenuLabel>Novo jogo</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/historias/novo")}>Criar histórias completas</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/sons-imagens/novo")}>Sons e imagens</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/sequencia-imagens/novo")}>Sequência de imagens</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria/novo")}>Memória</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria2/novo")}>Memória 2.0</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/fonema/novo")}>Discriminação Fonema</DropdownMenuItem>

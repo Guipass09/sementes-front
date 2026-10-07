@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { roundGameInfo } from "@/features/round-games/round-game";
 import { isCurrentSessionGameEvent } from "@/lib/session-game-event";
 import type { ReportFormDraft } from "@/features/reports/ReportFormModal";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -194,6 +195,7 @@ export default function SessionCall() {
   const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
   const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
   const [guessImageGames, setGuessImageGames] = useState<GuessImageGameRow[]>([]);
+  const [roundGames, setRoundGames] = useState<api.RoundGameRow[]>([]);
   const [shareConfirmOpen, setShareConfirmOpen] = useState(false);
   const [pendingShare, setPendingShare] = useState<null | { path: string; title: string; kind: string }>(null);
   const [pendingPayment, setPendingPayment] = useState<null | { sessions: number; amount: number; url?: string }>(null);
@@ -318,6 +320,7 @@ export default function SessionCall() {
     const ws = mk(wordSearchGames as any[]);
     const cards = mk(cardGames as any[]);
     const guess = mk(guessImageGames as any[]);
+    const rounds = mk(roundGames);
     return {
       mine: {
         activities: acts.mine as ActivityRow[],
@@ -330,6 +333,7 @@ export default function SessionCall() {
         wordSearchGames: ws.mine as WordSearchGameRow[],
         cardGames: cards.mine as CardGameRow[],
         guessImageGames: guess.mine as GuessImageGameRow[],
+        roundGames: rounds.mine as api.RoundGameRow[],
       },
       shared: {
         activities: acts.shared as ActivityRow[],
@@ -342,9 +346,10 @@ export default function SessionCall() {
         wordSearchGames: ws.shared as WordSearchGameRow[],
         cardGames: cards.shared as CardGameRow[],
         guessImageGames: guess.shared as GuessImageGameRow[],
+        roundGames: rounds.shared as api.RoundGameRow[],
       },
     };
-  }, [appRole, user?.id, activities, memGames, memGames2, phonemeGames, audGames, hangGames, spinGames, wordSearchGames, cardGames, guessImageGames]);
+  }, [appRole, user?.id, activities, memGames, memGames2, phonemeGames, audGames, hangGames, spinGames, wordSearchGames, cardGames, guessImageGames, roundGames]);
 
   const activeCatalog = appRole === "professional" ? (catalogTab === "compartilhados" ? catalogView.shared : catalogView.mine) : catalogView.mine;
   const catActivities = activeCatalog.activities;
@@ -360,6 +365,7 @@ export default function SessionCall() {
   const catWordSearchGames = activeCatalog.wordSearchGames;
   const catCardGames = activeCatalog.cardGames;
   const catGuessImageGames = activeCatalog.guessImageGames;
+  const catRoundGames = activeCatalog.roundGames;
   const [fixedUser, setFixedUser] = useState<null | { id: number; name: string }>(null);
 
   const [callStartedAtMs, setCallStartedAtMs] = useState<number | null>(null);
@@ -2893,7 +2899,7 @@ export default function SessionCall() {
       spinGames.length ||
       wordSearchGames.length ||
       cardGames.length ||
-      guessImageGames.length
+      guessImageGames.length || roundGames.length
     )
       return;
 
@@ -2901,7 +2907,7 @@ export default function SessionCall() {
     (async () => {
       setCatalogLoading(true);
       try {
-        const [a, memClassic, memV2, phon, aud, hang, spin, ws, cards, guess] = await Promise.all([
+        const [a, memClassic, memV2, phon, aud, hang, spin, ws, cards, guess, rounds] = await Promise.all([
           (appRole === "admin" ? api.adminListActivities() : api.professionalListActivities()).catch(() => [] as ActivityRow[]),
           (appRole === "admin" ? api.adminListMemoryGames({ variant: "classic" }) : api.professionalListMemoryGames({ variant: "classic" })).catch(
             () => [] as MemoryGameRow[]
@@ -2916,6 +2922,7 @@ export default function SessionCall() {
           (appRole === "admin" ? api.adminListWordSearchGames() : api.professionalListWordSearchGames()).catch(() => [] as WordSearchGameRow[]),
           (appRole === "admin" ? api.adminListCardGames() : api.professionalListCardGames()).catch(() => [] as CardGameRow[]),
           (appRole === "admin" ? api.adminListGuessImageGames() : api.professionalListGuessImageGames()).catch(() => [] as GuessImageGameRow[]),
+          api.listRoundGames().catch(() => [] as api.RoundGameRow[]),
         ]);
         if (cancelled) return;
         setActivities(a);
@@ -2928,6 +2935,7 @@ export default function SessionCall() {
         setWordSearchGames(ws);
         setCardGames(cards);
         setGuessImageGames(guess);
+        setRoundGames(rounds);
       } finally {
         if (!cancelled) setCatalogLoading(false);
       }
@@ -3816,6 +3824,14 @@ export default function SessionCall() {
                   )}
 
                   {/* Mensagem se não houver jogos */}
+                  {(["sound", "sequence"] as const).map((kind) => {
+                    const rows = catRoundGames.filter(g => g.kind === kind);
+                    const info = roundGameInfo[kind];
+                    return rows.length > 0 && <AccordionItem value={info.slug} key={kind} className="border border-border rounded-lg px-4">
+                      <AccordionTrigger className="text-sm font-semibold hover:no-underline py-3">{info.title} ({rows.length})</AccordionTrigger>
+                      <AccordionContent><div className={catalogGridClass}>{rows.map(g => <button key={g.id} className={catalogTileClass} onClick={() => { const path = `/jogos/${info.slug}/${g.id}`; setPendingShare({ path, title: g.title, kind: info.type }); setShareConfirmOpen(true); }}><SessionCatalogTile title={g.title} subtitle={`${g.rounds.length} rodada(s)`} imageUrl={g.thumbnail.url} kind={info.type} /></button>)}</div></AccordionContent>
+                    </AccordionItem>;
+                  })}
                   {catMemGames.length === 0 &&
                     catMemGames2.length === 0 &&
                     catPhonemeGames.length === 0 &&
@@ -3824,7 +3840,7 @@ export default function SessionCall() {
                     catSpinGames.length === 0 &&
                     catWordSearchGames.length === 0 &&
                     catCardGames.length === 0 &&
-                    catGuessImageGames.length === 0 && (
+                    catGuessImageGames.length === 0 && catRoundGames.length === 0 && (
                       <div className="text-sm text-muted-foreground py-2">Nenhum jogo disponível</div>
                     )}
                 </Accordion>

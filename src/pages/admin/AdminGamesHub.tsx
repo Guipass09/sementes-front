@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import RoundGameHubCards from "@/features/round-games/RoundGameHubCards";
 import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon, ScanFace, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -16,6 +17,7 @@ export default function AdminGamesHub() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
+          <RoundGameHubCards base="/admin" />
           <div className="bg-card rounded-md border border-border p-6 h-full"><div className="flex h-full gap-4"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-brand-green/10"><BookOpen className="h-6 w-6 text-brand-green" /></div>
             <div className="flex min-w-0 flex-1 flex-col"><h2 className="font-display text-xl font-semibold">Histórias completas</h2><p className="mt-1 text-sm text-muted-foreground">Slides, GIFs, vídeos e jogos em sequência.</p>
               <div className="mt-auto flex flex-wrap gap-2 pt-4"><Button onClick={() => navigate("/admin/jogos/historias")}>Gerenciar <ArrowRight className="ml-2 h-4 w-4" /></Button><Button variant="secondary" onClick={() => navigate("/admin/jogos/historias/novo")}>Nova história</Button></div></div></div></div>

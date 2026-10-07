@@ -561,7 +561,51 @@ export type StoryStep =
 export type StoryGameType =
   | "memory_game" | "memory_game_v2" | "phoneme_game" | "auditory_game"
   | "hangman_game" | "spin_wheel_game" | "word_search_game"
-  | "card_game" | "guess_image_game";
+  | "card_game" | "guess_image_game" | "sound_image_game" | "image_sequence_game";
+
+export type RoundGameKind = "sound" | "sequence";
+export type RoundChoice = { id: string; path: string; url?: string; label: string; correct: boolean };
+export type GameRound = { id: string; prompt: string; choices: RoundChoice[] };
+export type RoundGameInput = { kind: RoundGameKind; title: string; description: string; background_color: string; background_path: string | null; rounds: GameRound[] };
+export type RoundGameRow = RoundGameInput & {
+  id: number; background_url: string | null; thumbnail: { url: string | null };
+  created_by: { id: number; name: string; role: string }; can_edit: boolean;
+  assigned_to: Array<{ id: number; name: string }>; status?: "disponivel" | "concluido";
+};
+
+export async function listRoundGames(kind?: RoundGameKind, professionalId?: number): Promise<RoundGameRow[]> {
+  const qs = new URLSearchParams();
+  if (kind) qs.set("kind", kind);
+  if (professionalId) qs.set("professional_user_id", String(professionalId));
+  return (await request<{ data: RoundGameRow[] }>(`/api/round-games?${qs}`)).data;
+}
+export async function getRoundGame(id: number, access?: { session_id?: number; story_id?: number }): Promise<RoundGameRow> {
+  const qs = new URLSearchParams();
+  if (access?.session_id) qs.set("session_id", String(access.session_id));
+  if (access?.story_id) qs.set("story_id", String(access.story_id));
+  return request<RoundGameRow>(`/api/round-games/${id}?${qs}`);
+}
+export async function uploadRoundImage(image: File): Promise<{ path: string; url: string }> {
+  await ensureCsrfCookie();
+  const fd = new FormData(); fd.append("image", image);
+  return request("/api/round-game-assets", { method: "POST", formData: fd });
+}
+export async function saveRoundGame(data: RoundGameInput, id?: number): Promise<RoundGameRow> {
+  await ensureCsrfCookie();
+  return request(`/api/round-games${id ? `/${id}` : ""}`, { method: id ? "PATCH" : "POST", json: data });
+}
+export async function deleteRoundGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request(`/api/round-games/${id}`, { method: "DELETE" });
+}
+export async function assignRoundGame(id: number, user_ids: number[]): Promise<RoundGameRow> {
+  await ensureCsrfCookie();
+  return request(`/api/round-games/${id}/assignments`, { method: "POST", json: { user_ids } });
+}
+export async function completeRoundGame(id: number): Promise<void> {
+  await ensureCsrfCookie();
+  await request(`/api/round-games/${id}/progress`, { method: "PATCH", json: { status: "concluido" } });
+}
 
 export type StoryStepInput = StoryStep | { type: "media"; source_media_id: number };
 

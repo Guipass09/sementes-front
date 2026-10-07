@@ -92,10 +92,13 @@ export default function ClinicProfessionalGamesView(): JSX.Element {
       api.professionalListCardGames({ professional_user_id: selectedProfessionalId }),
       api.professionalListGuessImageGames({ professional_user_id: selectedProfessionalId }),
       api.professionalListActivities({ professional_user_id: selectedProfessionalId }),
+      api.listRoundGames(undefined, selectedProfessionalId),
     ])
-      .then(([memoryClassic, memoryV2, phonemeGames, auditoryGames, hangmanGames, spinWheelGames, wordSearchGames, cardGames, guessImageGames, activities]) => {
+      .then(([memoryClassic, memoryV2, phonemeGames, auditoryGames, hangmanGames, spinWheelGames, wordSearchGames, cardGames, guessImageGames, activities, roundGames]) => {
         if (cancelled) return;
         setSections([
+          { key: "sound", title: "Sons e imagens", description: "Rodadas de identificação de sons.", icon: Ear, iconClassName: "text-emerald-700 bg-emerald-50", items: roundGames.filter(g => g.kind === "sound") },
+          { key: "sequence", title: "Sequência de imagens", description: "Rodadas de ordenação de figuras.", icon: ImageIcon, iconClassName: "text-sky-700 bg-sky-50", items: roundGames.filter(g => g.kind === "sequence") },
           {
             key: "stories",
             title: "Histórias completas",
@@ -381,6 +384,9 @@ function GameCard(props: {
 
 function getMetricLabel(sectionKey: string, item: Record<string, any>): string {
   switch (sectionKey) {
+    case "sound":
+    case "sequence":
+      return `${item.rounds?.length ?? 0} rodadas`;
     case "stories":
       return `${item.story_steps?.length ?? 0} etapas`;
     case "memory-classic":
@@ -405,6 +411,9 @@ function getMetricLabel(sectionKey: string, item: Record<string, any>): string {
 
 function getThumbnailUrl(sectionKey: string, item: Record<string, any>): string | null {
   switch (sectionKey) {
+    case "sound":
+    case "sequence":
+      return item.thumbnail?.url ?? null;
     case "stories":
       return item.media?.find((media: { media_type: string; url?: string; thumbnail_url?: string }) => media.media_type === "image")?.url
         ?? item.thumbnail?.thumbnail_url ?? null;

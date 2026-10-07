@@ -3,6 +3,7 @@ import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as I
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth/AuthContext";
 import ClinicProfessionalGamesView from "@/components/ClinicProfessionalGamesView";
+import RoundGameHubCards from "@/features/round-games/RoundGameHubCards";
 
 export default function ProfessionalGamesHub() {
   const auth = useAuth();
@@ -26,6 +27,7 @@ function StandardProfessionalGamesHub() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 items-stretch">
+          <RoundGameHubCards base="/profissional" />
           <div className="bg-card rounded-md border border-border p-5 h-full">
             <div className="flex h-full gap-4"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-brand-green/10"><BookOpen className="h-5 w-5 text-brand-green" /></div>
               <div className="flex min-w-0 flex-1 flex-col"><h2 className="font-display text-lg font-semibold">Histórias completas</h2><p className="mt-1 text-sm text-muted-foreground">Combine slides, GIFs, vídeos e jogos em uma sequência.</p>

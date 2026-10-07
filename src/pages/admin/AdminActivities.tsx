@@ -108,6 +108,8 @@ const AdminActivities = () => {
                 <DropdownMenuLabel>Novo jogo</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => navigate("/admin/jogos/historias/novo")}>Criar histórias completas</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/sons-imagens/novo")}>Sons e imagens</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/sequencia-imagens/novo")}>Sequência de imagens</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => navigate("/admin/jogos/memoria/novo")}>
                   <Grid3X3 className="h-4 w-4 mr-2" />
                   Jogo da Memória

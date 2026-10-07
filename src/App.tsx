@@ -77,6 +77,10 @@ import AdminGuessImageGames from "./pages/admin/AdminGuessImageGames";
 import AdminGuessImageGameCreate from "./pages/admin/AdminGuessImageGameCreate";
 import AdminGuessImageGameEdit from "./pages/admin/AdminGuessImageGameEdit";
 import GuessImageGameView from "./pages/GuessImageGameView";
+import RoundGameView from "./features/round-games/RoundGameView";
+import RoundGameEditor from "./features/round-games/RoundGameEditor";
+import RoundGameLibrary from "./features/round-games/RoundGameLibrary";
+import RoundGameExample from "./features/round-games/RoundGameExample";
 import RouteChangeLoader from "./components/RouteChangeLoader";
 import GameplayBackground from "./components/GameplayBackground";
 import { installSfxUnlock } from "@/lib/sfx";
@@ -189,6 +193,12 @@ const App = () => {
                 <Route path="jogos/acerte-imagem/novo" element={<AdminGuessImageGameCreate />} />
                 <Route path="jogos/acerte-imagem/:id/editar" element={<AdminGuessImageGameEdit />} />
                 <Route path="horarios" element={<ProfessionalSessions />} />
+                <Route path="jogos/sons-imagens" element={<RoundGameLibrary kind="sound" />} />
+                <Route path="jogos/sons-imagens/novo" element={<RoundGameEditor kind="sound" />} />
+                <Route path="jogos/sons-imagens/:id/editar" element={<RoundGameEditor kind="sound" />} />
+                <Route path="jogos/sequencia-imagens" element={<RoundGameLibrary kind="sequence" />} />
+                <Route path="jogos/sequencia-imagens/novo" element={<RoundGameEditor kind="sequence" />} />
+                <Route path="jogos/sequencia-imagens/:id/editar" element={<RoundGameEditor kind="sequence" />} />
                 <Route path="historico" element={<ProfessionalHistory />} />
                 <Route path="relatorios" element={<ProfessionalReports />} />
               </Route>
@@ -238,6 +248,12 @@ const App = () => {
                 <Route path="jogos/acerte-imagem/novo" element={<AdminGuessImageGameCreate />} />
                 <Route path="jogos/acerte-imagem/:id/editar" element={<AdminGuessImageGameEdit />} />
                 <Route path="horarios" element={<AdminSessions />} />
+                <Route path="jogos/sons-imagens" element={<RoundGameLibrary kind="sound" />} />
+                <Route path="jogos/sons-imagens/novo" element={<RoundGameEditor kind="sound" />} />
+                <Route path="jogos/sons-imagens/:id/editar" element={<RoundGameEditor kind="sound" />} />
+                <Route path="jogos/sequencia-imagens" element={<RoundGameLibrary kind="sequence" />} />
+                <Route path="jogos/sequencia-imagens/novo" element={<RoundGameEditor kind="sequence" />} />
+                <Route path="jogos/sequencia-imagens/:id/editar" element={<RoundGameEditor kind="sequence" />} />
                 <Route path="relatorios" element={<AdminReports />} />
               </Route>
               
@@ -299,6 +315,10 @@ const App = () => {
               <Route path="/jogos/caca-palavras/:id" element={<WordSearchGameView />} />
               <Route path="/jogos/cartas/:id" element={<CardGameView />} />
               <Route path="/jogos/acerte-imagem/:id" element={<GuessImageGameView />} />
+              <Route path="/exemplos/sons-imagens" element={<RoundGameExample kind="sound" />} />
+              <Route path="/exemplos/sequencia-imagens" element={<RoundGameExample kind="sequence" />} />
+              <Route path="/jogos/sons-imagens/:id" element={<RoundGameView kind="sound" />} />
+              <Route path="/jogos/sequencia-imagens/:id" element={<RoundGameView kind="sequence" />} />
               <Route path="*" element={<NotFound />} />
               </Routes>
               </div>

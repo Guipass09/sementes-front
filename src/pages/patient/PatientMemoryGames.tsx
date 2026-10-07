@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { roundGameInfo } from "@/features/round-games/round-game";
 import {
   CircleDot,
   BookOpen,
@@ -97,6 +98,7 @@ export default function PatientMemoryGames() {
   const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
   const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
   const [guessImageGames, setGuessImageGames] = useState<GuessImageGameRow[]>([]);
+  const [roundGames, setRoundGames] = useState<api.RoundGameRow[]>([]);
   const [stories, setStories] = useState<ActivityRow[]>([]);
 
   useEffect(() => {
@@ -108,7 +110,7 @@ export default function PatientMemoryGames() {
       setPendingGameKeys(new Set());
       let hadLoadError = false;
       try {
-        const [memClassic, memV2, phon, aud, hang, spin, ws, cards, guessImg, assignedActivities] = await Promise.all([
+        const [memClassic, memV2, phon, aud, hang, spin, ws, cards, guessImg, assignedActivities, rounds] = await Promise.all([
           api.userListMemoryGames({ variant: "classic" }).catch(err => {
             hadLoadError = true;
             console.error("[Jogos] Erro ao buscar memory games:", err);
@@ -159,6 +161,7 @@ export default function PatientMemoryGames() {
             console.error("[Jogos] Erro ao buscar histórias:", err);
             return [];
           }),
+          api.listRoundGames().catch(() => { hadLoadError = true; return []; }),
         ]);
         if (!cancelled) {
           setGames(memClassic);
@@ -170,6 +173,7 @@ export default function PatientMemoryGames() {
           setWordSearchGames(ws);
           setCardGames(cards);
           setGuessImageGames(guessImg);
+          setRoundGames(rounds);
           setStories(assignedActivities.filter(activity => activity.is_story && (activity.story_steps?.length ?? 0) > 0));
           setCanTrackNew(!hadLoadError);
         }
@@ -185,6 +189,7 @@ export default function PatientMemoryGames() {
           setWordSearchGames([]);
           setCardGames([]);
           setGuessImageGames([]);
+          setRoundGames([]);
           setStories([]);
         }
       } finally {
@@ -197,6 +202,13 @@ export default function PatientMemoryGames() {
   }, [userId]);
 
   const categories = useMemo<GameCategory[]>(() => [
+    ...(["sound", "sequence"] as const).map(kind => ({
+      id: roundGameInfo[kind].slug, title: roundGameInfo[kind].title,
+      icon: kind === "sound" ? Ear : ImageIcon,
+      iconClassName: kind === "sound" ? "text-emerald-600" : "text-sky-600",
+      iconBackgroundClassName: kind === "sound" ? "bg-emerald-50" : "bg-sky-50",
+      items: roundGames.filter(g => g.kind === kind).map(g => ({ id: g.id, title: g.title, description: g.description, imageUrl: g.thumbnail.url, detail: `${g.rounds.length} rodada(s)`, path: `/jogos/${roundGameInfo[kind].slug}/${g.id}` })),
+    })),
     {
       id: "historias",
       title: "Histórias Completas",
@@ -347,7 +359,7 @@ export default function PatientMemoryGames() {
         path: `/jogos/acerte-imagem/${g.id}`,
       })),
     },
-  ], [stories, games, gamesV2, phonemeGames, auditoryGames, hangmanGames, wordSearchGames, spinWheelGames, cardGames, guessImageGames]);
+  ], [stories, games, gamesV2, phonemeGames, auditoryGames, hangmanGames, wordSearchGames, spinWheelGames, cardGames, guessImageGames, roundGames]);
 
   useEffect(() => {
     if (!userId || loading || !canTrackNew) return;

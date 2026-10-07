@@ -11,6 +11,8 @@ export function storyGamePath(type: StoryGameType, id: number): string {
     word_search_game: "/jogos/caca-palavras/",
     card_game: "/jogos/cartas/",
     guess_image_game: "/jogos/acerte-imagem/",
+    sound_image_game: "/jogos/sons-imagens/",
+    image_sequence_game: "/jogos/sequencia-imagens/",
   };
   return `${prefix[type]}${id}`;
 }

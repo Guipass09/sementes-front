@@ -2737,7 +2737,7 @@ export type VideoJoinResponse = {
   room?: {
     appointment_id: number;
     created_at?: string;
-    content?: { path?: string; title?: string; kind?: string; seed?: number | null; share_id?: string } | null;
+    content?: { path?: string; title?: string; kind?: string; seed?: number | null; share_id?: string; story_id?: number; story_step?: number } | null;
     content_updated_at?: string | null;
     mouth3d_state?: import("@/features/mouth3d/sessionMouthState").SessionMouthState | null;
     mouth3d_message_id?: number | null;

@@ -18,9 +18,6 @@ import {
   Sparkles,
   RefreshCw,
   ScanFace,
-  ChevronLeft,
-  ChevronRight,
-  BookOpen,
 } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
@@ -63,6 +60,7 @@ import { initialSessionMouthState, normalizeSessionMouthState, type SessionMouth
 import { SessionDocumentation } from "@/features/reports/SessionDocumentation";
 import { SessionCatalogTile, activityCatalogImage, gameCatalogImage } from "@/features/session/SessionCatalogTile";
 import { storyStepPath } from "@/features/stories/story-sequence";
+import StoryNavigation from "@/features/stories/StoryNavigation";
 
 const catalogGridClass = "grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5";
 const catalogTileClass = "group w-full overflow-hidden rounded-md border border-border bg-card text-left transition-colors hover:border-brand-green hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green";
@@ -186,6 +184,7 @@ export default function SessionCall() {
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [activeStoryId, setActiveStoryId] = useState<number | null>(null);
   const [activeStoryStep, setActiveStoryStep] = useState<number>(0);
+  const storyDirectionRef = useRef("forward");
   const [memGames, setMemGames] = useState<MemoryGameRow[]>([]);
   const [memGames2, setMemGames2] = useState<MemoryGameRow[]>([]);
   const [phonemeGames, setPhonemeGames] = useState<PhonemeGameRow[]>([]);
@@ -1205,6 +1204,7 @@ export default function SessionCall() {
     // Seed sempre que for conteúdo interno (evita "ordem diferente" entre admin/paciente)
     const shareId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
     const seed = path.startsWith("http") ? null : computeSeed(story ? `${path}:${shareId}` : path);
+    storyDirectionRef.current = story && activeContentRef.current?.story_id === story.id && story.step < (activeContentRef.current?.story_step ?? 0) ? "back" : "forward";
     activeContentRef.current = { path, title, kind, seed, share_id: shareId,
       ...(story ? { story_id: story.id, story_step: story.step } : {}) };
     setActiveStoryId(story?.id ?? null);
@@ -1818,6 +1818,7 @@ export default function SessionCall() {
         const title = typeof m.payload?.title === "string" ? m.payload.title : "";
         const kind = typeof m.payload?.kind === "string" ? m.payload.kind : "";
         const seed = typeof m.payload?.seed === "number" ? m.payload.seed : null;
+        storyDirectionRef.current = Number(m.payload?.story_id) === activeContentRef.current?.story_id && Number(m.payload?.story_step) < (activeContentRef.current?.story_step ?? 0) ? "back" : "forward";
         activeContentRef.current = { path: p, title, kind, seed, share_id: shareId,
           story_id: Number(m.payload?.story_id) || undefined,
           story_step: Number.isInteger(Number(m.payload?.story_step)) ? Number(m.payload.story_step) : undefined,
@@ -3032,14 +3033,8 @@ export default function SessionCall() {
 
         <div className="sc-session-grid grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           {/* Área principal (conteúdo da sessão) */}
-          <div className="sc-session-content order-2 lg:order-1 rounded-2xl border border-border bg-card p-3 sm:p-4">
-            {role === "admin" && activeStory && <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
-              <div className="flex min-w-0 items-center gap-2 text-sm"><BookOpen className="h-4 w-4 shrink-0 text-brand-green" /><span className="truncate font-semibold">{activeStory.title}</span><span className="shrink-0 text-muted-foreground">{activeStoryStep + 1}/{activeStory.story_steps?.length ?? 0}</span></div>
-              <div className="flex items-center gap-1">
-                <Button variant="outline" size="icon" title="Etapa anterior" disabled={activeStoryStep <= 0} onClick={() => playStoryStep(activeStory, activeStoryStep - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-                <Button variant="outline" size="icon" title="Próxima etapa" disabled={activeStoryStep >= (activeStory.story_steps?.length ?? 0) - 1} onClick={() => playStoryStep(activeStory, activeStoryStep + 1)}><ChevronRight className="h-4 w-4" /></Button>
-              </div>
-            </div>}
+          <div className={cn("sc-session-content order-2 lg:order-1 rounded-2xl border border-border bg-card p-3 sm:p-4", activeContentRef.current?.story_id && !screenShareActive && "story-session-shell")}>
+            {role === "admin" && activeStory && !screenShareActive && <StoryNavigation compact story={activeStory} index={activeStoryStep} onSelect={index => playStoryStep(activeStory, index)} onReplay={() => playStoryStep(activeStory, activeStoryStep)} />}
             <div
               ref={contentAreaRef}
               className={cn(
@@ -3109,7 +3104,8 @@ export default function SessionCall() {
                   src={iframeSrc}
                   ref={contentFrameRef}
                   allow="autoplay"
-                  className="absolute inset-0 h-full w-full rounded-xl bg-background"
+                  className={cn("absolute inset-0 h-full w-full rounded-xl bg-background", activeContentRef.current?.story_id && !contentLoading && "story-frame-enter")}
+                  data-story-direction={storyDirectionRef.current}
                   title="Conteúdo da sessão"
                   onLoad={() => {
                     if (contentPath?.startsWith("http")) setLocalContentStatus("ready");

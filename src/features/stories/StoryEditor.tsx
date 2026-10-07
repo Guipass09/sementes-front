@@ -263,17 +263,18 @@ export default function StoryEditor() {
       </section>
 
       </fieldset>
-      <Dialog open={activityPickerOpen} onOpenChange={setActivityPickerOpen}><DialogContent className="max-w-3xl max-h-[85svh] flex flex-col">
-        <DialogHeader><DialogTitle>Escolher atividade de slides</DialogTitle></DialogHeader>
-        <div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input value={activitySearch} onChange={event => setActivitySearch(event.target.value)} className="pl-9" placeholder="Buscar atividade" aria-label="Buscar atividade" /></div>
-        <div className="min-h-0 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 pr-1">
+      <Dialog open={activityPickerOpen} onOpenChange={setActivityPickerOpen}><DialogContent className="max-w-3xl max-h-[85svh] flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0"><DialogTitle>Escolher atividade de slides</DialogTitle></DialogHeader>
+        <div className="relative shrink-0"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input value={activitySearch} onChange={event => setActivitySearch(event.target.value)} className="pl-9" placeholder="Buscar atividade" aria-label="Buscar atividade" /></div>
+        <div className="min-h-0 flex-auto overflow-y-auto overscroll-contain pr-1">
+        <div className="grid auto-rows-max grid-cols-1 items-start gap-3 sm:grid-cols-2">
           {activitiesLoading ? <div role="status" className="col-span-full flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Carregando atividades...</div>
             : activitiesError ? <div role="alert" className="col-span-full py-8 text-center space-y-3"><p className="text-sm text-destructive">Não foi possível carregar as atividades.</p><Button variant="outline" onClick={() => setActivityRetry(value => value + 1)}><RefreshCw className="mr-2 h-4 w-4" />Tentar novamente</Button></div>
             : filteredActivities.map(activity => {
               const slides = activitySlides(activity);
               const first = slides[0];
               const image = first.thumbnail_url || (first.media_type === "image" ? first.url : null);
-              return <button key={activity.id} type="button" disabled={saving} onClick={() => importActivity(activity)} className="group overflow-hidden rounded-md border border-border bg-card text-left transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              return <button key={activity.id} type="button" disabled={saving} onClick={() => importActivity(activity)} className="group block w-full min-w-0 overflow-hidden rounded-md border border-border bg-card text-left transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-muted">
                   {image ? <img src={normalizeMediaUrl(image)} alt="" loading="lazy" className="h-full w-full object-contain" /> : <Film className="h-10 w-10 text-primary/60" />}
                   <span className="absolute bottom-2 right-2 rounded bg-background/95 px-2 py-1 text-xs font-medium">{slides.length} {slides.length === 1 ? "slide" : "slides"}</span>
@@ -282,6 +283,7 @@ export default function StoryEditor() {
               </button>;
             })}
           {!activitiesLoading && !activitiesError && filteredActivities.length === 0 && <div className="col-span-full py-10 text-center text-sm text-muted-foreground">Nenhuma atividade de slides encontrada.</div>}
+        </div>
         </div>
       </DialogContent></Dialog>
 

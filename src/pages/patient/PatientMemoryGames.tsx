@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CircleDot,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
   Ear,
@@ -15,6 +16,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
 import type {
+  ActivityRow,
   AuditoryGameRow,
   CardGameRow,
   GuessImageGameRow,
@@ -95,6 +97,7 @@ export default function PatientMemoryGames() {
   const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
   const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
   const [guessImageGames, setGuessImageGames] = useState<GuessImageGameRow[]>([]);
+  const [stories, setStories] = useState<ActivityRow[]>([]);
 
   useEffect(() => {
     if (!userId) return;
@@ -105,7 +108,7 @@ export default function PatientMemoryGames() {
       setPendingGameKeys(new Set());
       let hadLoadError = false;
       try {
-        const [memClassic, memV2, phon, aud, hang, spin, ws, cards, guessImg] = await Promise.all([
+        const [memClassic, memV2, phon, aud, hang, spin, ws, cards, guessImg, assignedActivities] = await Promise.all([
           api.userListMemoryGames({ variant: "classic" }).catch(err => {
             hadLoadError = true;
             console.error("[Jogos] Erro ao buscar memory games:", err);
@@ -151,6 +154,11 @@ export default function PatientMemoryGames() {
             console.error("[Jogos] Erro ao buscar guess image games:", err);
             return [];
           }),
+          api.userListActivities().catch(err => {
+            hadLoadError = true;
+            console.error("[Jogos] Erro ao buscar histórias:", err);
+            return [];
+          }),
         ]);
         if (!cancelled) {
           setGames(memClassic);
@@ -162,6 +170,7 @@ export default function PatientMemoryGames() {
           setWordSearchGames(ws);
           setCardGames(cards);
           setGuessImageGames(guessImg);
+          setStories(assignedActivities.filter(activity => activity.is_story && (activity.story_steps?.length ?? 0) > 0));
           setCanTrackNew(!hadLoadError);
         }
       } catch (error) {
@@ -176,6 +185,7 @@ export default function PatientMemoryGames() {
           setWordSearchGames([]);
           setCardGames([]);
           setGuessImageGames([]);
+          setStories([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -187,6 +197,21 @@ export default function PatientMemoryGames() {
   }, [userId]);
 
   const categories = useMemo<GameCategory[]>(() => [
+    {
+      id: "historias",
+      title: "Histórias Completas",
+      icon: BookOpen,
+      iconClassName: "text-emerald-700",
+      iconBackgroundClassName: "bg-emerald-50",
+      items: stories.map(story => ({
+        id: story.id,
+        title: story.title,
+        description: story.description,
+        imageUrl: story.media.find(item => item.media_type !== "video")?.url,
+        detail: `${story.story_steps?.length ?? 0} etapas`,
+        path: `/atividades/${story.id}`,
+      })),
+    },
     {
       id: "memoria",
       title: "Jogos da Memória",
@@ -322,7 +347,7 @@ export default function PatientMemoryGames() {
         path: `/jogos/acerte-imagem/${g.id}`,
       })),
     },
-  ], [games, gamesV2, phonemeGames, auditoryGames, hangmanGames, wordSearchGames, spinWheelGames, cardGames, guessImageGames]);
+  ], [stories, games, gamesV2, phonemeGames, auditoryGames, hangmanGames, wordSearchGames, spinWheelGames, cardGames, guessImageGames]);
 
   useEffect(() => {
     if (!userId || loading || !canTrackNew) return;

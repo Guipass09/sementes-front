@@ -92,6 +92,8 @@ export type ActivityRow = {
   id: number;
   title: string;
   description: string;
+  is_story?: boolean;
+  story_steps?: StoryStep[];
   category?: string | null;
   estimated_time?: string | null;
   status?: ActivityStatus; // user
@@ -552,6 +554,22 @@ export type ProfessionalDashboardSummary = {
   scheduled_sessions: number;
 };
 
+export type StoryStep =
+  | { type: "media"; media_id: number }
+  | { type: "game"; game_type: StoryGameType; game_id: number };
+
+export type StoryGameType =
+  | "memory_game" | "memory_game_v2" | "phoneme_game" | "auditory_game"
+  | "hangman_game" | "spin_wheel_game" | "word_search_game"
+  | "card_game" | "guess_image_game";
+
+export async function saveStorySteps(id: number, steps: StoryStep[], role: "admin" | "professional") {
+  await ensureCsrfCookie();
+  return request<{ id: number; story_steps: StoryStep[] }>(`/api/${role}/activities/${id}/story`, {
+    method: "PATCH", json: { steps },
+  });
+}
+
 export async function professionalGetDashboardSummary(profile: Pick<AuthUser, "id" | "clinic_name">): Promise<ProfessionalDashboardSummary> {
   const isClinic = Boolean(profile.clinic_name?.trim());
   const [users, professionals] = await Promise.all([
@@ -688,12 +706,14 @@ export async function professionalCreateActivity(payload: {
   category?: string;
   estimated_time?: string;
   assigned_to: number[];
+  is_story?: boolean;
   media: Array<{ file: File; media_type: ActivityMediaType; caption: string; thumbnail?: File | null }>;
 }): Promise<ActivityRow> {
   await ensureCsrfCookie();
   const fd = new FormData();
   fd.set("title", payload.title);
   fd.set("description", payload.description);
+  if (payload.is_story) fd.set("is_story", "1");
   if (payload.category) fd.set("category", payload.category);
   if (payload.estimated_time) fd.set("estimated_time", payload.estimated_time);
   fd.set("assigned_to_json", JSON.stringify(payload.assigned_to || []));
@@ -2215,8 +2235,17 @@ export async function userListCardGames(): Promise<CardGameRow[]> {
   return res.data;
 }
 
-export async function userGetCardGame(id: number, opts?: { session_id?: number | null }): Promise<CardGameRow> {
-  const q = opts?.session_id ? `?session_id=${encodeURIComponent(String(opts.session_id))}` : "";
+export type StoryGameAccess = { session_id?: number | null; story_id?: number | null };
+
+function storyGameAccessQuery(opts?: StoryGameAccess): string {
+  const q = new URLSearchParams();
+  if (opts?.session_id) q.set("session_id", String(opts.session_id));
+  if (opts?.story_id) q.set("story_id", String(opts.story_id));
+  return q.size ? `?${q}` : "";
+}
+
+export async function userGetCardGame(id: number, opts?: StoryGameAccess): Promise<CardGameRow> {
+  const q = storyGameAccessQuery(opts);
   return await request<CardGameRow>(`/api/card-games/${id}${q}`);
 }
 
@@ -2370,9 +2399,8 @@ export async function userListGuessImageGames(): Promise<GuessImageGameRow[]> {
   return res.data;
 }
 
-export async function userGetGuessImageGame(id: number, opts?: { session_id?: number | null }): Promise<GuessImageGameRow> {
-  const sid = opts?.session_id;
-  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+export async function userGetGuessImageGame(id: number, opts?: StoryGameAccess): Promise<GuessImageGameRow> {
+  const qs = storyGameAccessQuery(opts);
   return await request<GuessImageGameRow>(`/api/guess-image-games/${id}${qs}`);
 }
 
@@ -2468,6 +2496,7 @@ export async function adminCreateActivity(payload: {
   category?: string;
   estimated_time?: string;
   assigned_to: number[];
+  is_story?: boolean;
   media: Array<{ file: File; media_type: ActivityMediaType; caption: string; thumbnail?: File | null }>;
 }): Promise<ActivityRow> {
   await ensureCsrfCookie();
@@ -2475,6 +2504,7 @@ export async function adminCreateActivity(payload: {
   const fd = new FormData();
   fd.set("title", payload.title);
   fd.set("description", payload.description);
+  if (payload.is_story) fd.set("is_story", "1");
   if (payload.category) fd.set("category", payload.category);
   if (payload.estimated_time) fd.set("estimated_time", payload.estimated_time);
 
@@ -2585,9 +2615,8 @@ export async function userListMemoryGames(opts?: { variant?: "classic" | "v2" })
   return res.data;
 }
 
-export async function userGetMemoryGame(id: number, opts?: { session_id?: number | null }): Promise<MemoryGameRow> {
-  const sid = opts?.session_id;
-  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+export async function userGetMemoryGame(id: number, opts?: StoryGameAccess): Promise<MemoryGameRow> {
+  const qs = storyGameAccessQuery(opts);
   return await request<MemoryGameRow>(`/api/memory-games/${id}${qs}`);
 }
 
@@ -2604,9 +2633,8 @@ export async function userListPhonemeGames(): Promise<PhonemeGameRow[]> {
   return res.data;
 }
 
-export async function userGetPhonemeGame(id: number, opts?: { session_id?: number | null }): Promise<PhonemeGameRow> {
-  const sid = opts?.session_id;
-  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+export async function userGetPhonemeGame(id: number, opts?: StoryGameAccess): Promise<PhonemeGameRow> {
+  const qs = storyGameAccessQuery(opts);
   return await request<PhonemeGameRow>(`/api/phoneme-games/${id}${qs}`);
 }
 
@@ -2623,9 +2651,8 @@ export async function userListWordSearchGames(): Promise<WordSearchGameRow[]> {
   return res.data;
 }
 
-export async function userGetWordSearchGame(id: number, opts?: { session_id?: number | null }): Promise<WordSearchGameRow> {
-  const sid = opts?.session_id;
-  const qs = sid ? `?session_id=${sid}` : "";
+export async function userGetWordSearchGame(id: number, opts?: StoryGameAccess): Promise<WordSearchGameRow> {
+  const qs = storyGameAccessQuery(opts);
   return await request<WordSearchGameRow>(`/api/word-search-games/${id}${qs}`);
 }
 
@@ -2647,15 +2674,13 @@ export async function userListHangmanGames(): Promise<HangmanGameRow[]> {
   return res.data;
 }
 
-export async function userGetAuditoryGame(id: number, opts?: { session_id?: number | null }): Promise<AuditoryGameRow> {
-  const sid = opts?.session_id;
-  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+export async function userGetAuditoryGame(id: number, opts?: StoryGameAccess): Promise<AuditoryGameRow> {
+  const qs = storyGameAccessQuery(opts);
   return await request<AuditoryGameRow>(`/api/auditory-games/${id}${qs}`);
 }
 
-export async function userGetHangmanGame(id: number, opts?: { session_id?: number | null }): Promise<HangmanGameRow> {
-  const sid = opts?.session_id;
-  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+export async function userGetHangmanGame(id: number, opts?: StoryGameAccess): Promise<HangmanGameRow> {
+  const qs = storyGameAccessQuery(opts);
   return await request<HangmanGameRow>(`/api/hangman-games/${id}${qs}`);
 }
 
@@ -3134,9 +3159,8 @@ export async function userListSpinWheelGames(): Promise<SpinWheelGameRow[]> {
   return res.data;
 }
 
-export async function userGetSpinWheelGame(id: number, opts?: { session_id?: number | null }): Promise<SpinWheelGameRow> {
-  const sid = opts?.session_id;
-  const qs = typeof sid === "number" && Number.isFinite(sid) ? `?session_id=${encodeURIComponent(String(sid))}` : "";
+export async function userGetSpinWheelGame(id: number, opts?: StoryGameAccess): Promise<SpinWheelGameRow> {
+  const qs = storyGameAccessQuery(opts);
   return await request<SpinWheelGameRow>(`/api/spin-wheel-games/${id}${qs}`);
 }
 

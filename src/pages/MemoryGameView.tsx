@@ -94,7 +94,7 @@ export default function MemoryGameView() {
   })();
   const [sessionSeed, setSessionSeed] = useState<number | null>(initialSeed);
   const sessionSeedRef = useRef<number | null>(initialSeed);
-  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin" || sessionParams.get("story_preview") === "1");
   const applyingRemoteRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
@@ -172,7 +172,7 @@ export default function MemoryGameView() {
             ? await api.adminGetMemoryGame(gameId)
             : user.role === "professional"
               ? await api.professionalGetMemoryGame(gameId)
-              : await api.userGetMemoryGame(gameId, inSession ? { session_id: sessionId } : undefined);
+              : await api.userGetMemoryGame(gameId, { session_id: inSession ? sessionId : null, story_id: Number(sessionParams.get("story_id")) || null });
         if (cancelled) return;
         setGame(g);
       } catch (e) {

@@ -46,7 +46,7 @@ export default function PhonemeGameView() {
     return Number.isFinite(n) ? n : null;
   }, [sessionParams]);
 
-  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin" || sessionParams.get("story_preview") === "1");
   const applyingRemoteRef = useRef(false);
 
   const gameId = useMemo(() => {
@@ -110,7 +110,7 @@ export default function PhonemeGameView() {
             ? await api.adminGetPhonemeGame(gameId)
             : user.role === "professional"
               ? await api.professionalGetPhonemeGame(gameId)
-              : await api.userGetPhonemeGame(gameId, inSession ? { session_id: sessionId } : undefined);
+              : await api.userGetPhonemeGame(gameId, { session_id: inSession ? sessionId : null, story_id: Number(sessionParams.get("story_id")) || null });
         if (cancelled) return;
         setGame(g);
         setIdx(0);

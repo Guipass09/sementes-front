@@ -26,7 +26,7 @@ export default function SpinWheelGameView() {
     const n = Number(sessionParams.get("session_id"));
     return Number.isFinite(n) ? n : null;
   }, [sessionParams]);
-  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin" || sessionParams.get("story_preview") === "1");
   const applyingRemoteRef = useRef(false);
 
   const emitSessionEvent = useCallback((event: any) => {
@@ -193,7 +193,7 @@ export default function SpinWheelGameView() {
             ? await api.adminGetSpinWheelGame(Number(id))
             : role === "professional"
               ? await api.professionalGetSpinWheelGame(Number(id))
-              : await api.userGetSpinWheelGame(Number(id), inSession ? { session_id: sessionId } : undefined);
+              : await api.userGetSpinWheelGame(Number(id), { session_id: inSession ? sessionId : null, story_id: Number(sessionParams.get("story_id")) || null });
         if (!cancelled) {
           setGame(data);
           setActiveOrder(Array.from({ length: data.items.length }, (_, i) => i));

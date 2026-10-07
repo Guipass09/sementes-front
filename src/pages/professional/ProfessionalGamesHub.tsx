@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon, ScanFace } from "lucide-react";
+import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon, ScanFace, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth/AuthContext";
 import ClinicProfessionalGamesView from "@/components/ClinicProfessionalGamesView";
@@ -26,6 +26,11 @@ function StandardProfessionalGamesHub() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 items-stretch">
+          <div className="bg-card rounded-md border border-border p-5 h-full">
+            <div className="flex h-full gap-4"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-brand-green/10"><BookOpen className="h-5 w-5 text-brand-green" /></div>
+              <div className="flex min-w-0 flex-1 flex-col"><h2 className="font-display text-lg font-semibold">Histórias completas</h2><p className="mt-1 text-sm text-muted-foreground">Combine slides, GIFs, vídeos e jogos em uma sequência.</p>
+                <div className="mt-auto flex flex-wrap gap-2 pt-4"><Button onClick={() => navigate("/profissional/jogos/historias")}>Gerenciar <ArrowRight className="ml-2 h-4 w-4" /></Button><Button variant="outline" onClick={() => navigate("/profissional/jogos/historias/novo")}>Nova história</Button></div></div></div>
+          </div>
           <div className="bg-card rounded-xl border border-border p-4 sm:p-6 shadow-sm h-full">
             <div className="flex items-start gap-3 sm:gap-4 h-full">
               <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-brand-green/10 flex items-center justify-center flex-shrink-0"><ScanFace className="h-5 w-5 sm:h-6 sm:w-6 text-brand-green" /></div>

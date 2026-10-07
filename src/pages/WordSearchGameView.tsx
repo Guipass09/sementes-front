@@ -31,7 +31,7 @@ export default function WordSearchGameView() {
     return Number.isFinite(n) ? n : null;
   }, [sessionParams]);
 
-  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin" || sessionParams.get("story_preview") === "1");
   const applyingRemoteRef = useRef(false);
 
   const gameId = useMemo(() => {
@@ -87,7 +87,7 @@ export default function WordSearchGameView() {
       return;
     }
     // Se está em sessão mas sessionId ainda não está disponível, aguarda um pouco
-    if (inSession && !sessionId) {
+    if (inSession && !sessionId && !sessionParams.get("story_id")) {
       // Aguarda sessionId estar disponível antes de fazer requisição
       return;
     }
@@ -102,7 +102,7 @@ export default function WordSearchGameView() {
             ? await api.adminGetWordSearchGame(gameId)
             : user.role === "professional"
               ? await api.professionalGetWordSearchGame(gameId)
-              : await api.userGetWordSearchGame(gameId, inSession && sessionId ? { session_id: sessionId } : undefined);
+              : await api.userGetWordSearchGame(gameId, { session_id: inSession ? sessionId : null, story_id: Number(sessionParams.get("story_id")) || null });
         if (cancelled) return;
         setGame(g);
         // Restaura progresso se existir

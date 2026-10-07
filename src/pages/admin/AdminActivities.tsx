@@ -50,8 +50,9 @@ const AdminActivities = () => {
 
   const filteredActivities = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return activities;
-    return activities.filter((a) => {
+    const slides = activities.filter((a) => !a.is_story);
+    if (!q) return slides;
+    return slides.filter((a) => {
       return (
         a.title.toLowerCase().includes(q) ||
         (a.category || "").toLowerCase().includes(q)
@@ -106,6 +107,7 @@ const AdminActivities = () => {
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>Novo jogo</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/historias/novo")}>Criar histórias completas</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => navigate("/admin/jogos/memoria/novo")}>
                   <Grid3X3 className="h-4 w-4 mr-2" />
                   Jogo da Memória

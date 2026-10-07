@@ -40,7 +40,7 @@ export default function HangmanGameView() {
     const n = Number(sessionParams.get("session_id"));
     return Number.isFinite(n) ? n : null;
   }, [sessionParams]);
-  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin" || sessionParams.get("story_preview") === "1");
   const applyingRemoteRef = useRef(false);
 
   const emitSessionEvent = useCallback(
@@ -184,7 +184,7 @@ export default function HangmanGameView() {
             ? await api.adminGetHangmanGame(gameId)
             : auth.user?.role === "professional"
               ? await api.professionalGetHangmanGame(gameId)
-              : await api.userGetHangmanGame(gameId, inSession ? { session_id: sessionId } : undefined);
+              : await api.userGetHangmanGame(gameId, { session_id: inSession ? sessionId : null, story_id: Number(sessionParams.get("story_id")) || null });
         if (cancelled) return;
         setGame(g);
 
@@ -542,7 +542,7 @@ export default function HangmanGameView() {
               </div>
 
               <div>
-                <div className="text-sm text-muted-foreground mb-2">{game.description}</div>
+                <div className="story-game-description text-sm text-muted-foreground mb-2">{game.description}</div>
 
                 <div className="grid gap-2 justify-center sm:justify-start [grid-template-columns:repeat(auto-fit,minmax(2.25rem,2.75rem))] sm:[grid-template-columns:repeat(auto-fit,minmax(2.5rem,3rem))]">
                   {revealed.length > 0 ? (

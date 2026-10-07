@@ -18,6 +18,9 @@ import {
   Sparkles,
   RefreshCw,
   ScanFace,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen,
 } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useAuth } from "@/auth/AuthContext";
@@ -59,6 +62,7 @@ import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
 import { initialSessionMouthState, normalizeSessionMouthState, type SessionMouthState } from "@/features/mouth3d/sessionMouthState";
 import { SessionDocumentation } from "@/features/reports/SessionDocumentation";
 import { SessionCatalogTile, activityCatalogImage, gameCatalogImage } from "@/features/session/SessionCatalogTile";
+import { storyStepPath } from "@/features/stories/story-sequence";
 
 const catalogGridClass = "grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5";
 const catalogTileClass = "group w-full overflow-hidden rounded-md border border-border bg-card text-left transition-colors hover:border-brand-green hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green";
@@ -71,7 +75,7 @@ const SessionMouthOverlay = lazy(() => import("@/features/mouth3d/SessionMouthOv
 
 type Role = "admin" | "user";
 type ContentStatus = "loading" | "ready" | "failed";
-type SharedContent = { path: string; title: string; kind: string; seed: number | null; share_id: string };
+type SharedContent = { path: string; title: string; kind: string; seed: number | null; share_id: string; story_id?: number; story_step?: number };
 
 function safeStopStream(s: MediaStream | null) {
   if (!s) return;
@@ -180,6 +184,8 @@ export default function SessionCall() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogTab, setCatalogTab] = useState<"meu" | "compartilhados">("meu");
   const [activities, setActivities] = useState<ActivityRow[]>([]);
+  const [activeStoryId, setActiveStoryId] = useState<number | null>(null);
+  const [activeStoryStep, setActiveStoryStep] = useState<number>(0);
   const [memGames, setMemGames] = useState<MemoryGameRow[]>([]);
   const [memGames2, setMemGames2] = useState<MemoryGameRow[]>([]);
   const [phonemeGames, setPhonemeGames] = useState<PhonemeGameRow[]>([]);
@@ -263,6 +269,8 @@ export default function SessionCall() {
     setRemoteMediaState(null);
     setRemoteVideoStalled(false);
     activeContentRef.current = null;
+    setActiveStoryId(null);
+    setActiveStoryStep(0);
     localContentStatusRef.current = "loading";
     remoteContentStatusRef.current = null;
     setContentPath(null);
@@ -341,6 +349,9 @@ export default function SessionCall() {
 
   const activeCatalog = appRole === "professional" ? (catalogTab === "compartilhados" ? catalogView.shared : catalogView.mine) : catalogView.mine;
   const catActivities = activeCatalog.activities;
+  const catStories = catActivities.filter((activity) => activity.is_story && (activity.story_steps?.length ?? 0) > 0);
+  const catSlides = catActivities.filter((activity) => !activity.is_story);
+  const activeStory = activeStoryId ? activities.find((activity) => activity.id === activeStoryId && activity.is_story) : null;
   const catMemGames = activeCatalog.memGames;
   const catMemGames2 = activeCatalog.memGames2;
   const catPhonemeGames = activeCatalog.phonemeGames;
@@ -737,7 +748,11 @@ export default function SessionCall() {
           kind: typeof savedContent?.kind === "string" ? savedContent.kind : "",
           seed: typeof savedContent?.seed === "number" ? savedContent.seed : null,
           share_id: initialShareId,
+          story_id: Number(savedContent?.story_id) || undefined,
+          story_step: Number.isInteger(Number(savedContent?.story_step)) ? Number(savedContent.story_step) : undefined,
         } : null;
+        setActiveStoryId(res.role === "admin" ? Number(savedContent?.story_id) || null : null);
+        setActiveStoryStep(Number(savedContent?.story_step) || 0);
         localContentStatusRef.current = "loading";
         remoteContentStatusRef.current = initialPath && res.role === "admin" ? "waiting" : null;
         setContentPath(initialPath || null);
@@ -1182,15 +1197,18 @@ export default function SessionCall() {
     }
   };
 
-  const selectContent = async (path: string, title: string, kind: string) => {
+  const selectContent = async (path: string, title: string, kind: string, story?: { id: number; step: number }) => {
     if (!path) return;
     // Ao trocar conteúdo, limpa rabiscos (efeito "compartilhamento de tela" por atividade)
     clearDoodleLocal();
     void send("draw_event", { t: "clear" }).catch(() => {});
     // Seed sempre que for conteúdo interno (evita "ordem diferente" entre admin/paciente)
-    const seed = path.startsWith("http") ? null : computeSeed(path);
     const shareId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-    activeContentRef.current = { path, title, kind, seed, share_id: shareId };
+    const seed = path.startsWith("http") ? null : computeSeed(story ? `${path}:${shareId}` : path);
+    activeContentRef.current = { path, title, kind, seed, share_id: shareId,
+      ...(story ? { story_id: story.id, story_step: story.step } : {}) };
+    setActiveStoryId(story?.id ?? null);
+    setActiveStoryStep(story?.step ?? 0);
     setContentPath(path);
     setContentTitle(title || null);
     setContentKind(kind || null);
@@ -1201,6 +1219,23 @@ export default function SessionCall() {
     if (role === "admin") void resendContentToPatient();
     setCatalogOpen(false);
   };
+
+  const playStoryStep = (story: ActivityRow, index: number) => {
+    const path = storyStepPath(story, index);
+    const step = story.story_steps?.[index];
+    if (!path || !step) return;
+    void selectContent(path, story.title, step.type === "media" ? "story_media" : step.game_type,
+      { id: story.id, step: index });
+  };
+
+  useEffect(() => {
+    if (role !== "admin" || !activeStoryId || activities.some((activity) => activity.id === activeStoryId)) return;
+    let active = true;
+    void (appRole === "admin" ? api.adminGetActivity(activeStoryId) : api.professionalGetActivity(activeStoryId))
+      .then((story) => { if (active) setActivities((current) => [...current.filter((item) => item.id !== story.id), story]); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [role, appRole, activeStoryId, activities]);
 
   useEffect(() => {
     if (role !== "user" || !joinInfo || !contentShareId || !activeContentRef.current) return;
@@ -1783,7 +1818,10 @@ export default function SessionCall() {
         const title = typeof m.payload?.title === "string" ? m.payload.title : "";
         const kind = typeof m.payload?.kind === "string" ? m.payload.kind : "";
         const seed = typeof m.payload?.seed === "number" ? m.payload.seed : null;
-        activeContentRef.current = { path: p, title, kind, seed, share_id: shareId };
+        activeContentRef.current = { path: p, title, kind, seed, share_id: shareId,
+          story_id: Number(m.payload?.story_id) || undefined,
+          story_step: Number.isInteger(Number(m.payload?.story_step)) ? Number(m.payload.story_step) : undefined,
+        };
         setContentPath(p);
         setContentTitle(title || null);
         setContentKind(kind || null);
@@ -2919,6 +2957,7 @@ export default function SessionCall() {
       if (role) base.searchParams.set("session_role", role);
       if (typeof contentSeed === "number") base.searchParams.set("session_seed", String(contentSeed));
       if (contentShareId) base.searchParams.set("session_content_id", contentShareId);
+      if (activeContentRef.current?.story_id) base.searchParams.set("story_id", String(activeContentRef.current.story_id));
       return base.pathname + (base.search ? base.search : "");
     } catch {
       return contentPath;
@@ -2994,6 +3033,13 @@ export default function SessionCall() {
         <div className="sc-session-grid grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           {/* Área principal (conteúdo da sessão) */}
           <div className="sc-session-content order-2 lg:order-1 rounded-2xl border border-border bg-card p-3 sm:p-4">
+            {role === "admin" && activeStory && <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
+              <div className="flex min-w-0 items-center gap-2 text-sm"><BookOpen className="h-4 w-4 shrink-0 text-brand-green" /><span className="truncate font-semibold">{activeStory.title}</span><span className="shrink-0 text-muted-foreground">{activeStoryStep + 1}/{activeStory.story_steps?.length ?? 0}</span></div>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" title="Etapa anterior" disabled={activeStoryStep <= 0} onClick={() => playStoryStep(activeStory, activeStoryStep - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+                <Button variant="outline" size="icon" title="Próxima etapa" disabled={activeStoryStep >= (activeStory.story_steps?.length ?? 0) - 1} onClick={() => playStoryStep(activeStory, activeStoryStep + 1)}><ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </div>}
             <div
               ref={contentAreaRef}
               className={cn(
@@ -3076,7 +3122,7 @@ export default function SessionCall() {
                   style={{
                     // Sem reação visual: apenas bloqueia interação quando não liberado
                     pointerEvents:
-                      drawOn ? "none" : role === "user" && !controlGranted ? "none" : "auto",
+                      drawOn ? "none" : role === "user" && !controlGranted && contentKind !== "story_media" ? "none" : "auto",
                   }}
                 />
               ) : (
@@ -3466,13 +3512,19 @@ export default function SessionCall() {
                 </Tabs>
               ) : null}
               {/* Seção: Atividades */}
+              {catStories.length > 0 && <div>
+                <div className="text-base font-semibold text-foreground mb-3">Histórias completas</div>
+                <div className={catalogGridClass}>{catStories.map((story) => <button key={`story-${story.id}`} onClick={() => playStoryStep(story, 0)} className={catalogTileClass}>
+                  <SessionCatalogTile title={story.title} subtitle={`${story.story_steps?.length ?? 0} etapas`} imageUrl={activityCatalogImage(story)} kind="activity" />
+                </button>)}</div>
+              </div>}
               <div>
                 <div className="text-base font-semibold text-foreground mb-3">Atividades</div>
                 <div className={catalogGridClass}>
-                  {catActivities.length === 0 ? (
+                  {catSlides.length === 0 ? (
                     <div className="col-span-full py-2 text-sm text-muted-foreground">Nenhuma atividade disponível</div>
                   ) : (
-                    catActivities.map((a) => (
+                    catSlides.map((a) => (
                       <button
                         key={`act-${a.id}`}
                         onClick={() => {

@@ -7,6 +7,13 @@ export function useSessionContentStatus(loading: boolean, hasContent: boolean) {
 
   useEffect(() => {
     const params = new URLSearchParams(search);
+    const hideHeading = params.get("session") === "1" && params.get("session_role") === "user" && !!params.get("story_id");
+    if (hideHeading) document.documentElement.classList.add("story-session-patient");
+    return () => document.documentElement.classList.remove("story-session-patient");
+  }, [search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(search);
     if (params.get("session") !== "1" || window.parent === window) return;
     const shareId = params.get("session_content_id");
     if (!shareId) return;

@@ -38,6 +38,8 @@ import AdminActivities from "./pages/admin/AdminActivities";
 import AdminSessions from "./pages/admin/AdminSessions";
 import AdminReports from "./pages/admin/AdminReports";
 import ActivityView from "./pages/ActivityView";
+import StoryEditor from "./features/stories/StoryEditor";
+import StoryLibrary from "./features/stories/StoryLibrary";
 import AdminMemoryGameCreate from "./pages/admin/AdminMemoryGameCreate";
 import AdminMemoryGames from "./pages/admin/AdminMemoryGames";
 import AdminMemoryGameEdit from "./pages/admin/AdminMemoryGameEdit";
@@ -155,6 +157,9 @@ const App = () => {
                 <Route path="pacientes/:id/comentario" element={<ProfessionalPatientComment />} />
                 <Route path="atividades" element={<ProfessionalActivities />} />
                 <Route path="jogos" element={<ProfessionalGamesHub />} />
+                <Route path="jogos/historias" element={<StoryLibrary />} />
+                <Route path="jogos/historias/novo" element={<StoryEditor />} />
+                <Route path="jogos/historias/:id/editar" element={<StoryEditor />} />
                 <Route path="jogos/boca-3d" element={<Suspense fallback={<FullScreenLogoLoader label="Carregando modelo..." />}><AdminMouth3D /></Suspense>} />
                 <Route path="jogos/memoria" element={<AdminMemoryGames />} />
                 <Route path="jogos/memoria/novo" element={<AdminMemoryGameCreate />} />
@@ -201,6 +206,9 @@ const App = () => {
                 <Route path="usuarios" element={<AdminUsers />} />
                 <Route path="atividades" element={<AdminActivities />} />
                 <Route path="jogos" element={<AdminGamesHub />} />
+                <Route path="jogos/historias" element={<StoryLibrary />} />
+                <Route path="jogos/historias/novo" element={<StoryEditor />} />
+                <Route path="jogos/historias/:id/editar" element={<StoryEditor />} />
                 <Route path="jogos/boca-3d" element={<Suspense fallback={<FullScreenLogoLoader label="Carregando modelo..." />}><AdminMouth3D /></Suspense>} />
                 <Route path="jogos/memoria" element={<AdminMemoryGames />} />
                 <Route path="jogos/memoria/novo" element={<AdminMemoryGameCreate />} />

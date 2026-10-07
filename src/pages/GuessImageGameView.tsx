@@ -48,7 +48,7 @@ export default function GuessImageGameView() {
     return Number.isFinite(n) ? n : null;
   }, [sessionParams]);
 
-  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin" || sessionParams.get("story_preview") === "1");
   const applyingRemoteRef = useRef(false);
 
   const gameId = useMemo(() => {
@@ -118,7 +118,7 @@ export default function GuessImageGameView() {
             ? await api.adminGetGuessImageGame(gameId)
             : user.role === "professional"
               ? await api.professionalGetGuessImageGame(gameId)
-              : await api.userGetGuessImageGame(gameId, inSession ? { session_id: sessionId } : undefined);
+              : await api.userGetGuessImageGame(gameId, { session_id: inSession ? sessionId : null, story_id: Number(sessionParams.get("story_id")) || null });
         if (cancelled) return;
         setGame(g);
         setIdx(0);

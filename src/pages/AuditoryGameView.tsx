@@ -76,7 +76,7 @@ export default function AuditoryGameView() {
     return Number.isFinite(s) ? s : 0;
   })();
   const sessionSeedRef = useRef<number>(initialSeed);
-  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin" || sessionParams.get("story_preview") === "1");
   const applyingRemoteRef = useRef(false);
 
   const emitSessionEvent = useCallback(
@@ -163,7 +163,7 @@ export default function AuditoryGameView() {
             ? await api.adminGetAuditoryGame(gameId)
             : auth.user?.role === "professional"
               ? await api.professionalGetAuditoryGame(gameId)
-              : await api.userGetAuditoryGame(gameId, inSession ? { session_id: sessionId } : undefined);
+              : await api.userGetAuditoryGame(gameId, { session_id: inSession ? sessionId : null, story_id: Number(sessionParams.get("story_id")) || null });
         if (cancelled) return;
         setGame(g);
 

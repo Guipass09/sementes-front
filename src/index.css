@@ -238,6 +238,15 @@
   display: none !important;
 }
 
+.story-session-patient .fs-target h1,
+.story-session-patient .fs-target h1 + p {
+  display: none !important;
+}
+
+.story-session-patient .story-game-description {
+  display: none !important;
+}
+
 /* Ajustes do jogo da memória em fullscreen: menos padding, grid "fit" */
 .fs-target:fullscreen .mg-fs-body,
 .fs-target:-webkit-full-screen .mg-fs-body,

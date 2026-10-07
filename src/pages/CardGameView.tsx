@@ -64,8 +64,8 @@ export default function CardGameView() {
     const n = Number(sessionParams.get("session_seed"));
     return Number.isFinite(n) ? (n >>> 0) : 123456789;
   }, [sessionParams]);
-  const [controlAllowed, setControlAllowed] = useState<boolean>(sessionRole === "admin");
-  const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
+  const [controlAllowed, setControlAllowed] = useState<boolean>(sessionRole === "admin" || sessionParams.get("story_preview") === "1");
+  const controlAllowedRef = useRef<boolean>(sessionRole === "admin" || sessionParams.get("story_preview") === "1");
   const applyingRemoteRef = useRef(false);
   const autoPseudoFullscreen = inSession && sessionRole === "user";
   const fsRef = useRef<HTMLDivElement | null>(null);
@@ -151,7 +151,7 @@ export default function CardGameView() {
             ? await api.adminGetCardGame(Number(id))
             : role === "professional"
               ? await api.professionalGetCardGame(Number(id))
-              : await api.userGetCardGame(Number(id), inSession ? { session_id: sessionId } : undefined);
+              : await api.userGetCardGame(Number(id), { session_id: inSession ? sessionId : null, story_id: Number(sessionParams.get("story_id")) || null });
         if (cancelled) return;
         setGame(data);
         resetDeck(Math.max(1, Math.min(15, Number(data.cards_count) || 10)), sessionSeed);

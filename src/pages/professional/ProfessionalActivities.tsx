@@ -65,8 +65,9 @@ function StandardProfessionalActivities(): JSX.Element {
 
   const filteredActivities = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return activities;
-    return activities.filter((a) => a.title.toLowerCase().includes(q) || (a.category || "").toLowerCase().includes(q));
+    const slides = activities.filter((a) => !a.is_story);
+    if (!q) return slides;
+    return slides.filter((a) => a.title.toLowerCase().includes(q) || (a.category || "").toLowerCase().includes(q));
   }, [activities, searchTerm]);
 
   const groupedByUser = useMemo(() => {
@@ -121,6 +122,7 @@ function StandardProfessionalActivities(): JSX.Element {
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>Novo jogo</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/historias/novo")}>Criar histórias completas</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria/novo")}>Memória</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria2/novo")}>Memória 2.0</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/profissional/jogos/fonema/novo")}>Discriminação Fonema</DropdownMenuItem>

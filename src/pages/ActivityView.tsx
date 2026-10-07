@@ -29,6 +29,7 @@ import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 import FullscreenToggle from "@/components/FullscreenToggle";
 import { useSessionContentStatus } from "@/hooks/use-session-content-status";
+import StoryView from "@/features/stories/StoryView";
 
 const ActivityView = () => {
   const { id } = useParams();
@@ -64,7 +65,11 @@ const ActivityView = () => {
 
   const [loading, setLoading] = useState(true);
   const [activity, setActivity] = useState<ActivityRow | null>(null);
-  useSessionContentStatus(loading, !!activity);
+  const rawStoryStep = sessionParams.get("story_step");
+  const storyStepIndex = rawStoryStep === null ? 0 : Number(rawStoryStep);
+  const storyStep = activity?.is_story && Number.isInteger(storyStepIndex) ? activity.story_steps?.[storyStepIndex] : null;
+  const storyReady = !!storyStep && (storyStep.type === "game" || activity?.media.some((item) => item.id === storyStep.media_id));
+  useSessionContentStatus(loading, !!activity && (!activity.is_story || storyReady));
   const [notFound, setNotFound] = useState(false);
   const [forbidden, setForbidden] = useState(false);
 
@@ -229,7 +234,7 @@ const ActivityView = () => {
   // Salva passo atual quando o usuário navega (inclui swipe e bolinhas)
   useEffect(() => {
     if (inSession) return;
-    if (!activity || !user || user.role !== "user") return;
+    if (!activity || activity.is_story || !user || user.role !== "user") return;
     void persistProgress();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, activity?.id]);
@@ -333,6 +338,10 @@ const ActivityView = () => {
 
     setFinishConfirmOpen(true);
   };
+
+  if (activity?.is_story) {
+    return <StoryView story={activity} inSession={inSession} sessionRole={sessionRole} sessionStep={rawStoryStep !== null && Number.isInteger(storyStepIndex) ? storyStepIndex : null} />;
+  }
 
   return (
     <div className="min-h-[100svh] bg-transparent">

@@ -40,7 +40,7 @@ const PatientActivities = () => {
       try {
         const a = await api.userListActivities();
         if (!cancelled) {
-          setActivities(a);
+          setActivities(a.filter(activity => !activity.is_story));
         }
       } finally {
         if (!cancelled) setLoading(false);

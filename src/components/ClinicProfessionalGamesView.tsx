@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CircleDot,
+  BookOpen,
   Ear,
   FileText,
   Gamepad2,
@@ -90,10 +91,19 @@ export default function ClinicProfessionalGamesView(): JSX.Element {
       api.professionalListWordSearchGames({ professional_user_id: selectedProfessionalId }),
       api.professionalListCardGames({ professional_user_id: selectedProfessionalId }),
       api.professionalListGuessImageGames({ professional_user_id: selectedProfessionalId }),
+      api.professionalListActivities({ professional_user_id: selectedProfessionalId }),
     ])
-      .then(([memoryClassic, memoryV2, phonemeGames, auditoryGames, hangmanGames, spinWheelGames, wordSearchGames, cardGames, guessImageGames]) => {
+      .then(([memoryClassic, memoryV2, phonemeGames, auditoryGames, hangmanGames, spinWheelGames, wordSearchGames, cardGames, guessImageGames, activities]) => {
         if (cancelled) return;
         setSections([
+          {
+            key: "stories",
+            title: "Histórias completas",
+            description: "Sequências de slides, GIFs, vídeos e jogos deste terapeuta.",
+            icon: BookOpen,
+            iconClassName: "text-brand-green bg-brand-green/10",
+            items: (activities ?? []).filter((item) => item.is_story),
+          },
           {
             key: "memory-classic",
             title: "Jogo da Memória",
@@ -371,6 +381,8 @@ function GameCard(props: {
 
 function getMetricLabel(sectionKey: string, item: Record<string, any>): string {
   switch (sectionKey) {
+    case "stories":
+      return `${item.story_steps?.length ?? 0} etapas`;
     case "memory-classic":
     case "memory-v2":
       return `${item.pairs_count ?? 0} pares`;
@@ -393,6 +405,9 @@ function getMetricLabel(sectionKey: string, item: Record<string, any>): string {
 
 function getThumbnailUrl(sectionKey: string, item: Record<string, any>): string | null {
   switch (sectionKey) {
+    case "stories":
+      return item.media?.find((media: { media_type: string; url?: string; thumbnail_url?: string }) => media.media_type === "image")?.url
+        ?? item.thumbnail?.thumbnail_url ?? null;
     case "memory-classic":
     case "memory-v2":
       return item.thumbnail?.url ?? null;

@@ -563,9 +563,11 @@ export type StoryGameType =
   | "hangman_game" | "spin_wheel_game" | "word_search_game"
   | "card_game" | "guess_image_game";
 
-export async function saveStorySteps(id: number, steps: StoryStep[], role: "admin" | "professional") {
+export type StoryStepInput = StoryStep | { type: "media"; source_media_id: number };
+
+export async function saveStorySteps(id: number, steps: StoryStepInput[], role: "admin" | "professional") {
   await ensureCsrfCookie();
-  return request<{ id: number; story_steps: StoryStep[] }>(`/api/${role}/activities/${id}/story`, {
+  return request<{ id: number; story_steps: StoryStep[]; media: ActivityMediaRow[] }>(`/api/${role}/activities/${id}/story`, {
     method: "PATCH", json: { steps },
   });
 }

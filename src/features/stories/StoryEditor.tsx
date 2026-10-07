@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Film, Gamepad2, ImagePlus, Plus, Save, Search, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowUp, Film, Gamepad2, ImagePlus, Images, Loader2, Plus, RefreshCw, Save, Search, Trash2 } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
-import type { ActivityMediaRow, StoryStep } from "@/lib/laravel-api";
+import type { ActivityMediaRow, ActivityRow, StoryStepInput } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { loadStoryGames, storyGameLabels, type StoryGameChoice } from "./story-games";
+import { activitySlides } from "./story-import";
 
 type DraftStep =
-  | { key: string; type: "media"; media?: ActivityMediaRow; file?: File }
+  | { key: string; type: "media"; media?: ActivityMediaRow; file?: File; sourceMediaId?: number; sourceActivityTitle?: string }
   | { key: string; type: "game"; game: StoryGameChoice };
 
 const newKey = () => crypto.randomUUID();
@@ -31,6 +32,12 @@ export default function StoryEditor() {
   const [description, setDescription] = useState("");
   const [steps, setSteps] = useState<DraftStep[]>([]);
   const [games, setGames] = useState<StoryGameChoice[]>([]);
+  const [activities, setActivities] = useState<ActivityRow[]>([]);
+  const [activityPickerOpen, setActivityPickerOpen] = useState(false);
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState(false);
+  const [activityRetry, setActivityRetry] = useState(0);
   const [users, setUsers] = useState<Array<{ id: number; name: string; email?: string }>>([]);
   const [assignedTo, setAssignedTo] = useState<number[]>([]);
   const [gamePickerOpen, setGamePickerOpen] = useState(false);
@@ -41,6 +48,18 @@ export default function StoryEditor() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setSavedId(id ? Number(id) : null); }, [id]);
+
+  useEffect(() => {
+    if (!activityPickerOpen) return;
+    let active = true;
+    setActivitiesLoading(true);
+    setActivitiesError(false);
+    void (role === "admin" ? api.adminListActivities() : api.professionalListActivities())
+      .then(rows => { if (active) setActivities(rows.filter(activity => activitySlides(activity).length > 0)); })
+      .catch(() => { if (active) setActivitiesError(true); })
+      .finally(() => { if (active) setActivitiesLoading(false); });
+    return () => { active = false; };
+  }, [activityPickerOpen, activityRetry, role]);
 
   useEffect(() => {
     let active = true;
@@ -78,6 +97,23 @@ export default function StoryEditor() {
     (gameType === "all" || game.type === gameType) &&
     `${game.title} ${game.category}`.toLocaleLowerCase("pt-BR").includes(gameSearch.toLocaleLowerCase("pt-BR"))
   ), [games, gameSearch, gameType]);
+
+  const filteredActivities = useMemo(() => activities.filter(activity =>
+    `${activity.title} ${activity.category ?? ""}`.toLocaleLowerCase("pt-BR").includes(activitySearch.toLocaleLowerCase("pt-BR"))
+  ), [activities, activitySearch]);
+
+  const importActivity = (activity: ActivityRow) => {
+    const slides = activitySlides(activity);
+    if (steps.length + slides.length > 100) {
+      toast({ title: "Limite de 100 etapas", description: `Esta atividade tem ${slides.length} slides. Restam ${Math.max(0, 100 - steps.length)} espaços na história.`, variant: "destructive" });
+      return;
+    }
+    setSteps(current => [...current, ...slides.map((media): DraftStep => ({
+      key: newKey(), type: "media", media, sourceMediaId: media.id, sourceActivityTitle: activity.title,
+    }))]);
+    setActivityPickerOpen(false);
+    toast({ title: `${slides.length} ${slides.length === 1 ? "slide adicionado" : "slides adicionados"}`, description: activity.title });
+  };
 
   const move = (index: number, offset: number) => setSteps((current) => {
     const target = index + offset;
@@ -133,10 +169,18 @@ export default function StoryEditor() {
         setSteps((current) => current.map((item) => item.key === step.key ? { key: step.key, type: "media", media } : item));
       }
 
-      const payload: StoryStep[] = resolved.map((step) => step.type === "game"
+      const payload: StoryStepInput[] = resolved.map((step) => step.type === "game"
         ? { type: "game", game_type: step.game.type, game_id: step.game.id }
+        : step.sourceMediaId ? { type: "media", source_media_id: step.sourceMediaId }
         : { type: "media", media_id: step.media!.id });
-      await api.saveStorySteps(activityId, payload, role);
+      const saved = await api.saveStorySteps(activityId, payload, role);
+      // Keep copied IDs if the later metadata update fails and the user retries.
+      setSteps(resolved.map((step, index): DraftStep => {
+        const savedStep = saved.story_steps[index];
+        return step.type === "media" && savedStep?.type === "media"
+          ? { key: step.key, type: "media", media: saved.media?.find(media => media.id === savedStep.media_id) ?? step.media }
+          : step;
+      }));
       await (role === "admin" ? api.adminUpdateActivity : api.professionalUpdateActivity)(activityId, {
         title: title.trim(), description: description.trim(), assigned_to: assignedTo,
       });
@@ -155,13 +199,14 @@ export default function StoryEditor() {
     <div className="container max-w-6xl px-4 py-6 sm:py-9 space-y-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <Button variant="outline" size="icon" title="Voltar" onClick={() => navigate(`${base}/jogos/historias`)}><ArrowLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" title="Voltar" disabled={saving} onClick={() => navigate(`${base}/jogos/historias`)}><ArrowLeft className="h-4 w-4" /></Button>
           <div><h1 className="text-2xl font-display font-semibold text-foreground">{id ? "Editar história" : "Criar história completa"}</h1>
             <p className="text-sm text-muted-foreground">Monte o percurso do atendimento, etapa por etapa.</p></div>
         </div>
         <Button onClick={() => void save()} disabled={saving}><Save className="h-4 w-4 mr-2" />{saving ? "Salvando..." : "Salvar história"}</Button>
       </div>
 
+      <fieldset disabled={saving} className="min-w-0 space-y-7">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2"><label htmlFor="story-title" className="text-sm font-medium">Nome da história</label>
           <Input id="story-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={255} placeholder="Ex: A viagem dos sons" /></div>
@@ -179,6 +224,7 @@ export default function StoryEditor() {
               event.target.value = "";
             }} />
             <Button variant="outline" onClick={() => fileRef.current?.click()}><ImagePlus className="h-4 w-4 mr-2" />Foto, GIF ou vídeo</Button>
+            <Button variant="outline" onClick={() => setActivityPickerOpen(true)}><Images className="h-4 w-4 mr-2" />Adicionar atividade de slides</Button>
             <Button variant="outline" onClick={() => setGamePickerOpen(true)}><Gamepad2 className="h-4 w-4 mr-2" />Adicionar jogo</Button>
           </div>
         </div>
@@ -193,7 +239,7 @@ export default function StoryEditor() {
               <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded border bg-muted sm:w-20">
                 {image ? <img src={normalizeMediaUrl(image)} alt="" className="h-full w-full object-cover" /> : step.type === "game" ? <Gamepad2 className="h-5 w-5" /> : <Film className="h-5 w-5" />}
               </div>
-              <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{name}</div><div className="text-xs text-muted-foreground">{step.type === "game" ? step.game.category : step.file?.type.startsWith("video/") || step.media?.media_type === "video" ? "Vídeo" : "Imagem / GIF"}</div></div>
+              <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{name}</div><div className="text-xs text-muted-foreground">{step.type === "game" ? step.game.category : step.file?.type.startsWith("video/") || step.media?.media_type === "video" ? "Vídeo" : "Imagem / GIF"}</div>{step.type === "media" && step.sourceActivityTitle && <div className="truncate text-xs text-primary" title={step.sourceActivityTitle}>{step.sourceActivityTitle}</div>}</div>
               <div className="col-span-2 col-start-2 flex justify-end gap-1 sm:col-span-1 sm:col-start-4">
                 <Button variant="ghost" size="icon" title="Mover para cima" disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="icon" title="Mover para baixo" disabled={index === steps.length - 1} onClick={() => move(index, 1)}><ArrowDown className="h-4 w-4" /></Button>
@@ -215,6 +261,29 @@ export default function StoryEditor() {
           {users.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum paciente vinculado.</p> : null}
         </div>
       </section>
+
+      </fieldset>
+      <Dialog open={activityPickerOpen} onOpenChange={setActivityPickerOpen}><DialogContent className="max-w-3xl max-h-[85svh] flex flex-col">
+        <DialogHeader><DialogTitle>Escolher atividade de slides</DialogTitle></DialogHeader>
+        <div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input value={activitySearch} onChange={event => setActivitySearch(event.target.value)} className="pl-9" placeholder="Buscar atividade" aria-label="Buscar atividade" /></div>
+        <div className="min-h-0 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 pr-1">
+          {activitiesLoading ? <div role="status" className="col-span-full flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Carregando atividades...</div>
+            : activitiesError ? <div role="alert" className="col-span-full py-8 text-center space-y-3"><p className="text-sm text-destructive">Não foi possível carregar as atividades.</p><Button variant="outline" onClick={() => setActivityRetry(value => value + 1)}><RefreshCw className="mr-2 h-4 w-4" />Tentar novamente</Button></div>
+            : filteredActivities.map(activity => {
+              const slides = activitySlides(activity);
+              const first = slides[0];
+              const image = first.thumbnail_url || (first.media_type === "image" ? first.url : null);
+              return <button key={activity.id} type="button" disabled={saving} onClick={() => importActivity(activity)} className="group overflow-hidden rounded-md border border-border bg-card text-left transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-muted">
+                  {image ? <img src={normalizeMediaUrl(image)} alt="" loading="lazy" className="h-full w-full object-contain" /> : <Film className="h-10 w-10 text-primary/60" />}
+                  <span className="absolute bottom-2 right-2 rounded bg-background/95 px-2 py-1 text-xs font-medium">{slides.length} {slides.length === 1 ? "slide" : "slides"}</span>
+                </div>
+                <div className="flex items-center gap-3 p-3"><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold" title={activity.title}>{activity.title}</div><div className="truncate text-xs text-muted-foreground">{activity.category || "Atividade"}{activity.created_by.id !== user?.id ? " · Compartilhada" : ""}</div></div><Plus className="h-5 w-5 shrink-0 text-primary" /></div>
+              </button>;
+            })}
+          {!activitiesLoading && !activitiesError && filteredActivities.length === 0 && <div className="col-span-full py-10 text-center text-sm text-muted-foreground">Nenhuma atividade de slides encontrada.</div>}
+        </div>
+      </DialogContent></Dialog>
 
       <Dialog open={gamePickerOpen} onOpenChange={setGamePickerOpen}><DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
         <DialogHeader><DialogTitle>Escolher jogo</DialogTitle></DialogHeader>

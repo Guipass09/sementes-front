@@ -26,6 +26,7 @@ import { LandingPolicies } from "./LandingPolicies";
 import LandingWheelDemo from "./LandingWheelDemo";
 import LandingSessionDemo from "./LandingSessionDemo";
 import LandingActivityDemo from "./LandingActivityDemo";
+import LandingLiveSessions from "./LandingLiveSessions";
 import "./landing.css";
 import "./landing-showcase.css";
 
@@ -328,22 +329,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="lp-session lp-section" aria-labelledby="lp-session-title">
-        <div className="lp-container lp-session__grid">
-          <div className="lp-session__visual">
-            <img src={assets.session} alt="Sala de sessão ao vivo com uma atividade visual compartilhada e vídeo dos participantes" loading="lazy" />
-            <span className="lp-image-note">Demonstração ilustrativa com dados fictícios</span>
-          </div>
-          <div className="lp-session__copy">
-            <p className="lp-kicker">TELEATENDIMENTO QUE ENVOLVE</p>
-            <h2>A sessão vai muito além da chamada de vídeo.</h2>
-            <p>Você conduz, compartilha e interage. O paciente vê a mesma atividade e pode participar diretamente da tela, enquanto vocês conversam ao vivo.</p>
-            <div className="lp-session__line"><span>01</span> Vídeo e recursos no mesmo ambiente</div>
-            <div className="lp-session__line"><span>02</span> Atividades compartilhadas durante a sessão</div>
-            <div className="lp-session__line"><span>03</span> Interação em tempo real com o paciente</div>
-          </div>
-        </div>
-      </section>
+      <LandingLiveSessions />
 
       <section className="lp-photo-story" aria-labelledby="lp-photo-title">
         <img src={assets.activity} alt="Criança participando de uma atividade interativa em atendimento online" loading="lazy" />

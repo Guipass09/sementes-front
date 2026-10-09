@@ -19,6 +19,11 @@ export function parseLocalDateTime(dateYMD: string, timeHHmm: string): number | 
   return d.getTime();
 }
 
+export function isPastOpenSession(date: string, time: string, nowMs: number): boolean {
+  const startMs = parseLocalDateTime(date, time);
+  return startMs !== null && nowMs >= startMs + 90 * 60_000;
+}
+
 export function getJoinCountdownLabel(params: {
   date: string;
   time: string;

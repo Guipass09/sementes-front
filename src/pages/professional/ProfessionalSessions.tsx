@@ -16,7 +16,8 @@ import ProfessionalAppointmentDialog from "@/components/ProfessionalAppointmentD
 import * as api from "@/lib/laravel-api";
 import type { JoinSessionMeta } from "@/lib/laravel-api";
 import { JoinSessionButton } from "@/components/JoinSessionButton";
-import { BLINK_AFTER_MINUTES, BLINK_BEFORE_MINUTES, getJoinCountdownLabel, getTodayYMD, parseLocalDateTime } from "@/lib/session-alert";
+import { PastOpenSessionCount, PastOpenSessionHint, PastOpenSessionsSummary } from "@/components/PastOpenSessionNotice";
+import { BLINK_AFTER_MINUTES, BLINK_BEFORE_MINUTES, getJoinCountdownLabel, getTodayYMD, isPastOpenSession, parseLocalDateTime } from "@/lib/session-alert";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { buildLiveSessionInviteShareText, buildLiveSessionInviteUrl } from "@/lib/live-session-invite";
 
@@ -165,6 +166,10 @@ function StandardProfessionalSessions(): JSX.Element {
   }, [rows, search]);
 
   const todayYMD = useMemo(() => getTodayYMD(nowMs), [nowMs]);
+  const pastOpenCount = useMemo(
+    () => rows.filter((row) => isPastOpenSession(row.session_date, row.session_time, nowMs)).length,
+    [rows, nowMs]
+  );
 
   const groupedByUser = useMemo(() => {
     const map = new Map<
@@ -395,6 +400,8 @@ function StandardProfessionalSessions(): JSX.Element {
           </div>
         </div>
 
+        <PastOpenSessionsSummary count={pastOpenCount} />
+
         <div className="mb-4 sm:mb-6">
           <div className="relative">
             <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-[18px] h-[18px] sm:w-5 sm:h-5" />
@@ -478,6 +485,7 @@ function StandardProfessionalSessions(): JSX.Element {
                           })()}
                         </div>
                         {u.userEmail ? <div className="text-xs text-muted-foreground truncate">{u.userEmail}</div> : null}
+                        <PastOpenSessionCount count={u.items.filter((item) => isPastOpenSession(item.session_date, item.session_time, nowMs)).length} />
                       </div>
                     </div>
                   </AccordionTrigger>
@@ -519,6 +527,7 @@ function StandardProfessionalSessions(): JSX.Element {
                                     {s.session_time}
                                   </span>
                                 </div>
+                                {isPastOpenSession(s.session_date, s.session_time, nowMs) && <PastOpenSessionHint />}
                               </div>
 
                               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-start sm:justify-end">

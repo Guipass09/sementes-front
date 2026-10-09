@@ -4,7 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import ClinicProfessionalScopeSelector from "@/components/ClinicProfessionalScopeSelector";
+import { PastOpenSessionCount, PastOpenSessionHint, PastOpenSessionsSummary } from "@/components/PastOpenSessionNotice";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import { isPastOpenSession } from "@/lib/session-alert";
 import * as api from "@/lib/laravel-api";
 
 type ClinicAppointmentsMode = "active" | "history";
@@ -38,8 +40,14 @@ export default function ClinicProfessionalAppointmentsPanel(props: {
   const [professionalsLoading, setProfessionalsLoading] = useState(true);
   const [rows, setRows] = useState<AppointmentRow[]>([]);
   const [search, setSearch] = useState("");
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [professionals, setProfessionals] = useState<api.ClinicProfessionalRow[]>([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +159,10 @@ export default function ClinicProfessionalAppointmentsPanel(props: {
     () => professionals.find((professional) => professional.id === selectedProfessionalId)?.name ?? "",
     [professionals, selectedProfessionalId]
   );
+  const pastOpenCount = useMemo(
+    () => mode === "active" ? rows.filter((row) => isPastOpenSession(row.session_date, row.session_time, nowMs)).length : 0,
+    [mode, rows, nowMs]
+  );
 
   const title = mode === "active" ? "Sessões" : "Histórico";
   const description =
@@ -214,6 +226,8 @@ export default function ClinicProfessionalAppointmentsPanel(props: {
           </div>
         ) : null}
 
+        <PastOpenSessionsSummary count={pastOpenCount} />
+
         <div className="mb-4 sm:mb-6">
           <div className="relative">
             <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-[18px] h-[18px] sm:w-5 sm:h-5" />
@@ -271,6 +285,7 @@ export default function ClinicProfessionalAppointmentsPanel(props: {
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-sm sm:text-base text-foreground truncate">{user.userName}</div>
                       {user.userEmail ? <div className="text-xs text-muted-foreground truncate">{user.userEmail}</div> : null}
+                      {mode === "active" && <PastOpenSessionCount count={user.items.filter((item) => isPastOpenSession(item.session_date, item.session_time, nowMs)).length} />}
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -294,6 +309,7 @@ export default function ClinicProfessionalAppointmentsPanel(props: {
                                   {session.session_time}
                                 </span>
                               </div>
+                              {mode === "active" && isPastOpenSession(session.session_date, session.session_time, nowMs) && <PastOpenSessionHint />}
                             </div>
 
                             <div className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium border ${statusConfig[status].color}`}>

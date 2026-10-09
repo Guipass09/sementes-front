@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { computeTodaySessionAlert, getJoinCountdownLabel, getTodayYMD } from "@/lib/session-alert";
+import { computeTodaySessionAlert, getJoinCountdownLabel, getTodayYMD, isPastOpenSession } from "@/lib/session-alert";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { JoinSessionButton } from "@/components/JoinSessionButton";
+import { PastOpenSessionCount, PastOpenSessionHint, PastOpenSessionsSummary } from "@/components/PastOpenSessionNotice";
 import {
   adminCreateRecurringAppointments,
   adminDeleteAppointment,
@@ -205,6 +206,13 @@ const AdminSessions = () => {
   }, [sessions, searchTerm]);
 
   const todayYMD = useMemo(() => getTodayYMD(nowMs), [nowMs]);
+  const pastOpenCount = useMemo(
+    () => sessions.filter((session) =>
+      (session.status === "agendada" || session.status === "avaliacao") &&
+      isPastOpenSession(session.date, session.time, nowMs)
+    ).length,
+    [sessions, nowMs]
+  );
 
   const sessionsByUser = useMemo(() => {
     const map = new Map<number, { userId: number; userName: string; items: SessionData[]; hasTodayAlert: boolean }>();
@@ -485,6 +493,8 @@ const AdminSessions = () => {
           </div>
         </div>
 
+        <PastOpenSessionsSummary count={pastOpenCount} />
+
         <div className="mb-6">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
@@ -504,7 +514,7 @@ const AdminSessions = () => {
               <AccordionItem key={group.userId} value={`user-${group.userId}`} className="border rounded-xl bg-card">
                 <AccordionTrigger className="px-5 py-4 hover:no-underline">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                       <span className="flex items-center gap-2">
                         <span className="font-semibold text-foreground">{group.userName}</span>
                         {(() => {
@@ -534,6 +544,9 @@ const AdminSessions = () => {
                       <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                         {group.items.length} horários
                       </span>
+                      <PastOpenSessionCount count={group.items.filter((item) =>
+                        (item.status === "agendada" || item.status === "avaliacao") && isPastOpenSession(item.date, item.time, nowMs)
+                      ).length} />
                     </div>
                     <span className="text-sm text-muted-foreground">
                       Clique para {/**/}ver/ocultar
@@ -567,6 +580,8 @@ const AdminSessions = () => {
                                   {session.professional}
                                 </span>
                               </div>
+                              {(session.status === "agendada" || session.status === "avaliacao") &&
+                                isPastOpenSession(session.date, session.time, nowMs) && <PastOpenSessionHint />}
                               {session.notes && (
                                 <p className="mt-2 text-sm text-muted-foreground italic">"{session.notes}"</p>
                               )}

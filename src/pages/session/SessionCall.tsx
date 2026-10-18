@@ -1,6 +1,9 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { roundGameInfo } from "@/features/round-games/round-game";
 import { isCurrentSessionGameEvent } from "@/lib/session-game-event";
+import { sessionGameAudioSettings, type GameAudioSettings } from "@/lib/game-audio-policy";
+import { readGameAudioVolumePreference, saveGameAudioVolumePreference, setGameAudioVolume } from "@/lib/game-audio-store";
+import { GameAudioControls } from "@/features/games/GameAudio";
 import type { ReportFormDraft } from "@/features/reports/ReportFormModal";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -158,6 +161,13 @@ export default function SessionCall() {
   const publishingSdpRef = useRef(false);
   const pendingLocalIceRef = useRef<RTCIceCandidateInit[]>([]);
   const [contentPath, setContentPath] = useState<string | null>(null);
+  const [gameAudioMuted, setGameAudioMuted] = useState(true);
+  const gameAudioMutedRef = useRef(true);
+  const [gameAudioPending, setGameAudioPending] = useState(false);
+  const [gameAudioVolume, setGameAudioVolumeState] = useState(readGameAudioVolumePreference);
+  const gameAudioVolumeRef = useRef(gameAudioVolume);
+  const gameAudioCommittedRef = useRef<GameAudioSettings>({ muted: true, volume: gameAudioVolume });
+  const gameAudioBusyRef = useRef(false);
   const [contentTitle, setContentTitle] = useState<string | null>(null);
   const [contentKind, setContentKind] = useState<string | null>(null);
   const [contentSeed, setContentSeed] = useState<number | null>(null);
@@ -230,6 +240,13 @@ export default function SessionCall() {
   useEffect(() => {
     if (lastAppointmentIdRef.current === appointmentId) return;
     lastAppointmentIdRef.current = appointmentId;
+    gameAudioMutedRef.current = true;
+    setGameAudioMuted(true);
+    setGameAudioPending(false);
+    gameAudioVolumeRef.current = readGameAudioVolumePreference();
+    setGameAudioVolumeState(gameAudioVolumeRef.current);
+    gameAudioCommittedRef.current = { muted: true, volume: gameAudioVolumeRef.current };
+    gameAudioBusyRef.current = false;
 
     // Pagamento (externo e embutido)
     setRtcPaymentOpen(false);
@@ -1061,6 +1078,44 @@ export default function SessionCall() {
     }
   };
 
+  const applyGameAudio = (settings: GameAudioSettings) => {
+    gameAudioMutedRef.current = settings.muted;
+    setGameAudioMuted(settings.muted);
+    gameAudioVolumeRef.current = settings.volume;
+    setGameAudioVolumeState(settings.volume);
+    setGameAudioVolume(settings.volume);
+    postToContentFrame({ type: "GAME_AUDIO_STATE", ...settings });
+  };
+
+  const commitGameAudio = async (next: GameAudioSettings) => {
+    if (role !== "admin" || !joinInfo || gameAudioBusyRef.current) return;
+    const previous = gameAudioCommittedRef.current;
+    if (previous.muted === next.muted && previous.volume === next.volume) return;
+    gameAudioBusyRef.current = true;
+    setGameAudioPending(true);
+    applyGameAudio(next);
+    try {
+      await send("game_audio", next);
+      if (lastAppointmentIdRef.current === appointmentId) {
+        gameAudioCommittedRef.current = next;
+        saveGameAudioVolumePreference(next.volume);
+      }
+    } catch {
+      if (lastAppointmentIdRef.current === appointmentId) {
+        applyGameAudio(previous);
+        toast({ title: "Não foi possível alterar o som dos jogos", description: "Tente novamente.", variant: "destructive" });
+      }
+    } finally {
+      if (lastAppointmentIdRef.current === appointmentId) { setGameAudioPending(false); gameAudioBusyRef.current = false; }
+    }
+  };
+
+  useEffect(() => {
+    if (joinInfo && role === "admin") void send("game_audio", { muted: gameAudioMutedRef.current, volume: gameAudioVolumeRef.current }).catch(() => {});
+    // Rejoining as staff must also reset the patient's previous sound setting.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinInfo?.token, role]);
+
   // Garante que o iframe (jogo/atividade) sempre receba o estado atual de controle.
   // IMPORTANTÍSSIMO: este hook precisa ficar ANTES de qualquer return condicional (ex.: loader),
   // senão a ordem de hooks muda entre renders e o React quebra (erro minificado #310).
@@ -1843,6 +1898,7 @@ export default function SessionCall() {
     if (m.kind === "content_status" && role === "admin") {
       if (m.payload?.share_id !== activeContentRef.current?.share_id) return;
       const status = m.payload?.status;
+      if (status === "ready") void send("game_audio", { muted: gameAudioMutedRef.current, volume: gameAudioVolumeRef.current }).catch(() => {});
       if (status === "loading" || status === "ready" || status === "failed") {
         if (remoteContentStatusRef.current === "ready" && status !== "ready") return;
         remoteContentStatusRef.current = status;
@@ -2011,11 +2067,17 @@ export default function SessionCall() {
       }
     }
 
+    const remoteGameAudio = sessionGameAudioSettings(m, joinInfo?.server_now);
+    if (role === "user" && remoteGameAudio !== null) {
+      applyGameAudio(remoteGameAudio);
+      return;
+    }
+
     if (m.kind === "confetti") {
       // Dispara confete para ambos os participantes
       confettiKeyRef.current += 1;
       setConfettiActive(true);
-      playFanfare();
+      if (!gameAudioMutedRef.current) playFanfare();
       // Remove o confete após a animação
       setTimeout(() => setConfettiActive(false), 3000);
     }
@@ -2258,6 +2320,10 @@ export default function SessionCall() {
       if (ev.origin !== window.location.origin) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
+      if (data.type === "GAME_AUDIO_READY" && ev.source === contentFrameRef.current?.contentWindow) {
+        postToContentFrame({ type: "GAME_AUDIO_STATE", muted: gameAudioMutedRef.current, volume: gameAudioVolumeRef.current });
+        return;
+      }
       if (data.type !== "SESSION_GAME_EVENT") return;
       if (ev.source !== contentFrameRef.current?.contentWindow) return;
       if (!contentPath) return;
@@ -2999,6 +3065,7 @@ export default function SessionCall() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+          {role === "admin" && contentPath && !screenShareActive && <GameAudioControls settings={{ muted: gameAudioMuted, volume: gameAudioVolume }} disabled={gameAudioPending || !joinInfo} onChange={applyGameAudio} onCommit={next => void commitGameAudio(next)} />}
           {role === "admin" && contentPath && !screenShareActive && remoteContentStatus && (
             <div className="flex items-center gap-2 text-xs" aria-live="polite">
               <span className={cn(
@@ -3119,6 +3186,7 @@ export default function SessionCall() {
                     if (contentPath?.startsWith("http")) setLocalContentStatus("ready");
                     // Após load do iframe, reenviar o estado de controle (mobile pode montar o listener depois).
                     postToContentFrame({ type: "SESSION_CONTROL", granted: controlGranted });
+                    postToContentFrame({ type: "GAME_AUDIO_STATE", muted: gameAudioMutedRef.current, volume: gameAudioVolumeRef.current });
                   }}
                   onError={() => {
                     setLocalContentStatus("failed");
@@ -3344,7 +3412,7 @@ export default function SessionCall() {
                   // Dispara confete localmente
                   confettiKeyRef.current += 1;
                   setConfettiActive(true);
-                  playFanfare();
+                  if (!gameAudioMutedRef.current) playFanfare();
                   setTimeout(() => setConfettiActive(false), 3000);
                   // Envia evento para sincronizar com o usuário
                   void send("confetti", {});

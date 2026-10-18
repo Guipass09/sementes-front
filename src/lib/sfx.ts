@@ -1,3 +1,6 @@
+import { getGameAudioVolume, isGameAudioMuted, subscribeGameAudio } from "./game-audio-store.ts";
+import { gameAudioGain } from "./game-audio-policy.ts";
+
 type AudioCtx = AudioContext & { _sementes?: true };
 
 let ctx: AudioCtx | null = null;
@@ -13,14 +16,33 @@ function getCtx(): AudioCtx | null {
   if (!ctx) {
     ctx = new Ctor() as AudioCtx;
     ctx._sementes = true;
+  }
+  if (!master) {
     master = ctx.createGain();
-    master.gain.value = 0.14; // volume padrão (suave)
+    master.gain.value = isGameAudioMuted() ? 0 : gameAudioGain(getGameAudioVolume(), 0.4);
     master.connect(ctx.destination);
   }
   return ctx;
 }
 
+subscribeGameAudio(() => {
+  if (master) master.gain.setValueAtTime(isGameAudioMuted() ? 0 : gameAudioGain(getGameAudioVolume(), 0.4), ctx!.currentTime);
+  if (isGameAudioMuted() && winBus) {
+    try { winBus.disconnect(); } catch { /* Already disconnected. */ }
+    winBus = null;
+  }
+});
+
+export const getGameAudioContext = getCtx;
+
+export function stopGameSfx(): void {
+  try { master?.disconnect(); } catch { /* Already disconnected. */ }
+  master = null;
+  winBus = null;
+}
+
 export async function unlockSfx(): Promise<void> {
+  if (isGameAudioMuted()) return;
   const c = getCtx();
   if (!c) return;
   try {
@@ -63,13 +85,15 @@ export function installSfxUnlock(): void {
 }
 
 function env(g: GainNode, t0: number, a = 0.001, d = 0.12): void {
+  const peak = Math.max(0.0001, g.gain.value);
   g.gain.cancelScheduledValues(t0);
   g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(1.0, t0 + a);
+  g.gain.exponentialRampToValueAtTime(peak, t0 + a);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
 }
 
 function tone(freq: number, when: number, dur: number, type: OscillatorType, vol = 1): void {
+  if (isGameAudioMuted()) return;
   const c = getCtx();
   if (!c || !master) return;
   if (c.state === "suspended") return; // evita "no-op" barulhento
@@ -87,6 +111,7 @@ function tone(freq: number, when: number, dur: number, type: OscillatorType, vol
 }
 
 function noise(when: number, dur: number, vol = 0.7): void {
+  if (isGameAudioMuted()) return;
   const c = getCtx();
   if (!c || !master) return;
   if (c.state === "suspended") return;
@@ -112,6 +137,7 @@ function noise(when: number, dur: number, vol = 0.7): void {
 }
 
 function toneTo(target: GainNode, freq: number, when: number, dur: number, type: OscillatorType, vol = 1): void {
+  if (isGameAudioMuted()) return;
   const c = getCtx();
   if (!c) return;
   if (c.state === "suspended") return;
@@ -128,6 +154,7 @@ function toneTo(target: GainNode, freq: number, when: number, dur: number, type:
 }
 
 function fireworkBurst(target: GainNode, when: number, dur = 0.18, vol = 0.35): void {
+  if (isGameAudioMuted()) return;
   const c = getCtx();
   if (!c) return;
   if (c.state === "suspended") return;
@@ -168,6 +195,7 @@ function fireworkBurst(target: GainNode, when: number, dur = 0.18, vol = 0.35): 
 }
 
 export function playCorrect(): void {
+  if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
   if (!c) return;
@@ -179,6 +207,7 @@ export function playCorrect(): void {
 }
 
 export function playWrong(): void {
+  if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
   if (!c) return;
@@ -190,6 +219,7 @@ export function playWrong(): void {
 }
 
 export function playWin(): void {
+  if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
   if (!c) return;
@@ -255,6 +285,7 @@ export function playWin(): void {
 }
 
 export function playFanfare(): void {
+  if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
   if (!c || !master) return;
@@ -309,6 +340,7 @@ export function playFanfare(): void {
 }
 
 export function playCardFlip(): void {
+  if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
   if (!c) return;
@@ -319,6 +351,7 @@ export function playCardFlip(): void {
 }
 
 export function playCardShuffle(): void {
+  if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
   if (!c) return;
@@ -328,6 +361,18 @@ export function playCardShuffle(): void {
   tone(220, t + 0.02, 0.08, "square", 0.25);
   tone(260, t + 0.07, 0.08, "square", 0.22);
   tone(300, t + 0.12, 0.08, "square", 0.20);
+}
+
+export function playWheelTick(): void {
+  if (isGameAudioMuted()) return;
+  const c = getCtx();
+  if (c) tone(600, c.currentTime + 0.005, 0.04, "sine", 0.4);
+}
+
+export function playWheelWin(): void {
+  if (isGameAudioMuted()) return;
+  const c = getCtx();
+  if (c) [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => tone(frequency, c.currentTime + index * 0.15, 0.25, "sine", 0.65));
 }
 
 

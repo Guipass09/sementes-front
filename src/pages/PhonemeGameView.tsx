@@ -13,10 +13,12 @@ import FullscreenToggle from "@/components/FullscreenToggle";
 import { useSessionContentStatus } from "@/hooks/use-session-content-status";
 import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
+import { getGameAudioVolume, isGameAudioMuted } from "@/lib/game-audio-store";
 
 type Role = "admin" | "user";
 
 function speakWord(text: string) {
+  if (isGameAudioMuted() || getGameAudioVolume() === 0) return;
   try {
     const s = window.speechSynthesis;
     if (!s) return;
@@ -25,7 +27,7 @@ function speakWord(text: string) {
     u.lang = "pt-BR";
     u.rate = 0.95;
     u.pitch = 1;
-    u.volume = 1;
+    u.volume = getGameAudioVolume();
     s.speak(u);
   } catch {
     // ignore

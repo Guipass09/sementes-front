@@ -82,6 +82,7 @@ import RoundGameEditor from "./features/round-games/RoundGameEditor";
 import RoundGameLibrary from "./features/round-games/RoundGameLibrary";
 import RouteChangeLoader from "./components/RouteChangeLoader";
 import GameplayBackground from "./components/GameplayBackground";
+import GameAudio from "./features/games/GameAudio";
 import { installSfxUnlock } from "@/lib/sfx";
 import { useOneSignal } from "@/hooks/use-onesignal";
 
@@ -121,6 +122,7 @@ const App = () => {
           <BrowserRouter>
             <ErrorBoundary>
               <GameplayBackground />
+              <GameAudio />
               <div className="relative z-10 min-h-[100svh]">
                 <RouteChangeLoader minDurationMs={1200} />
               <Routes>

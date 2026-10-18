@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Volume2, VolumeX, CircleDot } from "lucide-react";
+import { ArrowLeft, CircleDot } from "lucide-react";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { cn } from "@/lib/utils";
 import FullscreenToggle from "@/components/FullscreenToggle";
 import { useSessionContentStatus } from "@/hooks/use-session-content-status";
+import { playWheelTick, playWheelWin, unlockSfx } from "@/lib/sfx";
 
 export default function SpinWheelGameView() {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +48,6 @@ export default function SpinWheelGameView() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   // Índices (do array original game.items) que ainda estão na roleta (a roleta “diminui” a cada giro)
   const [activeOrder, setActiveOrder] = useState<number[]>([]);
-  const [soundEnabled, setSoundEnabled] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fsRef = useRef<HTMLDivElement | null>(null);
@@ -70,16 +70,10 @@ export default function SpinWheelGameView() {
       document.documentElement.classList.remove("fs-mode");
     };
   }, [autoPseudoFullscreen]);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const spinTimeoutRef = useRef<number | null>(null);
 
   const ensureAudio = useCallback(async () => {
-    try {
-      if (!audioContextRef.current) audioContextRef.current = new AudioContext();
-      if (audioContextRef.current.state === "suspended") await audioContextRef.current.resume();
-    } catch {
-      // ignore
-    }
+    await unlockSfx();
   }, []);
 
   // Sessão ao vivo: recebe controle + eventos do outro lado
@@ -229,48 +223,12 @@ export default function SpinWheelGameView() {
 
   // Sound effects
   const playTickSound = useCallback(() => {
-    if (!soundEnabled) return;
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
-      const ctx = audioContextRef.current;
-      if (ctx.state === "suspended") void ctx.resume().catch(() => {});
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(600, ctx.currentTime);
-      gainNode.gain.setValueAtTime(0.06, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + 0.03);
-    } catch {}
-  }, [soundEnabled]);
+    playWheelTick();
+  }, []);
 
   const playWinSound = useCallback(() => {
-    if (!soundEnabled) return;
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-      }
-      const ctx = audioContextRef.current;
-      if (ctx.state === "suspended") void ctx.resume().catch(() => {});
-      [523, 659, 784, 1047].forEach((freq, i) => {
-        const oscillator = ctx.createOscillator();
-        const gainNode = ctx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        oscillator.type = "sine";
-        oscillator.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
-        gainNode.gain.setValueAtTime(0.1, ctx.currentTime + i * 0.15);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.25);
-        oscillator.start(ctx.currentTime + i * 0.15);
-        oscillator.stop(ctx.currentTime + i * 0.15 + 0.25);
-      });
-    } catch {}
-  }, [soundEnabled]);
+    playWheelWin();
+  }, []);
 
   // Spin - padrão do print:
   // - seta na ESQUERDA apontando para a roleta
@@ -439,9 +397,6 @@ export default function SpinWheelGameView() {
             <Badge className="bg-brand-orange text-white shadow-sm hidden sm:flex">
               <CircleDot className="h-3 w-3 mr-1" /> Roleta Musical
             </Badge>
-            <Button variant="ghost" size="icon" onClick={() => setSoundEnabled(!soundEnabled)} className="h-9 w-9">
-              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            </Button>
           </div>
         </div>
       </header>
@@ -460,17 +415,6 @@ export default function SpinWheelGameView() {
             >
               <FullscreenToggle targetRef={fsRef} className="absolute top-3 right-3 z-30" mode={inSession ? "pseudo" : "auto"} />
 
-              {compactInSession ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSoundEnabled(!soundEnabled)}
-                  className="absolute top-3 left-3 z-30 h-9 w-9 bg-background/75 backdrop-blur border border-border"
-                  title={soundEnabled ? "Desativar som" : "Ativar som"}
-                >
-                  {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-                </Button>
-              ) : null}
 
               {/* Cabeçalho interno (padrão das atividades) */}
               {!compactInSession ? (

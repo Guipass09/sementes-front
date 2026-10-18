@@ -14,6 +14,7 @@ export function useSessionContentStatus(loading: boolean, hasContent: boolean) {
 
   useEffect(() => {
     const params = new URLSearchParams(search);
+    window.dispatchEvent(new CustomEvent("GAME_CONTENT_READY", { detail: !loading && hasContent }));
     if (params.get("session") !== "1" || window.parent === window) return;
     const shareId = params.get("session_content_id");
     if (!shareId) return;

@@ -1,5 +1,6 @@
 import { getGameAudioVolume, isGameAudioMuted, subscribeGameAudio } from "./game-audio-store.ts";
 import { gameAudioGain } from "./game-audio-policy.ts";
+import type { ReactionType } from "../features/session/session-reactions.ts";
 
 type AudioCtx = AudioContext & { _sementes?: true };
 
@@ -106,6 +107,7 @@ function tone(freq: number, when: number, dur: number, type: OscillatorType, vol
   o.connect(g);
   g.connect(master);
   env(g, when, 0.002, Math.max(0.02, dur - 0.01));
+  o.onended = () => { o.disconnect(); g.disconnect(); };
   o.start(when);
   o.stop(when + dur);
 }
@@ -132,6 +134,7 @@ function noise(when: number, dur: number, vol = 0.7): void {
   filter.connect(g);
   g.connect(master);
   env(g, when, 0.001, dur - 0.01);
+  src.onended = () => { src.disconnect(); filter.disconnect(); g.disconnect(); };
   src.start(when);
   src.stop(when + dur);
 }
@@ -373,6 +376,33 @@ export function playWheelWin(): void {
   if (isGameAudioMuted()) return;
   const c = getCtx();
   if (c) [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => tone(frequency, c.currentTime + index * 0.15, 0.25, "sine", 0.65));
+}
+
+export function playSessionReaction(type: ReactionType): void {
+  if (isGameAudioMuted() || getGameAudioVolume() === 0) return;
+  stopGameSfx();
+  const c = getCtx();
+  if (!c || !master) return;
+  const reactionBus = master;
+  const play = () => {
+    if (master !== reactionBus || isGameAudioMuted() || getGameAudioVolume() === 0) return;
+    const t = c.currentTime + 0.01;
+    if (type === "confetti") { playFanfare(); return; }
+    if (type === "applause") {
+      // Short clusters of filtered noise reproduce overlapping hand claps.
+      for (let i = 0; i < 10; i++) {
+        noise(t + i * 0.12, 0.09, 0.8);
+        noise(t + i * 0.12 + 0.035, 0.065, 0.4);
+      }
+      return;
+    }
+    const notes = type === "hearts" ? [523.25, 659.25, 523.25, 783.99]
+      : type === "happy" ? [659.25, 783.99, 1046.5, 783.99, 1046.5]
+      : [523.25, 783.99, 1046.5, 1318.5, 1567.98];
+    notes.forEach((frequency, index) => tone(frequency, t + index * (type === "hearts" ? 0.19 : 0.11), 0.28, "sine", 0.6));
+  };
+  if (c.state === "suspended") void c.resume().then(play).catch(() => {});
+  else play();
 }
 
 

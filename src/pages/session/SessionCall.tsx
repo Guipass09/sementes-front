@@ -2,8 +2,11 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { roundGameInfo } from "@/features/round-games/round-game";
 import { isCurrentSessionGameEvent } from "@/lib/session-game-event";
 import { sessionGameAudioSettings, type GameAudioSettings } from "@/lib/game-audio-policy";
-import { readGameAudioVolumePreference, saveGameAudioVolumePreference, setGameAudioVolume } from "@/lib/game-audio-store";
+import { readGameAudioVolumePreference, saveGameAudioVolumePreference, setGameAudioSettings } from "@/lib/game-audio-store";
 import { GameAudioControls } from "@/features/games/GameAudio";
+import { SessionReactionPicker } from "@/features/session/SessionReactionPicker";
+import { SessionReactionOverlay } from "@/features/session/SessionReactionOverlay";
+import { createReactionHistory, sessionReactionMessage, type SessionReaction } from "@/features/session/session-reactions";
 import type { ReportFormDraft } from "@/features/reports/ReportFormModal";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -19,7 +22,6 @@ import {
   PhoneOff,
   Video,
   VideoOff,
-  Sparkles,
   RefreshCw,
   ScanFace,
 } from "lucide-react";
@@ -58,7 +60,7 @@ import {
   type VideoPollMessage,
 } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
-import { playFanfare } from "@/lib/sfx";
+import { playSessionReaction, stopGameSfx } from "@/lib/sfx";
 import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
 import { initialSessionMouthState, normalizeSessionMouthState, type SessionMouthState } from "@/features/mouth3d/sessionMouthState";
 import { SessionDocumentation } from "@/features/reports/SessionDocumentation";
@@ -398,8 +400,22 @@ export default function SessionCall() {
   const drawRemoteLastRef = useRef<Record<string, { x: number; y: number } | null>>({});
   const drawSendTsRef = useRef(0);
 
-  const [confettiActive, setConfettiActive] = useState(false);
-  const confettiKeyRef = useRef(0);
+  const [reaction, setReaction] = useState<SessionReaction | null>(null);
+  const reactionHistoryRef = useRef(createReactionHistory());
+  useEffect(() => {
+    setReaction(null);
+    reactionHistoryRef.current.clear();
+    setGameAudioSettings({ muted: true, volume: readGameAudioVolumePreference() });
+    return () => { stopGameSfx(); };
+  }, [appointmentId]);
+
+  const showReaction = (next: SessionReaction) => {
+    if (!reactionHistoryRef.current.accept(next.id)) return;
+    setReaction(next);
+    if (!gameAudioMutedRef.current) {
+      try { playSessionReaction(next.type); } catch { /* Visual feedback still works when audio is unavailable. */ }
+    }
+  };
 
   const [localSpeaking, setLocalSpeaking] = useState(false);
   const [remoteSpeaking, setRemoteSpeaking] = useState(false);
@@ -1083,7 +1099,7 @@ export default function SessionCall() {
     setGameAudioMuted(settings.muted);
     gameAudioVolumeRef.current = settings.volume;
     setGameAudioVolumeState(settings.volume);
-    setGameAudioVolume(settings.volume);
+    setGameAudioSettings(settings);
     postToContentFrame({ type: "GAME_AUDIO_STATE", ...settings });
   };
 
@@ -2073,13 +2089,10 @@ export default function SessionCall() {
       return;
     }
 
-    if (m.kind === "confetti") {
-      // Dispara confete para ambos os participantes
-      confettiKeyRef.current += 1;
-      setConfettiActive(true);
-      if (!gameAudioMutedRef.current) playFanfare();
-      // Remove o confete após a animação
-      setTimeout(() => setConfettiActive(false), 3000);
+    if (m.kind === "session_reaction" || m.kind === "confetti") {
+      const next = sessionReactionMessage(m, joinInfo?.server_now);
+      if (next) showReaction(next);
+      return;
     }
   };
 
@@ -3121,46 +3134,7 @@ export default function SessionCall() {
                 "lg:h-[76svh] lg:max-h-[860px] lg:min-h-[560px]",
               )}
             >
-              {/* Animação de confete */}
-              {confettiActive && (
-                <div key={confettiKeyRef.current} className="absolute inset-0 pointer-events-none z-50 overflow-hidden rounded-xl">
-                  {Array.from({ length: 100 }).map((_, i) => {
-                    const delay = Math.random() * 0.5;
-                    const duration = 2.5 + Math.random() * 1;
-                    const left = Math.random() * 100;
-                    const colors = [
-                      "bg-red-500",
-                      "bg-blue-500",
-                      "bg-yellow-500",
-                      "bg-green-500",
-                      "bg-purple-500",
-                      "bg-pink-500",
-                      "bg-orange-500",
-                      "bg-indigo-500",
-                    ];
-                    const color = colors[Math.floor(Math.random() * colors.length)];
-                    const size = 8 + Math.random() * 8;
-                    const rotation = Math.random() * 360;
-                    
-                    return (
-                      <div
-                        key={i}
-                        className={cn(
-                          "absolute rounded-sm",
-                          color
-                        )}
-                        style={{
-                          left: `${left}%`,
-                          width: `${size}px`,
-                          height: `${size}px`,
-                          animation: `session-confetti-fall ${duration}s ease-out ${delay}s forwards`,
-                          transform: `rotate(${rotation}deg)`,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              )}
+              <SessionReactionOverlay reaction={reaction} />
 
               {screenShareActive ? (
                 <div className="absolute inset-0 rounded-xl bg-black overflow-hidden">
@@ -3406,23 +3380,19 @@ export default function SessionCall() {
                 <MonitorUp className="h-4 w-4 mr-2" />
                 {screenSharing ? "Parar tela" : "Compartilhar tela"}
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  // Dispara confete localmente
-                  confettiKeyRef.current += 1;
-                  setConfettiActive(true);
-                  if (!gameAudioMutedRef.current) playFanfare();
-                  setTimeout(() => setConfettiActive(false), 3000);
-                  // Envia evento para sincronizar com o usuário
-                  void send("confetti", {});
+              <SessionReactionPicker
+                disabled={!joinInfo}
+                audioPending={gameAudioPending}
+                audioSettings={{ muted: gameAudioMuted, volume: gameAudioVolume }}
+                onAudioChange={applyGameAudio}
+                onAudioCommit={next => void commitGameAudio(next)}
+                onSend={async next => {
+                  if (role !== "admin" || !joinInfo) return;
+                  showReaction(next);
+                  try { await send("session_reaction", next); }
+                  catch { toast({ title: "A reação apareceu só para você", description: "Não foi possível enviar ao paciente. Tente novamente.", variant: "destructive" }); }
                 }}
-                className="rounded-xl border-brand-orange text-brand-orange hover:bg-brand-orange/10"
-                title="Soltar confetes!"
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Confetes
-              </Button>
+              />
             </>
           )}
 

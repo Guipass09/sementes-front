@@ -47,7 +47,33 @@
 - Nao exige alteracao de backend, migracao ou variavel de ambiente. O canal de
   comandos existente ja aceita o evento e identifica seu remetente.
 
-## Testes
+## Reacoes na chamada
+
+- O menu Reacoes substitui Confetes no mesmo local: confetes, palmas, coracoes,
+  carinhas felizes e mensagem personalizada de ate 32 caracteres.
+- Cada opcao tem seu som: fanfarra existente, palmas sintetizadas, notas suaves,
+  melodia alegre ou brilho musical. Todos respeitam o mute e o volume, inclusive
+  durante a reproducao. O menu oferece o mesmo controle de som do cabecalho.
+- A chamada continua iniciando silenciada. O profissional pode ativar o som no
+  menu Reacoes mesmo antes de abrir um jogo. Microfone e video nao sao alterados.
+- `session_reaction` compartilha `{ id, type, seed, text? }` no canal de comandos
+  existente. Apenas mensagens identificadas pelo servidor como `admin`, posteriores
+  a entrada atual e com payload valido sao aceitas. Confetes antigos continuam
+  sendo aceitos. O frontend nao exige novo endpoint nem variavel de ambiente.
+- A semente preserva a distribuicao entre participantes; o identificador evita
+  duplicar o efeito ao receber o eco do proprio comando. Apenas um efeito permanece
+  ativo, as animacoes terminam em 4,2 segundos e os timers sao removidos ao sair.
+- Mensagens sao renderizadas como texto, nunca HTML. Em areas estreitas, a mensagem
+  usa duas colunas. Quem prefere movimento reduzido ve uma mensagem estatica.
+
+## Testes Das Reacoes
+
+`node --experimental-strip-types --test tests/session-reactions.test.ts`
+
+O teste `tests/session-reactions.render.tsx` usa o mesmo esbuild dos controles,
+com `--loader:.css=empty`, seguido de `node --test`.
+
+## Testes Do Audio
 
 `node --experimental-strip-types --test tests/game-audio.test.ts tests/game-audio-volume.test.ts tests/sessionGameEvent.test.ts tests/round-game.test.ts`
 

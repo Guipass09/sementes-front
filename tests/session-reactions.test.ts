@@ -248,7 +248,11 @@ test("reactions have distinct short sounds, obey mute and volume, and replace qu
       const tones = context.oscillators.slice(startOsc);
       const noises = context.noises.slice(startNoise);
       if (type === "applause") {
-        assert.equal(noises.length, 20);
+        assert.equal(
+          noises.length,
+          0,
+          "Applause must never use the old synthetic noise",
+        );
         assert.equal(tones.length, 0);
       }
       signatures.push(

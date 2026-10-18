@@ -51,9 +51,14 @@
 
 - O menu Reacoes substitui Confetes no mesmo local: confetes, palmas, coracoes,
   carinhas felizes e mensagem personalizada de ate 32 caracteres.
-- Cada opcao tem seu som: fanfarra existente, palmas sintetizadas, notas suaves,
+- Cada opcao tem seu som: fanfarra existente, palmas gravadas, notas suaves,
   melodia alegre ou brilho musical. Todos respeitam o mute e o volume, inclusive
   durante a reproducao. O menu oferece o mesmo controle de som do cabecalho.
+- Palmas usam uma gravacao real de um grupo pequeno, com trecho de ate 2,8 segundos,
+  ganho reduzido (45% do ganho mestre), filtro passa-baixa em 2,6 kHz e fades de
+  entrada e saida. O MP3 local e decodificado uma vez por AudioContext e reutilizado.
+  Trocar de efeito ou silenciar enquanto carrega cancela a reproducao pendente;
+  falhas nao retornam ao ruido sintetizado. Fonte e licenca em `public/audio/CREDITS.md`.
 - A chamada continua iniciando silenciada. O profissional pode ativar o som no
   menu Reacoes mesmo antes de abrir um jogo. Microfone e video nao sao alterados.
 - `session_reaction` compartilha `{ id, type, seed, text? }` no canal de comandos
@@ -72,7 +77,7 @@
 
 ## Testes Das Reacoes
 
-`node --experimental-strip-types --test tests/session-reactions.test.ts`
+`node --experimental-strip-types --test tests/session-reactions.test.ts tests/applause-sound.test.ts`
 
 O teste `tests/session-reactions.render.tsx` usa o mesmo esbuild dos controles,
 com `--loader:.css=empty`, seguido de `node --test`.

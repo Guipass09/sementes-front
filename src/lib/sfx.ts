@@ -1,6 +1,7 @@
 import { getGameAudioVolume, isGameAudioMuted, subscribeGameAudio } from "./game-audio-store.ts";
 import { gameAudioGain } from "./game-audio-policy.ts";
 import type { ReactionType } from "../features/session/session-reactions.ts";
+import { playRecordedApplause } from "./applause-sound.ts";
 
 type AudioCtx = AudioContext & { _sementes?: true };
 
@@ -8,6 +9,7 @@ let ctx: AudioCtx | null = null;
 let master: GainNode | null = null;
 let unlocked = false;
 let winBus: GainNode | null = null;
+let reactionEpoch = 0;
 
 function getCtx(): AudioCtx | null {
   if (typeof window === "undefined") return null;
@@ -27,6 +29,7 @@ function getCtx(): AudioCtx | null {
 }
 
 subscribeGameAudio(() => {
+  if (isGameAudioMuted() || getGameAudioVolume() === 0) reactionEpoch += 1;
   if (master) master.gain.setValueAtTime(isGameAudioMuted() ? 0 : gameAudioGain(getGameAudioVolume(), 0.4), ctx!.currentTime);
   if (isGameAudioMuted() && winBus) {
     try { winBus.disconnect(); } catch { /* Already disconnected. */ }
@@ -384,16 +387,13 @@ export function playSessionReaction(type: ReactionType): void {
   const c = getCtx();
   if (!c || !master) return;
   const reactionBus = master;
+  const requestEpoch = reactionEpoch;
   const play = () => {
     if (master !== reactionBus || isGameAudioMuted() || getGameAudioVolume() === 0) return;
     const t = c.currentTime + 0.01;
     if (type === "confetti") { playFanfare(); return; }
     if (type === "applause") {
-      // Short clusters of filtered noise reproduce overlapping hand claps.
-      for (let i = 0; i < 10; i++) {
-        noise(t + i * 0.12, 0.09, 0.8);
-        noise(t + i * 0.12 + 0.035, 0.065, 0.4);
-      }
+      void playRecordedApplause(c, reactionBus, () => master === reactionBus && reactionEpoch === requestEpoch && !isGameAudioMuted() && getGameAudioVolume() > 0);
       return;
     }
     const notes = type === "hearts" ? [523.25, 659.25, 523.25, 783.99]

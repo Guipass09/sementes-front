@@ -6,6 +6,8 @@ import { readGameAudioVolumePreference, saveGameAudioVolumePreference, setGameAu
 import { GameAudioControls } from "@/features/games/GameAudio";
 import { SessionReactionPicker } from "@/features/session/SessionReactionPicker";
 import { SessionReactionOverlay } from "@/features/session/SessionReactionOverlay";
+import { SessionMusicControls } from "@/features/session/SessionMusicControls";
+import { useSessionMusic } from "@/features/session/use-session-music";
 import { appendReactionBurst, createReactionHistory, sessionReactionMessage, type SessionReaction } from "@/features/session/session-reactions";
 import type { ReportFormDraft } from "@/features/reports/ReportFormModal";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1089,6 +1091,9 @@ export default function SessionCall() {
     }
   };
 
+  const sessionMusic = useSessionMusic({ role, identity: joinInfo?.token, serverNow: joinInfo?.server_now,
+    send, connected: () => pcRef.current?.connectionState === "connected" });
+
   const postToContentFrame = (msg: any) => {
     try {
       contentFrameRef.current?.contentWindow?.postMessage(msg, window.location.origin);
@@ -1746,6 +1751,10 @@ export default function SessionCall() {
   };
 
   const handleMessage = async (m: VideoPollMessage) => {
+    if (m.kind === "session_music" || m.kind === "session_music_ack") {
+      sessionMusic.receive(m);
+      return;
+    }
     // A fila do backend dura horas; sinais anteriores à entrada atual não servem para este peer.
     if (["webrtc_offer", "webrtc_answer", "webrtc_ice", "webrtc_reconnect", "media_state"].includes(m.kind)) {
       const joinedOnServer = Date.parse(joinInfo?.server_now || "");
@@ -2174,12 +2183,14 @@ export default function SessionCall() {
           delayMs = 600;
         } else {
           // Sem mensagens: reduz spam de rede
-          delayMs = Math.min(2500, delayMs + 250);
+          delayMs = sessionMusic.isPlaying() ? 600 : Math.min(2500, delayMs + 250);
         }
         const next = Number.isFinite(res.next_cursor as any) ? (res.next_cursor as any as number) : cursorRef.current;
         cursorRef.current = next;
         setCursor(next);
       } catch {
+        if (cancelled) return;
+        sessionMusic.pause();
         // silencioso: rede intermitente
         delayMs = Math.min(3500, delayMs + 500);
       } finally {
@@ -3389,6 +3400,7 @@ export default function SessionCall() {
                 audioSettings={{ muted: gameAudioMuted, volume: gameAudioVolume }}
                 onAudioChange={applyGameAudio}
                 onAudioCommit={next => void commitGameAudio(next)}
+                musicControls={<SessionMusicControls view={sessionMusic.view} disabled={!joinInfo} onChange={sessionMusic.change} />}
                 onSend={async next => {
                   if (role !== "admin" || !joinInfo) return;
                   showReaction(next);

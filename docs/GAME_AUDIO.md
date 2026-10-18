@@ -82,7 +82,56 @@
 O teste `tests/session-reactions.render.tsx` usa o mesmo esbuild dos controles,
 com `--loader:.css=empty`, seguido de `node --test`.
 
-## Testes Do Audio
+## Musicas Do Atendimento
+
+- O menu Reacoes inclui um player independente, persistente na chamada mesmo
+  quando o popover fecha. A lista fica recolhida; sao 20 faixas instrumentais
+  ludicas, nao gravacoes de cancoes infantis comerciais. Escolher uma faixa
+  deixa-a pausada ate o profissional tocar. Ha play/pausa para todos, voltar ao
+  inicio, repetir (ativo inicialmente) e volume proprio, inicialmente 25%.
+- As 19 faixas de Kevin MacLeod usam CC BY 4.0, com credito no player e link para
+  `public/audio/session-music/CREDITS.md`. A faixa Children's March Theme usa
+  CC0. Os MP3 de Kevin foram convertidos para 96 kbit/s; apenas a faixa escolhida
+  e carregada, sem buscar audio de terceiros durante o atendimento.
+- A trilha automatica dos jogos nao toca em chamadas ao vivo. Efeitos, voz,
+  reacoes e microfone continuam independentes. O volume da musica nao altera
+  o microfone. O antigo controle continua sendo apenas para jogos e reacoes.
+- `session_music` e `session_music_ack` usam o canal autenticado existente. Nao
+  exigem backend, migracao, nova instancia ou variavel na Vercel. O paciente so
+  aceita musica identificada pelo servidor como `from: admin`, de um catalogo
+  local permitido. Nao ha URLs arbitrarias nos comandos.
+- O profissional envia a posicao e uma renovacao aproximadamente a cada 1,4 s;
+  o paciente confirma a reproducao. O poll fica rapido enquanto a musica toca.
+  Ha revisao para cada mudanca e sequencia crescente para cada envio: mensagens
+  antigas de play/renovacao nao desfazem uma pausa mais recente.
+- A permissao de audio dura no maximo 5 s por renovacao aceita, descontando a idade
+  do comando. Um GainNode agenda silencio no relogio de audio, nao apenas em
+  setTimeout, para nao depender exclusivamente de timers JavaScript em segundo
+  plano. Renovacoes vencidas nunca iniciam musica. Uma revisao que perdeu a
+  permissao fica bloqueada ate um novo play explicito do profissional.
+- Pausa local e imediata; na rede normal, o outro lado pausa ao receber o comando.
+  Se ele se perder, a permissao curta ainda silencia o audio. Pausas sao repetidas
+  tres vezes. Nao existe promessa de simultaneidade exata durante uma queda de
+  rede; a protecao e parar por seguranca em vez de continuar indefinidamente.
+- Sem confirmacao recente do paciente (6 s), falha do poll/envio, perda do peer,
+  aba oculta, offline, pagehide, saida da chamada, erro de midia ou autoplay
+  bloqueado, a musica para. A recuperacao da rede nao a reinicia sozinha.
+- O player e desmontado ao sair/trocar de sessao, fecha seu AudioContext, cancela
+  renovacoes e libera o elemento de audio. Uma play promise atrasada nao pode
+  desfazer pausa/dispose. Falhas mostram uma mensagem simples ao profissional.
+
+### Validacao Da Musica
+
+`node --experimental-strip-types --test tests/session-music.test.ts tests/session-music-player.test.ts`
+
+Os testes cobrem 40 minutos simulados, pausa perdida, comandos atrasados,
+ordenacao, permissao vencida, bloqueio de autoplay, volume, loop, busca, saida,
+integridade/licenca dos 20 arquivos e silencio agendado no renderizador de audio.
+`tests/session-music.render.tsx` verifica os controles usando esbuild como acima.
+Ainda e necessario validar com dois navegadores/dispositivos reais, inclusive
+Safari/iOS e rede instavel. Os testes automatizados nao substituem essa verificacao.
+
+## Testes Gerais Do Audio
 
 `node --experimental-strip-types --test tests/game-audio.test.ts tests/game-audio-volume.test.ts tests/sessionGameEvent.test.ts tests/round-game.test.ts`
 

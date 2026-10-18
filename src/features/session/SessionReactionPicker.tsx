@@ -49,6 +49,7 @@ export function SessionReactionPicker({
   onAudioChange,
   onAudioCommit,
   onSend,
+  musicControls,
 }: {
   disabled: boolean;
   audioPending: boolean;
@@ -56,6 +57,7 @@ export function SessionReactionPicker({
   onAudioChange: (settings: GameAudioSettings) => void;
   onAudioCommit: (settings: GameAudioSettings) => void;
   onSend: (reaction: SessionReaction) => Promise<void>;
+  musicControls?: import("react").ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(0);
@@ -153,6 +155,7 @@ export function SessionReactionPicker({
             {Array.from(text).length}/{REACTION_TEXT_LIMIT}
           </div>
         </form>
+        {musicControls}
         <div className="mt-3 border-t border-border pt-3">
           <div className="mb-2 text-xs font-medium">
             Som dos jogos e reações

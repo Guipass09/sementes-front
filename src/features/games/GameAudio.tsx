@@ -156,7 +156,7 @@ export default function GameAudio() {
     <GameAudioController
       key={`${pathname}:${params.get("session_id")}:${params.get("session_content_id")}`}
       search={search}
-      music={route.music}
+      music={route.music && !isLiveGameAudio(search)}
     />
   );
 }

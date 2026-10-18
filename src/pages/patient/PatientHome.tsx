@@ -1,145 +1,121 @@
-import { Link } from "react-router-dom";
-import { Activity, Calendar, FileText, ArrowRight, Heart, Star } from "lucide-react";
-import logoImage from "@/assets/logo-sementes-da-fala.jpg";
+import { Link, useLocation } from "react-router-dom";
+import { ArrowRight, CalendarDays, ClipboardList, FileText, Gamepad2, RefreshCw, type LucideIcon } from "lucide-react";
+import { useAuth } from "@/auth/AuthContext";
+import { useAccessControl } from "@/hooks/use-access-control";
+import { Skeleton } from "@/components/ui/skeleton";
+import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import { usePatientLibrary } from "@/features/patient-library/usePatientLibrary";
+import { newestFirst } from "@/features/patient-library/recent-content";
+import { gameNoticeKey, markGameOpened, readGameNotices, reconcileGameNotices, saveGameNotices } from "./game-notices";
 
-const shortcuts = [
-  {
-    path: "/paciente/atividades",
-    icon: Activity,
-    title: "Atividades",
-    description: "Acesse as atividades terapêuticas disponíveis para realizar em casa",
-    color: "from-brand-green to-brand-green-dark",
-  },
-  {
-    path: "/paciente/sessoes",
-    icon: Calendar,
-    title: "Sessões",
-    description: "Visualize suas sessões agendadas e histórico de atendimentos",
-    color: "from-brand-orange to-brand-orange-dark",
-  },
-  {
-    path: "/paciente/relatorios",
-    icon: FileText,
-    title: "Relatórios",
-    description: "Acompanhe a evolução e os relatórios do desenvolvimento",
-    color: "from-brand-blue to-brand-purple",
-  },
-];
+const statusLabels = { disponivel: "Disponível", em_andamento: "Em andamento", concluida: "Concluída" };
 
-const PatientHome = () => {
+export default function PatientHome() {
+  const { user } = useAuth();
+  const location = useLocation();
+  const { checkAccess } = useAccessControl();
+  const isPreview = location.pathname.startsWith("/preview-paciente");
+  const base = isPreview ? "/preview-paciente" : "/paciente";
+  const { activities, categories, loading, refreshing, hasErrors, refresh } = usePatientLibrary();
+  const recentActivities = newestFirst(activities, activity => activity.created_at).slice(0, 4);
+  const recentGames = newestFirst(categories.flatMap(category => category.items.map(game => ({ game, category }))), entry => entry.game.createdAt).slice(0, 4);
+  const shortcuts = [
+    { path: base + "/atividades", label: "Atividades", icon: ClipboardList },
+    { path: base + "/jogos", label: "Jogos", icon: Gamepad2 },
+    ...(isPreview || checkAccess("horarios") ? [{ path: base + "/sessoes", label: "Sessões", icon: CalendarDays }] : []),
+    { path: base + "/relatorios", label: "Relatórios", icon: FileText },
+  ];
+
+  const markRecentGameOpened = (categoryId: string, gameId: number) => {
+    if (!user || hasErrors) return;
+    const keys = categories.flatMap(category => category.items.map(game => gameNoticeKey(category.id, game.id)));
+    const state = reconcileGameNotices(readGameNotices(user.id), keys);
+    saveGameNotices(user.id, markGameOpened(state, gameNoticeKey(categoryId, gameId)));
+  };
+
   return (
-    <div className="min-h-full">
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-brand-mint via-background to-brand-green/5 py-16 lg:py-24 overflow-hidden">
-        {/* Decorative elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-brand-green/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-brand-orange/10 rounded-full blur-3xl" />
-        
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-3xl mx-auto text-center">
-            {/* Logo */}
-            <div className="inline-block mb-6 animate-float">
-              <div className="relative">
-                <div className="absolute inset-0 bg-brand-green/20 rounded-2xl blur-xl scale-110" />
-                <img
-                  src={logoImage}
-                  alt="Sementes da Fala"
-                  className="relative w-24 h-24 lg:w-32 lg:h-32 object-contain rounded-2xl shadow-lg mx-auto"
-                />
-              </div>
-            </div>
-
-            {/* Title */}
-            <h1 className="text-3xl lg:text-4xl xl:text-5xl font-display font-bold text-foreground mb-4 animate-fade-in">
-              Bem-vindo ao{" "}
-              <span className="text-brand-green">Ambiente</span>{" "}
-              <span className="text-brand-brown">do Paciente</span>
-            </h1>
-
-            {/* Description */}
-            <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-              Esta é a sua plataforma exclusiva para acompanhamento terapêutico. 
-              Aqui você encontra atividades, sessões e relatórios do desenvolvimento do seu filho.
-            </p>
-
-            {/* Features badges */}
-            <div className="flex flex-wrap justify-center gap-3 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-green/10 text-brand-green text-sm font-medium">
-                <Heart size={16} />
-                Acompanhamento personalizado
-              </span>
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand-orange/10 text-brand-orange text-sm font-medium">
-                <Star size={16} />
-                Atividades exclusivas
-              </span>
-            </div>
-          </div>
+    <div className="container mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:py-10">
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="break-words font-display text-2xl font-bold text-foreground">{user ? "Olá, " + user.name.split(" ")[0] : "Seu acompanhamento"}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Novidades do seu acompanhamento</p>
         </div>
+        <button type="button" onClick={() => void refresh()} disabled={refreshing || isPreview} aria-label="Atualizar conteúdos" title="Atualizar conteúdos" className="flex h-10 w-10 flex-none items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:bg-muted/40 disabled:opacity-50">
+          <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
+        </button>
+      </header>
+
+      <nav aria-label="Acesso rápido" className="mb-8 flex flex-wrap gap-2">
+        {shortcuts.map(shortcut => (
+          <Link key={shortcut.path} to={shortcut.path} className="inline-flex min-h-10 items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:border-primary/40 hover:bg-primary/5">
+            <shortcut.icon size={17} className="text-brand-green-dark" />{shortcut.label}
+          </Link>
+        ))}
+      </nav>
+
+      {hasErrors && (
+        <div role="status" className="mb-6 flex flex-wrap items-center gap-3 rounded-md border border-border bg-card p-4 text-sm text-muted-foreground">
+          <span>Alguns conteúdos não puderam ser carregados.</span>
+          <button type="button" onClick={() => void refresh()} disabled={refreshing} className="font-semibold text-primary underline underline-offset-4 disabled:opacity-50">Tentar novamente</button>
+        </div>
+      )}
+
+      <section aria-labelledby="recent-activities-heading" className="border-t border-border py-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="recent-activities-heading" className="flex items-center gap-2 font-display text-lg font-semibold text-foreground"><ClipboardList size={20} className="text-brand-green-dark" />Atividades recentes</h2>
+          <Link to={base + "/atividades?ordem=recentes"} className="inline-flex min-h-9 items-center gap-1 text-sm font-semibold text-brand-green-dark">Ver todas <ArrowRight size={16} /></Link>
+        </div>
+        {loading ? <LoadingTiles /> : !recentActivities.length ? (
+          <p className="py-6 text-sm text-muted-foreground">As atividades disponibilizadas para você aparecerão aqui.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {recentActivities.map(activity => (
+              <ResourceTile key={activity.id} path={"/atividades/" + activity.id} title={activity.title} meta={activity.category || "Atividade"} detail={statusLabels[activity.status ?? "disponivel"]} imageUrl={activity.thumbnail?.media_type === "video" ? activity.thumbnail.thumbnail_url : activity.thumbnail?.url} icon={ClipboardList} />
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Shortcuts Section */}
-      <section className="py-12 lg:py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl lg:text-3xl font-display font-bold text-foreground mb-3">
-              Acesso Rápido
-            </h2>
-            <p className="text-muted-foreground max-w-lg mx-auto">
-              Navegue facilmente entre as principais áreas da plataforma
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {shortcuts.map((shortcut, index) => {
-              const Icon = shortcut.icon;
-              return (
-                <Link
-                  key={shortcut.path}
-                  to={shortcut.path}
-                  className="group relative bg-card rounded-2xl border border-border p-6 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-fade-in"
-                  style={{ animationDelay: `${0.1 * index}s` }}
-                >
-                  {/* Icon */}
-                  <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${shortcut.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                    <Icon size={28} className="text-white" />
-                  </div>
-
-                  {/* Content */}
-                  <h3 className="text-xl font-display font-bold text-foreground mb-2 group-hover:text-primary transition-colors">
-                    {shortcut.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                    {shortcut.description}
-                  </p>
-
-                  {/* Arrow */}
-                  <div className="flex items-center text-primary font-medium text-sm">
-                    <span>Acessar</span>
-                    <ArrowRight size={16} className="ml-1 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+      <section aria-labelledby="recent-games-heading" className="border-t border-border py-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="recent-games-heading" className="flex items-center gap-2 font-display text-lg font-semibold text-foreground"><Gamepad2 size={20} className="text-brand-green-dark" />Jogos recentes</h2>
+          <Link to={base + "/jogos?recentes=1"} className="inline-flex min-h-9 items-center gap-1 text-sm font-semibold text-brand-green-dark">Ver todos <ArrowRight size={16} /></Link>
         </div>
-      </section>
-
-      {/* Info Section */}
-      <section className="py-12 lg:py-16 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-xl lg:text-2xl font-display font-bold text-foreground mb-4">
-              Cultivando a comunicação, plantando o futuro
-            </h2>
-            <p className="text-muted-foreground">
-              A Sementes da Fala está comprometida com o desenvolvimento da comunicação do seu filho. 
-              Utilize esta plataforma para acompanhar cada passo dessa jornada especial.
-            </p>
+        {loading ? <LoadingTiles /> : !recentGames.length ? (
+          <p className="py-6 text-sm text-muted-foreground">Os jogos disponibilizados para você aparecerão aqui.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {recentGames.map(({ game, category }) => (
+              <ResourceTile key={category.id + "-" + game.id} path={game.path} title={game.title} meta={category.title} detail={game.detail} imageUrl={game.imageUrl} icon={category.icon} onOpen={() => markRecentGameOpened(category.id, game.id)} />
+            ))}
           </div>
-        </div>
+        )}
       </section>
     </div>
   );
-};
+}
 
-export default PatientHome;
+function ResourceTile({ path, title, meta, detail, imageUrl, icon: Icon, onOpen }: {
+  path: string; title: string; meta: string; detail: string; imageUrl?: string | null; icon: LucideIcon; onOpen?: () => void;
+}) {
+  return (
+    <Link to={path} onClick={onOpen} className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+      <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-muted/40">
+        <Icon size={32} strokeWidth={1.5} className="text-brand-green-dark/60" aria-hidden="true" />
+        {imageUrl && <img src={normalizeMediaUrl(imageUrl)} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-contain" onError={event => { event.currentTarget.style.display = "none"; }} />}
+      </div>
+      <div className="flex flex-1 flex-col p-4">
+        <p className="truncate text-xs text-muted-foreground">{meta}</p>
+        <h3 className="mt-1 line-clamp-2 min-h-10 break-words text-sm font-semibold leading-5 text-foreground">{title}</h3>
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/60 pt-3">
+          <span className="min-w-0 truncate text-xs text-muted-foreground">{detail}</span>
+          <ArrowRight size={16} className="flex-none text-brand-green-dark transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function LoadingTiles() {
+  return <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Carregando conteúdos">{[0, 1, 2, 3].map(index => <Skeleton key={index} className="aspect-[4/3] rounded-lg" />)}</div>;
+}

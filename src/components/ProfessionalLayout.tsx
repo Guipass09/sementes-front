@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Activity, Calendar, FileText, Grid3X3, History, LayoutDashboard, Users } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, Gamepad2, History, LayoutDashboard, UsersRound } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
@@ -9,6 +9,7 @@ import ProfessionalSubscriptionPreview from "@/components/ProfessionalSubscripti
 import SaleSchedulerListener from "@/components/SaleSchedulerListener";
 import SubscriptionTimer, { useSubscriptionRemaining } from "@/components/SubscriptionTimer";
 import { isApiError, me } from "@/lib/laravel-api";
+import { resourceNavigation } from "@/lib/resource-navigation";
 
 export default function ProfessionalLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -63,14 +64,15 @@ export default function ProfessionalLayout() {
 
   if (!user || auth.loading) return <FullScreenLogoLoader label="Carregando..." />;
 
+  const resources = resourceNavigation("/profissional", { clinic: isClinicAccount });
   const navItems: ProfileNavItem[] = [
     { path: "/profissional", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/profissional/pacientes", label: isClinicAccount ? "Terapeutas" : "Pacientes", icon: Users },
-    { path: "/profissional/atividades", label: "Atividades", icon: Activity },
-    { path: "/profissional/jogos", label: "Jogos", icon: Grid3X3 },
-    { path: "/profissional/horarios", label: "Horários", icon: Calendar },
+    { path: "/profissional/pacientes", label: isClinicAccount ? "Terapeutas" : "Pacientes", icon: UsersRound },
+    { path: "/profissional/atividades", label: "Atividades", icon: ClipboardList, children: resources.activities },
+    { path: "/profissional/jogos", label: "Jogos", icon: Gamepad2, children: resources.games },
+    { path: "/profissional/horarios", label: "Horários", icon: CalendarDays },
     { path: "/profissional/historico", label: "Histórico", icon: History },
-    { path: "/profissional/relatorios", label: "Relatórios", icon: FileText },
+    { path: "/profissional/relatorios", label: "Relatórios", icon: BarChart3 },
   ].map((item) => ({ ...item, active: item.path === "/profissional" ? location.pathname === item.path : location.pathname.startsWith(item.path) }));
 
   const subtitle = isClinicAccount

@@ -12,7 +12,7 @@ import {
   ScanFace,
   Type,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import ClinicProfessionalScopeSelector from "@/components/ClinicProfessionalScopeSelector";
@@ -31,6 +31,8 @@ type GameSection = {
 };
 
 export default function ClinicProfessionalGamesView(): JSX.Element {
+  const [searchParams] = useSearchParams();
+  const gameType = searchParams.get("tipo");
   const [loading, setLoading] = useState(true);
   const [professionalsLoading, setProfessionalsLoading] = useState(true);
   const [professionals, setProfessionals] = useState<api.ClinicProfessionalRow[]>([]);
@@ -196,9 +198,10 @@ export default function ClinicProfessionalGamesView(): JSX.Element {
 
   const filteredSections = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return sections;
+    const scoped = gameType ? sections.filter(section => section.key === gameType) : sections;
+    if (!query) return scoped;
 
-    return sections
+    return scoped
       .map((section) => ({
         ...section,
         items: section.items.filter((item) =>
@@ -209,7 +212,7 @@ export default function ClinicProfessionalGamesView(): JSX.Element {
         ),
       }))
       .filter((section) => section.items.length > 0);
-  }, [sections, searchTerm]);
+  }, [sections, searchTerm, gameType]);
 
   const selectedProfessionalName = useMemo(
     () => professionals.find((professional) => professional.id === selectedProfessionalId)?.name ?? "",
@@ -297,7 +300,7 @@ export default function ClinicProfessionalGamesView(): JSX.Element {
             <p className="text-muted-foreground">Nenhum jogo encontrado para este terapeuta.</p>
           </div>
         ) : (
-          <Accordion type="multiple" className="space-y-3 sm:space-y-4">
+          <Accordion key={gameType ?? "all"} type="multiple" defaultValue={gameType ? [gameType] : []} className="space-y-3 sm:space-y-4">
             {filteredSections.map((section) => {
               const SectionIcon = section.icon;
               return (

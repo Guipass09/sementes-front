@@ -1,12 +1,13 @@
 import { CheckCircle2, Clock, Play, FileText, Image as ImageIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
 import type { ActivityRow } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { onUserProgressChanged } from "@/lib/user-events";
+import { newestFirst } from "@/features/patient-library/recent-content";
 
 const statusConfig = {
   disponivel: {
@@ -29,19 +30,26 @@ const statusConfig = {
 const PatientActivities = () => {
   const auth = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedStatus = searchParams.get("status");
+  const recent = searchParams.get("ordem") === "recentes";
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    if (!auth.user) return;
+    if (!auth.user) { setLoading(false); return; }
     let cancelled = false;
     const load = async () => {
       setLoading(true);
+      setLoadError(false);
       try {
         const a = await api.userListActivities();
         if (!cancelled) {
           setActivities(a.filter(activity => !activity.is_story));
         }
+      } catch {
+        if (!cancelled) setLoadError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -65,6 +73,11 @@ const PatientActivities = () => {
 
     return { total, done, inProgress, available, percent };
   }, [activities]);
+
+  const visibleActivities = useMemo(() => {
+    const filtered = selectedStatus ? activities.filter(a => a.status === selectedStatus) : activities;
+    return recent ? newestFirst(filtered, a => a.created_at) : filtered;
+  }, [activities, selectedStatus, recent]);
 
   return (
     <div className="min-h-full py-8 lg:py-12">
@@ -120,6 +133,19 @@ const PatientActivities = () => {
           </div>
         </div>
 
+        <div className="mb-5 flex flex-wrap gap-2" aria-label="Filtrar atividades">
+          {[
+            { label: "Todas", params: {} },
+            { label: "Mais recentes", params: { ordem: "recentes" } },
+            { label: "Em andamento", params: { status: "em_andamento" } },
+            { label: "Concluídas", params: { status: "concluida" } },
+          ].map(filter => {
+            const active = filter.params.status ? selectedStatus === filter.params.status : filter.params.ordem ? recent : !selectedStatus && !recent;
+            return <button key={filter.label} type="button" aria-pressed={active} onClick={() => setSearchParams(filter.params)} className={`min-h-10 rounded-md border px-3 text-sm font-medium ${active ? "border-primary/40 bg-primary/10 text-foreground" : "border-border bg-card text-muted-foreground hover:bg-muted/40"}`}>{filter.label}</button>;
+          })}
+        </div>
+        {loadError && <p role="status" className="mb-4 text-sm text-destructive">Não foi possível carregar suas atividades. Atualize a página para tentar novamente.</p>}
+
         {/* Activities List */}
         <div className="space-y-4">
           {loading ? (
@@ -138,13 +164,13 @@ const PatientActivities = () => {
                 </div>
               ))}
             </div>
-          ) : activities.length === 0 ? (
+          ) : visibleActivities.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-8 shadow-sm text-center">
               <ImageIcon size={48} className="mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">Nenhuma atividade disponível ainda.</p>
             </div>
           ) : (
-            activities.map((activity, index) => {
+            visibleActivities.map((activity, index) => {
               const status = activity.status ?? "disponivel";
               const StatusIcon = statusConfig[status].icon;
               const thumb = activity.thumbnail;

@@ -5,6 +5,31 @@ export type GameNoticeState = {
 
 export const gameNoticeKey = (categoryId: string, gameId: number) => `${categoryId}:${gameId}`;
 
+const noticeStorageKey = (userId: number) => `sementes:patient-game-notices:v1:${userId}`;
+
+export function readGameNotices(userId: number): GameNoticeState | null {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(noticeStorageKey(userId)) ?? "null");
+    if (Array.isArray(parsed?.known) && Array.isArray(parsed?.pending)) {
+      return {
+        known: parsed.known.filter((key: unknown): key is string => typeof key === "string"),
+        pending: parsed.pending.filter((key: unknown): key is string => typeof key === "string"),
+      };
+    }
+  } catch {
+    // Storage can be disabled or contain data from an older version.
+  }
+  return null;
+}
+
+export function saveGameNotices(userId: number, state: GameNoticeState): void {
+  try {
+    localStorage.setItem(noticeStorageKey(userId), JSON.stringify(state));
+  } catch {
+    // Notice persistence is optional; navigation remains available.
+  }
+}
+
 export function reconcileGameNotices(previous: GameNoticeState | null, availableKeys: string[]): GameNoticeState {
   const available = new Set(availableKeys);
   if (!previous) return { known: [...available], pending: [] };

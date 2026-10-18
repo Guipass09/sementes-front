@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Activity, Calendar, FileText, Grid3X3, Home, UserRoundCheck } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, Gamepad2, Home, UserRoundCheck } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
@@ -8,13 +8,14 @@ import ProfileShell, { type ProfileNavItem } from "@/components/ProfileShell";
 import { useAccessControl } from "@/hooks/use-access-control";
 import { patientListLinkRequests } from "@/lib/laravel-api";
 import PatientLinkRequests from "@/pages/patient/PatientLinkRequests";
+import { resourceNavigation } from "@/lib/resource-navigation";
 
 const items = [
   { path: "/paciente", label: "Início", icon: Home },
-  { path: "/paciente/atividades", label: "Atividades", icon: Activity },
-  { path: "/paciente/jogos", label: "Jogos", icon: Grid3X3 },
-  { path: "/paciente/sessoes", label: "Sessões", icon: Calendar },
-  { path: "/paciente/relatorios", label: "Relatórios", icon: FileText },
+  { path: "/paciente/atividades", label: "Atividades", icon: ClipboardList },
+  { path: "/paciente/jogos", label: "Jogos", icon: Gamepad2 },
+  { path: "/paciente/sessoes", label: "Sessões", icon: CalendarDays },
+  { path: "/paciente/relatorios", label: "Relatórios", icon: BarChart3 },
 ];
 
 export default function PatientLayout() {
@@ -83,11 +84,13 @@ export default function PatientLayout() {
   if (!user || (!isPreview && auth.loading)) return <FullScreenLogoLoader label="Carregando..." />;
 
   const homePath = isPreview ? "/preview-paciente" : "/paciente";
+  const resources = resourceNavigation(homePath, { patient: true, preview: isPreview });
   const navItems: ProfileNavItem[] = items
     .filter((item) => isPreview || item.path !== "/paciente/sessoes" || checkAccess("horarios"))
     .map((item) => {
       const path = isPreview ? item.path.replace("/paciente", "/preview-paciente") : item.path;
-      return { ...item, path, active: path === homePath ? location.pathname === path : location.pathname.startsWith(path) };
+      const children = item.path.endsWith("/jogos") ? resources.games : item.path.endsWith("/atividades") ? resources.activities : undefined;
+      return { ...item, path, children, active: path === homePath ? location.pathname === path : location.pathname.startsWith(path) };
     });
 
   const requestAction = pendingRequests > 0 ? (

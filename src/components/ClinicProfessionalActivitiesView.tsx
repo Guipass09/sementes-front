@@ -6,8 +6,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import ClinicProfessionalScopeSelector from "@/components/ClinicProfessionalScopeSelector";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import * as api from "@/lib/laravel-api";
+import { useSearchParams } from "react-router-dom";
 
 export default function ClinicProfessionalActivitiesView(): JSX.Element {
+  const [searchParams] = useSearchParams();
+  const view = searchParams.get("visao");
   const [loading, setLoading] = useState(true);
   const [professionalsLoading, setProfessionalsLoading] = useState(true);
   const [professionals, setProfessionals] = useState<api.ClinicProfessionalRow[]>([]);
@@ -78,8 +81,9 @@ export default function ClinicProfessionalActivitiesView(): JSX.Element {
 
   const filteredActivities = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return activities;
-    return activities.filter((activity) =>
+    const scoped = activities.filter(a => view === "biblioteca" ? !a.assigned_to?.length : view === "pacientes" ? !!a.assigned_to?.length : true);
+    if (!query) return scoped;
+    return scoped.filter((activity) =>
       [
         activity.title,
         activity.description,
@@ -90,7 +94,7 @@ export default function ClinicProfessionalActivitiesView(): JSX.Element {
         .toLowerCase()
         .includes(query)
     );
-  }, [activities, searchTerm]);
+  }, [activities, searchTerm, view]);
 
   const groupedByPatient = useMemo(() => {
     const byPatient = new Map<number, { id: number; name: string; items: api.ActivityRow[] }>();

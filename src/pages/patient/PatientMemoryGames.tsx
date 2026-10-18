@@ -1,82 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { roundGameInfo } from "@/features/round-games/round-game";
-import {
-  CircleDot,
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  Ear,
-  Gamepad2,
-  Grid3X3,
-  Image as ImageIcon,
-  Layers,
-  Type,
-  type LucideIcon,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock3, Gamepad2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthContext";
-import type {
-  ActivityRow,
-  AuditoryGameRow,
-  CardGameRow,
-  GuessImageGameRow,
-  HangmanGameRow,
-  MemoryGameRow,
-  PhonemeGameRow,
-  SpinWheelGameRow,
-  WordSearchGameRow,
-} from "@/lib/laravel-api";
-import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
-import { gameNoticeKey, markGameOpened, reconcileGameNotices, type GameNoticeState } from "./game-notices";
+import { usePatientLibrary, type PatientGameItem as GameItem, type PatientGameCategory } from "@/features/patient-library/usePatientLibrary";
+import { newestFirst } from "@/features/patient-library/recent-content";
+import { gameNoticeKey, markGameOpened, reconcileGameNotices, readGameNotices, saveGameNotices } from "./game-notices";
 import "./patient-games.css";
 
-type GameItem = {
-  id: number;
-  title: string;
-  description?: string | null;
-  imageUrl?: string | null;
-  detail: string;
-  path: string;
-};
-
-type GameCategory = {
-  id: string;
-  title: string;
-  icon: LucideIcon;
-  iconClassName: string;
-  iconBackgroundClassName: string;
-  items: GameItem[];
-};
-
 const gameCount = (count: number) => `${count} ${count === 1 ? "jogo disponível" : "jogos disponíveis"}`;
-const noticeStorageKey = (userId: number) => `sementes:patient-game-notices:v1:${userId}`;
-
-const readGameNotices = (userId: number): GameNoticeState | null => {
-  try {
-    const stored = localStorage.getItem(noticeStorageKey(userId));
-    if (!stored) return null;
-    const parsed = JSON.parse(stored);
-    if (Array.isArray(parsed?.known) && Array.isArray(parsed?.pending)) {
-      return {
-        known: parsed.known.filter((key: unknown): key is string => typeof key === "string"),
-        pending: parsed.pending.filter((key: unknown): key is string => typeof key === "string"),
-      };
-    }
-  } catch {
-    // Storage can be disabled or contain data from an older version.
-  }
-  return null;
-};
-
-const saveGameNotices = (userId: number, state: GameNoticeState) => {
-  try {
-    localStorage.setItem(noticeStorageKey(userId), JSON.stringify(state));
-  } catch {
-    // Keep the current page usable even when storage is unavailable.
-  }
-};
 
 export default function PatientMemoryGames() {
   const auth = useAuth();
@@ -86,283 +19,11 @@ export default function PatientMemoryGames() {
   const categoryScrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [canTrackNew, setCanTrackNew] = useState(false);
   const [pendingGameKeys, setPendingGameKeys] = useState<Set<string>>(() => new Set());
-  const [games, setGames] = useState<MemoryGameRow[]>([]);
-  const [gamesV2, setGamesV2] = useState<MemoryGameRow[]>([]);
-  const [phonemeGames, setPhonemeGames] = useState<PhonemeGameRow[]>([]);
-  const [auditoryGames, setAuditoryGames] = useState<AuditoryGameRow[]>([]);
-  const [hangmanGames, setHangmanGames] = useState<HangmanGameRow[]>([]);
-  const [spinWheelGames, setSpinWheelGames] = useState<SpinWheelGameRow[]>([]);
-  const [wordSearchGames, setWordSearchGames] = useState<WordSearchGameRow[]>([]);
-  const [cardGames, setCardGames] = useState<CardGameRow[]>([]);
-  const [guessImageGames, setGuessImageGames] = useState<GuessImageGameRow[]>([]);
-  const [roundGames, setRoundGames] = useState<api.RoundGameRow[]>([]);
-  const [stories, setStories] = useState<ActivityRow[]>([]);
-
+  const { categories, loading, hasErrors, refresh } = usePatientLibrary();
+  const canTrackNew = !hasErrors;
   useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setCanTrackNew(false);
-      setPendingGameKeys(new Set());
-      let hadLoadError = false;
-      try {
-        const [memClassic, memV2, phon, aud, hang, spin, ws, cards, guessImg, assignedActivities, rounds] = await Promise.all([
-          api.userListMemoryGames({ variant: "classic" }).catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar memory games:", err);
-            return [];
-          }),
-          api.userListMemoryGames({ variant: "v2" }).catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar memory games v2:", err);
-            return [];
-          }),
-          api.userListPhonemeGames().catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar phoneme games:", err);
-            return [];
-          }),
-          api.userListAuditoryGames().catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar auditory games:", err);
-            return [];
-          }),
-          api.userListHangmanGames().catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar hangman games:", err);
-            return [];
-          }),
-          api.userListSpinWheelGames().catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar spin wheel games:", err);
-            return [];
-          }),
-          api.userListWordSearchGames().catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar word search games:", err);
-            return [];
-          }),
-          api.userListCardGames().catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar card games:", err);
-            return [];
-          }),
-          api.userListGuessImageGames().catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar guess image games:", err);
-            return [];
-          }),
-          api.userListActivities().catch(err => {
-            hadLoadError = true;
-            console.error("[Jogos] Erro ao buscar histórias:", err);
-            return [];
-          }),
-          api.listRoundGames().catch(() => { hadLoadError = true; return []; }),
-        ]);
-        if (!cancelled) {
-          setGames(memClassic);
-          setGamesV2(memV2);
-          setPhonemeGames(phon);
-          setAuditoryGames(aud);
-          setHangmanGames(hang);
-          setSpinWheelGames(spin);
-          setWordSearchGames(ws);
-          setCardGames(cards);
-          setGuessImageGames(guessImg);
-          setRoundGames(rounds);
-          setStories(assignedActivities.filter(activity => activity.is_story && (activity.story_steps?.length ?? 0) > 0));
-          setCanTrackNew(!hadLoadError);
-        }
-      } catch (error) {
-        console.error("[Jogos] Erro geral ao buscar jogos:", error);
-        if (!cancelled) {
-          setGames([]);
-          setGamesV2([]);
-          setPhonemeGames([]);
-          setAuditoryGames([]);
-          setHangmanGames([]);
-          setSpinWheelGames([]);
-          setWordSearchGames([]);
-          setCardGames([]);
-          setGuessImageGames([]);
-          setRoundGames([]);
-          setStories([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
-  const categories = useMemo<GameCategory[]>(() => [
-    ...(["sound", "sequence"] as const).map(kind => ({
-      id: roundGameInfo[kind].slug, title: roundGameInfo[kind].title,
-      icon: kind === "sound" ? Ear : ImageIcon,
-      iconClassName: kind === "sound" ? "text-emerald-600" : "text-sky-600",
-      iconBackgroundClassName: kind === "sound" ? "bg-emerald-50" : "bg-sky-50",
-      items: roundGames.filter(g => g.kind === kind).map(g => ({ id: g.id, title: g.title, description: g.description, imageUrl: g.thumbnail.url, detail: `${g.rounds.length} rodada(s)`, path: `/jogos/${roundGameInfo[kind].slug}/${g.id}` })),
-    })),
-    {
-      id: "historias",
-      title: "Histórias Completas",
-      icon: BookOpen,
-      iconClassName: "text-emerald-700",
-      iconBackgroundClassName: "bg-emerald-50",
-      items: stories.map(story => ({
-        id: story.id,
-        title: story.title,
-        description: story.description,
-        imageUrl: story.media.find(item => item.media_type !== "video")?.url,
-        detail: `${story.story_steps?.length ?? 0} etapas`,
-        path: `/atividades/${story.id}`,
-      })),
-    },
-    {
-      id: "memoria",
-      title: "Jogos da Memória",
-      icon: Grid3X3,
-      iconClassName: "text-brand-green",
-      iconBackgroundClassName: "bg-brand-green/10",
-      items: games.map(g => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        imageUrl: g.thumbnail?.url,
-        detail: `${g.pairs_count} pares`,
-        path: `/jogos/${g.id}`,
-      })),
-    },
-    {
-      id: "memoria2",
-      title: "Memória 2.0",
-      icon: Grid3X3,
-      iconClassName: "text-brand-green",
-      iconBackgroundClassName: "bg-brand-green/10",
-      items: gamesV2.map(g => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        imageUrl: g.thumbnail?.url,
-        detail: `${g.pairs_count} pares`,
-        path: `/jogos/memoria2/${g.id}`,
-      })),
-    },
-    {
-      id: "fonema",
-      title: "Discriminação Fonema",
-      icon: Ear,
-      iconClassName: "text-brand-purple",
-      iconBackgroundClassName: "bg-brand-purple/10",
-      items: phonemeGames.map(g => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        imageUrl: g.thumbnail?.left_url,
-        detail: `${g.sessions_count} sessões`,
-        path: `/jogos/fonema/${g.id}`,
-      })),
-    },
-    {
-      id: "auditivo",
-      title: "Estimulação Auditiva",
-      icon: Ear,
-      iconClassName: "text-brand-blue",
-      iconBackgroundClassName: "bg-brand-blue/10",
-      items: auditoryGames.map(g => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        imageUrl: g.background_url,
-        detail: `${g.items_count} imagens`,
-        path: `/jogos/auditivo/${g.id}`,
-      })),
-    },
-    {
-      id: "forca",
-      title: "Jogo da Forca",
-      icon: Type,
-      iconClassName: "text-brand-orange",
-      iconBackgroundClassName: "bg-brand-orange/10",
-      items: hangmanGames.map(g => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        imageUrl: g.thumbnail?.url,
-        detail: `${g.word_length} letras`,
-        path: `/jogos/forca/${g.id}`,
-      })),
-    },
-    {
-      id: "caca-palavras",
-      title: "Caça-palavras",
-      icon: Grid3X3,
-      iconClassName: "text-brand-green",
-      iconBackgroundClassName: "bg-brand-green/10",
-      items: wordSearchGames.map(g => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        imageUrl: g.items?.[0]?.image_url,
-        detail: `${g.words_count} palavra(s)`,
-        path: `/jogos/caca-palavras/${g.id}`,
-      })),
-    },
-    {
-      id: "roleta",
-      title: "Roleta Musical",
-      icon: CircleDot,
-      iconClassName: "text-amber-500",
-      iconBackgroundClassName: "bg-amber-500/10",
-      items: spinWheelGames.map(g => ({
-        id: g.id,
-        title: g.title,
-        description: g.center_title || "Gire a roleta!",
-        imageUrl: g.thumbnail?.url,
-        detail: `${g.items_count} itens`,
-        path: `/jogos/roleta/${g.id}`,
-      })),
-    },
-    {
-      id: "cartas",
-      title: "Jogo das Cartas",
-      icon: Layers,
-      iconClassName: "text-brand-brown",
-      iconBackgroundClassName: "bg-brand-brown/10",
-      items: cardGames.map(g => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        imageUrl: g.background_url,
-        detail: `${g.cards_count} carta(s)`,
-        path: `/jogos/cartas/${g.id}`,
-      })),
-    },
-    {
-      id: "acerte-imagem",
-      title: "Acerte a Imagem",
-      icon: ImageIcon,
-      iconClassName: "text-pink-500",
-      iconBackgroundClassName: "bg-pink-500/10",
-      items: guessImageGames.map(g => ({
-        id: g.id,
-        title: g.title,
-        description: g.description,
-        imageUrl: g.thumbnail?.main_url,
-        detail: `${g.sessions_count} sessão(ões)`,
-        path: `/jogos/acerte-imagem/${g.id}`,
-      })),
-    },
-  ], [stories, games, gamesV2, phonemeGames, auditoryGames, hangmanGames, wordSearchGames, spinWheelGames, cardGames, guessImageGames, roundGames]);
-
-  useEffect(() => {
-    if (!userId || loading || !canTrackNew) return;
+    if (!userId || auth.user?.role !== "user" || loading || !canTrackNew) return;
     const availableKeys = categories.flatMap(category => category.items.map(game => gameNoticeKey(category.id, game.id)));
     const next = reconcileGameNotices(readGameNotices(userId), availableKeys);
     saveGameNotices(userId, next);
@@ -371,9 +32,15 @@ export default function PatientMemoryGames() {
 
   const availableCategories = categories.filter(category => category.items.length > 0);
   const totalGames = categories.reduce((total, category) => total + category.items.length, 0);
-  const activeCategory = searchParams.get("fechado") === "1"
+  const recentCategory: PatientGameCategory = {
+    id: "recentes", title: "Jogos recentes", icon: Clock3,
+    iconClassName: "text-brand-green", iconBackgroundClassName: "bg-brand-green/10",
+    items: newestFirst(categories.flatMap(category => category.items.map(game => ({ ...game, categoryId: category.id }))), game => game.createdAt).slice(0, 12),
+  };
+  const requestedCategory = searchParams.get("tipo");
+  const activeCategory = searchParams.get("recentes") === "1" ? recentCategory : searchParams.get("fechado") === "1"
     ? undefined
-    : availableCategories.find(category => category.id === searchParams.get("tipo")) ?? availableCategories[0];
+    : requestedCategory ? categories.find(category => category.id === requestedCategory) : availableCategories[0];
 
   useEffect(() => {
     const scroller = categoryScrollerRef.current;
@@ -392,7 +59,7 @@ export default function PatientMemoryGames() {
   }, [loading, availableCategories.length]);
 
   const selectCategory = (id: string) => {
-    setSearchParams(activeCategory?.id === id ? { fechado: "1" } : { tipo: id });
+    setSearchParams(activeCategory?.id === id ? { fechado: "1" } : id === "recentes" ? { recentes: "1" } : { tipo: id });
   };
 
   const scrollCategories = (direction: -1 | 1) => {
@@ -420,6 +87,13 @@ export default function PatientMemoryGames() {
           </h1>
           <p className="mt-1 text-muted-foreground">Jogos interativos para treinar habilidades com diversão</p>
         </header>
+
+        {hasErrors && (
+          <div role="status" className="mb-5 flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            <span>Alguns jogos não puderam ser carregados.</span>
+            <button type="button" onClick={() => void refresh()} className="font-semibold text-primary underline underline-offset-4">Tentar novamente</button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex flex-wrap gap-2" aria-label="Carregando jogos">
@@ -449,6 +123,9 @@ export default function PatientMemoryGames() {
                 ) : null}
               </div>
               <div ref={categoryScrollerRef} className="patient-game-categories flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2">
+                <button type="button" onClick={() => selectCategory("recentes")} aria-pressed={activeCategory?.id === "recentes"} className={`inline-flex min-h-11 flex-none items-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold ${activeCategory?.id === "recentes" ? "border-brand-green bg-brand-green/10 text-brand-green" : "border-border bg-card text-foreground hover:bg-muted/30"}`}>
+                  <Clock3 size={16} /> Recentes
+                </button>
                 {availableCategories.map(category => {
                   const selected = activeCategory?.id === category.id;
                   const hasNew = category.items.some(game => pendingGameKeys.has(gameNoticeKey(category.id, game.id)));
@@ -481,14 +158,16 @@ export default function PatientMemoryGames() {
                     <p className="text-sm text-muted-foreground">{gameCount(activeCategory.items.length)}</p>
                   </div>
                 </div>
+                {!activeCategory.items.length && <p className="py-8 text-sm text-muted-foreground">Nenhum jogo desta categoria está disponível para você no momento.</p>}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
                   {activeCategory.items.map(game => {
-                    const isNew = pendingGameKeys.has(gameNoticeKey(activeCategory.id, game.id));
+                    const categoryId = game.categoryId ?? activeCategory.id;
+                    const isNew = pendingGameKeys.has(gameNoticeKey(categoryId, game.id));
                     return (
                       <button
-                        key={game.id}
+                        key={`${categoryId}-${game.id}`}
                         type="button"
-                        onClick={() => openGame(activeCategory.id, game)}
+                        onClick={() => openGame(categoryId, game)}
                         className={`flex min-h-[132px] min-w-0 items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green ${isNew ? "patient-game-new" : ""}`}
                       >
                         <div className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md ${activeCategory.iconBackgroundClassName}`}>

@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { ActivityRow, ProfessionalUserRow } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import {
   DropdownMenu,
@@ -34,6 +34,8 @@ export default function ProfessionalActivities(): JSX.Element {
 }
 
 function StandardProfessionalActivities(): JSX.Element {
+  const [searchParams] = useSearchParams();
+  const view = searchParams.get("visao");
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [users, setUsers] = useState<ProfessionalUserRow[]>([]);
@@ -65,10 +67,10 @@ function StandardProfessionalActivities(): JSX.Element {
 
   const filteredActivities = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    const slides = activities.filter((a) => !a.is_story);
+    const slides = activities.filter(a => !a.is_story && (view === "biblioteca" ? !a.assigned_to?.length : view === "pacientes" ? !!a.assigned_to?.length : true));
     if (!q) return slides;
     return slides.filter((a) => a.title.toLowerCase().includes(q) || (a.category || "").toLowerCase().includes(q));
-  }, [activities, searchTerm]);
+  }, [activities, searchTerm, view]);
 
   const groupedByUser = useMemo(() => {
     const byUser = new Map<number, ActivityRow[]>();

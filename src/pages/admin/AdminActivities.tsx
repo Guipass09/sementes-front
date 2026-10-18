@@ -8,7 +8,7 @@ import type { ActivityRow, AdminUserRow } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import { ShareActivityModal } from "@/features/activities/ShareActivityModal";
 import {
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const AdminActivities = () => {
+  const [searchParams] = useSearchParams();
+  const view = searchParams.get("visao");
   const [loading, setLoading] = useState(true);
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [users, setUsers] = useState<AdminUserRow[]>([]);
@@ -50,7 +52,7 @@ const AdminActivities = () => {
 
   const filteredActivities = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    const slides = activities.filter((a) => !a.is_story);
+    const slides = activities.filter(a => !a.is_story && (view === "biblioteca" ? !a.assigned_to?.length : view === "pacientes" ? !!a.assigned_to?.length : true));
     if (!q) return slides;
     return slides.filter((a) => {
       return (
@@ -58,7 +60,7 @@ const AdminActivities = () => {
         (a.category || "").toLowerCase().includes(q)
       );
     });
-  }, [activities, searchTerm]);
+  }, [activities, searchTerm, view]);
 
   const unassignedActivities = useMemo(
     () => filteredActivities.filter((a) => (a.assigned_to?.length ?? 0) === 0),

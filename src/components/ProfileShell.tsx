@@ -1,16 +1,23 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LogOut, Menu, X, type LucideIcon } from "lucide-react";
+import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, X, type LucideIcon } from "lucide-react";
+import { Portal as TooltipPortal } from "@radix-ui/react-tooltip";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import NotificationsBell from "@/components/NotificationsBell";
 import PwaInstallButton from "@/components/PwaInstallButton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import ProfileNavEntry from "@/components/ProfileNavEntry";
+import type { ResourceNavLink } from "@/lib/resource-navigation";
+
+const MENU_STORAGE_KEY = "sementes.profile-menu-collapsed";
 
 export type ProfileNavItem = {
   path: string;
   label: string;
   icon: LucideIcon;
   active: boolean;
+  children?: ResourceNavLink[];
 };
 
 type Props = {
@@ -37,9 +44,24 @@ export default function ProfileShell({
   children,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem(MENU_STORAGE_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
   const location = useLocation();
 
-  useEffect(() => setMenuOpen(false), [location.pathname]);
+  useEffect(() => setMenuOpen(false), [location.pathname, location.search]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(MENU_STORAGE_KEY, String(collapsed));
+    } catch {
+      // The menu remains usable when browser storage is unavailable.
+    }
+  }, [collapsed]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -109,43 +131,58 @@ export default function ProfileShell({
 
       <aside
         id="profile-navigation"
-        className={`fixed bottom-0 left-0 top-16 z-40 flex w-60 flex-col border-r border-border bg-background shadow-xl transition-[transform,visibility] duration-200 lg:visible lg:translate-x-0 lg:shadow-none ${menuOpen ? "visible translate-x-0" : "invisible -translate-x-full"}`}
+        className={`fixed bottom-0 left-0 top-16 z-40 flex w-60 flex-col border-r border-[#d9e3dc] bg-[#f0f5f1] shadow-xl transition-[width,transform,visibility] duration-200 motion-reduce:transition-none dark:border-white/10 dark:bg-[#202c25] lg:visible lg:translate-x-0 lg:shadow-none ${collapsed ? "lg:w-[76px]" : "lg:w-60"} ${menuOpen ? "visible translate-x-0" : "invisible -translate-x-full"}`}
         aria-label="Menu principal"
       >
-        <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Navegação principal">
-          <p className="mb-3 px-3 text-xs font-semibold uppercase text-muted-foreground">Navegação</p>
-          <div className="space-y-1">
-            {navItems.map(({ path, label, icon: Icon, active }) => (
-              <Link
-                key={path}
-                to={path}
-                onClick={() => setMenuOpen(false)}
-                aria-current={active ? "page" : undefined}
-                className={`flex min-h-11 items-center gap-3 rounded-md border-l-2 px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                  active
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
+        <div className={`flex h-16 flex-none items-center justify-between gap-2 px-4 ${collapsed ? "lg:justify-center lg:px-0" : ""}`}>
+          <p className={`truncate px-2 text-xs font-semibold uppercase text-[#708076] dark:text-white/60 ${collapsed ? "lg:hidden" : ""}`}>Meu espaço</p>
+          <Tooltip delayDuration={150}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setCollapsed((value) => !value)}
+                className="hidden h-8 w-8 flex-none items-center justify-center rounded-md text-[#536359] hover:bg-[#e5eee7] hover:text-[#22633e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#438e62] dark:text-white/75 dark:hover:bg-white/10 lg:inline-flex"
+                aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+                aria-expanded={!collapsed}
+                aria-controls="profile-navigation-links"
               >
-                <Icon size={18} className="flex-none" />
-                <span className="truncate">{label}</span>
-              </Link>
+                {collapsed ? <PanelLeftOpen size={18} strokeWidth={1.7} /> : <PanelLeftClose size={18} strokeWidth={1.7} />}
+              </button>
+            </TooltipTrigger>
+            <TooltipPortal>
+              <TooltipContent side="right" sideOffset={12}>{collapsed ? "Expandir menu" : "Recolher menu"}</TooltipContent>
+            </TooltipPortal>
+          </Tooltip>
+        </div>
+        <nav id="profile-navigation-links" className="min-h-0 flex-1 overflow-y-auto px-3 pb-5" aria-label="Navegação principal">
+          <div className="space-y-1">
+            {navItems.map(item => (
+              <ProfileNavEntry key={item.path} item={item} collapsed={collapsed} onNavigate={() => setMenuOpen(false)} />
             ))}
           </div>
         </nav>
-        <div className="border-t border-border px-3 py-3">
+        <div className="border-t border-[#dbe5de] px-3 py-3 dark:border-white/10">
           <div className="sm:hidden"><PwaInstallButton /></div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="mt-1 flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          >
-            <LogOut size={18} /> Sair
-          </button>
+          <Tooltip delayDuration={150}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onLogout}
+                aria-label="Sair"
+                className={`mt-1 flex min-h-11 w-full items-center gap-3 rounded-md px-3 text-sm font-medium text-[#536359] hover:bg-[#e5eee7] hover:text-[#304b3a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#438e62] dark:text-white/75 dark:hover:bg-white/10 dark:hover:text-white ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
+              >
+                <LogOut size={19} strokeWidth={1.7} className="flex-none" />
+                <span className={collapsed ? "lg:hidden" : ""}>Sair</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipPortal>
+              <TooltipContent side="right" sideOffset={12} className={collapsed ? "hidden lg:block" : "hidden"}>Sair</TooltipContent>
+            </TooltipPortal>
+          </Tooltip>
         </div>
       </aside>
 
-      <main className="min-h-screen min-w-0 pt-16 lg:pl-60">
+      <main className={`min-h-screen min-w-0 pt-16 transition-[padding-left] duration-200 motion-reduce:transition-none ${collapsed ? "lg:pl-[76px]" : "lg:pl-60"}`}>
         {children}
       </main>
     </div>

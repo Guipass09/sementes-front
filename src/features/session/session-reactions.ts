@@ -14,6 +14,16 @@ export type SessionReaction = {
 };
 export const REACTION_TEXT_LIMIT = 32;
 export const REACTION_DURATION_MS = 4200;
+export const MAX_ACTIVE_REACTIONS = 6;
+export const MAX_PENDING_REACTIONS = 4;
+
+export function appendReactionBurst(
+  current: readonly SessionReaction[],
+  next: SessionReaction,
+): SessionReaction[] {
+  if (current.some((reaction) => reaction.id === next.id)) return [...current];
+  return [...current, next].slice(-MAX_ACTIVE_REACTIONS);
+}
 
 export function reactionText(value: string): string {
   return Array.from(
@@ -106,9 +116,10 @@ export function reactionParticles(reaction: SessionReaction) {
   };
   const count =
     reaction.type === "confetti" ? 80 : reaction.type === "message" ? 9 : 24;
-  const colors = reaction.type === "message"
-    ? ["#b83e3e", "#13704d", "#9a650b", "#2b65a7", "#ac3675"]
-    : ["#ef6461", "#18a66a", "#f5bc35", "#5296e6", "#e879b2"];
+  const colors =
+    reaction.type === "message"
+      ? ["#b83e3e", "#13704d", "#9a650b", "#2b65a7", "#ac3675"]
+      : ["#ef6461", "#18a66a", "#f5bc35", "#5296e6", "#e879b2"];
   return Array.from({ length: count }, (_, index) => ({
     left:
       reaction.type === "message" ? 18 + (index % 3) * 32 : 5 + random() * 90,

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  MAX_ACTIVE_REACTIONS,
+  appendReactionBurst,
   REACTION_DURATION_MS,
   REACTION_TYPES,
   createReactionHistory,
@@ -12,6 +14,47 @@ import {
 } from "../src/features/session/session-reactions.ts";
 import { setGameAudioSettings } from "../src/lib/game-audio-store.ts";
 import { playSessionReaction, stopGameSfx } from "../src/lib/sfx.ts";
+
+test("rapid reactions accumulate without replacing or restarting existing bursts", () => {
+  const first = createSessionReaction("confetti");
+  const second = createSessionReaction("hearts");
+  const original = [first];
+  const combined = appendReactionBurst(original, second);
+  assert.deepEqual(
+    original,
+    [first],
+    "State updates must not mutate React's previous array",
+  );
+  assert.deepEqual(combined, [first, second]);
+  assert.equal(
+    combined[0],
+    first,
+    "Existing bursts retain their identity and animation key",
+  );
+  assert.deepEqual(
+    appendReactionBurst(combined, first),
+    combined,
+    "Poll echoes cannot add another burst",
+  );
+});
+
+test("filling the screen evicts only the oldest burst and bounds particle cost", () => {
+  const reactions = Array.from({ length: 30 }, () =>
+    createSessionReaction("confetti"),
+  );
+  let active: typeof reactions = [];
+  for (const reaction of reactions) {
+    active = appendReactionBurst(active, reaction);
+    assert.ok(active.length <= MAX_ACTIVE_REACTIONS);
+  }
+  assert.deepEqual(active, reactions.slice(-MAX_ACTIVE_REACTIONS));
+  assert.ok(
+    active.reduce(
+      (count, reaction) => count + reactionParticles(reaction).length,
+      0,
+    ) <= 480,
+  );
+});
 
 test("all five reactions round-trip with the same seeded visual layout", () => {
   for (const type of REACTION_TYPES) {

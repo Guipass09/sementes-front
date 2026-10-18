@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   ChevronDown,
   Hand,
@@ -19,6 +19,7 @@ import { GameAudioControls } from "@/features/games/GameAudio";
 import type { GameAudioSettings } from "@/lib/game-audio-policy";
 import {
   REACTION_TEXT_LIMIT,
+  MAX_PENDING_REACTIONS,
   createSessionReaction,
   reactionText,
   type SessionReaction,
@@ -57,19 +58,22 @@ export function SessionReactionPicker({
   onSend: (reaction: SessionReaction) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState(0);
+  const pendingRef = useRef(0);
   const [text, setText] = useState("");
   const inputId = useId();
   const cleaned = reactionText(text);
-  const busy = pending || disabled || audioPending;
+  const busy = pending >= MAX_PENDING_REACTIONS || disabled || audioPending;
   const send = async (reaction: SessionReaction) => {
-    if (busy) return;
-    setPending(true);
+    if (disabled || audioPending || pendingRef.current >= MAX_PENDING_REACTIONS)
+      return;
+    pendingRef.current += 1;
+    setPending(pendingRef.current);
     try {
       await onSend(reaction);
-      setOpen(false);
     } finally {
-      setPending(false);
+      pendingRef.current -= 1;
+      setPending(pendingRef.current);
     }
   };
   return (
@@ -131,7 +135,7 @@ export function SessionReactionPicker({
               }
               placeholder="Você foi incrível!"
               className="min-w-0 flex-1"
-              disabled={busy}
+              disabled={disabled}
               autoComplete="off"
             />
             <Button
@@ -155,7 +159,7 @@ export function SessionReactionPicker({
           </div>
           <GameAudioControls
             settings={audioSettings}
-            disabled={busy}
+            disabled={disabled || audioPending}
             onChange={onAudioChange}
             onCommit={onAudioCommit}
           />

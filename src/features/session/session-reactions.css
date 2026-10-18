@@ -1,3 +1,10 @@
+.session-reactions {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
 .session-reaction {
   position: absolute;
   inset: 0;
@@ -167,6 +174,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .session-reaction:not(:last-child) .session-reaction-still {
+    display: none;
+  }
   .session-reaction-particles {
     display: none;
   }

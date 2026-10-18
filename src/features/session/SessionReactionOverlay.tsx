@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import {
   REACTION_DURATION_MS,
+  MAX_ACTIVE_REACTIONS,
   reactionParticles,
   type SessionReaction,
 } from "./session-reactions";
@@ -22,28 +23,49 @@ const symbols = {
 };
 
 export function SessionReactionOverlay({
-  reaction,
+  reactions,
+  onFinished,
 }: {
-  reaction: SessionReaction | null;
+  reactions: readonly SessionReaction[];
+  onFinished: (id: string) => void;
 }) {
-  return reaction ? <Reaction key={reaction.id} reaction={reaction} /> : null;
+  const visible = reactions.slice(-MAX_ACTIVE_REACTIONS);
+  const latest = visible[visible.length - 1];
+  if (!latest) return null;
+  return (
+    <div className="session-reactions">
+      <span className="sr-only" role="status">
+        {latest.type === "message" ? latest.text : labels[latest.type]}
+      </span>
+      {visible.map((reaction) => (
+        <Reaction
+          key={reaction.id}
+          reaction={reaction}
+          onFinished={onFinished}
+        />
+      ))}
+    </div>
+  );
 }
 
-function Reaction({ reaction }: { reaction: SessionReaction }) {
+function Reaction({
+  reaction,
+  onFinished,
+}: {
+  reaction: SessionReaction;
+  onFinished: (id: string) => void;
+}) {
   const [visible, setVisible] = useState(true);
   useEffect(() => {
-    const timer = window.setTimeout(
-      () => setVisible(false),
-      REACTION_DURATION_MS,
-    );
+    const timer = window.setTimeout(() => {
+      setVisible(false);
+      onFinished(reaction.id);
+    }, REACTION_DURATION_MS);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [reaction.id, onFinished]);
   if (!visible) return null;
   return (
     <div className="session-reaction" data-reaction={reaction.type}>
-      <span className="sr-only" role="status">
-        {reaction.type === "message" ? reaction.text : labels[reaction.type]}
-      </span>
       <div className="session-reaction-particles" aria-hidden="true">
         {reactionParticles(reaction).map((particle, index) => (
           <div

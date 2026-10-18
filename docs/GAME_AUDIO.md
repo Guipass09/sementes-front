@@ -61,10 +61,14 @@
   a entrada atual e com payload valido sao aceitas. Confetes antigos continuam
   sendo aceitos. O frontend nao exige novo endpoint nem variavel de ambiente.
 - A semente preserva a distribuicao entre participantes; o identificador evita
-  duplicar o efeito ao receber o eco do proprio comando. Apenas um efeito permanece
-  ativo, as animacoes terminam em 4,2 segundos e os timers sao removidos ao sair.
+  duplicar o efeito ao receber o eco do proprio comando. O menu permanece aberto a
+  cada clique e permite ate quatro envios em andamento, sem esperar cada resposta.
+  Ate seis efeitos coexistem (no maximo 480 particulas), cada um por 4,2 segundos.
+  Exceder esse limite remove o mais antigo, sem reiniciar os demais. Timers sao
+  removidos ao sair. Os sons continuam se substituindo para nao somar volume.
 - Mensagens sao renderizadas como texto, nunca HTML. Em areas estreitas, a mensagem
-  usa duas colunas. Quem prefere movimento reduzido ve uma mensagem estatica.
+  usa duas colunas. Quem prefere movimento reduzido ve apenas a mensagem estatica
+  mais recente, sem sobrepor textos.
 
 ## Testes Das Reacoes
 

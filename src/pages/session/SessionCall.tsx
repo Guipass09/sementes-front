@@ -6,7 +6,7 @@ import { readGameAudioVolumePreference, saveGameAudioVolumePreference, setGameAu
 import { GameAudioControls } from "@/features/games/GameAudio";
 import { SessionReactionPicker } from "@/features/session/SessionReactionPicker";
 import { SessionReactionOverlay } from "@/features/session/SessionReactionOverlay";
-import { createReactionHistory, sessionReactionMessage, type SessionReaction } from "@/features/session/session-reactions";
+import { appendReactionBurst, createReactionHistory, sessionReactionMessage, type SessionReaction } from "@/features/session/session-reactions";
 import type { ReportFormDraft } from "@/features/reports/ReportFormModal";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -400,10 +400,13 @@ export default function SessionCall() {
   const drawRemoteLastRef = useRef<Record<string, { x: number; y: number } | null>>({});
   const drawSendTsRef = useRef(0);
 
-  const [reaction, setReaction] = useState<SessionReaction | null>(null);
+  const [reactions, setReactions] = useState<SessionReaction[]>([]);
+  const finishReaction = useCallback((id: string) => {
+    setReactions(current => current.filter(reaction => reaction.id !== id));
+  }, []);
   const reactionHistoryRef = useRef(createReactionHistory());
   useEffect(() => {
-    setReaction(null);
+    setReactions([]);
     reactionHistoryRef.current.clear();
     setGameAudioSettings({ muted: true, volume: readGameAudioVolumePreference() });
     return () => { stopGameSfx(); };
@@ -411,7 +414,7 @@ export default function SessionCall() {
 
   const showReaction = (next: SessionReaction) => {
     if (!reactionHistoryRef.current.accept(next.id)) return;
-    setReaction(next);
+    setReactions(current => appendReactionBurst(current, next));
     if (!gameAudioMutedRef.current) {
       try { playSessionReaction(next.type); } catch { /* Visual feedback still works when audio is unavailable. */ }
     }
@@ -3134,7 +3137,7 @@ export default function SessionCall() {
                 "lg:h-[76svh] lg:max-h-[860px] lg:min-h-[560px]",
               )}
             >
-              <SessionReactionOverlay reaction={reaction} />
+              <SessionReactionOverlay reactions={reactions} onFinished={finishReaction} />
 
               {screenShareActive ? (
                 <div className="absolute inset-0 rounded-xl bg-black overflow-hidden">

@@ -3,9 +3,37 @@ import test from "node:test";
 import {
   hasIndividualSubscription,
   subscriptionDate,
+  subscriptionEventDetails,
   subscriptionPlanLabel,
   subscriptionTimeLeft,
 } from "../src/lib/subscription-details.ts";
+
+test("admin history associates recorded payments with the period snapshot and keeps legacy values missing", () => {
+  const period = { plan: "quarterly", quantity: 3, unit: "month" };
+  const payment = { amount_cents: 25000, paid_on: "2026-10-18", method: "pix" };
+  assert.deepEqual(
+    subscriptionEventDetails(
+      JSON.stringify({ period, payment, expires_at: "2027-01-18T15:00:00Z" }),
+    ),
+    { period, payment, expires_at: "2027-01-18T15:00:00Z" },
+  );
+  assert.equal(
+    subscriptionEventDetails(JSON.stringify({ period })).payment,
+    null,
+  );
+  assert.deepEqual(subscriptionEventDetails("invalid"), {
+    period: null,
+    payment: null,
+    expires_at: null,
+  });
+  assert.equal(
+    subscriptionEventDetails(
+      JSON.stringify({ payment: { ...payment, amount_cents: -1 } }),
+    ).payment,
+    null,
+  );
+  assert.equal(subscriptionEventDetails("null").period, null);
+});
 
 test("subscription page is available to active and expired individual subscribers only", () => {
   const user = {

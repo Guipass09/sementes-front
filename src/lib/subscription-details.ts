@@ -1,4 +1,41 @@
-import type { AuthUser, ProfessionalSubscription } from "./laravel-api.ts";
+import type {
+  AuthUser,
+  ProfessionalSubscription,
+  SubscriptionPayment,
+} from "./laravel-api.ts";
+
+export function subscriptionEventDetails(snapshot: string): {
+  period: ProfessionalSubscription["period"];
+  expires_at: string | null;
+  payment: SubscriptionPayment | null;
+} {
+  try {
+    const data = JSON.parse(snapshot);
+    const period = data?.period;
+    const payment = data?.payment;
+    return {
+      period:
+        period &&
+        typeof period.plan === "string" &&
+        typeof period.unit === "string" &&
+        Number.isInteger(period.quantity) &&
+        period.quantity > 0
+          ? period
+          : null,
+      expires_at: typeof data?.expires_at === "string" ? data.expires_at : null,
+      payment:
+        payment &&
+        Number.isInteger(payment.amount_cents) &&
+        payment.amount_cents > 0 &&
+        typeof payment.paid_on === "string" &&
+        typeof payment.method === "string"
+          ? payment
+          : null,
+    };
+  } catch {
+    return { period: null, expires_at: null, payment: null };
+  }
+}
 
 export function hasIndividualSubscription(
   user:

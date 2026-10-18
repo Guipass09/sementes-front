@@ -1,4 +1,19 @@
 import type { FinanceData, FinanceEntry, FinanceEntryInput, FinanceEntryUpdate, FinanceSettings } from "@/features/finance/finance";
+import type { ReportLetterhead, ReportLetterheadSettings } from "@/features/reports/letterhead";
+
+export async function professionalReportLetterhead(): Promise<ReportLetterheadSettings> {
+  return request("/api/professional/report-letterhead");
+}
+
+export async function saveProfessionalReportLetterhead(value: { version: number; display_name: string; logo: File | null; remove_logo: boolean; reset: boolean }): Promise<ReportLetterheadSettings> {
+  const formData = new FormData();
+  formData.append("version", String(value.version));
+  formData.append("display_name", value.display_name);
+  formData.append("remove_logo", value.remove_logo ? "1" : "0");
+  formData.append("reset", value.reset ? "1" : "0");
+  if (value.logo) formData.append("logo", value.logo);
+  return request("/api/professional/report-letterhead", { method: "POST", formData });
+}
 
 export type AuthRole = "admin" | "user" | "professional";
 
@@ -80,6 +95,7 @@ export type ProfessionalUserRow = {
 export type ReportType = "mensal" | "trimestral" | "avaliacao" | "evolucao";
 
 export type ReportRow = {
+  letterhead?: ReportLetterhead | null;
   id: number;
   title: string;
   date: string; // YYYY-MM-DD

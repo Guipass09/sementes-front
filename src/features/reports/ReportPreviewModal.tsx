@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from "react";
 import { Download } from "lucide-react";
-import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,12 +10,9 @@ import {
 import type { ReportDetail } from "./types";
 import { formatReportDate, reportTypeConfig } from "./report-config";
 import { buildReportPdfFilename, downloadElementAsPdf } from "./pdf";
-
-const REPORT_LOGO_CANDIDATES = [
-  "/logo-relatorio.png",
-  "/logo-relatorio.jpg",
-  "/logo-relatorio.webp",
-] as const;
+import { ReportLetterheadIdentity } from "./ReportLetterheadIdentity";
+import { letterheadName } from "./letterhead";
+import { useToast } from "@/hooks/use-toast";
 
 function toParagraphs(content: string): string[] {
   return content
@@ -32,7 +28,7 @@ export function ReportPreviewModal(props: {
 }): JSX.Element {
   const previewRef = useRef<HTMLDivElement | null>(null);
   const [downloading, setDownloading] = useState(false);
-  const [logoSrc, setLogoSrc] = useState<string>(REPORT_LOGO_CANDIDATES[0]);
+  const { toast } = useToast();
 
   const cfg = props.report ? reportTypeConfig[props.report.type] : null;
 
@@ -51,6 +47,8 @@ export function ReportPreviewModal(props: {
         element: previewRef.current,
         filename: buildReportPdfFilename(props.report.patientName || props.report.patient.name || "modelo", props.report.date),
       });
+    } catch {
+      toast({ title: "Não foi possível gerar o PDF", description: "Confira se a imagem do cabeçalho carregou e tente novamente.", variant: "destructive" });
     } finally {
       setDownloading(false);
     }
@@ -115,37 +113,14 @@ export function ReportPreviewModal(props: {
               >
                 <div
                   data-report-pdf-content
-                  className="p-5 sm:p-8"
+                  className="px-5 py-7 sm:px-16 sm:py-14"
                   style={{
-                    padding: "56px 64px",
                     boxSizing: "border-box",
                   }}
                 >
                   {/* Cabeçalho */}
-                  <div data-pdf-avoid className="flex items-center gap-4 pb-4 border-b border-slate-200">
-                    <img
-                      src={logoSrc}
-                      alt="Sementes da Fala"
-                      className="w-14 h-14 rounded-lg object-contain"
-                      onError={(e) => {
-                        // Tenta próximos formatos em /public; por fim cai no logo padrão do projeto.
-                        const current = e.currentTarget.src;
-                        const idx = REPORT_LOGO_CANDIDATES.findIndex((u) => current.endsWith(u));
-                        const next = idx >= 0 ? REPORT_LOGO_CANDIDATES[idx + 1] : null;
-                        if (next) {
-                          setLogoSrc(next);
-                          return;
-                        }
-                        e.currentTarget.src = logoImage;
-                      }}
-                    />
-                    <div className="flex-1">
-                      <div className="text-lg font-display font-bold">
-                        <span className="text-brand-green">Sementes</span>{" "}
-                        <span className="text-brand-brown">da Fala</span>
-                      </div>
-                      <div className="text-xs uppercase tracking-[0.08em] text-slate-500">Relatório clínico</div>
-                    </div>
+                  <div data-pdf-avoid className="flex flex-wrap items-center gap-4 pb-4 border-b border-slate-200">
+                    <ReportLetterheadIdentity letterhead={props.report.letterhead} />
                     <div className="text-right text-xs text-slate-600">
                       <div className="font-medium text-slate-900">
                         {formatReportDate(props.report.date)}
@@ -196,8 +171,8 @@ export function ReportPreviewModal(props: {
                   </div>
 
                   {/* Rodapé */}
-                  <div data-pdf-avoid className="mt-10 pt-4 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
-                    <span>Sementes da Fala • Relatório gerado pelo sistema</span>
+                  <div data-pdf-avoid className="mt-10 pt-4 border-t border-slate-200 text-[11px] text-slate-500 flex flex-wrap gap-2 items-center justify-between">
+                    <span className="min-w-0 [overflow-wrap:anywhere]">{letterheadName(props.report.letterhead)} • Relatório gerado pelo sistema</span>
                     <span>Confidencial</span>
                   </div>
                 </div>

@@ -13,6 +13,7 @@ import * as api from "@/lib/laravel-api";
 function toDetail(report: any): ReportDetail {
   return {
     id: report.id,
+    letterhead: report.letterhead ?? null,
     title: report.title,
     date: report.date,
     type: report.type,

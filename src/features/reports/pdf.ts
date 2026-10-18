@@ -22,6 +22,11 @@ export async function downloadElementAsPdf(params: {
   element: HTMLElement;
   filename: string;
 }): Promise<void> {
+  await document.fonts.ready;
+  await Promise.all(Array.from(params.element.querySelectorAll("img")).map(async image => {
+    if (!image.complete || !image.naturalWidth) await image.decode();
+    if (!image.naturalWidth) throw new Error("A imagem do relatório não carregou.");
+  }));
   // html2pdf.js não tem tipos oficiais; usamos import dinâmico para reduzir bundle.
   const html2pdf = (await import("html2pdf.js")).default as any;
 

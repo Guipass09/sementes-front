@@ -32,6 +32,7 @@ async function tryFetchReportsFromApi(scope: "admin" | "user"): Promise<ReportDe
 function mapRowToDetail(r: any): ReportDetail {
   return {
     id: r.id,
+    letterhead: r.letterhead ?? null,
     title: r.title,
     date: r.date,
     type: r.type,

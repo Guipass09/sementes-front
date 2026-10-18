@@ -1,3 +1,5 @@
+import type { ReportLetterhead } from "./letterhead";
+
 export type ReportType = "mensal" | "trimestral" | "avaliacao" | "evolucao";
 
 export type ReportAuthor = {
@@ -12,6 +14,7 @@ export type ReportPatient = {
 };
 
 export type ReportSummary = {
+  letterhead?: ReportLetterhead | null;
   status?: "draft" | "published";
   isPrivate?: boolean;
   id: number;

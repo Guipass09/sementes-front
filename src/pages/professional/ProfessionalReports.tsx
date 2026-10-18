@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Plus, Search } from "lucide-react";
+import { FileText, Plus, Search, Stamp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,10 +16,13 @@ import BrandedConfirmDialog from "@/components/BrandedConfirmDialog";
 import * as api from "@/lib/laravel-api";
 import { ProfessionalReportFormModal } from "@/features/reports/ProfessionalReportFormModal";
 import { useToast } from "@/hooks/use-toast";
+import { hasIndividualSubscription } from "@/lib/subscription-details";
+import { ReportLetterheadDialog } from "@/features/reports/ReportLetterheadDialog";
 
 function toDetail(r: any): ReportDetail {
   return {
     id: r.id,
+    letterhead: r.letterhead ?? null,
     title: r.title,
     date: r.date,
     type: r.type,
@@ -52,6 +55,7 @@ function StandardProfessionalReports(): JSX.Element {
   const [searchTerm, setSearchTerm] = useState("");
   const [selected, setSelected] = useState<ReportDetail | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [letterheadOpen, setLetterheadOpen] = useState(false);
   const [editing, setEditing] = useState<ReportDetail | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ReportDetail | null>(null);
@@ -88,6 +92,8 @@ function StandardProfessionalReports(): JSX.Element {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-foreground mb-2">Relatórios</h1>
             <p className="text-sm sm:text-base text-muted-foreground">Crie e gerencie relatórios para seus usuários.</p>
           </div>
+          <div className="flex flex-wrap gap-2">
+          {hasIndividualSubscription(auth.user) && <Button variant="outline" onClick={() => setLetterheadOpen(true)}><Stamp size={16} className="mr-2" />Timbragem</Button>}
           <Button
             className="w-full sm:w-auto text-xs sm:text-sm"
             disabled={loading || !auth.user}
@@ -99,6 +105,7 @@ function StandardProfessionalReports(): JSX.Element {
             <Plus size={16} className="sm:w-[18px] sm:h-[18px] mr-1.5 sm:mr-2" />
             Novo Relatório
           </Button>
+          </div>
         </div>
 
         <div className="mb-4 sm:mb-6">
@@ -172,6 +179,7 @@ function StandardProfessionalReports(): JSX.Element {
           </div>
         )}
 
+        {hasIndividualSubscription(auth.user) && <ReportLetterheadDialog key={auth.user?.id} open={letterheadOpen} onOpenChange={setLetterheadOpen} onSaved={() => { void refresh(); toast({ title: "Timbragem atualizada" }); }} />}
         <ReportPreviewModal
           open={!!selected}
           report={selected}

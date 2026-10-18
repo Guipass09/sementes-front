@@ -24,6 +24,7 @@ type Props = {
   homePath: string;
   name: string;
   subtitle: string;
+  subtitleIcon?: LucideIcon;
   photoUrl?: string | null;
   navItems: ProfileNavItem[];
   onProfile: () => void;
@@ -36,6 +37,7 @@ export default function ProfileShell({
   homePath,
   name,
   subtitle,
+  subtitleIcon: SubtitleIcon,
   photoUrl,
   navItems,
   onProfile,
@@ -110,7 +112,10 @@ export default function ProfileShell({
             >
               <span className="block min-w-0 text-right">
                 <span className="block max-w-[72px] truncate text-xs font-semibold leading-tight text-foreground sm:max-w-[140px] sm:text-sm xl:max-w-[190px]">{name}</span>
-                <span className="block max-w-[72px] truncate text-[10px] leading-tight text-muted-foreground sm:max-w-[140px] sm:text-xs xl:max-w-[190px]">{subtitle}</span>
+                <span className="mt-0.5 flex max-w-[72px] items-center justify-end gap-1 text-[10px] leading-tight text-muted-foreground sm:max-w-[140px] sm:text-xs xl:max-w-[190px]" title={subtitle}>
+                  {SubtitleIcon && <SubtitleIcon size={13} strokeWidth={1.7} className="flex-none text-brand-green-dark dark:text-primary" aria-hidden="true" />}
+                  <span className="truncate">{subtitle}</span>
+                </span>
               </span>
               <span className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-full border border-border bg-primary/10 text-xs font-semibold text-primary">
                 {photoUrl ? <img src={normalizeMediaUrl(photoUrl)} alt="" className="h-full w-full object-cover" /> : initials}

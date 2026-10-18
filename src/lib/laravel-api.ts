@@ -1081,7 +1081,18 @@ export interface SubscriptionResponse {
   events: { id: number; admin_id: number; action: string; created_at: string; after: string }[];
 }
 
-export async function adminSubscription(id: number, payload?: { action: string; plan?: string; quantity?: number; unit?: string }): Promise<SubscriptionResponse> {
+export type SubscriptionPayment = { amount_cents: number; paid_on: string; method: string };
+export type PersonalSubscriptionResponse = {
+  subscription: ProfessionalSubscription;
+  events: { id: number; action: string; created_at: string; expires_at: string | null; period: ProfessionalSubscription["period"]; payment: SubscriptionPayment | null }[];
+  pagination: { page: number; last_page: number; total: number };
+};
+
+export async function professionalSubscription(page = 1): Promise<PersonalSubscriptionResponse> {
+  return request(`/api/professional/subscription?page=${page}`);
+}
+
+export async function adminSubscription(id: number, payload?: { action: string; plan?: string; quantity?: number; unit?: string; payment?: SubscriptionPayment }): Promise<SubscriptionResponse> {
   if (payload) await ensureCsrfCookie();
   return request<SubscriptionResponse>(`/api/admin/professionals/${id}/subscription`, payload ? { method: "PATCH", json: payload } : {});
 }

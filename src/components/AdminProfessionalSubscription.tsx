@@ -4,6 +4,9 @@ import { adminSubscription, isApiError, type SubscriptionResponse, type Professi
 import { Button } from "@/components/ui/button";
 import SubscriptionTimer from "./SubscriptionTimer";
 import BrandedConfirmDialog from "./BrandedConfirmDialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { financeToday, moneyInputToCents, PAYMENT_METHODS } from "@/features/finance/finance";
 
 const actions: Record<string, string> = { activate: "Período ativado", extend: "Prazo ampliado", suspend: "Acesso desativado", resume: "Acesso reativado" };
 const plans: Record<string, string> = { monthly: "Mensal", quarterly: "Trimestral", annual: "Anual", custom: "Personalizado" };
@@ -16,12 +19,20 @@ export default function AdminProfessionalSubscription({ id, onChange }: { id: nu
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [recordPayment, setRecordPayment] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [paidOn, setPaidOn] = useState(financeToday);
+  const [method, setMethod] = useState("pix");
+  const paymentCents = moneyInputToCents(amount);
+  const invalidPayment = recordPayment && (!paymentCents || !paidOn || paidOn > financeToday());
+  useEffect(() => { setRecordPayment(false); setAmount(""); setPaidOn(financeToday()); setMethod("pix"); }, [id]);
   useEffect(() => { let current = true; setData(undefined); adminSubscription(id).then(value => { if (current) setData(value); }).catch(() => { if (current) setError("Não foi possível carregar a assinatura. Reabra o perfil para tentar novamente."); }); return () => { current = false; }; }, [id]);
   async function save(action: string, confirmed = false) {
+    if ((action === "activate" || action === "extend") && invalidPayment) { setError("Confira o valor e a data do pagamento recebido."); return; }
     if (!confirmed && (action === "suspend" || (action === "activate" && data?.subscription.expires_at))) { setConfirmation(action); return; }
     setConfirmation(null);
     setBusy(true); setError("");
-    try { const result = await adminSubscription(id, action === "suspend" || action === "resume" ? { action } : { action, plan, quantity, unit }); setData(result); onChange(result.subscription); }
+    try { const result = await adminSubscription(id, action === "suspend" || action === "resume" ? { action } : { action, plan, quantity, unit, ...(recordPayment ? { payment: { amount_cents: paymentCents!, paid_on: paidOn, method } } : {}) }); setData(result); onChange(result.subscription); setRecordPayment(false); setAmount(""); }
     catch (e) { setError(isApiError(e) ? String(e.data?.message ?? "Não foi possível salvar.") : "Não foi possível salvar."); }
     finally { setBusy(false); }
   }
@@ -37,7 +48,15 @@ export default function AdminProfessionalSubscription({ id, onChange }: { id: nu
         <label className="grid gap-1 text-sm">Plano<select className={selectClass} value={plan} onChange={e => setPlan(e.target.value)} disabled={busy}><option value="monthly">Mensal</option><option value="quarterly">Trimestral</option><option value="annual">Anual</option><option value="custom">Personalizado</option></select></label>
         {plan === "custom" && <><label className="grid gap-1 text-sm">Duração<input className={selectClass} type="number" min={1} max={10000} value={quantity} onChange={e => setQuantity(Number(e.target.value))} disabled={busy} /></label><label className="grid gap-1 text-sm">Unidade<select className={selectClass} value={unit} onChange={e => setUnit(e.target.value)} disabled={busy}><option value="hour">Horas</option><option value="day">Dias</option><option value="week">Semanas</option><option value="month">Meses</option><option value="year">Anos</option></select></label></>}
       </div>
-      <div className="flex flex-wrap gap-2"><Button type="button" disabled={busy || invalidPeriod} onClick={() => void save("activate")}>{busy ? "Salvando..." : "Ativar novo período"}</Button><Button type="button" variant="outline" disabled={busy || invalidPeriod} onClick={() => void save("extend")}>Adicionar prazo</Button>{data.subscription.status === "suspended" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void save("resume")}>Reativar acesso</Button> : <Button type="button" variant="outline" disabled={busy} onClick={() => void save("suspend")}>Desativar acesso</Button>}</div>
+      <div className="border-y border-border py-4">
+        <label className="flex items-center gap-2 text-sm font-medium"><Checkbox checked={recordPayment} onCheckedChange={value => setRecordPayment(value === true)} disabled={busy} />Registrar pagamento recebido nesta ativação ou renovação</label>
+        {recordPayment && <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <label className="grid gap-1 text-sm">Valor recebido (R$)<Input inputMode="decimal" placeholder="0,00" value={amount} onChange={event => setAmount(event.target.value)} disabled={busy} /></label>
+          <label className="grid gap-1 text-sm">Data do pagamento<Input type="date" min="2000-01-01" max={financeToday()} value={paidOn} onChange={event => setPaidOn(event.target.value)} disabled={busy} /></label>
+          <label className="grid gap-1 text-sm">Forma de pagamento<select className={selectClass} value={method} onChange={event => setMethod(event.target.value)} disabled={busy}>{PAYMENT_METHODS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+        </div>}
+      </div>
+      <div className="flex flex-wrap gap-2"><Button type="button" disabled={busy || invalidPeriod || invalidPayment} onClick={() => void save("activate")}>{busy ? "Salvando..." : "Ativar novo período"}</Button><Button type="button" variant="outline" disabled={busy || invalidPeriod || invalidPayment} onClick={() => void save("extend")}>Adicionar prazo</Button>{data.subscription.status === "suspended" ? <Button type="button" variant="outline" disabled={busy} onClick={() => void save("resume")}>Reativar acesso</Button> : <Button type="button" variant="outline" disabled={busy} onClick={() => void save("suspend")}>Desativar acesso</Button>}</div>
       <p className="text-xs text-muted-foreground">Adicionar prazo preserva o tempo restante. Ao vencer ou desativar, o acesso é bloqueado, sem excluir pacientes, atividades ou documentos. A desativação não pausa a validade.</p>
       <details><summary className="cursor-pointer text-sm font-medium"><History className="mr-2 inline" size={16} />Histórico de alterações</summary><ul className="mt-3 space-y-2 text-xs text-muted-foreground">{data.events.length === 0 && <li>Nenhuma alteração registrada.</li>}{data.events.map(event => <li key={event.id}>{actions[event.action] ?? event.action} · {new Date(event.created_at.replace(" ", "T") + (event.created_at.includes("Z") ? "" : "Z")).toLocaleString("pt-BR")} · Admin #{event.admin_id}</li>)}</ul></details>
     </>}

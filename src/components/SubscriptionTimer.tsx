@@ -2,6 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import type { ProfessionalSubscription } from "@/lib/laravel-api";
 import { Clock, AlertTriangle } from "lucide-react";
 
+export function useSubscriptionExpired(subscription?: ProfessionalSubscription) {
+  const anchor = useMemo(() => ({ time: performance.now(), remaining: subscription?.expires_at ? Date.parse(subscription.expires_at) - Date.parse(subscription.server_now) : null }), [subscription?.expires_at, subscription?.server_now]);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (anchor.remaining === null || !Number.isFinite(anchor.remaining)) return;
+    const delay = anchor.remaining - (performance.now() - anchor.time);
+    if (delay <= 0) return;
+    const timer = window.setTimeout(() => setTick(value => value + 1), Math.min(delay + 10, 2_147_000_000));
+    return () => window.clearTimeout(timer);
+  }, [anchor, tick]);
+  return anchor.remaining !== null && anchor.remaining - (performance.now() - anchor.time) <= 0;
+}
+
 export function useSubscriptionRemaining(subscription?: ProfessionalSubscription) {
   const anchor = useMemo(() => ({ time: performance.now(), remaining: subscription?.expires_at ? Date.parse(subscription.expires_at) - Date.parse(subscription.server_now) : null }), [subscription?.expires_at, subscription?.server_now]);
   const [tick, setTick] = useState(0);

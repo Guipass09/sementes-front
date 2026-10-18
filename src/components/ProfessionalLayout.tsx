@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, CalendarDays, ClipboardList, Gamepad2, History, IdCard, LayoutDashboard, UsersRound, Wallet } from "lucide-react";
+import { BadgeCheck, BarChart3, CalendarDays, ClipboardList, Gamepad2, History, IdCard, LayoutDashboard, UsersRound, Wallet } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import ProfileShell, { type ProfileNavItem } from "@/components/ProfileShell";
 import ProfessionalSubscriptionPreview from "@/components/ProfessionalSubscriptionPreview";
 import SaleSchedulerListener from "@/components/SaleSchedulerListener";
-import SubscriptionTimer, { useSubscriptionRemaining } from "@/components/SubscriptionTimer";
+import { useSubscriptionExpired } from "@/components/SubscriptionTimer";
 import { isApiError, me } from "@/lib/laravel-api";
 import { resourceNavigation } from "@/lib/resource-navigation";
 import { canUsePersonalFinance } from "@/features/finance/finance";
+import { hasIndividualSubscription } from "@/lib/subscription-details";
 
 export default function ProfessionalLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -20,8 +21,9 @@ export default function ProfessionalLayout() {
   const user = auth.user;
   const clinicName = String(user?.clinic_name ?? "").trim();
   const isClinicAccount = clinicName.length > 0;
-  const remaining = useSubscriptionRemaining(user?.professional_subscription);
-  const needsSubscription = (user?.professional_subscription_status === "inactive" || (user?.professional_subscription_status === "active" && remaining === 0)) && !isClinicAccount && !user?.clinic_user_id;
+  const expired = useSubscriptionExpired(user?.professional_subscription);
+  const needsSubscription = (user?.professional_subscription_status === "inactive" || (user?.professional_subscription_status === "active" && expired)) && !isClinicAccount && !user?.clinic_user_id;
+  const onSubscriptionPage = location.pathname === "/profissional/assinatura";
 
   useEffect(() => {
     if (auth.loading) return;
@@ -75,6 +77,7 @@ export default function ProfessionalLayout() {
     { path: "/profissional/historico", label: "Histórico", icon: History },
     ...(canUsePersonalFinance(user) ? [{ path: "/profissional/financeiro", label: "Financeiro", icon: Wallet }] : []),
     { path: "/profissional/relatorios", label: "Relatórios", icon: BarChart3 },
+    ...(hasIndividualSubscription(user) ? [{ path: "/profissional/assinatura", label: "Assinatura", icon: BadgeCheck }] : []),
   ].map((item) => ({ ...item, active: item.path === "/profissional" ? location.pathname === item.path : location.pathname.startsWith(item.path) }));
 
   const subtitle = isClinicAccount
@@ -93,12 +96,7 @@ export default function ProfessionalLayout() {
       onLogout={() => void auth.logout().finally(() => navigate("/"))}
     >
       {!needsSubscription && <SaleSchedulerListener />}
-      {!isClinicAccount && !user.clinic_user_id && user.professional_subscription && (
-        <div className="border-b border-border px-4 py-3 text-right text-sm text-primary">
-          <SubscriptionTimer subscription={user.professional_subscription} />
-        </div>
-      )}
-      {needsSubscription ? (
+      {needsSubscription && !onSubscriptionPage ? (
         <>
           <p className="px-4 pt-4 text-center text-sm text-muted-foreground">Seus pacientes, atividades e documentos continuam preservados. Reative sua assinatura para retomar o acesso.</p>
           <ProfessionalSubscriptionPreview expiresOn={user.professional_subscription_expires_on} onRefresh={() => void auth.refresh()} />

@@ -1,7 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { roundGameInfo } from "@/features/round-games/round-game";
 import { isCurrentSessionGameEvent } from "@/lib/session-game-event";
-import { sessionEntryMode, sessionForbiddenMessage } from "@/lib/session-entry-policy";
 import { sessionGameAudioSettings, type GameAudioSettings } from "@/lib/game-audio-policy";
 import { readGameAudioVolumePreference, saveGameAudioVolumePreference, setGameAudioSettings } from "@/lib/game-audio-store";
 import { GameAudioControls } from "@/features/games/GameAudio";
@@ -694,9 +693,10 @@ export default function SessionCall() {
     if (!appointmentId) return;
     if (joiningRef.current) return;
 
-    const entryMode = sessionEntryMode(authLoading, !!user, inviteToken);
-    if (entryMode === "wait") return;
-    const isInviteFlow = entryMode === "invite";
+    const isAuthed = !!user;
+    const isInviteFlow = !user && !!inviteToken;
+
+    if (!isAuthed && !isInviteFlow) return;
 
     joiningRef.current = true;
 
@@ -722,12 +722,12 @@ export default function SessionCall() {
       }, 30000);
       
       try {
-        const res = isInviteFlow
-          ? await videoJoinInvite({
+        const res = isAuthed
+          ? await videoJoin(appointmentId)
+          : await videoJoinInvite({
               appointment_id: appointmentId,
               invite_token: inviteToken as string,
-            })
-          : await videoJoin(appointmentId);
+            });
         if (cancelled) return;
         if (timeoutId) clearTimeout(timeoutId);
 
@@ -735,7 +735,7 @@ export default function SessionCall() {
         // (sem invite_token). Isso garante que o WebRTC rode no mesmo fluxo do app "normal"
         // e evita a necessidade do usuário dar refresh manual.
         if (
-          isInviteFlow &&
+          !isAuthed &&
           !didInviteAutoRedirectRef.current &&
           (res as any)?.auth?.token &&
           (res as any)?.auth?.user
@@ -842,7 +842,9 @@ export default function SessionCall() {
 
         const msg =
           isApiError(e) && e.status === 403
-            ? sessionForbiddenMessage((e as any)?.data?.message)
+            ? (typeof (e as any)?.data?.message === "string" && (e as any).data.message
+                ? String((e as any).data.message)
+                : "Essa sessão ainda não está disponível. Tente mais perto do horário.")
             : "Não foi possível entrar na sessão.";
         toast({ title: "Sessão", description: msg, variant: "destructive" });
         setJoinInfo(null);
@@ -864,7 +866,7 @@ export default function SessionCall() {
       joiningRef.current = false; // Reset ao desmontar
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appointmentId, authLoading, user, inviteToken]);
+  }, [appointmentId, user, inviteToken]);
 
   // Attach streams to video elements
   useEffect(() => {
@@ -1070,7 +1072,7 @@ export default function SessionCall() {
 
   const send = async (kind: string, payload?: any) => {
     if (!joinInfo) return;
-    const isInvite = !!inviteToken;
+    const isInvite = !user && !!inviteToken;
     if (isInvite) {
       await videoSendCommandInvite({
         appointment_id: joinInfo.sessionId,
@@ -2149,7 +2151,7 @@ export default function SessionCall() {
       if (inFlight) return;
       inFlight = true;
       try {
-        const isInvite = !!inviteToken;
+        const isInvite = !user && !!inviteToken;
         const res = isInvite
           ? await videoPollInvite({
               appointment_id: joinInfo.sessionId,

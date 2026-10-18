@@ -86,6 +86,7 @@ import { installSfxUnlock } from "@/lib/sfx";
 import { useOneSignal } from "@/hooks/use-onesignal";
 
 const queryClient = new QueryClient();
+const ProfessionalFinance = lazyWithRetry(() => import("./pages/professional/ProfessionalFinance"), "ProfessionalFinance");
 
 const SessionCall = lazyWithRetry(() => import("./pages/session/SessionCall"), "SessionCall");
 const AdminMouth3D = lazyWithRetry(() => import("./pages/admin/AdminMouth3D"), "AdminMouth3D");
@@ -199,6 +200,7 @@ const App = () => {
                 <Route path="jogos/sequencia-imagens/novo" element={<RoundGameEditor kind="sequence" />} />
                 <Route path="jogos/sequencia-imagens/:id/editar" element={<RoundGameEditor kind="sequence" />} />
                 <Route path="historico" element={<ProfessionalHistory />} />
+                <Route path="financeiro" element={<Suspense fallback={<FullScreenLogoLoader label="Carregando financeiro..." />}><ProfessionalFinance /></Suspense>} />
                 <Route path="relatorios" element={<ProfessionalReports />} />
               </Route>
 

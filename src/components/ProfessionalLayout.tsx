@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, CalendarDays, ClipboardList, Gamepad2, History, IdCard, LayoutDashboard, UsersRound } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, Gamepad2, History, IdCard, LayoutDashboard, UsersRound, Wallet } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
@@ -10,6 +10,7 @@ import SaleSchedulerListener from "@/components/SaleSchedulerListener";
 import SubscriptionTimer, { useSubscriptionRemaining } from "@/components/SubscriptionTimer";
 import { isApiError, me } from "@/lib/laravel-api";
 import { resourceNavigation } from "@/lib/resource-navigation";
+import { canUsePersonalFinance } from "@/features/finance/finance";
 
 export default function ProfessionalLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -72,6 +73,7 @@ export default function ProfessionalLayout() {
     { path: "/profissional/jogos", label: "Jogos", icon: Gamepad2, children: resources.games },
     { path: "/profissional/horarios", label: "Horários", icon: CalendarDays },
     { path: "/profissional/historico", label: "Histórico", icon: History },
+    ...(canUsePersonalFinance(user) ? [{ path: "/profissional/financeiro", label: "Financeiro", icon: Wallet }] : []),
     { path: "/profissional/relatorios", label: "Relatórios", icon: BarChart3 },
   ].map((item) => ({ ...item, active: item.path === "/profissional" ? location.pathname === item.path : location.pathname.startsWith(item.path) }));
 

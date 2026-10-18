@@ -1,4 +1,22 @@
+import type { FinanceData, FinanceEntry, FinanceEntryInput, FinanceEntryUpdate, FinanceSettings } from "@/features/finance/finance";
+
 export type AuthRole = "admin" | "user" | "professional";
+
+export async function professionalFinance(month: string): Promise<FinanceData> {
+  return request(`/api/professional/finance?month=${encodeURIComponent(month)}`);
+}
+export async function professionalSaveFinanceSettings(settings: Omit<FinanceSettings, "version"> & { version?: number }): Promise<FinanceSettings> {
+  return request("/api/professional/finance/settings", { method: "PUT", json: settings });
+}
+export async function professionalSyncFinance(): Promise<void> {
+  await request("/api/professional/finance/sync", { method: "POST" });
+}
+export async function professionalCreateFinanceEntry(entry: FinanceEntryInput): Promise<FinanceEntry> {
+  return request("/api/professional/finance/entries", { method: "POST", json: entry });
+}
+export async function professionalUpdateFinanceEntry(id: number, entry: FinanceEntryUpdate): Promise<FinanceEntry> {
+  return request(`/api/professional/finance/entries/${id}`, { method: "PATCH", json: entry });
+}
 
 /**
  * Permissões de acesso do usuário.

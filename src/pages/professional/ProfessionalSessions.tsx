@@ -20,6 +20,7 @@ import { PastOpenSessionCount, PastOpenSessionHint, PastOpenSessionsSummary } fr
 import { BLINK_AFTER_MINUTES, BLINK_BEFORE_MINUTES, getJoinCountdownLabel, getTodayYMD, isPastOpenSession, parseLocalDateTime } from "@/lib/session-alert";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { buildLiveSessionInviteShareText, buildLiveSessionInviteUrl } from "@/lib/live-session-invite";
+import { canUsePersonalFinance } from "@/features/finance/finance";
 
 type ProAppointmentRow = {
   id: number;
@@ -64,6 +65,7 @@ function StandardProfessionalSessions(): JSX.Element {
   const { toast } = useToast();
   const auth = useAuth();
   const isIndividualProfessional = auth.user?.clinic_user_id == null;
+  const hasPersonalFinance = canUsePersonalFinance(auth.user);
   const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ProAppointmentRow[]>([]);
@@ -122,6 +124,7 @@ function StandardProfessionalSessions(): JSX.Element {
   };
 
   const refreshEarnings = async () => {
+    if (hasPersonalFinance) { setEarningsLoading(false); return; }
     setEarningsLoading(true);
     try {
       const res = await api.professionalGetEarningsMonth(selectedEarningsMonth);
@@ -141,7 +144,7 @@ function StandardProfessionalSessions(): JSX.Element {
     };
   }, []);
 
-  useEffect(() => { void refreshEarnings(); }, [selectedEarningsMonth]);
+  useEffect(() => { void refreshEarnings(); }, [selectedEarningsMonth, hasPersonalFinance]);
 
   // Atualizar lista quando a página ganha foco (ex: quando volta do histórico após marcar como realizada)
   useEffect(() => {
@@ -153,7 +156,7 @@ function StandardProfessionalSessions(): JSX.Element {
     return () => {
       window.removeEventListener("focus", handleFocus);
     };
-  }, [selectedEarningsMonth]);
+  }, [selectedEarningsMonth, hasPersonalFinance]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -320,6 +323,7 @@ function StandardProfessionalSessions(): JSX.Element {
             <p className="text-sm sm:text-base text-muted-foreground">Visualize suas sessões agendadas e entre na transmissão ao vivo.</p>
           </div>
           <div>
+            {hasPersonalFinance && <Button variant="outline" className="mb-2 mr-2 w-full sm:w-auto" onClick={() => navigate("/profissional/financeiro")}><Wallet size={16} className="mr-2" />Financeiro</Button>}
             {isIndividualProfessional && (
               <Button type="button" className="mb-2 mr-2 w-full sm:w-auto" onClick={() => setCreateOpen(true)}>
                 <CalendarClock className="mr-2 h-4 w-4" /> Agendar sessão
@@ -341,7 +345,7 @@ function StandardProfessionalSessions(): JSX.Element {
             </Button>
           </div>
 
-          <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
+          {!hasPersonalFinance && <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 font-semibold text-foreground">
@@ -397,7 +401,7 @@ function StandardProfessionalSessions(): JSX.Element {
             ) : (
               <div className="mt-3 text-sm text-muted-foreground">Não foi possível carregar os ganhos agora.</div>
             )}
-          </div>
+          </div>}
         </div>
 
         <PastOpenSessionsSummary count={pastOpenCount} />

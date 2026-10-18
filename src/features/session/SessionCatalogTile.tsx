@@ -4,7 +4,7 @@ import type { ActivityRow } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 
 type GameCover = {
-  thumbnail?: { url?: string | null; left_url?: string | null; right_url?: string | null; main_url?: string | null } | null;
+  thumbnail?: { url?: string | null; image_url?: string | null; left_url?: string | null; right_url?: string | null; main_url?: string | null } | null;
   cards?: Array<{ url?: string | null }>;
   items?: Array<{ url?: string | null; image_url?: string | null; left_url?: string | null; right_url?: string | null; main_url?: string | null }>;
   support_images?: Array<{ url?: string | null }>;
@@ -19,7 +19,7 @@ export function activityCatalogImage(activity: ActivityRow): string | null {
 
 export function gameCatalogImage(game: GameCover): string | null {
   const item = game.items?.[0];
-  return game.thumbnail?.url ?? game.thumbnail?.left_url ?? game.thumbnail?.main_url ?? game.thumbnail?.right_url
+  return game.thumbnail?.url ?? game.thumbnail?.image_url ?? game.thumbnail?.left_url ?? game.thumbnail?.main_url ?? game.thumbnail?.right_url
     ?? game.cards?.find((card) => card.url)?.url ?? item?.url ?? item?.image_url ?? item?.left_url
     ?? item?.main_url ?? item?.right_url ?? game.support_images?.[0]?.url ?? game.background_url ?? null;
 }
@@ -39,7 +39,7 @@ const styles = {
   guess_image_game: { icon: FileImage, color: "text-pink-700", background: "bg-pink-50" },
 } as const;
 
-type CatalogKind = keyof typeof styles;
+export type CatalogKind = keyof typeof styles;
 
 export const SessionCatalogTile = memo(function SessionCatalogTile({ title, subtitle, imageUrl, kind }: {
   title: string;

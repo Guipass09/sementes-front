@@ -17,6 +17,10 @@ export async function saveProfessionalReportLetterhead(value: { version: number;
 
 export type AuthRole = "admin" | "user" | "professional";
 
+export async function assignGameLibraryRecipients(type: string, id: number, user_ids: number[]): Promise<void> {
+  await request(`/api/game-library/${encodeURIComponent(type)}/${id}/assignments`, { method: "POST", json: { user_ids } });
+}
+
 export async function professionalFinance(month: string): Promise<FinanceData> {
   return request(`/api/professional/finance?month=${encodeURIComponent(month)}`);
 }

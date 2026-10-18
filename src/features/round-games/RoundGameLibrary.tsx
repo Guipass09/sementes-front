@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, Pencil, Play, Plus, Search, Send, Share2, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, Plus, Search, Send } from "lucide-react";
 import * as api from "@/lib/laravel-api";
 import type { RoundGameKind, RoundGameRow } from "@/lib/laravel-api";
 import { useAuth } from "@/auth/AuthContext";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ShareGameModal } from "@/features/games/ShareGameModal";
-import { SessionCatalogTile } from "@/features/session/SessionCatalogTile";
+import { GameLibraryCard, GAME_LIBRARY_GRID } from "@/features/games/GameLibraryCard";
 import { useToast } from "@/hooks/use-toast";
 import { roundGameInfo } from "./round-game";
 
@@ -64,11 +64,7 @@ export default function RoundGameLibrary({ kind }: { kind: RoundGameKind }) {
       {([true, false] as const).map(own => {
         const rows = games.filter(g => (g.created_by.id === user?.id) === own && g.title.toLowerCase().includes(search.toLowerCase()));
         if (!rows.length) return null;
-        return <section key={String(own)} className="mb-8"><h2 className="font-semibold mb-4">{own ? "Minha biblioteca" : "Compartilhados"}</h2><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{rows.map(game => <article key={game.id} className="overflow-hidden rounded-lg border border-border bg-card">
-          <button type="button" className="block w-full text-left" onClick={() => navigate(`/jogos/${info.slug}/${game.id}`)} aria-label={`Jogar ${game.title}`}><SessionCatalogTile title={game.title} subtitle={`${game.rounds.length} rodada(s)`} imageUrl={game.thumbnail.url} kind={info.type} /></button>
-          <div className="px-3 pb-3 flex flex-wrap gap-2"><Button variant="outline" size="icon" aria-label={`Jogar ${game.title}`} title="Jogar" onClick={() => navigate(`/jogos/${info.slug}/${game.id}`)}><Play size={17} /></Button>{game.can_edit && <Button variant="outline" size="icon" aria-label={`Editar ${game.title}`} title="Editar" onClick={() => navigate(`${base}/jogos/${info.slug}/${game.id}/editar`)}><Pencil size={17} /></Button>}<Button size="sm" onClick={() => void sendTo(game)}><Send size={16} className="mr-2" />Enviar</Button>{game.can_edit && <><Button variant="outline" size="icon" title="Compartilhar com profissionais" aria-label={`Compartilhar ${game.title}`} onClick={() => setSharing(game)}><Share2 size={17} /></Button><Button variant="outline" size="icon" className="text-destructive" title="Excluir" aria-label={`Excluir ${game.title}`} onClick={() => setDeleting(game)}><Trash2 size={17} /></Button></>}</div>
-          {!!game.assigned_to.length && <p className="border-t border-border px-3 py-2 text-xs text-muted-foreground">Enviado a {game.assigned_to.length} paciente(s)</p>}
-        </article>)}</div></section>;
+        return <section key={String(own)} className="mb-8"><h2 className="font-semibold mb-4">{own ? "Minha biblioteca" : "Compartilhados"}</h2><div className={GAME_LIBRARY_GRID}>{rows.map(game => <GameLibraryCard key={game.id} title={game.title} description={game.description} subtitle={`${game.rounds.length} rodada(s)`} imageUrl={game.thumbnail?.url} kind={info.type} playPath={`/jogos/${info.slug}/${game.id}`} editPath={game.can_edit ? `${base}/jogos/${info.slug}/${game.id}/editar` : undefined} onSend={() => void sendTo(game)} onShare={game.can_edit ? () => setSharing(game) : undefined} onDelete={game.can_edit ? () => setDeleting(game) : undefined} footer={game.assigned_to.length ? `Enviado a ${game.assigned_to.length} paciente(s)` : "Ainda não enviado"} />)}</div></section>;
       })}
       {!games.filter(g => g.title.toLowerCase().includes(search.toLowerCase())).length && <p className="text-muted-foreground py-8">Nenhum jogo encontrado.</p>}
     </>}

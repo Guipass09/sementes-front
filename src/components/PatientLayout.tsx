@@ -1,35 +1,23 @@
-import { useState, useEffect, useCallback } from "react";
-import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { Home, Activity, FileText, Calendar, Menu, X, LogOut, User, Grid3X3, UserRoundCheck } from "lucide-react";
-import logoImage from "@/assets/logo-sementes-da-fala.jpg";
-import { normalizeMediaUrl } from "@/lib/normalize-media-url";
-import { useAccessControl } from "@/hooks/use-access-control";
+import { useCallback, useEffect, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Activity, Calendar, FileText, Grid3X3, Home, UserRoundCheck } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
-import NotificationsBell from "@/components/NotificationsBell";
-import PwaInstallButton from "@/components/PwaInstallButton";
-import PatientLinkRequests from "@/pages/patient/PatientLinkRequests";
+import ProfileShell, { type ProfileNavItem } from "@/components/ProfileShell";
+import { useAccessControl } from "@/hooks/use-access-control";
 import { patientListLinkRequests } from "@/lib/laravel-api";
+import PatientLinkRequests from "@/pages/patient/PatientLinkRequests";
 
-interface UserData {
-  name: string;
-  email: string;
-  role: string;
-  profile_photo_url?: string | null;
-}
-
-const navItems = [
-  { path: "/paciente", label: "Início", icon: Home, previewPath: "/preview-paciente" },
-  { path: "/paciente/atividades", label: "Atividades", icon: Activity, previewPath: "/preview-paciente/atividades" },
-  { path: "/paciente/jogos", label: "Jogos", icon: Grid3X3, previewPath: "/preview-paciente/jogos" },
-  { path: "/paciente/sessoes", label: "Sessões", icon: Calendar, previewPath: "/preview-paciente/sessoes" },
-  { path: "/paciente/relatorios", label: "Relatórios", icon: FileText, previewPath: "/preview-paciente/relatorios" },
+const items = [
+  { path: "/paciente", label: "Início", icon: Home },
+  { path: "/paciente/atividades", label: "Atividades", icon: Activity },
+  { path: "/paciente/jogos", label: "Jogos", icon: Grid3X3 },
+  { path: "/paciente/sessoes", label: "Sessões", icon: Calendar },
+  { path: "/paciente/relatorios", label: "Relatórios", icon: FileText },
 ];
 
-const PatientLayout = () => {
-  const [user, setUser] = useState<UserData | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+export default function PatientLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
@@ -38,13 +26,14 @@ const PatientLayout = () => {
   const { checkAccess, isBlocked } = useAccessControl();
   const auth = useAuth();
   const isPreview = location.pathname.startsWith("/preview-paciente");
+  const user = isPreview ? { name: "Paciente Preview", profile_photo_url: null } : auth.user;
 
   const refreshPendingRequests = useCallback(async () => {
     if (isPreview || !auth.user || auth.user.role !== "user") return;
     try {
       setPendingRequests((await patientListLinkRequests()).length);
     } catch {
-      // The notification remains available if this count cannot be refreshed.
+      // Keep the notification available even if the count cannot refresh.
     }
   }, [isPreview, auth.user?.id, auth.user?.role]);
 
@@ -61,9 +50,7 @@ const PatientLayout = () => {
   }, [isPreview, auth.user?.id, auth.user?.role, refreshPendingRequests]);
 
   useEffect(() => {
-    if (new URLSearchParams(location.search).get("solicitacoes") === "1") {
-      setRequestsOpen(true);
-    }
+    if (new URLSearchParams(location.search).get("solicitacoes") === "1") setRequestsOpen(true);
   }, [location.search]);
 
   const changeRequestsOpen = (open: boolean) => {
@@ -77,283 +64,63 @@ const PatientLayout = () => {
     }
   };
 
-  // Early return if admin - redirect immediately before rendering anything
-  if (!auth.loading && auth.user && !location.pathname.startsWith("/preview-paciente")) {
-    const role = String(auth.user.role || "").toLowerCase().trim();
-    const isAdmin = role === "admin" || role.includes("admin") || role.includes("administrador") || role.includes("administrator");
-    if (isAdmin) {
-      // Use window.location for immediate redirect
-      if (window.location.pathname.startsWith("/paciente")) {
-        window.location.replace("/admin");
-        return <FullScreenLogoLoader label="Redirecionando..." />;
-      }
-    }
-  }
-
   useEffect(() => {
-    // Se estiver na rota de preview, usar dados mock sem autenticação
-    if (location.pathname.startsWith("/preview-paciente")) {
-      setUser({
-        name: "Paciente Preview",
-        email: "paciente@preview.com",
-        role: "user",
-        profile_photo_url: null,
-      });
-      return;
-    }
-
-    if (auth.loading) return;
-
+    if (isPreview || auth.loading) return;
     if (!auth.user) {
       navigate("/entrar");
       return;
     }
-
-    // Normalize role check to ensure admin detection works correctly
     const role = String(auth.user.role || "").toLowerCase().trim();
-    // Check if role contains "admin" in any form
-    const isAdmin = role === "admin" || role.includes("admin") || role.includes("administrador") || role.includes("administrator");
-    if (isAdmin) {
-      // Immediately redirect admin to admin area
-      window.location.replace("/admin");
-      return;
+    if (role === "admin" || role.includes("admin") || role.includes("administrador") || role.includes("administrator")) {
+      navigate("/admin", { replace: true });
     }
+  }, [navigate, auth.loading, auth.user, isPreview]);
 
-    setUser({
-      name: auth.user.name,
-      email: auth.user.email,
-      role: auth.user.role,
-      profile_photo_url: auth.user.profile_photo_url ?? null,
-    });
-  }, [navigate, auth.loading, auth.user, location.pathname]);
-
-  // Redirect if user is completely blocked
   useEffect(() => {
-    if (user && isBlocked) {
-      navigate("/entrar");
-    }
-  }, [user, isBlocked, navigate]);
+    if (!isPreview && user && isBlocked) navigate("/entrar");
+  }, [user, isBlocked, isPreview, navigate]);
 
-  const handleLogout = () => {
-    if (location.pathname.startsWith("/preview-paciente")) {
-      // Na preview, apenas voltar para home
-      navigate("/");
-    } else {
-      void auth.logout().finally(() => navigate("/"));
-    }
-  };
+  if (!user || (!isPreview && auth.loading)) return <FullScreenLogoLoader label="Carregando..." />;
 
-  const isActivePath = (path: string) => {
-    const currentPath = location.pathname;
-    if (path === "/paciente") {
-      return currentPath === path || currentPath === "/preview-paciente";
-    }
-    return currentPath.startsWith(path) || currentPath.startsWith(path.replace("/paciente", "/preview-paciente"));
-  };
+  const homePath = isPreview ? "/preview-paciente" : "/paciente";
+  const navItems: ProfileNavItem[] = items
+    .filter((item) => isPreview || item.path !== "/paciente/sessoes" || checkAccess("horarios"))
+    .map((item) => {
+      const path = isPreview ? item.path.replace("/paciente", "/preview-paciente") : item.path;
+      return { ...item, path, active: path === homePath ? location.pathname === path : location.pathname.startsWith(path) };
+    });
 
-  const getNavPath = (item: typeof navItems[0]) => {
-    return location.pathname.startsWith("/preview-paciente") ? item.previewPath : item.path;
-  };
-
-  if (!user) return <FullScreenLogoLoader label="Carregando..." />;
+  const requestAction = pendingRequests > 0 ? (
+    <button
+      type="button"
+      onClick={() => changeRequestsOpen(true)}
+      className="relative inline-flex h-9 w-9 flex-none items-center justify-center rounded-md text-brand-green hover:bg-primary/10"
+      aria-label={`${pendingRequests} solicitações de acompanhamento pendentes`}
+      title="Solicitações de acompanhamento"
+    >
+      <UserRoundCheck size={18} />
+      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-orange px-0.5 text-[10px] text-white">
+        {pendingRequests > 9 ? "9+" : pendingRequests}
+      </span>
+    </button>
+  ) : null;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-2">
-          {/* Logo */}
-          <Link to={location.pathname.startsWith("/preview-paciente") ? "/preview-paciente" : "/paciente"} className="flex items-center gap-2 flex-shrink-0">
-            <img
-              src={logoImage}
-              alt="Sementes da Fala"
-              className="w-10 h-10 rounded-lg object-contain"
-            />
-            <span className={`hidden font-display font-bold text-lg ${pendingRequests > 0 ? "2xl:block" : "xl:block"}`}>
-              <span className="text-brand-green">Sementes</span>{" "}
-              <span className="text-brand-brown">da Fala</span>
-            </span>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 justify-center overflow-x-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = isActivePath(item.path);
-              // Na preview, mostrar todos os itens. Caso contrário, verificar apenas sessoes
-              const isPreview = location.pathname.startsWith("/preview-paciente");
-              // Apenas sessoes pode ser bloqueada. Atividades, jogos e relatórios sempre liberados
-              const isRestricted = !isPreview && (
-                item.path === "/paciente/sessoes" && !checkAccess("horarios")
-              );
-              
-              if (isRestricted) return null;
-              
-                return (
-                <Link
-                  key={item.path}
-                  to={getNavPath(item)}
-                  title={item.label}
-                  className={`flex items-center gap-2 px-3 lg:px-4 py-2 rounded-lg font-medium transition-all duration-200 flex-shrink-0 ${
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  <Icon size={18} />
-                  <span className="hidden lg:inline">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* User Profile & Actions */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {pendingRequests > 0 && (
-              <button
-                type="button"
-                onClick={() => changeRequestsOpen(true)}
-                className="relative inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-brand-green transition-colors hover:bg-primary/10"
-                aria-label={`${pendingRequests} solicitações de acompanhamento pendentes`}
-                title="Solicitações de acompanhamento"
-              >
-                <UserRoundCheck size={18} />
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-orange px-0.5 text-[10px] text-white">
-                  {pendingRequests > 9 ? "9+" : pendingRequests}
-                </span>
-              </button>
-            )}
-            <NotificationsBell />
-            <PwaInstallButton />
-            {/* User Info - Desktop */}
-            <button
-              type="button"
-              onClick={() => setProfileOpen(true)}
-              className="hidden md:flex items-center gap-2 rounded-xl px-2 py-1 hover:bg-muted/50 transition-colors"
-              aria-label="Perfil"
-            >
-              <div className="text-right hidden xl:block">
-                <p className="text-sm font-semibold text-foreground">{user.name}</p>
-                <p className="text-xs text-muted-foreground">Bem-vinda!</p>
-              </div>
-              <div className="w-10 h-10 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold flex-shrink-0">
-                {user.profile_photo_url ? (
-                  <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  user.name.split(" ").map(n => n[0]).join("").slice(0, 2)
-                )}
-              </div>
-            </button>
-
-            {/* Logout Button - Desktop */}
-            <button
-              onClick={handleLogout}
-              className="hidden md:flex items-center gap-2 px-2 lg:px-3 py-2 text-sm text-muted-foreground hover:text-destructive transition-colors"
-            >
-              <LogOut size={18} />
-            </button>
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-foreground hover:bg-muted/50 rounded-lg transition-colors"
-              aria-label="Menu"
-            >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        <div
-          className={`md:hidden absolute top-full left-0 right-0 bg-background border-b border-border shadow-xl transition-all duration-300 overflow-hidden ${
-            mobileMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
-          }`}
-        >
-          <div className="container mx-auto px-4 py-4">
-            {/* User Info - Mobile */}
-            <button
-              type="button"
-              onClick={() => {
-                setProfileOpen(true);
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center gap-3 pb-4 mb-4 border-b border-border text-left"
-              aria-label="Perfil"
-            >
-              <div className="w-12 h-12 rounded-full overflow-hidden border border-border bg-gradient-to-br from-brand-green to-brand-green-dark flex items-center justify-center text-white font-semibold text-lg">
-                {user.profile_photo_url ? (
-                  <img src={normalizeMediaUrl(user.profile_photo_url)} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  user.name.split(" ").map(n => n[0]).join("").slice(0, 2)
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-foreground">{user.name}</p>
-                <p className="text-sm text-muted-foreground">Toque para editar perfil</p>
-              </div>
-            </button>
-
-            {/* Navigation Links - Mobile */}
-            <nav className="space-y-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = isActivePath(item.path);
-                // Na preview, mostrar todos os itens. Caso contrário, verificar apenas sessoes
-                const isPreview = location.pathname.startsWith("/preview-paciente");
-                // Apenas sessoes pode ser bloqueada. Atividades, jogos e relatórios sempre liberados
-                const isRestricted = !isPreview && (
-                  item.path === "/paciente/sessoes" && !checkAccess("horarios")
-                );
-                
-                if (isRestricted) return null;
-                
-                return (
-                  <Link
-                    key={item.path}
-                    to={getNavPath(item)}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
-                      isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                    }`}
-                  >
-                    <Icon size={20} />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* Logout - Mobile */}
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 mt-4 text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-            >
-              <LogOut size={20} />
-              <span className="font-medium">Sair</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="pt-16 min-h-screen">
-        <Outlet />
-      </main>
-
-      {auth.user && (
-        <EditProfileModal
-          open={profileOpen}
-          onOpenChange={setProfileOpen}
-          user={auth.user}
-          onSaved={(u) => auth.setAuthUser(u)}
-        />
+    <ProfileShell
+      homePath={homePath}
+      name={user.name}
+      subtitle="Paciente"
+      photoUrl={user.profile_photo_url}
+      navItems={navItems}
+      actions={requestAction}
+      onProfile={() => setProfileOpen(true)}
+      onLogout={() => isPreview ? navigate("/") : void auth.logout().finally(() => navigate("/"))}
+    >
+      <Outlet />
+      {!isPreview && auth.user && (
+        <EditProfileModal open={profileOpen} onOpenChange={setProfileOpen} user={auth.user} onSaved={auth.setAuthUser} />
       )}
       <PatientLinkRequests open={requestsOpen} onOpenChange={changeRequestsOpen} onResolved={() => void refreshPendingRequests()} />
-    </div>
+    </ProfileShell>
   );
-};
-
-export default PatientLayout;
+}

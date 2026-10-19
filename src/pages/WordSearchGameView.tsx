@@ -493,7 +493,7 @@ export default function WordSearchGameView() {
                   {/* Grid de letras (esquerda) */}
                   <div className="w-1/2 flex items-center justify-center min-w-0 flex-shrink-0">
                     <div
-                      className="grid gap-0.5 p-1 sm:p-1.5 rounded-lg w-full max-w-full"
+                      className="word-search-live-grid grid gap-0.5 p-1 sm:p-1.5 rounded-lg w-full max-w-full"
                       style={{
                         backgroundColor: game.grid_background_color ? `${game.grid_background_color}CC` : 'rgba(0, 0, 0, 0.8)',
                         gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,

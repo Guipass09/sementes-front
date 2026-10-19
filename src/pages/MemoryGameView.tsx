@@ -677,8 +677,8 @@ export default function MemoryGameView() {
       const totalW = el.getBoundingClientRect().width;
 
       // altura disponível para o grid (corpo)
-      const availableH = Math.max(200, totalH - headerH - 16);
-      const availableW = Math.max(280, totalW - 16);
+      const availableH = Math.max(inSession ? 1 : 200, totalH - headerH - 16);
+      const availableW = Math.max(inSession ? 1 : 280, totalW - 16);
       const gap = totalW < 520 ? 6 : 10;
       const minCols = inSession && totalCards <= 4 ? 2 : 3;
       // Em celulares (largura pequena), limitar colunas evita cartas minúsculas/cortadas.

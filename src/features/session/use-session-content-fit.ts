@@ -11,6 +11,8 @@ export function useSessionContentFit(frameRef: RefObject<HTMLIFrameElement>, are
     if (!area || !slot) return;
     const grid = slot.closest<HTMLElement>(".sc-session-grid");
     const controls = grid?.parentElement?.querySelector<HTMLElement>(".sc-session-controls");
+    const cameras = grid?.querySelector<HTMLElement>(".sc-session-cams-inner");
+    const cameraHeaders = Array.from(cameras?.querySelectorAll<HTMLElement>(".sc-camera-header") || []);
     let documentObserver: MutationObserver | undefined;
     let frameDocument: Document | null = null;
     let scheduled = 0;
@@ -37,7 +39,11 @@ export function useSessionContentFit(frameRef: RefObject<HTMLIFrameElement>, are
       slot.style.height = `${fit.height}px`;
       area.style.width = `${fit.width}px`;
       area.style.height = `${fit.height}px`;
-      grid?.style.setProperty("--session-content-height", `${slot.parentElement!.offsetHeight}px`);
+      const gridTop = (grid?.getBoundingClientRect().top || 0) + window.scrollY;
+      const cameraHeight = Math.max(180, viewportHeight - gridTop - (controls?.offsetHeight || 48) - 24);
+      const cameraChrome = cameraHeaders.reduce((height, header) => height + header.offsetHeight, 0) + 12;
+      grid?.style.setProperty("--session-camera-height", `${cameraHeight}px`);
+      grid?.style.setProperty("--session-camera-chrome", `${cameraChrome}px`);
     };
     const schedule = () => { if (!scheduled) scheduled = requestAnimationFrame(measure); };
     const disconnectDocument = () => {
@@ -62,6 +68,7 @@ export function useSessionContentFit(frameRef: RefObject<HTMLIFrameElement>, are
     if (slot.parentElement) observer.observe(slot.parentElement);
     if (controls) observer.observe(controls);
     if (grid?.previousElementSibling) observer.observe(grid.previousElementSibling);
+    cameraHeaders.forEach(header => observer.observe(header));
     const navigation = slot.parentElement?.querySelector(".story-navigation");
     if (navigation) observer.observe(navigation);
     frame?.addEventListener("load", attach);
@@ -78,7 +85,8 @@ export function useSessionContentFit(frameRef: RefObject<HTMLIFrameElement>, are
       slot.style.removeProperty("height");
       area.style.removeProperty("width");
       area.style.removeProperty("height");
-      grid?.style.removeProperty("--session-content-height");
+      grid?.style.removeProperty("--session-camera-height");
+      grid?.style.removeProperty("--session-camera-chrome");
     };
   }, [frameRef, areaRef, key, ready]);
 }

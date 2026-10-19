@@ -3239,13 +3239,11 @@ export default function SessionCall() {
             <div className="sc-session-cams-inner grid grid-cols-2 gap-2">
               <div
                 className={cn(
-                  "rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150 flex flex-col",
-                  // Desktop: metade exata da altura disponível (considerando gap-4 => 1rem, divide 0.5rem por card)
-                  "lg:h-[calc(50%-0.5rem)] lg:min-h-0",
+                  "sc-camera-card sc-camera-remote rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150 flex flex-col",
                   remoteSpeaking ? "border-brand-green shadow-[0_0_0_2px_rgba(34,197,94,0.35)]" : "border-border"
                 )}
               >
-                <div className="px-3 py-2 text-xs font-semibold text-foreground border-b border-border flex items-center justify-between gap-2">
+                <div className="sc-camera-header px-3 py-2 text-xs font-semibold text-foreground border-b border-border flex items-center justify-between gap-2">
                   <span>{role === "admin" ? "Paciente" : "Fonoaudióloga"}</span>
                   {remotePresent && remoteMediaState && (
                     <span className="flex items-center gap-2 text-muted-foreground">
@@ -3254,7 +3252,7 @@ export default function SessionCall() {
                     </span>
                   )}
                 </div>
-                <div className="relative aspect-[4/3] bg-black lg:aspect-auto lg:flex-1 lg:min-h-0">
+                <div className="sc-camera-media relative bg-black">
                   <video
                     ref={remoteVideoRef}
                     autoPlay
@@ -3280,7 +3278,7 @@ export default function SessionCall() {
                     </div>
                   )}
                   {!remotePresent && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black text-white">
+                    <div className="sc-camera-waiting absolute inset-0 flex flex-col items-center justify-center bg-black text-white">
                       <img
                         src={logoImage}
                         alt="Sementes da Fala"
@@ -3308,19 +3306,17 @@ export default function SessionCall() {
 
               <div
                 className={cn(
-                  "rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150 flex flex-col",
-                  // Desktop: metade exata da altura disponível (considerando gap-4 => 1rem, divide 0.5rem por card)
-                  "lg:h-[calc(50%-0.5rem)] lg:min-h-0",
+                  "sc-camera-card sc-camera-local rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150 flex flex-col",
                   localSpeaking ? "border-brand-orange shadow-[0_0_0_2px_rgba(249,115,22,0.35)]" : "border-border"
                 )}
               >
-                <div className="px-3 py-2 text-xs font-semibold text-foreground border-b border-border">
+                <div className="sc-camera-header px-3 py-2 text-xs font-semibold text-foreground border-b border-border">
                   {role === "admin" ? "Você (admin)" : "Você"}
                 </div>
-                <div className="relative aspect-[4/3] bg-black lg:aspect-auto lg:flex-1 lg:min-h-0">
+                <div className="sc-camera-media relative bg-black">
                   <video ref={localVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
                   <div className="absolute left-2 bottom-2 z-10">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-black/60 text-white px-3 py-1.5 shadow-sm">
+                    <div className="sc-camera-timer inline-flex items-center gap-2 rounded-full bg-black/60 text-white px-3 py-1.5 shadow-sm">
                       <Clock3 className="h-4 w-4 opacity-90" />
                       <span className="tabular-nums text-sm font-semibold">{callElapsedLabel}</span>
                     </div>

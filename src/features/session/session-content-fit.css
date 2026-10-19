@@ -9,13 +9,22 @@
 .sc-call-layout .story-navigation--compact .story-navigation-main { padding-bottom: 6px; }
 .sc-call-layout .story-navigation--compact .story-filmstrip { padding-top: 5px; }
 .sc-call-layout .sc-session-controls { margin-top: 12px; }
+.sc-call-layout .sc-session-cams-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.sc-call-layout .sc-camera-card { flex: none; height: auto; min-height: 0; }
+.sc-call-layout .sc-camera-header { flex: none; }
+.sc-call-layout .sc-camera-media { width: 100%; aspect-ratio: 1; flex: none; min-height: 0; overflow: hidden; }
+.sc-call-layout .sc-camera-waiting { padding: 8px; text-align: center; }
+.sc-call-layout .sc-camera-waiting > img { max-width: 35%; max-height: 35%; object-fit: contain; }
+.sc-call-layout .sc-camera-waiting > div { max-width: 100%; font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
+.sc-call-layout .sc-camera-timer { gap: 4px; padding: 4px 6px; }
+.sc-call-layout .sc-camera-timer svg { width: 12px; height: 12px; }
+.sc-call-layout .sc-camera-timer span { font-size: 11px; }
 @media (min-width: 1024px), (orientation: landscape) {
-  .sc-call-layout .sc-session-grid { grid-template-columns: minmax(0, 1fr) min(280px, 24vw); }
+  .sc-call-layout .sc-session-grid { grid-template-columns: minmax(0, 1fr) min(420px, 26vw, max(144px, calc((var(--session-camera-height, 70svh) - var(--session-camera-chrome, 78px)) / 2))); }
   .sc-call-layout .sc-session-content { order: 1; }
   .sc-call-layout .sc-session-cams { order: 2; }
-  .sc-call-layout .sc-session-cams-inner { display: flex; flex-direction: column; gap: 12px; height: var(--session-content-height, 70svh); min-height: 0; max-height: none; }
-  .sc-call-layout .sc-session-cams-inner > div { flex: 1; height: auto; min-height: 0; }
-  .sc-call-layout .sc-session-cams-inner > div > .relative { aspect-ratio: auto; flex: 1; min-height: 0; }
+  .sc-call-layout .sc-session-cams-inner { display: flex; flex-direction: column; gap: 12px; height: auto; min-height: 0; max-height: none; }
+  .sc-call-layout .sc-camera-card { width: 100%; }
 }
 @media (max-width: 639px) { .sc-call-layout { padding: 8px; } }
 
@@ -23,6 +32,10 @@ html.session-content-embedded body { background: hsl(var(--background)); }
 html.session-content-embedded .container { width: 100%; max-width: none; padding: 0; }
 html.session-content-embedded .container > :is(.max-w-5xl, .max-w-6xl) { max-width: none; }
 html.session-content-embedded .fs-target { border: 0; border-radius: 0; box-shadow: none; margin: 0; max-width: none; }
+/* Small screens may scroll a game, but must never hide its controls or pieces. */
+html.session-content-embedded .fs-target:not(.session-activity-player) { overflow: auto !important; }
+html.session-content-embedded .fs-target:not(.session-activity-player) .fs-fit { overflow: auto !important; }
+html.session-content-embedded .word-search-live-grid { max-width: min(100%, calc(100svh - 16px)); }
 html.session-content-embedded .fs-target > .border-b { padding: 8px 10px; }
 html.session-content-embedded .fs-target > .mg-fs-body { padding: 6px !important; }
 html.session-content-embedded .story-embedded .story-stage { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
@@ -38,6 +51,8 @@ html.session-content-embedded .session-memory .fs-fit { min-height: 0; }
   html.session-content-embedded .session-memory > .border-b .mt-3 { margin-top: 0; }
 }
 html.session-content-embedded .cg-in-session .cg-board { height: calc(100svh - 56px); min-height: 0; max-height: none; margin-top: 8px; border: 0; border-radius: 0; }
+html.session-content-embedded .cg-in-session .cg-deck { top: 50% !important; width: min(42%, calc((100svh - 88px) * 4 / 3)) !important; }
+html.session-content-embedded .cg-in-session .cg-open-stack { top: 50% !important; width: min(48%, calc((100svh - 88px) * 4 / 3)) !important; }
 .session-activity, .session-activity main, .session-activity-layout, .session-activity-player { height: 100svh; min-height: 0; }
 .session-activity-layout { width: 100%; max-width: none; margin: 0; }
 html.session-content-embedded .session-activity-player { border: 0; border-radius: 0; box-shadow: none; }

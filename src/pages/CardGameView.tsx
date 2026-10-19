@@ -100,14 +100,6 @@ export default function CardGameView() {
     openedRef.current = opened;
   }, [opened]);
 
-  const [viewportW, setViewportW] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1024));
-  useEffect(() => {
-    const onResize = () => setViewportW(window.innerWidth);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  const isMobileNarrow = inSession && viewportW < 640;
-
   const gameBgUrl = game?.background_url ? normalizeMediaUrl(game.background_url) : null;
 
   // Sessão ao vivo (usuário): pseudo fullscreen
@@ -481,8 +473,8 @@ export default function CardGameView() {
                   const isTop = idx === opened.length - 1;
                       const isNew = flippingId === pos;
                       const isFlipStarted = flipStartedId === pos;
-                  const dx = Math.min(isMobileNarrow ? 92 : 180, idx * (isMobileNarrow ? 6 : 10));
-                  const dy = Math.min(isMobileNarrow ? 62 : 120, idx * (isMobileNarrow ? 4 : 7));
+                  const dx = inSession ? Math.min(12, idx * 2) : Math.min(180, idx * 10);
+                  const dy = inSession ? Math.min(8, idx) : Math.min(120, idx * 7);
                   return (
                     <div
                       key={`${pos}-${idx}`}
@@ -491,7 +483,7 @@ export default function CardGameView() {
                         isTop ? "z-30" : "z-10"
                       )}
                       style={{
-                        transform: `translate(${dx}px, ${dy}px) rotate(${(idx - 2) * 0.2}deg)`,
+                        transform: `translate(${dx}px, ${dy}px) rotate(${inSession ? Math.max(-1, Math.min(1, (idx - 2) * 0.2)) : (idx - 2) * 0.2}deg)`,
                         // delay escalonado para animação de retorno
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         ["--d" as any]: `${Math.min(520, idx * 35)}ms`,
@@ -512,7 +504,8 @@ export default function CardGameView() {
                               background: imgUrl
                                 ? `linear-gradient(to bottom, rgba(0,0,0,.10), rgba(0,0,0,.18)), url(${imgUrl})`
                                 : `linear-gradient(135deg, hsl(${face.hue} 85% 62%), hsl(${(face.hue + 40) % 360} 85% 48%))`,
-                              backgroundSize: "cover",
+                              backgroundSize: inSession && imgUrl ? "contain" : "cover",
+                              backgroundRepeat: "no-repeat",
                               backgroundPosition: "center",
                             }}
                           >

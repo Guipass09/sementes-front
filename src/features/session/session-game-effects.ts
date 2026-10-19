@@ -1,13 +1,21 @@
 import type { GameSfx } from "../../lib/game-sfx-bridge.ts";
 import { GameSfxRenderer } from "../../lib/game-sfx-renderer.ts";
 
+export function sessionEffectsOutputGain(level: number, mobilePatient = false): number {
+  const volume = Number.isFinite(level) ? Math.max(0, Math.min(1, level)) : 0;
+  return volume * (mobilePatient ? 0.8 : 0.4);
+}
+
 export class SessionGameEffects {
   private context: AudioContext | null = null;
   private gain: GainNode | null = null;
   private limiter: DynamicsCompressorNode | null = null;
   private renderer: GameSfxRenderer | null = null;
   private level: () => number;
-  constructor(level: () => number) { this.level = level; }
+  private mobilePatient: () => boolean;
+  constructor(level: () => number, mobilePatient: () => boolean = () => false) {
+    this.level = level; this.mobilePatient = mobilePatient;
+  }
 
   bind(context: AudioContext): boolean {
     if (context !== this.context) {
@@ -25,10 +33,9 @@ export class SessionGameEffects {
   }
   refresh() {
     if (!this.context || !this.gain) return;
-    const level = this.level();
-    const volume = Number.isFinite(level) ? Math.max(0, Math.min(1, level)) : 0;
-    this.gain.gain.setValueAtTime(volume * 0.4, this.context.currentTime);
-    if (volume === 0) this.stop();
+    const gain = sessionEffectsOutputGain(this.level(), this.mobilePatient());
+    this.gain.gain.setValueAtTime(gain, this.context.currentTime);
+    if (gain === 0) this.stop();
   }
   play(effect: GameSfx): boolean {
     this.refresh();

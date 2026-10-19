@@ -5,6 +5,7 @@ import { SessionGameEffects } from "./session-game-effects";
 
 export function useSessionGameSfx(options: {
   identity?: string; content: { path: string; share_id: string } | null;
+  role: "admin" | "user" | null;
   frame: RefObject<HTMLIFrameElement>; disabled: boolean;
   context: RefObject<AudioContext | null>; prepare: () => Promise<AudioContext | null>;
 }) {
@@ -14,7 +15,11 @@ export function useSessionGameSfx(options: {
   const [needsActivation, setNeedsActivation] = useState(false);
 
   useEffect(() => {
-    const output = new SessionGameEffects(() => sessionChannelGain("effects"));
+    const touchPointer = window.matchMedia("(pointer: coarse)");
+    const output = new SessionGameEffects(() => sessionChannelGain("effects"),
+      () => callbacks.current.role === "user" && touchPointer.matches);
+    const outputChanged = () => output.refresh();
+    touchPointer.addEventListener("change", outputChanged);
     engine.current = output;
     const gate = new GameSfxGate();
     let disposed = false;
@@ -75,6 +80,7 @@ export function useSessionGameSfx(options: {
     return () => {
       disposed = true; pendingId = null; controls.current = null;
       unsubscribe(); observed?.removeEventListener("statechange", stateChanged);
+      touchPointer.removeEventListener("change", outputChanged);
       window.removeEventListener("message", message); window.removeEventListener("pointerdown", gesture);
       window.removeEventListener("touchstart", gesture); window.removeEventListener("keydown", gesture);
       window.removeEventListener("pageshow", gesture); window.removeEventListener("pagehide", stop);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SessionGameEffects } from "../src/features/session/session-game-effects.ts";
+import { SessionGameEffects, sessionEffectsOutputGain } from "../src/features/session/session-game-effects.ts";
 import { GAME_SFX } from "../src/lib/game-sfx-bridge.ts";
 import { setGameAudioSettings } from "../src/lib/game-audio-store.ts";
 
@@ -32,6 +32,29 @@ class Context {
   close() { this.closed = true; }
 }
 const audioContext = (context: Context) => context as unknown as AudioContext;
+
+test("mobile patient effects have twice the desktop gain, with bounded levels and exact mute", () => {
+  for (const level of [0.1, 0.35, 0.8, 1]) {
+    assert.equal(sessionEffectsOutputGain(level, true), sessionEffectsOutputGain(level) * 2);
+  }
+  assert.equal(sessionEffectsOutputGain(0, true), 0);
+  assert.equal(sessionEffectsOutputGain(-1, true), 0);
+  assert.equal(sessionEffectsOutputGain(NaN, true), 0);
+  assert.equal(sessionEffectsOutputGain(Infinity, true), 0);
+  assert.equal(sessionEffectsOutputGain(100, true), 0.8);
+});
+test("mobile boost remains behind the limiter and tracks the effects slider and mute", () => {
+  const context = new Context(); let mobile = true; let level = 0.35;
+  const effects = new SessionGameEffects(() => level, () => mobile);
+  effects.bind(audioContext(context)); effects.play("correct");
+  assert.ok(Math.abs(context.gains[0].gain.value - 0.28) < 0.000001);
+  assert.equal(context.gains[0].connections[0], context.compressors[0]);
+  assert.equal(context.compressors[0].threshold.value, -3);
+  level = 0.1; effects.refresh(); assert.ok(Math.abs(context.gains[0].gain.value - 0.08) < 0.000001);
+  mobile = false; effects.refresh(); assert.ok(Math.abs(context.gains[0].gain.value - 0.04) < 0.000001);
+  mobile = true; level = 0; effects.refresh(); assert.equal(context.gains[0].gain.value, 0);
+  effects.dispose();
+});
 
 test("live effects use the joined call context and ignore standalone mute/volume", () => {
   const context = new Context();

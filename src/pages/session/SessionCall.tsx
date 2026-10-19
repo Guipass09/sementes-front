@@ -1128,7 +1128,7 @@ export default function SessionCall() {
     send,
   });
   const gameSfx = useSessionGameSfx({
-    identity: joinInfo?.token,
+    identity: joinInfo?.token, role,
     content: contentPath && contentShareId ? { path: contentPath, share_id: contentShareId } : null,
     frame: contentFrameRef, disabled: screenShareActive || !joinInfo,
     context: audioCtxRef, prepare: () => ensureAudioCtx(),

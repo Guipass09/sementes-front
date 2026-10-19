@@ -49,6 +49,10 @@ permission and the participant's own microphone switch remain authoritative.
   call audio is resumed on gestures/pageshow/visibility recovery; an explicit
   activation control remains when the browser refuses automatic recovery. Old
   clicks are never accumulated for playback after unlocking.
+  Patient devices whose primary pointer is coarse get a 2x effects output gain
+  (0.8 maximum bus gain instead of 0.4). This is applied before the same limiter,
+  follows the effects slider/mute, and does not amplify microphones, music or the
+  professional's output. Pointer capability is observed rather than screen width.
 - Phoneme words use the activity channel, not the effects channel. The game sends
   a bounded, identified `phoneme/speak` event through the authenticated call bridge.
   Each call window speaks it once with Brazilian Portuguese synthesis; no microphone

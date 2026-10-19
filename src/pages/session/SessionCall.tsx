@@ -2984,20 +2984,8 @@ export default function SessionCall() {
     if (!catalogOpen) return;
     if (role !== "admin") return;
     if (appRole !== "admin" && appRole !== "professional") return;
-    if (catalogLoading) return;
-    if (
-      activities.length ||
-      memGames.length ||
-      memGames2.length ||
-      phonemeGames.length ||
-      audGames.length ||
-      hangGames.length ||
-      spinGames.length ||
-      wordSearchGames.length ||
-      cardGames.length ||
-      guessImageGames.length || roundGames.length
-    )
-      return;
+    // A restored story is only one item, not proof that the full catalog was loaded.
+    // Refresh on every opening; a cancelled load must not block the next opening.
 
     let cancelled = false;
     (async () => {

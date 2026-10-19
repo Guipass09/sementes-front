@@ -40,6 +40,15 @@ permission and the participant's own microphone switch remain authoritative.
   freshness and duplicate IDs. Suspended audio offers an activation button and
   drops old effects instead of queueing them for later. All these sounds use the
   effects channel; the game soundtrack remains independently muted by default.
+  The effects bus now binds directly to the call-owned `AudioContext` prepared by
+  Participar, rather than a standalone game's separately unlocked context. Its gain
+  reads only the session effects channel, not saved game mute/volume preferences.
+  Switching content cancels old notes but keeps this activated output graph. Gain
+  changes apply immediately, a limiter contains peaks, and teardown releases only
+  effects nodes without closing the shared microphone/screen context. Interrupted
+  call audio is resumed on gestures/pageshow/visibility recovery; an explicit
+  activation control remains when the browser refuses automatic recovery. Old
+  clicks are never accumulated for playback after unlocking.
 - Phoneme words use the activity channel, not the effects channel. The game sends
   a bounded, identified `phoneme/speak` event through the authenticated call bridge.
   Each call window speaks it once with Brazilian Portuguese synthesis; no microphone

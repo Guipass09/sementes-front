@@ -1131,6 +1131,7 @@ export default function SessionCall() {
     identity: joinInfo?.token,
     content: contentPath && contentShareId ? { path: contentPath, share_id: contentShareId } : null,
     frame: contentFrameRef, disabled: screenShareActive || !joinInfo,
+    context: audioCtxRef, prepare: () => ensureAudioCtx(),
   });
 
   // Garante que o iframe (jogo/atividade) sempre receba o estado atual de controle.
@@ -2903,8 +2904,8 @@ export default function SessionCall() {
 
   const ensureAudioCtx = async (): Promise<AudioContext | null> => {
     try {
-      if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (audioCtxRef.current.state === "suspended") await audioCtxRef.current.resume();
+      if (!audioCtxRef.current || audioCtxRef.current.state === "closed") audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtxRef.current.state !== "running") await audioCtxRef.current.resume();
       return audioCtxRef.current;
     } catch {
       return null;

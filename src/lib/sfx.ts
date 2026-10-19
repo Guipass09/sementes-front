@@ -1,398 +1,79 @@
 import { getGameAudioVolume, isGameAudioMuted, subscribeGameAudio } from "./game-audio-store.ts";
 import { gameAudioGain } from "./game-audio-policy.ts";
 import { relayLiveGameSfx, type GameSfx } from "./game-sfx-bridge.ts";
+import { GameSfxRenderer } from "./game-sfx-renderer.ts";
 export { playSessionReaction } from "../features/session/session-reaction-audio.ts";
 
-type AudioCtx = AudioContext & { _sementes?: true };
-
-let ctx: AudioCtx | null = null;
+let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
+let renderer: GameSfxRenderer | null = null;
 let unlocked = false;
-let winBus: GainNode | null = null;
 
-function getCtx(): AudioCtx | null {
+function getCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
-  const W: any = window;
-  const Ctor = W.AudioContext || W.webkitAudioContext;
+  const Ctor = window.AudioContext || (window as any).webkitAudioContext;
   if (!Ctor) return null;
-  if (!ctx) {
-    ctx = new Ctor() as AudioCtx;
-    ctx._sementes = true;
+  if (!ctx || ctx.state === "closed") {
+    ctx = new Ctor(); (ctx as any)._sementes = true;
+    master = null; renderer = null;
   }
   if (!master) {
-    master = ctx.createGain();
+    master = ctx!.createGain();
     master.gain.value = isGameAudioMuted() ? 0 : gameAudioGain(getGameAudioVolume(), 0.4);
-    master.connect(ctx.destination);
+    master.connect(ctx!.destination);
+    renderer = new GameSfxRenderer(ctx!, master);
   }
   return ctx;
 }
-
 subscribeGameAudio(() => {
   if (master) master.gain.setValueAtTime(isGameAudioMuted() ? 0 : gameAudioGain(getGameAudioVolume(), 0.4), ctx!.currentTime);
-  if (isGameAudioMuted() && winBus) {
-    try { winBus.disconnect(); } catch { /* Already disconnected. */ }
-    winBus = null;
-  }
+  if (isGameAudioMuted()) renderer?.stop();
 });
-
 export const getGameAudioContext = getCtx;
-
 export function stopGameSfx(): void {
+  renderer?.stop(); renderer = null;
   try { master?.disconnect(); } catch { /* Already disconnected. */ }
   master = null;
-  winBus = null;
 }
-
 export async function unlockSfx(): Promise<void> {
   if (isGameAudioMuted()) return;
-  const c = getCtx();
-  if (!c) return;
+  const context = getCtx();
+  if (!context) return;
   try {
-    if (c.state === "suspended") await c.resume();
-    // "ping" silencioso para alguns iOS
-    const g = c.createGain();
-    g.gain.value = 0.0001;
-    g.connect(master!);
-    const o = c.createOscillator();
-    o.frequency.value = 440;
-    o.connect(g);
-    const t = c.currentTime;
-    o.start(t);
-    o.stop(t + 0.01);
-    unlocked = true;
-  } catch {
-    // ignore: browser pode bloquear até gesto do usuário
-  }
+    if (context.state !== "running") await context.resume();
+    const gain = context.createGain(); gain.gain.value = 0.0001; gain.connect(master!);
+    const oscillator = context.createOscillator(); oscillator.frequency.value = 440; oscillator.connect(gain);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+    oscillator.start(context.currentTime); oscillator.stop(context.currentTime + 0.01);
+    unlocked = context.state === "running";
+  } catch { /* Browsers may require a gesture. */ }
 }
-
 export function installSfxUnlock(): void {
-  if (typeof window === "undefined") return;
-  // instala só uma vez
-  const W: any = window;
-  if (W.__sementesSfxInstalled) return;
-  W.__sementesSfxInstalled = true;
-
+  if (typeof window === "undefined" || (window as any).__sementesSfxInstalled) return;
+  (window as any).__sementesSfxInstalled = true;
   const handler = () => {
     void unlockSfx();
-    // remove depois de desbloquear
     if (unlocked) {
       window.removeEventListener("pointerdown", handler);
       window.removeEventListener("touchstart", handler);
       window.removeEventListener("keydown", handler);
     }
   };
-  window.addEventListener("pointerdown", handler, { passive: true } as any);
-  window.addEventListener("touchstart", handler, { passive: true } as any);
+  window.addEventListener("pointerdown", handler, { passive: true });
+  window.addEventListener("touchstart", handler, { passive: true });
   window.addEventListener("keydown", handler);
 }
-
-function env(g: GainNode, t0: number, a = 0.001, d = 0.12): void {
-  const peak = Math.max(0.0001, g.gain.value);
-  g.gain.cancelScheduledValues(t0);
-  g.gain.setValueAtTime(0.0001, t0);
-  g.gain.exponentialRampToValueAtTime(peak, t0 + a);
-  g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
-}
-
-function tone(freq: number, when: number, dur: number, type: OscillatorType, vol = 1): void {
-  if (isGameAudioMuted()) return;
-  const c = getCtx();
-  if (!c || !master) return;
-  if (c.state === "suspended") return; // evita "no-op" barulhento
-
-  const o = c.createOscillator();
-  const g = c.createGain();
-  g.gain.value = vol;
-  o.type = type;
-  o.frequency.setValueAtTime(freq, when);
-  o.connect(g);
-  g.connect(master);
-  env(g, when, 0.002, Math.max(0.02, dur - 0.01));
-  o.onended = () => { o.disconnect(); g.disconnect(); };
-  o.start(when);
-  o.stop(when + dur);
-}
-
-function noise(when: number, dur: number, vol = 0.7): void {
-  if (isGameAudioMuted()) return;
-  const c = getCtx();
-  if (!c || !master) return;
-  if (c.state === "suspended") return;
-
-  const bufferSize = Math.floor(c.sampleRate * dur);
-  const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.6;
-
-  const src = c.createBufferSource();
-  src.buffer = buffer;
-  const filter = c.createBiquadFilter();
-  filter.type = "highpass";
-  filter.frequency.value = 1600;
-  const g = c.createGain();
-  g.gain.value = vol;
-  src.connect(filter);
-  filter.connect(g);
-  g.connect(master);
-  env(g, when, 0.001, dur - 0.01);
-  src.onended = () => { src.disconnect(); filter.disconnect(); g.disconnect(); };
-  src.start(when);
-  src.stop(when + dur);
-}
-
-function toneTo(target: GainNode, freq: number, when: number, dur: number, type: OscillatorType, vol = 1): void {
-  if (isGameAudioMuted()) return;
-  const c = getCtx();
-  if (!c) return;
-  if (c.state === "suspended") return;
-  const o = c.createOscillator();
-  const g = c.createGain();
-  g.gain.value = vol;
-  o.type = type;
-  o.frequency.setValueAtTime(freq, when);
-  o.connect(g);
-  g.connect(target);
-  env(g, when, 0.002, Math.max(0.02, dur - 0.01));
-  o.onended = () => { o.disconnect(); g.disconnect(); };
-  o.start(when);
-  o.stop(when + dur);
-}
-
-function fireworkBurst(target: GainNode, when: number, dur = 0.18, vol = 0.35): void {
-  if (isGameAudioMuted()) return;
-  const c = getCtx();
-  if (!c) return;
-  if (c.state === "suspended") return;
-
-  const bufferSize = Math.floor(c.sampleRate * dur);
-  const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < bufferSize; i++) {
-    // mais "estalo" no início, mais "cauda" depois
-    const t = i / bufferSize;
-    const amp = t < 0.25 ? 1.0 : 0.55;
-    data[i] = (Math.random() * 2 - 1) * amp;
-  }
-
-  const src = c.createBufferSource();
-  src.buffer = buffer;
-
-  const hp = c.createBiquadFilter();
-  hp.type = "highpass";
-  hp.frequency.setValueAtTime(1400, when);
-
-  const bp = c.createBiquadFilter();
-  bp.type = "bandpass";
-  bp.frequency.setValueAtTime(2200 + Math.random() * 900, when);
-  bp.Q.value = 1.4;
-
-  const g = c.createGain();
-  g.gain.value = vol;
-
-  src.connect(hp);
-  hp.connect(bp);
-  bp.connect(g);
-  g.connect(target);
-
-  env(g, when, 0.001, dur - 0.01);
-  src.onended = () => { src.disconnect(); hp.disconnect(); bp.disconnect(); g.disconnect(); };
-  src.start(when);
-  src.stop(when + dur);
-}
-
-export function playCorrect(): void {
-  if (relayLiveGameSfx("correct")) return;
-  if (isGameAudioMuted()) return;
-  installSfxUnlock();
-  const c = getCtx();
-  if (!c) return;
-  const t = c.currentTime + 0.01;
-  // “chime” (triad maior) — criativo porém suave
-  tone(523.25, t, 0.14, "triangle", 0.9); // C5
-  tone(659.25, t + 0.02, 0.14, "triangle", 0.8); // E5
-  tone(783.99, t + 0.04, 0.16, "sine", 0.7); // G5
-}
-
-export function playWrong(): void {
-  if (relayLiveGameSfx("wrong")) return;
-  if (isGameAudioMuted()) return;
-  installSfxUnlock();
-  const c = getCtx();
-  if (!c) return;
-  const t = c.currentTime + 0.01;
-  // “buzzer” curto
-  tone(196.0, t, 0.10, "sawtooth", 0.6); // G3
-  tone(146.8, t + 0.02, 0.12, "square", 0.5); // D3
-  noise(t + 0.02, 0.09, 0.35);
-}
-
-export function playWin(): void {
-  if (relayLiveGameSfx("win")) return;
-  if (isGameAudioMuted()) return;
-  installSfxUnlock();
-  const c = getCtx();
-  if (!c) return;
-  if (!master) return;
-  if (c.state === "suspended") return;
-
-  // Se tocar de novo enquanto ainda toca, silencia o anterior.
-  if (winBus) {
-    try { winBus.disconnect(); } catch { /* ignore */ }
-    winBus = null;
-  }
-  winBus = c.createGain();
-  winBus.gain.value = 1.0;
-  winBus.connect(master);
-
-  const t0 = c.currentTime + 0.02;
-  const bpm = 132;
-  const beat = 60 / bpm; // ~0.45s
-
-  // Melodia curta “conquista” (4s) em C maior, com um toque divertido.
-  const notes: Array<[number, number, OscillatorType, number]> = [
-    // [freq, startBeat, type, durBeats]
-    [523.25, 0.0, "triangle", 0.5], // C5
-    [659.25, 0.5, "triangle", 0.5], // E5
-    [783.99, 1.0, "sine", 0.5], // G5
-    [659.25, 1.5, "triangle", 0.5], // E5
-    [698.46, 2.0, "sine", 0.5], // F5
-    [659.25, 2.5, "triangle", 0.5], // E5
-    [523.25, 3.0, "triangle", 0.6], // C5
-    [587.33, 3.6, "sine", 0.4], // D5
-    [659.25, 4.0, "sine", 0.6], // E5
-    [783.99, 4.6, "sine", 0.7], // G5
-  ];
-
-  // Base “plucky” (acordes curtos) para dar sensação de música.
-  const chords: Array<[number[], number, number]> = [
-    [[261.63, 329.63, 392.0], 0.0, 0.6], // C4-E4-G4
-    [[293.66, 369.99, 440.0], 1.3, 0.55], // D4-F#4-A4 (leve brilho)
-    [[261.63, 329.63, 392.0], 2.6, 0.6],
-    [[349.23, 440.0, 523.25], 3.8, 0.6], // F4-A4-C5
-  ];
-
-  for (const [freq, sb, type, db] of notes) {
-    toneTo(winBus, freq, t0 + sb * beat, Math.max(0.08, db * beat), type, 0.65);
-  }
-  for (const [arr, sb, db] of chords) {
-    for (const f of arr) {
-      toneTo(winBus, f, t0 + sb * beat, Math.max(0.12, db * beat), "triangle", 0.18);
-    }
-  }
-
-  // “Fogos”: estalos distribuídos ao longo de ~4s
-  const bursts = 12;
-  for (let i = 0; i < bursts; i++) {
-    const tt = t0 + (i * (4.0 / bursts)) + (Math.random() * 0.12);
-    fireworkBurst(winBus, tt, 0.16 + Math.random() * 0.08, 0.22 + Math.random() * 0.18);
-  }
-
-  // Finalzinho "sparkle"
-  fireworkBurst(winBus, t0 + 3.6, 0.26, 0.35);
-  toneTo(winBus, 1046.5, t0 + 3.65, 0.18, "sine", 0.35); // C6
-  toneTo(winBus, 1318.5, t0 + 3.78, 0.22, "sine", 0.30); // E6
-}
-
-export function playFanfare(): void {
-  if (relayLiveGameSfx("fanfare")) return;
-  if (isGameAudioMuted()) return;
-  installSfxUnlock();
-  const c = getCtx();
-  if (!c || !master) return;
-  if (c.state === "suspended") return;
-
-  const t0 = c.currentTime + 0.01;
-
-  // Fanfarra estilo trompete (surpresa/comemoração)
-  // Sequência de notas em tríades maiores que soa como "TÁ-DÁ-DÁ-DÁ!"
-  const notes: Array<[number, number, OscillatorType, number]> = [
-    // Nota inicial (forte)
-    [523.25, 0.0, "square", 0.15], // C5
-    [659.25, 0.0, "square", 0.15], // E5
-    [783.99, 0.0, "square", 0.15], // G5
-    
-    // Segunda nota (descendo)
-    [587.33, 0.18, "square", 0.12], // D5
-    [698.46, 0.18, "square", 0.12], // F5
-    
-    // Terceira nota (mais aguda, surpresa)
-    [783.99, 0.33, "square", 0.10], // G5
-    [987.77, 0.33, "square", 0.10], // B5
-    [1046.5, 0.33, "square", 0.10], // C6
-    
-    // Quarta nota (final, triunfante)
-    [659.25, 0.46, "sine", 0.25], // E5
-    [783.99, 0.46, "sine", 0.25], // G5
-    [987.77, 0.46, "sine", 0.25], // B5
-  ];
-
-  for (const [freq, start, type, dur] of notes) {
-    const o = c.createOscillator();
-    const g = c.createGain();
-    
-    // Volume variado para criar dinâmica
-    const vol = type === "square" ? 0.55 : 0.45;
-    g.gain.value = vol;
-    
-    o.type = type;
-    o.frequency.setValueAtTime(freq, t0 + start);
-    o.connect(g);
-    g.connect(master);
-    
-    // Envelope para cada nota
-    env(g, t0 + start, 0.005, dur);
-    o.onended = () => { o.disconnect(); g.disconnect(); };
-    o.start(t0 + start);
-    o.stop(t0 + start + dur);
-  }
-
-  // Adiciona um "estouro" no final para mais impacto
-  fireworkBurst(master, t0 + 0.48, 0.2, 0.4);
-}
-
-export function playCardFlip(): void {
-  if (relayLiveGameSfx("cardFlip")) return;
-  if (isGameAudioMuted()) return;
-  installSfxUnlock();
-  const c = getCtx();
-  if (!c) return;
-  const t = c.currentTime + 0.01;
-  // "click" curto e suave
-  tone(880, t, 0.05, "triangle", 0.7);
-  tone(660, t + 0.01, 0.06, "sine", 0.45);
-}
-
-export function playCardShuffle(): void {
-  if (relayLiveGameSfx("cardShuffle")) return;
-  if (isGameAudioMuted()) return;
-  installSfxUnlock();
-  const c = getCtx();
-  if (!c) return;
-  const t = c.currentTime + 0.01;
-  // "shhh" + ticks
-  noise(t, 0.18, 0.35);
-  tone(220, t + 0.02, 0.08, "square", 0.25);
-  tone(260, t + 0.07, 0.08, "square", 0.22);
-  tone(300, t + 0.12, 0.08, "square", 0.20);
-}
-
-export function playWheelTick(): void {
-  if (relayLiveGameSfx("wheelTick")) return;
-  if (isGameAudioMuted()) return;
-  const c = getCtx();
-  if (c) tone(600, c.currentTime + 0.005, 0.04, "sine", 0.4);
-}
-
-export function playWheelWin(): void {
-  if (relayLiveGameSfx("wheelWin")) return;
-  if (isGameAudioMuted()) return;
-  const c = getCtx();
-  if (c) [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => tone(frequency, c.currentTime + index * 0.15, 0.25, "sine", 0.65));
-}
-
 export function playGameSfx(effect: GameSfx): void {
-  const players = { correct: playCorrect, wrong: playWrong, win: playWin, fanfare: playFanfare,
-    cardFlip: playCardFlip, cardShuffle: playCardShuffle, wheelTick: playWheelTick, wheelWin: playWheelWin };
-  players[effect]();
+  if (relayLiveGameSfx(effect) || isGameAudioMuted()) return;
+  installSfxUnlock();
+  const context = getCtx();
+  if (context?.state === "running") renderer?.play(effect);
 }
-
+export const playCorrect = () => playGameSfx("correct");
+export const playWrong = () => playGameSfx("wrong");
+export const playWin = () => playGameSfx("win");
+export const playFanfare = () => playGameSfx("fanfare");
+export const playCardFlip = () => playGameSfx("cardFlip");
+export const playCardShuffle = () => playGameSfx("cardShuffle");
+export const playWheelTick = () => playGameSfx("wheelTick");
+export const playWheelWin = () => playGameSfx("wheelWin");

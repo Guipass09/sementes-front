@@ -19,10 +19,12 @@ export function SessionMusicControls({
   view,
   disabled,
   onChange,
+  showVolume = true,
 }: {
   view: MusicView;
   disabled: boolean;
   onChange: (patch: Partial<MusicState>) => void;
+  showVolume?: boolean;
 }) {
   const id = useId();
   const [volume, setVolume] = useState(view.volume);
@@ -112,7 +114,7 @@ export function SessionMusicControls({
             : "Pausada"}
         </span>
       </div>
-      <div className="mt-2 flex min-w-0 items-center gap-2">
+      {showVolume && <div className="mt-2 flex min-w-0 items-center gap-2">
         <label htmlFor={id} className="flex-none text-xs">
           Volume
         </label>
@@ -154,7 +156,7 @@ export function SessionMusicControls({
         >
           {Math.round(volume * 100)}%
         </output>
-      </div>
+      </div>}
       {view.notice && (
         <p
           className="mt-1 text-xs leading-relaxed text-amber-800"

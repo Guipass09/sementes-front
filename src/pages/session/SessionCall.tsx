@@ -1,9 +1,13 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { roundGameInfo } from "@/features/round-games/round-game";
 import { isCurrentSessionGameEvent } from "@/lib/session-game-event";
-import { sessionGameAudioSettings, type GameAudioSettings } from "@/lib/game-audio-policy";
-import { readGameAudioVolumePreference, saveGameAudioVolumePreference, setGameAudioSettings } from "@/lib/game-audio-store";
-import { GameAudioControls } from "@/features/games/GameAudio";
+import { SessionAudioMixer } from "@/features/session/SessionAudioMixer";
+import { useSessionAudioMixer } from "@/features/session/use-session-audio-mixer";
+import { useSessionVoiceActivity } from "@/features/session/use-session-voice-activity";
+import { useSessionScreenAudio } from "@/features/session/use-session-screen-audio";
+import { SessionMicrophone, recommendedCapture } from "@/features/session/session-microphone";
+import { sessionChannelGain, subscribeSessionMix } from "@/features/session/session-audio-mix";
+import { playSessionReaction, stopSessionReactionAudio } from "@/features/session/session-reaction-audio";
 import { SessionReactionPicker } from "@/features/session/SessionReactionPicker";
 import { SessionReactionOverlay } from "@/features/session/SessionReactionOverlay";
 import { SessionMusicControls } from "@/features/session/SessionMusicControls";
@@ -62,7 +66,6 @@ import {
   type VideoPollMessage,
 } from "@/lib/laravel-api";
 import { useToast } from "@/hooks/use-toast";
-import { playSessionReaction, stopGameSfx } from "@/lib/sfx";
 import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
 import { initialSessionMouthState, normalizeSessionMouthState, type SessionMouthState } from "@/features/mouth3d/sessionMouthState";
 import { SessionDocumentation } from "@/features/reports/SessionDocumentation";
@@ -142,6 +145,8 @@ export default function SessionCall() {
   const ensurePeerRef = useRef<Promise<void> | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const microphoneRef = useRef<SessionMicrophone | null>(null);
+  if (!microphoneRef.current) microphoneRef.current = new SessionMicrophone();
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [remoteCamStream, setRemoteCamStream] = useState<MediaStream | null>(null);
   const [remoteScreenStream, setRemoteScreenStream] = useState<MediaStream | null>(null);
@@ -167,13 +172,6 @@ export default function SessionCall() {
   const publishingSdpRef = useRef(false);
   const pendingLocalIceRef = useRef<RTCIceCandidateInit[]>([]);
   const [contentPath, setContentPath] = useState<string | null>(null);
-  const [gameAudioMuted, setGameAudioMuted] = useState(true);
-  const gameAudioMutedRef = useRef(true);
-  const [gameAudioPending, setGameAudioPending] = useState(false);
-  const [gameAudioVolume, setGameAudioVolumeState] = useState(readGameAudioVolumePreference);
-  const gameAudioVolumeRef = useRef(gameAudioVolume);
-  const gameAudioCommittedRef = useRef<GameAudioSettings>({ muted: true, volume: gameAudioVolume });
-  const gameAudioBusyRef = useRef(false);
   const [contentTitle, setContentTitle] = useState<string | null>(null);
   const [contentKind, setContentKind] = useState<string | null>(null);
   const [contentSeed, setContentSeed] = useState<number | null>(null);
@@ -246,13 +244,6 @@ export default function SessionCall() {
   useEffect(() => {
     if (lastAppointmentIdRef.current === appointmentId) return;
     lastAppointmentIdRef.current = appointmentId;
-    gameAudioMutedRef.current = true;
-    setGameAudioMuted(true);
-    setGameAudioPending(false);
-    gameAudioVolumeRef.current = readGameAudioVolumePreference();
-    setGameAudioVolumeState(gameAudioVolumeRef.current);
-    gameAudioCommittedRef.current = { muted: true, volume: gameAudioVolumeRef.current };
-    gameAudioBusyRef.current = false;
 
     // Pagamento (externo e embutido)
     setRtcPaymentOpen(false);
@@ -412,27 +403,25 @@ export default function SessionCall() {
   useEffect(() => {
     setReactions([]);
     reactionHistoryRef.current.clear();
-    setGameAudioSettings({ muted: true, volume: readGameAudioVolumePreference() });
-    return () => { stopGameSfx(); };
+    return () => { stopSessionReactionAudio(); };
   }, [appointmentId]);
 
   const showReaction = (next: SessionReaction) => {
     if (!reactionHistoryRef.current.accept(next.id)) return;
     setReactions(current => appendReactionBurst(current, next));
-    if (!gameAudioMutedRef.current) {
-      try { playSessionReaction(next.type); } catch { /* Visual feedback still works when audio is unavailable. */ }
-    }
+    try { playSessionReaction(next.type); } catch { /* Visual feedback still works when audio is unavailable. */ }
   };
 
   const [localSpeaking, setLocalSpeaking] = useState(false);
   const [remoteSpeaking, setRemoteSpeaking] = useState(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const localVafRef = useRef<number | null>(null);
-  const remoteVafRef = useRef<number | null>(null);
+  useSessionVoiceActivity(localStream, audioCtxRef, setLocalSpeaking);
+  useSessionVoiceActivity(remoteCamStream, audioCtxRef, setRemoteSpeaking);
   const screenStreamRef = useRef<MediaStream | null>(null);
   const [screenSharing, setScreenSharing] = useState(false);
   const [screenShareActive, setScreenShareActive] = useState(false);
   const contentScreenVideoRef = useRef<HTMLVideoElement | null>(null);
+  const screenAudioManaged = useSessionScreenAudio(remoteScreenStream, role === "user" && screenShareActive, audioCtxRef);
   const lastContentRef = useRef<{ path: string | null; title: string | null; kind: string | null; seed: number | null } | null>(null);
   const screenSenderRef = useRef<RTCRtpSender | null>(null);
   const screenTransceiverRef = useRef<RTCRtpTransceiver | null>(null);
@@ -655,9 +644,19 @@ export default function SessionCall() {
     const stream = role === "admin" ? screenStreamRef.current : remoteScreenStream;
     if (!stream) return;
     el.srcObject = stream;
-    el.muted = true; // áudio continua controlado pelo vídeo remoto na lateral
+    el.muted = role === "admin" || screenAudioManaged;
+    el.volume = sessionChannelGain("screen");
     void el.play().catch(() => {});
-  }, [screenShareActive, role, remoteScreenStream]);
+  }, [screenShareActive, role, remoteScreenStream, screenAudioManaged]);
+
+  useEffect(() => {
+    const refresh = () => {
+      const element = contentScreenVideoRef.current;
+      if (element) { element.muted = role === "admin" || screenAudioManaged || sessionChannelGain("screen") === 0; element.volume = sessionChannelGain("screen"); }
+    };
+    refresh();
+    return subscribeSessionMix(refresh);
+  }, [role, screenShareActive, screenAudioManaged]);
 
   // Alguns browsers não “reatualizam” o <video> quando o MediaStream ganha um track depois.
   // Forçamos re-attach quando o track de tela chega.
@@ -889,10 +888,10 @@ export default function SessionCall() {
     if (s) {
       el.srcObject = s;
       // Não mutar: o áudio remoto deve passar sempre.
-      el.muted = false;
+      el.muted = paymentOverlayActive;
       void el.play().catch(() => {});
     }
-  }, [remoteCamStream, remoteStream]);
+  }, [remoteCamStream, remoteStream, paymentOverlayActive]);
 
   // Pagamento: mantém um video remoto "visível" no DOM em iOS (evita pausar áudio/vídeo por ficar coberto).
   useEffect(() => {
@@ -947,8 +946,9 @@ export default function SessionCall() {
       };
 
       await kick(localVideoRef.current, { muted: true });
-      await kick(remoteVideoRef.current, { muted: false });
-      if (screenShareActive) await kick(contentScreenVideoRef.current, { muted: true });
+      await kick(remoteVideoRef.current, { muted: paymentOverlayActive });
+      await microphoneRef.current?.resume().catch(() => {});
+      if (screenShareActive) await kick(contentScreenVideoRef.current, { muted: role === "admin" || screenAudioManaged || sessionChannelGain("screen") === 0 });
 
       // 2) Se WebAudio foi suspenso ao perder foco, tenta resumir
       try {
@@ -985,7 +985,8 @@ export default function SessionCall() {
       if (!needsNew) return;
 
       try {
-        const fresh = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const previousStream = localStreamRef.current;
+        const fresh = await navigator.mediaDevices.getUserMedia(recommendedCapture);
         // respeita os toggles atuais
         for (const t of fresh.getAudioTracks()) t.enabled = micOn;
         for (const t of fresh.getVideoTracks()) t.enabled = camOn;
@@ -994,7 +995,8 @@ export default function SessionCall() {
         setLocalStream(fresh);
         localStreamRef.current = fresh;
 
-        const newAudio = fresh.getAudioTracks?.()?.[0] ?? null;
+        const sendingStream = await microphoneRef.current!.prepare(fresh);
+        const newAudio = sendingStream.getAudioTracks?.()?.[0] ?? null;
         const newVideo = fresh.getVideoTracks?.()?.[0] ?? null;
 
         // troca as tracks no peer connection (sem renegociar, quando suportado)
@@ -1012,13 +1014,14 @@ export default function SessionCall() {
         // fallback: se não há sender por algum motivo, tenta addTrack (melhor esforço)
         const hasAny = pc.getSenders().some((s) => !!s.track);
         if (!hasAny) {
-          for (const track of fresh.getTracks()) {
+          for (const track of sendingStream.getTracks()) {
             try {
-              pc.addTrack(track, fresh);
+              pc.addTrack(track, sendingStream);
             } catch {}
           }
         }
 
+        if (previousStream && previousStream !== fresh) safeStopStream(previousStream);
         setMediaError(null);
       } catch (e) {
         // Se o navegador exigir gesto do usuário para reabrir câmera/mic, mostramos a call-to-action.
@@ -1028,7 +1031,7 @@ export default function SessionCall() {
     } finally {
       resumeInFlightRef.current = false;
     }
-  }, [camOn, localStream, mediaState, micOn, screenShareActive]);
+  }, [camOn, localStream, mediaState, micOn, screenShareActive, role, paymentOverlayActive, screenAudioManaged]);
 
   // iPhone/Safari: ao voltar para a aba/app, tenta retomar a reprodução e recuperar tracks encerradas.
   useEffect(() => {
@@ -1060,7 +1063,7 @@ export default function SessionCall() {
     const handler = () => {
       const el = remoteVideoRef.current;
       if (!el) return;
-      el.muted = false;
+      el.muted = paymentOverlayActive;
       void el.play().catch(() => {});
     };
     window.addEventListener("pointerdown", handler, { passive: true } as any);
@@ -1071,7 +1074,7 @@ export default function SessionCall() {
       window.removeEventListener("touchstart", handler as any);
       window.removeEventListener("keydown", handler as any);
     };
-  }, []);
+  }, [paymentOverlayActive]);
 
   const send = async (kind: string, payload?: any) => {
     if (!joinInfo) return;
@@ -1105,43 +1108,13 @@ export default function SessionCall() {
     }
   };
 
-  const applyGameAudio = (settings: GameAudioSettings) => {
-    gameAudioMutedRef.current = settings.muted;
-    setGameAudioMuted(settings.muted);
-    gameAudioVolumeRef.current = settings.volume;
-    setGameAudioVolumeState(settings.volume);
-    setGameAudioSettings(settings);
-    postToContentFrame({ type: "GAME_AUDIO_STATE", ...settings });
-  };
-
-  const commitGameAudio = async (next: GameAudioSettings) => {
-    if (role !== "admin" || !joinInfo || gameAudioBusyRef.current) return;
-    const previous = gameAudioCommittedRef.current;
-    if (previous.muted === next.muted && previous.volume === next.volume) return;
-    gameAudioBusyRef.current = true;
-    setGameAudioPending(true);
-    applyGameAudio(next);
-    try {
-      await send("game_audio", next);
-      if (lastAppointmentIdRef.current === appointmentId) {
-        gameAudioCommittedRef.current = next;
-        saveGameAudioVolumePreference(next.volume);
-      }
-    } catch {
-      if (lastAppointmentIdRef.current === appointmentId) {
-        applyGameAudio(previous);
-        toast({ title: "Não foi possível alterar o som dos jogos", description: "Tente novamente.", variant: "destructive" });
-      }
-    } finally {
-      if (lastAppointmentIdRef.current === appointmentId) { setGameAudioPending(false); gameAudioBusyRef.current = false; }
-    }
-  };
-
-  useEffect(() => {
-    if (joinInfo && role === "admin") void send("game_audio", { muted: gameAudioMutedRef.current, volume: gameAudioVolumeRef.current }).catch(() => {});
-    // Rejoining as staff must also reset the patient's previous sound setting.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [joinInfo?.token, role]);
+  const audioMixer = useSessionAudioMixer({
+    role, identity: joinInfo?.token, serverNow: joinInfo?.server_now, send,
+    postFrame: postToContentFrame, microphone: microphoneRef.current,
+    speaking: localSpeaking || remoteSpeaking, musicPlaying: sessionMusic.view.playing,
+    gameActive: !!contentPath?.startsWith("/jogos/") && !screenShareActive,
+    connected: () => pcRef.current?.connectionState === "connected",
+  });
 
   // Garante que o iframe (jogo/atividade) sempre receba o estado atual de controle.
   // IMPORTANTÍSSIMO: este hook precisa ficar ANTES de qualquer return condicional (ex.: loader),
@@ -1654,7 +1627,9 @@ export default function SessionCall() {
           if (pc.connectionState === "connected") setRemotePresent(true);
           if (ev.track.kind === "audio") {
             try {
-              inboundCam.addTrack(ev.track);
+              const microphone = pc.getTransceivers().find(transceiver => transceiver.receiver.track.kind === "audio");
+              if (microphone && ev.transceiver !== microphone) inboundScreen.addTrack(ev.track);
+              else inboundCam.addTrack(ev.track);
             } catch {}
           }
           if (ev.track.kind === "video") {
@@ -1929,7 +1904,7 @@ export default function SessionCall() {
     if (m.kind === "content_status" && role === "admin") {
       if (m.payload?.share_id !== activeContentRef.current?.share_id) return;
       const status = m.payload?.status;
-      if (status === "ready") void send("game_audio", { muted: gameAudioMutedRef.current, volume: gameAudioVolumeRef.current }).catch(() => {});
+      if (status === "ready") audioMixer.publish();
       if (status === "loading" || status === "ready" || status === "failed") {
         if (remoteContentStatusRef.current === "ready" && status !== "ready") return;
         remoteContentStatusRef.current = status;
@@ -2098,11 +2073,7 @@ export default function SessionCall() {
       }
     }
 
-    const remoteGameAudio = sessionGameAudioSettings(m, joinInfo?.server_now);
-    if (role === "user" && remoteGameAudio !== null) {
-      applyGameAudio(remoteGameAudio);
-      return;
-    }
+    audioMixer.receive(m);
 
     if (m.kind === "session_reaction" || m.kind === "confetti") {
       const next = sessionReactionMessage(m, joinInfo?.server_now);
@@ -2317,6 +2288,9 @@ export default function SessionCall() {
     setRemotePresent(false);
     setRemoteMediaState(null);
     setRemoteVideoStalled(false);
+    microphoneRef.current?.dispose();
+    void audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
     safeStopStream(localStreamRef.current);
     localStreamRef.current = null;
     safeStopStream(remoteStream);
@@ -2351,7 +2325,7 @@ export default function SessionCall() {
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
       if (data.type === "GAME_AUDIO_READY" && ev.source === contentFrameRef.current?.contentWindow) {
-        postToContentFrame({ type: "GAME_AUDIO_STATE", muted: gameAudioMutedRef.current, volume: gameAudioVolumeRef.current });
+        audioMixer.postToFrame();
         return;
       }
       if (data.type !== "SESSION_GAME_EVENT") return;
@@ -2723,6 +2697,7 @@ export default function SessionCall() {
 
   const startMedia = async () => {
     try {
+      await ensureAudioCtx();
       // O clique em "iniciar" é o melhor momento para destravar áudio do iframe (SFX de jogos).
       unlockContentSfx();
       setMediaState("requesting");
@@ -2732,10 +2707,7 @@ export default function SessionCall() {
       // Idempotente: se já temos stream, reaproveita.
       const stream =
         localStream ??
-        (await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        }));
+        (await navigator.mediaDevices.getUserMedia(recommendedCapture));
       localStreamRef.current = stream;
 
       if (!localStream) {
@@ -2748,15 +2720,16 @@ export default function SessionCall() {
         cameraOn: stream.getVideoTracks().every((t) => t.enabled),
         microphoneOn: stream.getAudioTracks().every((t) => t.enabled),
       };
+      const sendingStream = await microphoneRef.current!.prepare(stream);
 
       // Evita addTrack duplicado (pode disparar exceções e "quebrar" a sessão em iOS)
       const pc = pcRef.current;
       if (pc) {
         const hasSenders = pc.getSenders().some((s) => !!s.track);
         if (!hasSenders) {
-          for (const track of stream.getTracks()) {
+          for (const track of sendingStream.getTracks()) {
             try {
-              pc.addTrack(track, stream);
+              pc.addTrack(track, sendingStream);
             } catch (e) {
               console.warn("[WebRTC] addTrack falhou (ignorado)", e);
             }
@@ -2917,68 +2890,6 @@ export default function SessionCall() {
     }
   };
 
-  const startVoiceActivity = async (stream: MediaStream, which: "local" | "remote") => {
-    const ctx = await ensureAudioCtx();
-    if (!ctx) return;
-    const src = ctx.createMediaStreamSource(stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    src.connect(analyser);
-    const data = new Uint8Array(analyser.fftSize);
-    const threshold = 0.06; // bem simples
-    const holdMs = 250;
-    let lastHot = 0;
-
-    const tick = () => {
-      analyser.getByteTimeDomainData(data);
-      let sum = 0;
-      for (let i = 0; i < data.length; i++) {
-        const v = (data[i] - 128) / 128;
-        sum += v * v;
-      }
-      const rms = Math.sqrt(sum / data.length);
-      const now = Date.now();
-      const hot = rms >= threshold;
-      if (hot) lastHot = now;
-      const speaking = hot || now - lastHot < holdMs;
-      if (which === "local") setLocalSpeaking(speaking);
-      else setRemoteSpeaking(speaking);
-      const raf = window.requestAnimationFrame(tick);
-      if (which === "local") localVafRef.current = raf;
-      else remoteVafRef.current = raf;
-    };
-
-    tick();
-  };
-
-  useEffect(() => {
-    // local VAD
-    if (!localStream) return;
-    if (!localStream.getAudioTracks().length) return;
-    if (localVafRef.current) window.cancelAnimationFrame(localVafRef.current);
-    localVafRef.current = null;
-    void startVoiceActivity(localStream, "local");
-    return () => {
-      if (localVafRef.current) window.cancelAnimationFrame(localVafRef.current);
-      localVafRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localStream]);
-
-  useEffect(() => {
-    // remote VAD
-    if (!remoteStream) return;
-    if (!remoteStream.getAudioTracks().length) return;
-    if (remoteVafRef.current) window.cancelAnimationFrame(remoteVafRef.current);
-    remoteVafRef.current = null;
-    void startVoiceActivity(remoteStream, "remote");
-    return () => {
-      if (remoteVafRef.current) window.cancelAnimationFrame(remoteVafRef.current);
-      remoteVafRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remoteStream]);
-
   // Carregar catálogo quando o controlador (admin/professional) abrir (lazy)
   useEffect(() => {
     if (!catalogOpen) return;
@@ -3072,7 +2983,7 @@ export default function SessionCall() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-          {role === "admin" && contentPath && !screenShareActive && <GameAudioControls settings={{ muted: gameAudioMuted, volume: gameAudioVolume }} disabled={gameAudioPending || !joinInfo} onChange={applyGameAudio} onCommit={next => void commitGameAudio(next)} />}
+          {role === "admin" && <SessionAudioMixer mix={audioMixer.mix} onChange={audioMixer.change} onReset={() => { audioMixer.reset(); sessionMusic.pause(); }} disabled={!joinInfo} confirmed={audioMixer.confirmed} notice={audioMixer.notice || (microphoneRef.current.supported ? "" : "Ganho digital indisponível neste navegador. Microfone no nível original.")} microphones={{ professionalMic: mediaState === "ready" ? micOn : null, patientMic: remoteMediaState?.microphoneOn ?? null }} musicControls={<SessionMusicControls view={sessionMusic.view} disabled={!joinInfo} onChange={sessionMusic.change} showVolume={false} />} />}
           {role === "admin" && contentPath && !screenShareActive && remoteContentStatus && (
             <div className="flex items-center gap-2 text-xs" aria-live="polite">
               <span className={cn(
@@ -3130,7 +3041,7 @@ export default function SessionCall() {
                     className="h-full w-full object-contain"
                     autoPlay
                     playsInline
-                    muted
+                    muted={role === "admin" || screenAudioManaged}
                     controls={false}
                   />
                 </div>
@@ -3147,7 +3058,7 @@ export default function SessionCall() {
                     if (contentPath?.startsWith("http")) setLocalContentStatus("ready");
                     // Após load do iframe, reenviar o estado de controle (mobile pode montar o listener depois).
                     postToContentFrame({ type: "SESSION_CONTROL", granted: controlGranted });
-                    postToContentFrame({ type: "GAME_AUDIO_STATE", muted: gameAudioMutedRef.current, volume: gameAudioVolumeRef.current });
+                    audioMixer.postToFrame();
                   }}
                   onError={() => {
                     setLocalContentStatus("failed");
@@ -3360,11 +3271,6 @@ export default function SessionCall() {
               </Button>
               <SessionReactionPicker
                 disabled={!joinInfo}
-                audioPending={gameAudioPending}
-                audioSettings={{ muted: gameAudioMuted, volume: gameAudioVolume }}
-                onAudioChange={applyGameAudio}
-                onAudioCommit={next => void commitGameAudio(next)}
-                musicControls={<SessionMusicControls view={sessionMusic.view} disabled={!joinInfo} onChange={sessionMusic.change} />}
                 onSend={async next => {
                   if (role !== "admin" || !joinInfo) return;
                   showReaction(next);
@@ -3381,6 +3287,8 @@ export default function SessionCall() {
               <Button
                 variant="outline"
                 onClick={toggleMic}
+                title={micOn ? "Desligar microfone" : "Ligar microfone"}
+                aria-label={micOn ? "Desligar microfone" : "Ligar microfone"}
                 className={cn("rounded-xl", !micOn ? "border-destructive text-destructive" : "")}
               >
                 {micOn ? <Mic /> : <MicOff />}
@@ -3388,6 +3296,8 @@ export default function SessionCall() {
               <Button
                 variant="outline"
                 onClick={toggleCam}
+                title={camOn ? "Desligar câmera" : "Ligar câmera"}
+                aria-label={camOn ? "Desligar câmera" : "Ligar câmera"}
                 className={cn("rounded-xl", !camOn ? "border-destructive text-destructive" : "")}
               >
                 {camOn ? <Video /> : <VideoOff />}

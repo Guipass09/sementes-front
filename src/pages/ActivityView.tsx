@@ -559,6 +559,8 @@ const ActivityView = () => {
                                     />
                                   ) : item.media_type === "video" ? (
                                     <video
+                                      key={inSession ? "live" : "standalone"}
+                                      crossOrigin={inSession ? "anonymous" : undefined}
                                       src={normalizeMediaUrl(item.url)}
                                       poster={
                                         item.thumbnail_url

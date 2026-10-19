@@ -1,7 +1,6 @@
 import { getGameAudioVolume, isGameAudioMuted, subscribeGameAudio } from "./game-audio-store.ts";
 import { gameAudioGain } from "./game-audio-policy.ts";
-import type { ReactionType } from "../features/session/session-reactions.ts";
-import { playRecordedApplause } from "./applause-sound.ts";
+export { playSessionReaction } from "../features/session/session-reaction-audio.ts";
 
 type AudioCtx = AudioContext & { _sementes?: true };
 
@@ -9,7 +8,6 @@ let ctx: AudioCtx | null = null;
 let master: GainNode | null = null;
 let unlocked = false;
 let winBus: GainNode | null = null;
-let reactionEpoch = 0;
 
 function getCtx(): AudioCtx | null {
   if (typeof window === "undefined") return null;
@@ -29,7 +27,6 @@ function getCtx(): AudioCtx | null {
 }
 
 subscribeGameAudio(() => {
-  if (isGameAudioMuted() || getGameAudioVolume() === 0) reactionEpoch += 1;
   if (master) master.gain.setValueAtTime(isGameAudioMuted() ? 0 : gameAudioGain(getGameAudioVolume(), 0.4), ctx!.currentTime);
   if (isGameAudioMuted() && winBus) {
     try { winBus.disconnect(); } catch { /* Already disconnected. */ }
@@ -380,29 +377,4 @@ export function playWheelWin(): void {
   const c = getCtx();
   if (c) [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => tone(frequency, c.currentTime + index * 0.15, 0.25, "sine", 0.65));
 }
-
-export function playSessionReaction(type: ReactionType): void {
-  if (isGameAudioMuted() || getGameAudioVolume() === 0) return;
-  stopGameSfx();
-  const c = getCtx();
-  if (!c || !master) return;
-  const reactionBus = master;
-  const requestEpoch = reactionEpoch;
-  const play = () => {
-    if (master !== reactionBus || isGameAudioMuted() || getGameAudioVolume() === 0) return;
-    const t = c.currentTime + 0.01;
-    if (type === "confetti") { playFanfare(); return; }
-    if (type === "applause") {
-      void playRecordedApplause(c, reactionBus, () => master === reactionBus && reactionEpoch === requestEpoch && !isGameAudioMuted() && getGameAudioVolume() > 0);
-      return;
-    }
-    const notes = type === "hearts" ? [523.25, 659.25, 523.25, 783.99]
-      : type === "happy" ? [659.25, 783.99, 1046.5, 783.99, 1046.5]
-      : [523.25, 783.99, 1046.5, 1318.5, 1567.98];
-    notes.forEach((frequency, index) => tone(frequency, t + index * (type === "hearts" ? 0.19 : 0.11), 0.28, "sine", 0.6));
-  };
-  if (c.state === "suspended") void c.resume().then(play).catch(() => {});
-  else play();
-}
-
 

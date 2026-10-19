@@ -128,7 +128,7 @@ export default function StoryView({ story, inSession, sessionRole, sessionStep }
       <div ref={playerRef} className="story-player" data-kind={current.kind}>
         <div className="story-stage" aria-busy={loading}>
           <div key={contentKey} className={`story-stage-content${!loading && !failed ? " story-frame-enter" : ""}`} data-story-direction={direction}>
-            {step?.type === "media" && media && (media.media_type === "video" ? <video ref={videoRef} src={normalizeMediaUrl(media.url)} poster={media.thumbnail_url ? normalizeMediaUrl(media.thumbnail_url) : undefined} controls playsInline preload="metadata" onLoadedMetadata={() => setLoadedKey(contentKey)} onError={() => setFailedKey(contentKey)} onPlay={() => videoEvent("play")} onPause={() => videoEvent("pause")} onSeeked={() => videoEvent("seek")} onTimeUpdate={() => {
+            {step?.type === "media" && media && (media.media_type === "video" ? <video key={inSession ? "live" : "standalone"} ref={videoRef} crossOrigin={inSession ? "anonymous" : undefined} src={normalizeMediaUrl(media.url)} poster={media.thumbnail_url ? normalizeMediaUrl(media.thumbnail_url) : undefined} controls playsInline preload="metadata" onLoadedMetadata={() => setLoadedKey(contentKey)} onError={() => setFailedKey(contentKey)} onPlay={() => videoEvent("play")} onPause={() => videoEvent("pause")} onSeeked={() => videoEvent("seek")} onTimeUpdate={() => {
               if (sessionRole !== "admin" || !inSession || !videoRef.current || videoRef.current.paused) return;
               if (Date.now() - lastVideoSyncRef.current < 5000) return;
               lastVideoSyncRef.current = Date.now();

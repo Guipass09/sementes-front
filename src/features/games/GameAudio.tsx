@@ -28,7 +28,9 @@ import {
 } from "@/lib/game-audio-store";
 import { GameSoundtrack } from "@/lib/game-soundtrack";
 import { createGameMediaMute } from "@/lib/game-media-audio";
+import { createSessionMediaGain } from "@/lib/session-media-gain";
 import { stopGameSfx } from "@/lib/sfx";
+import { getSessionMix, parseSessionAudioMix, sessionChannelGain, setSessionMix, subscribeSessionMix } from "@/features/session/session-audio-mix";
 
 export function GameAudioButton({
   muted,
@@ -197,6 +199,7 @@ function GameAudioController({
     const mediaMute = createGameMediaMute(() =>
       document.querySelectorAll<HTMLMediaElement>("audio, video"),
     );
+    const mediaGain = createSessionMediaGain();
     let contentReady = false;
     let animationFrame = 0;
     const childFrame = (source: MessageEventSource | null) =>
@@ -209,10 +212,17 @@ function GameAudioController({
           { type: "GAME_AUDIO_STATE", ...getGameAudioSettings() },
           window.location.origin,
         );
+        if (getSessionMix().active) frame.contentWindow?.postMessage({ type: "SESSION_AUDIO_MIX", ...getSessionMix() }, window.location.origin);
       }
     };
     const silenceMedia = () => {
-      mediaMute.apply(isGameAudioMuted(), getGameAudioVolume());
+      const mix = getSessionMix();
+      mediaMute.apply(mix.active ? mix.mix.channels.activity.muted : isGameAudioMuted(), mix.active ? sessionChannelGain("activity") : getGameAudioVolume(), mix.active ? mediaGain : undefined);
+    };
+    const reportPlayback = () => {
+      if (!getSessionMix().active || window.parent === window) return;
+      const playing = sessionChannelGain("activity") > 0 && Array.from(document.querySelectorAll<HTMLMediaElement>("audio, video")).some(media => !media.paused && !media.ended && !media.muted && media.volume > 0);
+      window.parent.postMessage({ type: "SESSION_ACTIVITY_AUDIO", playing }, window.location.origin);
     };
     const refresh = () => {
       silenceMedia();
@@ -236,6 +246,7 @@ function GameAudioController({
     const settingsChanged = () => {
       refresh();
       postChildren();
+      reportPlayback();
     };
     const gesture = (event: Event) => {
       if (
@@ -252,11 +263,18 @@ function GameAudioController({
     const message = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const data = event.data;
+      if (window.parent !== window && event.source === window.parent && data?.type === "SESSION_AUDIO_MIX") {
+        const mix = parseSessionAudioMix(data.mix);
+        if (!mix || data.active !== true) return;
+        setControlled(true);
+        setSessionMix({ active: true, mix, speaking: data.speaking === true, musicPlaying: data.musicPlaying === true, activityPlaying: data.activityPlaying === true });
+        return;
+      }
       if (
         window.parent !== window &&
         event.source === window.parent &&
         data?.type === "GAME_AUDIO_STATE" &&
-        parseGameAudioSettings(data)
+        parseGameAudioSettings(data) && !getSessionMix().active
       ) {
         setControlled(true);
         setGameAudioSettings(parseGameAudioSettings(data)!);
@@ -286,6 +304,10 @@ function GameAudioController({
       attributeFilter: ["class"],
     });
     const unsubscribe = subscribeGameAudio(settingsChanged);
+    const unsubscribeMix = subscribeSessionMix(() => {
+      if (getSessionMix().active) setGameAudioSettings({ muted: getSessionMix().mix.channels.effects.muted, volume: sessionChannelGain("effects") });
+      settingsChanged();
+    });
     window.addEventListener("GAME_CONTENT_READY", ready);
     window.addEventListener("message", message);
     window.addEventListener("pointerdown", gesture, { passive: true });
@@ -295,6 +317,9 @@ function GameAudioController({
     document.addEventListener("webkitfullscreenchange", updateDom);
     document.addEventListener("play", silenceMedia, true);
     document.addEventListener("volumechange", silenceMedia, true);
+    document.addEventListener("play", reportPlayback, true);
+    document.addEventListener("pause", reportPlayback, true);
+    document.addEventListener("ended", reportPlayback, true);
     updateDom();
     if (window.parent !== window)
       window.parent.postMessage(
@@ -303,6 +328,7 @@ function GameAudioController({
       );
     return () => {
       unsubscribe();
+      unsubscribeMix();
       observer.disconnect();
       cancelAnimationFrame(animationFrame);
       soundtrack.dispose();
@@ -316,7 +342,12 @@ function GameAudioController({
       document.removeEventListener("webkitfullscreenchange", updateDom);
       document.removeEventListener("play", silenceMedia, true);
       document.removeEventListener("volumechange", silenceMedia, true);
+      document.removeEventListener("play", reportPlayback, true);
+      document.removeEventListener("pause", reportPlayback, true);
+      document.removeEventListener("ended", reportPlayback, true);
       mediaMute.dispose();
+      mediaGain.dispose();
+      setSessionMix({ active: false });
     };
   }, [music]);
 

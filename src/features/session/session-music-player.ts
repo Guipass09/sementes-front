@@ -4,6 +4,7 @@ import {
   musicTrack,
   type MusicState,
 } from "./session-music-policy.ts";
+import { getSessionMix, sessionChannelGain, subscribeSessionMix } from "./session-audio-mix.ts";
 
 export interface MusicPlayer {
   apply(
@@ -22,6 +23,8 @@ export class SessionMusicPlayer implements MusicPlayer {
   private context: AudioContext | null = null;
   private source: MediaElementAudioSourceNode | null = null;
   private gain: GainNode | null = null;
+  private mixGain: GainNode | null = null;
+  private unsubscribeMix: (() => void) | null = null;
   private generation = 0;
   private disposed = false;
   private deadline = 0;
@@ -56,7 +59,11 @@ export class SessionMusicPlayer implements MusicPlayer {
     this.gain = this.context.createGain();
     this.gain.gain.value = 0;
     this.source.connect(this.gain);
-    this.gain.connect(this.context.destination);
+    this.mixGain = this.context.createGain();
+    this.gain.connect(this.mixGain);
+    this.mixGain.connect(this.context.destination);
+    this.unsubscribeMix = subscribeSessionMix(this.updateMix);
+    this.updateMix();
     this.audio.addEventListener("playing", this.onPlaying);
     this.audio.addEventListener("loadedmetadata", this.seek);
     this.audio.addEventListener("ended", this.onEnded);
@@ -67,6 +74,11 @@ export class SessionMusicPlayer implements MusicPlayer {
     if (!this.audio || !this.seeking || this.audio.readyState < 1) return;
     this.audio.currentTime = this.targetPosition;
     this.seeking = false;
+  };
+  private updateMix = () => {
+    if (!this.context || !this.mixGain) return;
+    const gain = getSessionMix().active ? sessionChannelGain("music") / 0.25 : 1;
+    this.mixGain.gain.setValueAtTime(gain, this.context.currentTime);
   };
   private onPlaying = () => {
     if (this.disposed || !this.state?.playing || this.now() >= this.deadline)
@@ -214,9 +226,12 @@ export class SessionMusicPlayer implements MusicPlayer {
     }
     this.source?.disconnect();
     this.gain?.disconnect();
+    this.mixGain?.disconnect();
+    this.unsubscribeMix?.(); this.unsubscribeMix = null;
     void this.context?.close().catch(() => {});
     this.audio = null;
     this.context = null;
     this.gain = null;
+    this.mixGain = null;
   }
 }

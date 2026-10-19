@@ -11,7 +11,7 @@ export function createGameMediaMute<T extends GameMedia>(
   const original = new Map<T, boolean>();
   const originalVolumes = new Map<T, number>();
   return {
-    apply(muted: boolean, volume = 1) {
+    apply(muted: boolean, volume = 1, volumeSink?: { apply: (media: T, volume: number) => boolean }) {
       for (const [media, previous] of originalVolumes) {
         if (!media.isConnected) {
           media.pause?.();
@@ -30,7 +30,7 @@ export function createGameMediaMute<T extends GameMedia>(
         if (typeof media.volume === "number") {
           if (!originalVolumes.has(media))
             originalVolumes.set(media, media.volume);
-          const target = Math.max(0, Math.min(1, volume));
+          const target = volumeSink?.apply(media, volume) ? 1 : Math.max(0, Math.min(1, volume));
           if (media.volume !== target) media.volume = target;
         }
         if (muted) {

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { initialSessionAudioMix, setSessionMix } from "../src/features/session/session-audio-mix.ts";
+import { stopSessionReactionAudio } from "../src/features/session/session-reaction-audio.ts";
 import test from "node:test";
 import {
   MAX_ACTIVE_REACTIONS,
@@ -165,11 +167,14 @@ class Param {
   }
   cancelScheduledValues() {}
   exponentialRampToValueAtTime() {}
+  linearRampToValueAtTime() {}
+  setTargetAtTime(value: number) { this.value = value; }
 }
 class Node {
   gain = new Param();
   frequency = new Param();
   Q = new Param();
+  threshold = new Param(); ratio = new Param(); attack = new Param();
   type = "sine";
   onended: (() => void) | null = null;
   buffer: unknown;
@@ -213,6 +218,8 @@ class Context {
   createBiquadFilter() {
     return new Node();
   }
+  createDynamicsCompressor() { return new Node(); }
+  async close() {}
   createBuffer(_channels: number, length: number) {
     return { getChannelData: () => new Float32Array(length) };
   }
@@ -221,7 +228,7 @@ class Context {
   }
 }
 
-test("reactions have distinct short sounds, obey mute and volume, and replace queued sounds", () => {
+test("reactions have independent short sounds, obey their own mute, and do not disconnect other effects", () => {
   const previousWindow = globalThis.window;
   const context = new Context();
   globalThis.window = {
@@ -230,21 +237,23 @@ test("reactions have distinct short sounds, obey mute and volume, and replace qu
     },
     addEventListener() {},
   } as unknown as Window & typeof globalThis;
+  const mix = initialSessionAudioMix();
   try {
+    mix.channels.reactions = { muted: true, volume: 1 }; setSessionMix({ active: true, mix });
     setGameAudioSettings({ muted: true, volume: 1 });
     for (const type of REACTION_TYPES) playSessionReaction(type);
     assert.equal(context.gains.length, 0);
-    setGameAudioSettings({ muted: false, volume: 0 });
+    mix.channels.reactions = { muted: false, volume: 0 }; setSessionMix({ mix: structuredClone(mix) });
     playSessionReaction("applause");
     assert.equal(context.gains.length, 0);
-    setGameAudioSettings({ muted: false, volume: 0.2 });
+    mix.channels.reactions = { muted: false, volume: 0.2 }; setSessionMix({ mix: structuredClone(mix) });
     const signatures: string[] = [];
     for (const type of REACTION_TYPES) {
       const oldGain = context.gains.at(-1);
       const startOsc = context.oscillators.length;
       const startNoise = context.noises.length;
       playSessionReaction(type);
-      if (oldGain) assert.ok(context.gains.some((gain) => gain.disconnected));
+      if (oldGain) assert.equal(context.gains.some((gain) => gain.disconnected), false);
       const tones = context.oscillators.slice(startOsc);
       const noises = context.noises.slice(startNoise);
       if (type === "applause") {
@@ -265,12 +274,13 @@ test("reactions have distinct short sounds, obey mute and volume, and replace qu
         assert.ok(node.stopAt > 0 && node.stopAt < 2);
     }
     assert.equal(new Set(signatures).size, 5);
-    setGameAudioSettings({ muted: true, volume: 0.2 });
+    mix.channels.reactions.muted = true; setSessionMix({ mix: structuredClone(mix) });
     const oscillators = context.oscillators.length;
     playSessionReaction("message");
     assert.equal(context.oscillators.length, oscillators);
   } finally {
     stopGameSfx();
+    stopSessionReactionAudio(); setSessionMix({ active: false, mix: initialSessionAudioMix() });
     globalThis.window = previousWindow;
     setGameAudioSettings({ muted: false, volume: 0.35 });
   }

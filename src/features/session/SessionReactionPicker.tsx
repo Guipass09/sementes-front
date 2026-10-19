@@ -44,7 +44,7 @@ export const reactionOptions = [
 
 export function SessionReactionPicker({
   disabled,
-  audioPending,
+  audioPending = false,
   audioSettings,
   onAudioChange,
   onAudioCommit,
@@ -52,10 +52,10 @@ export function SessionReactionPicker({
   musicControls,
 }: {
   disabled: boolean;
-  audioPending: boolean;
-  audioSettings: GameAudioSettings;
-  onAudioChange: (settings: GameAudioSettings) => void;
-  onAudioCommit: (settings: GameAudioSettings) => void;
+  audioPending?: boolean;
+  audioSettings?: GameAudioSettings;
+  onAudioChange?: (settings: GameAudioSettings) => void;
+  onAudioCommit?: (settings: GameAudioSettings) => void;
   onSend: (reaction: SessionReaction) => Promise<void>;
   musicControls?: import("react").ReactNode;
 }) {
@@ -156,7 +156,7 @@ export function SessionReactionPicker({
           </div>
         </form>
         {musicControls}
-        <div className="mt-3 border-t border-border pt-3">
+        {audioSettings && onAudioChange && <div className="mt-3 border-t border-border pt-3">
           <div className="mb-2 text-xs font-medium">
             Som dos jogos e reações
           </div>
@@ -166,7 +166,7 @@ export function SessionReactionPicker({
             onChange={onAudioChange}
             onCommit={onAudioCommit}
           />
-        </div>
+        </div>}
       </PopoverContent>
     </Popover>
   );

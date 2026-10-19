@@ -642,7 +642,7 @@ export default function MemoryGameView() {
     const update = () => {
       const doc: any = document;
       const nativeEl = doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement;
-      const active = nativeEl === el || el.classList.contains("is-pseudo-fullscreen");
+      const active = inSession || nativeEl === el || el.classList.contains("is-pseudo-fullscreen");
       setFsActive(active);
     };
 
@@ -658,7 +658,7 @@ export default function MemoryGameView() {
       document.removeEventListener("webkitfullscreenchange" as any, update);
       mo.disconnect();
     };
-  }, []);
+  }, [inSession]);
 
   // Recalcula layout no fullscreen para caber tudo sem scroll
   useEffect(() => {
@@ -680,7 +680,7 @@ export default function MemoryGameView() {
       const availableH = Math.max(200, totalH - headerH - 16);
       const availableW = Math.max(280, totalW - 16);
       const gap = totalW < 520 ? 6 : 10;
-      const minCols = 3;
+      const minCols = inSession && totalCards <= 4 ? 2 : 3;
       // Em celulares (largura pequena), limitar colunas evita cartas minúsculas/cortadas.
       const maxCols = totalW < 430 ? 4 : 8;
       const best = bestGridCols({ totalCards: Math.max(1, totalCards), w: availableW, h: availableH, gap, minCols, maxCols });
@@ -697,7 +697,7 @@ export default function MemoryGameView() {
       ro.disconnect();
       window.removeEventListener("resize", compute);
     };
-  }, [fsActive, totalCards]);
+  }, [fsActive, totalCards, inSession]);
 
   useEffect(() => {
     if (!finished) return;
@@ -785,7 +785,7 @@ export default function MemoryGameView() {
       <main className="relative">
         <div className={cn("container mx-auto px-4 py-6 lg:py-8", inSession && "px-0 py-0")}>
           <div className="max-w-6xl mx-auto">
-            <div ref={fsRef} className="fs-target rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col">
+            <div ref={fsRef} className={cn("fs-target rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col", inSession && "session-memory")}>
               <div ref={headerRef} className="px-6 sm:px-10 pt-7 sm:pt-9 pb-5 border-b border-border/60">
                 {loading ? (
                   <div className="space-y-3">

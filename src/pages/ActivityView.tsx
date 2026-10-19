@@ -48,7 +48,7 @@ const ActivityView = () => {
   const controlAllowedRef = useRef<boolean>(sessionRole === "admin");
   const applyingRemoteRef = useRef(false);
   const autoPseudoFullscreen = inSession && sessionRole === "user";
-  const compactForUser = inSession && sessionRole === "user";
+  const compactForUser = inSession;
 
   const emitSessionEvent = (event: any) => {
     if (!inSession) return;
@@ -344,7 +344,7 @@ const ActivityView = () => {
   }
 
   return (
-    <div className="min-h-[100svh] bg-transparent">
+    <div className={cn("min-h-[100svh] bg-transparent", inSession && "session-activity")}>
 
       {!inSession && (
       <header className="fs-hide-when-fullscreen sticky top-0 z-20 bg-background/85 backdrop-blur-md border-b border-border">
@@ -378,13 +378,14 @@ const ActivityView = () => {
 
       <main className="relative">
         <div className={cn("container mx-auto px-4 py-8 lg:py-10", inSession && "px-0 py-0")}>
-          <div className="max-w-5xl mx-auto">
+          <div className={inSession ? "session-activity-layout" : "max-w-5xl mx-auto"}>
             <div
               ref={fsRef}
               className={cn(
                 "fs-target relative rounded-3xl bg-card border border-border shadow-sm overflow-hidden flex flex-col",
                 // No modo sessão do paciente, precisa caber sem scroll dentro do iframe.
                 compactForUser ? "fs-no-scroll" : "fs-allow-scroll",
+                inSession && "session-activity-player",
               )}
             >
               {/* fora da sessão, permite fullscreen manual; na sessão o usuário já entra em pseudo fullscreen automaticamente */}
@@ -508,7 +509,7 @@ const ActivityView = () => {
               ) : null}
 
               {/* Conteúdo/Carrossel */}
-              <div className={cn("px-4 sm:px-6 lg:px-10 py-6 sm:py-8", compactForUser && "px-0 py-0 flex-1 min-h-0")}>
+              <div className={cn("px-4 sm:px-6 lg:px-10 py-6 sm:py-8", compactForUser && "session-activity-body px-0 py-0 flex-1 min-h-0")}>
                 {loading ? (
                   <div className="rounded-2xl border border-border bg-background/40 p-4 sm:p-6">
                     <Skeleton className="h-[48vh] sm:h-[56vh] w-full rounded-xl" />
@@ -528,21 +529,22 @@ const ActivityView = () => {
                       className={cn("w-full", compactForUser && "h-full")}
                     >
                       <CarouselContent className={cn("-ml-4", compactForUser && "ml-0 h-full")}>
-                        {orderedMedia.map((item) => (
+                        {orderedMedia.map((item, index) => (
                           <CarouselItem key={item.id} className={cn("pl-4", compactForUser && "pl-0 h-full")}>
                             {/* Card “mais chamativo” */}
                             <div
                               className={cn(
                                 "rounded-3xl border border-border bg-gradient-to-b from-background to-muted/30 shadow-sm overflow-hidden",
-                                compactForUser && "rounded-none border-0 h-full",
+                                compactForUser && "session-activity-card rounded-none border-0 h-full",
                               )}
                             >
-                              <div className="relative">
+                              <div className={cn("relative", inSession && "h-full")}>
                                 {/* Área principal (mídia) */}
                                 <div
+                                  data-session-active={current === index + 1}
                                   className={cn(
                                     "bg-muted/30 flex items-center justify-center",
-                                    compactForUser ? "h-[78svh]" : "h-[46vh] sm:h-[54vh] lg:h-[58vh]",
+                                    compactForUser ? "session-activity-media h-full" : "h-[46vh] sm:h-[54vh] lg:h-[58vh]",
                                   )}
                                 >
                                   {item.media_type === "image" ? (

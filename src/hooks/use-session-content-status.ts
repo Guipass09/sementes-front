@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import "@/features/session/session-content-fit.css";
 
 // The iframe load event only means the document loaded; the activity may still be fetching data.
 export function useSessionContentStatus(loading: boolean, hasContent: boolean) {
@@ -7,9 +8,11 @@ export function useSessionContentStatus(loading: boolean, hasContent: boolean) {
 
   useEffect(() => {
     const params = new URLSearchParams(search);
+    const embedded = params.get("session") === "1";
+    if (embedded) document.documentElement.classList.add("session-content-embedded");
     const hideHeading = params.get("session") === "1" && params.get("session_role") === "user" && !!params.get("story_id");
     if (hideHeading) document.documentElement.classList.add("story-session-patient");
-    return () => document.documentElement.classList.remove("story-session-patient");
+    return () => document.documentElement.classList.remove("story-session-patient", "session-content-embedded");
   }, [search]);
 
   useEffect(() => {

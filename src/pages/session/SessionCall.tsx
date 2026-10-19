@@ -69,6 +69,8 @@ import { SessionDocumentation } from "@/features/reports/SessionDocumentation";
 import { SessionCatalogTile, activityCatalogImage, gameCatalogImage } from "@/features/session/SessionCatalogTile";
 import { storyStepPath } from "@/features/stories/story-sequence";
 import StoryNavigation from "@/features/stories/StoryNavigation";
+import { useSessionContentFit } from "@/features/session/use-session-content-fit";
+import "@/features/session/session-content-fit.css";
 
 const catalogGridClass = "grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5";
 const catalogTileClass = "group w-full overflow-hidden rounded-md border border-border bg-card text-left transition-colors hover:border-brand-green hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green";
@@ -440,6 +442,7 @@ export default function SessionCall() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const contentFrameRef = useRef<HTMLIFrameElement | null>(null);
+  useSessionContentFit(contentFrameRef, contentAreaRef, `${contentPath}:${contentShareId}:${contentReloadKey}:${screenShareActive}`, !authLoading && !joining);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const joiningRef = useRef(false);
   const resumeInFlightRef = useRef(false);
@@ -3066,20 +3069,9 @@ export default function SessionCall() {
     }
   })();
 
-  const isCarouselActivity = (() => {
-    if (!iframeSrc) return false;
-    try {
-      const url = new URL(iframeSrc, window.location.origin);
-      // Atividade (rota /atividades/:id) usa carrossel de mídia; no mobile vertical damos um pouco mais de altura.
-      return url.pathname.startsWith("/atividades/");
-    } catch {
-      return String(iframeSrc).startsWith("/atividades/");
-    }
-  })();
-
   return (
     <div className="min-h-[100svh] bg-background">
-      <div className="mx-auto max-w-[1400px] px-4 py-4 lg:py-6">
+      <div className="sc-call-layout">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <img src={logoImage} alt="Sementes da Fala" className="h-8 w-8 rounded-lg object-cover" />
@@ -3135,18 +3127,11 @@ export default function SessionCall() {
 
         <div className="sc-session-grid grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
           {/* Área principal (conteúdo da sessão) */}
-          <div className={cn("sc-session-content order-2 lg:order-1 rounded-2xl border border-border bg-card p-3 sm:p-4", activeContentRef.current?.story_id && !screenShareActive && "story-session-shell")}>
+          <div className={cn("sc-session-content order-2 lg:order-1", activeContentRef.current?.story_id && !screenShareActive && "story-session-shell")}>
             {role === "admin" && activeStory && !screenShareActive && <StoryNavigation compact story={activeStory} index={activeStoryStep} onSelect={index => playStoryStep(activeStory, index)} onReplay={() => playStoryStep(activeStory, activeStoryStep)} />}
-            <div
+            <div className="sc-content-slot"><div
               ref={contentAreaRef}
-              className={cn(
-                "sc-content-area relative w-full",
-                isCarouselActivity ? "sc-content-area--carousel" : null,
-                // Mobile: mantém mais compacto para caber controles e vídeos
-                "h-[55vh] sm:h-[58vh]",
-                // Desktop/notebooks: mais alto para não "achatar" e evitar corte em telas 768px de altura
-                "lg:h-[76svh] lg:max-h-[860px] lg:min-h-[560px]",
-              )}
+              className="sc-content-area relative w-full"
             >
               <SessionReactionOverlay reactions={reactions} onFinished={finishReaction} />
 
@@ -3244,19 +3229,14 @@ export default function SessionCall() {
               )}
               {mouthState.open && <Suspense fallback={null}><SessionMouthOverlay state={mouthState} editable={role === "admin"} onChange={changeMouthState} /></Suspense>}
             </div>
+            </div>
           </div>
 
           {/* Coluna de câmeras */}
           <div className="sc-session-cams order-1 lg:order-2">
             {/* Retrato (celular): 2 vídeos lado a lado em cima.
                 Paisagem/desktop: vídeos empilhados. (paisagem mobile é forçada via CSS em index.css) */}
-            <div
-              className={cn(
-                "sc-session-cams-inner grid grid-cols-2 gap-2",
-                // Desktop: a coluna de vídeos deve acompanhar exatamente a altura da área de atividade (sc-content-area)
-                "lg:flex lg:flex-col lg:gap-4 lg:h-[76svh] lg:max-h-[860px] lg:min-h-[560px]"
-              )}
-            >
+            <div className="sc-session-cams-inner grid grid-cols-2 gap-2">
               <div
                 className={cn(
                   "rounded-2xl border bg-card overflow-hidden transition-[box-shadow,border-color] duration-150 flex flex-col",
@@ -3352,7 +3332,7 @@ export default function SessionCall() {
         </div>
 
         {/* Controles */}
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <div className="sc-session-controls mt-4 flex flex-wrap items-center justify-center gap-2">
           {role === "admin" && (
             <>
               <Button variant="outline" onClick={() => setCatalogOpen(true)} className="rounded-xl">

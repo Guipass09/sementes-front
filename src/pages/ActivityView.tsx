@@ -631,11 +631,21 @@ const ActivityView = () => {
                       {/* Setas */}
                       <CarouselPrevious
                         variant="secondary"
-                        className="left-2 sm:left-3 md:-left-10 h-10 w-10 shadow-md bg-background/90"
+                        aria-label="Slide anterior"
+                        title="Slide anterior"
+                        className={cn(
+                          "h-10 w-10 shadow-md bg-background/95 text-foreground",
+                          compactForUser ? "left-2 sm:left-3 z-20 border border-border" : "left-2 sm:left-3 md:-left-10",
+                        )}
                       />
                       <CarouselNext
                         variant="secondary"
-                        className="right-2 sm:right-3 md:-right-10 h-10 w-10 shadow-md bg-background/90"
+                        aria-label="Próximo slide"
+                        title="Próximo slide"
+                        className={cn(
+                          "h-10 w-10 shadow-md bg-background/95 text-foreground",
+                          compactForUser ? "right-2 sm:right-3 z-20 border border-border" : "right-2 sm:right-3 md:-right-10",
+                        )}
                       />
                     </Carousel>
 

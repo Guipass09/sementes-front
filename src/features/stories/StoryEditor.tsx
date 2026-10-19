@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowDown, ArrowLeft, ArrowUp, Film, Gamepad2, ImagePlus, Images, Loader2, Plus, RefreshCw, Save, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Film, Gamepad2, ImagePlus, Images, Loader2, Plus, RefreshCw, Save, Search } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,8 @@ import type { ActivityMediaRow, ActivityRow, StoryStepInput } from "@/lib/larave
 import * as api from "@/lib/laravel-api";
 import { loadStoryGames, storyGameLabels, type StoryGameChoice } from "./story-games";
 import { activitySlides } from "./story-import";
+import StoryStepList from "./StoryStepList";
+import { reorderStorySteps } from "./story-reorder";
 
 type DraftStep =
   | { key: string; type: "media"; media?: ActivityMediaRow; file?: File; sourceMediaId?: number; sourceActivityTitle?: string }
@@ -44,6 +46,7 @@ export default function StoryEditor() {
   const [gameSearch, setGameSearch] = useState("");
   const [gameType, setGameType] = useState("all");
   const [saving, setSaving] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const [loading, setLoading] = useState(!!id);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -115,15 +118,8 @@ export default function StoryEditor() {
     toast({ title: `${slides.length} ${slides.length === 1 ? "slide adicionado" : "slides adicionados"}`, description: activity.title });
   };
 
-  const move = (index: number, offset: number) => setSteps((current) => {
-    const target = index + offset;
-    if (target < 0 || target >= current.length) return current;
-    const next = [...current];
-    [next[index], next[target]] = [next[target], next[index]];
-    return next;
-  });
-
   const save = async () => {
+    if (saving || reordering) return;
     if (!title.trim() || !description.trim() || steps.length === 0) {
       toast({ title: "Preencha o título, o objetivo e adicione pelo menos uma etapa.", variant: "destructive" });
       return;
@@ -203,7 +199,7 @@ export default function StoryEditor() {
           <div><h1 className="text-2xl font-display font-semibold text-foreground">{id ? "Editar história" : "Criar história completa"}</h1>
             <p className="text-sm text-muted-foreground">Monte o percurso do atendimento, etapa por etapa.</p></div>
         </div>
-        <Button onClick={() => void save()} disabled={saving}><Save className="h-4 w-4 mr-2" />{saving ? "Salvando..." : "Salvar história"}</Button>
+        <Button onClick={() => void save()} disabled={saving || reordering}><Save className="h-4 w-4 mr-2" />{saving ? "Salvando..." : "Salvar história"}</Button>
       </div>
 
       <fieldset disabled={saving} className="min-w-0 space-y-7">
@@ -229,25 +225,17 @@ export default function StoryEditor() {
           </div>
         </div>
         {steps.length === 0 ? <div className="border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">Adicione a primeira etapa da história.</div> : null}
-        <div className="space-y-2">
-          {steps.map((step, index) => {
+        <StoryStepList disabled={saving} onDraggingChange={setReordering}
+          onMove={(activeKey, targetKey) => setSteps(current => reorderStorySteps(current, activeKey, targetKey))}
+          onRemove={key => setSteps(current => current.filter(step => step.key !== key))}
+          items={steps.map(step => {
             const availableGame = step.type === "game" ? games.find((game) => game.type === step.game.type && game.id === step.game.id) : null;
             const name = step.type === "game" ? availableGame?.title || step.game.title : step.file?.name || step.media?.caption || (step.media?.media_type === "video" ? "Vídeo" : "Imagem");
             const image = step.type === "game" ? availableGame?.imageUrl || step.game.imageUrl : step.media?.thumbnail_url || (step.media?.media_type === "image" ? step.media.url : null);
-            return <div key={step.key} className="grid min-h-20 grid-cols-[1.25rem_3.5rem_minmax(0,1fr)] items-center gap-2 rounded-md border border-border bg-card p-3 sm:grid-cols-[1.25rem_5rem_minmax(0,1fr)_auto] sm:gap-3">
-              <span className="text-center text-sm font-semibold text-muted-foreground">{index + 1}</span>
-              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded border bg-muted sm:w-20">
-                {image ? <img src={normalizeMediaUrl(image)} alt="" className="h-full w-full object-cover" /> : step.type === "game" ? <Gamepad2 className="h-5 w-5" /> : <Film className="h-5 w-5" />}
-              </div>
-              <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium">{name}</div><div className="text-xs text-muted-foreground">{step.type === "game" ? step.game.category : step.file?.type.startsWith("video/") || step.media?.media_type === "video" ? "Vídeo" : "Imagem / GIF"}</div>{step.type === "media" && step.sourceActivityTitle && <div className="truncate text-xs text-primary" title={step.sourceActivityTitle}>{step.sourceActivityTitle}</div>}</div>
-              <div className="col-span-2 col-start-2 flex justify-end gap-1 sm:col-span-1 sm:col-start-4">
-                <Button variant="ghost" size="icon" title="Mover para cima" disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" title="Mover para baixo" disabled={index === steps.length - 1} onClick={() => move(index, 1)}><ArrowDown className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" title="Remover etapa" onClick={() => setSteps((current) => current.filter((item) => item.key !== step.key))}><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            </div>;
-          })}
-        </div>
+            return { key: step.key, title: name, image, isGame: step.type === "game",
+              category: step.type === "game" ? step.game.category : step.file?.type.startsWith("video/") || step.media?.media_type === "video" ? "Vídeo" : "Imagem / GIF",
+              source: step.type === "media" ? step.sourceActivityTitle : undefined };
+          })} />
       </section>
 
       <section className="border-t border-border pt-5 space-y-3">

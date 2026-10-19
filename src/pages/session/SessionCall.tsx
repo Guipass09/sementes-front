@@ -1,6 +1,7 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { roundGameInfo } from "@/features/round-games/round-game";
 import { isCurrentSessionGameEvent } from "@/lib/session-game-event";
+import { gamePlayPath } from "@/features/games/game-library";
 import { SessionAudioMixer } from "@/features/session/SessionAudioMixer";
 import { useSessionAudioMixer } from "@/features/session/use-session-audio-mixer";
 import { useSessionWordAudio } from "@/features/session/use-session-word-audio";
@@ -3515,7 +3516,7 @@ export default function SessionCall() {
                             <button
                               key={`mem-${g.id}`}
                               onClick={() => {
-                                const path = `/jogos/${g.id}`;
+                                const path = gamePlayPath("memoria", g.id);
                                 if (role === "admin") {
                                   setPendingShare({ path, title: g.title, kind: "memory_game" });
                                   setShareConfirmOpen(true);
@@ -3545,7 +3546,7 @@ export default function SessionCall() {
                             <button
                               key={`mem2-${g.id}`}
                               onClick={() => {
-                                const path = `/jogos/${g.id}`;
+                                const path = gamePlayPath("memoria2", g.id);
                                 if (role === "admin") {
                                   setPendingShare({ path, title: g.title, kind: "memory_game_v2" });
                                   setShareConfirmOpen(true);

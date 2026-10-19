@@ -94,15 +94,25 @@ export function useSessionAudioMixer(options: Options) {
         void callbacks.current.send("audio_mix_ack", { controllerId: packet.controllerId, revision: packet.revision, microphoneSupported: supported() }).catch(() => {});
       },
     };
+    let mediaPlaying = false;
+    let wordPlaying = false;
+    const wordPlayback = (event: Event) => {
+      wordPlaying = (event as CustomEvent<boolean>).detail === true;
+      setSessionMix({ activityPlaying: mediaPlaying || wordPlaying });
+    };
     const ready = (event: MessageEvent) => {
       if (event.origin !== location.origin) return;
       // Only the call's own current content iframe may report activity playback.
       const frame = document.querySelector<HTMLIFrameElement>('iframe[title="Conteúdo da sessão"]');
       if (!frame || event.source !== frame.contentWindow) return;
       if (event.data?.type === "GAME_AUDIO_READY") postToFrame();
-      if (event.data?.type === "SESSION_ACTIVITY_AUDIO" && typeof event.data.playing === "boolean") setSessionMix({ activityPlaying: event.data.playing });
+      if (event.data?.type === "SESSION_ACTIVITY_AUDIO" && typeof event.data.playing === "boolean") {
+        mediaPlaying = event.data.playing;
+        setSessionMix({ activityPlaying: mediaPlaying || wordPlaying });
+      }
     };
     window.addEventListener("message", ready);
+    window.addEventListener("SESSION_WORD_AUDIO_PLAYBACK", wordPlayback);
     if (role === "admin") void publish();
     else if (role === "user" && identity) void callbacks.current.send("audio_mix_request", {}).catch(() => {});
     const interval = window.setInterval(() => {
@@ -113,6 +123,7 @@ export function useSessionAudioMixer(options: Options) {
     return () => {
       disposed = true; engine.current = null;
       window.clearTimeout(timer); window.clearInterval(interval); unsubscribe(); window.removeEventListener("message", ready);
+      window.removeEventListener("SESSION_WORD_AUDIO_PLAYBACK", wordPlayback);
       setSessionMix({ active: false, mix: initialSessionAudioMix(), speaking: false, musicPlaying: false, activityPlaying: false });
     };
   }, [options.identity, options.role, options.serverNow, postToFrame]);

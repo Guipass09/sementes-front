@@ -236,7 +236,7 @@ export default function GuessImageGameView() {
   const pick = useCallback((isCorrect: boolean) => {
     if (!game || !current) return;
     if (lock) return;
-    if (inSession && sessionRole === "user" && !controlAllowedRef.current) return;
+    if (inSession && sessionRole === "user" && !controlAllowedRef.current && !applyingRemoteRef.current) return;
 
     if (isCorrect) playCorrect();
     else playWrong();

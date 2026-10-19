@@ -64,6 +64,8 @@ export default function HangmanGameView() {
 
   const [guessed, setGuessed] = useState<string[]>([]);
   const [wrong, setWrong] = useState<string[]>([]);
+  const soundStateRef = useRef({ guessed, wrong });
+  soundStateRef.current = { guessed, wrong };
   const [selectedImage, setSelectedImage] = useState(0);
   const [celebrate, setCelebrate] = useState(false);
   const [flashPositions, setFlashPositions] = useState<number[]>([]);
@@ -99,6 +101,7 @@ export default function HangmanGameView() {
     if (!inSession) return;
     const onMsg = (ev: MessageEvent) => {
       if (ev.origin !== window.location.origin) return;
+      if (ev.source !== window.parent) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
 
@@ -133,6 +136,8 @@ export default function HangmanGameView() {
       if (evt.kind !== "state") return;
 
       const st = evt.state || {};
+      if (Array.isArray(st.wrong) && st.wrong.length > soundStateRef.current.wrong.length) playWrong();
+      else if (Array.isArray(st.guessed) && st.guessed.length > soundStateRef.current.guessed.length) playCorrect();
       applyingRemoteRef.current = true;
       try {
         if (Array.isArray(st.guessed)) setGuessed(st.guessed.map((x: any) => String(x).toUpperCase()).filter((x: string) => /^[A-Z]$/.test(x)));

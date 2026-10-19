@@ -14,7 +14,7 @@ import { emitUserProgressChanged } from "@/lib/user-events";
 import BrandedCongratsDialog from "@/components/BrandedCongratsDialog";
 import FullscreenToggle from "@/components/FullscreenToggle";
 import { useSessionContentStatus } from "@/hooks/use-session-content-status";
-import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
+import { playCorrect, playWrong, playCardFlip, unlockSfx } from "@/lib/sfx";
 import { shuffle } from "@/lib/shuffle";
 
 type DeckCard = {
@@ -271,6 +271,7 @@ export default function MemoryGameView() {
 
     const onMsg = (ev: MessageEvent) => {
       if (ev.origin !== window.location.origin) return;
+      if (ev.source !== window.parent) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
 
@@ -349,6 +350,8 @@ export default function MemoryGameView() {
           const delay = Number.isFinite(Number(evt.delay)) ? Number(evt.delay) : 750;
           applyingRemoteRef.current = true;
           try {
+            if (isMatch) playCorrect();
+            else playWrong();
             applyResolve(aId, bId, isMatch, delay);
           } finally {
             window.setTimeout(() => {
@@ -386,7 +389,7 @@ export default function MemoryGameView() {
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inSession, sessionRole]);
+  }, [inSession, sessionRole, game?.id]);
 
   const resetGame = () => {
     if (!game) return;
@@ -510,11 +513,14 @@ export default function MemoryGameView() {
     // Não deixar o "lock" local bloquear eventos vindos do outro lado.
     // (isso é uma causa comum de dessync: flip remoto chega enquanto este lado ainda acha que está travado)
     if (lockRef.current && !applyingRemoteRef.current) return;
+    const clicked = deckRef.current.find(card => card.instanceId === instanceId);
+    if (!clicked || clicked.matched || clicked.flipped) return;
     if (inSession && !applyingRemoteRef.current) {
       // user só pode emitir clique quando controle estiver liberado; admin sempre pode
       if (sessionRole === "user" && !controlAllowedRef.current) return;
       emitSessionEvent({ kind: "flip", instanceId });
     }
+    playCardFlip();
 
     // Primeiro clique
     if (!firstPickRef.current) {

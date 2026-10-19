@@ -148,6 +148,7 @@ export default function PhonemeGameView() {
     if (!inSession) return;
     const onMsg = (ev: MessageEvent) => {
       if (ev.origin !== window.location.origin) return;
+      if (ev.source !== window.parent) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
 
@@ -179,10 +180,7 @@ export default function PhonemeGameView() {
           return;
         }
         if (evt.kind === "speak" && typeof evt.index === "number") {
-          const g = game;
-          const i = evt.index;
-          if (!g || !g.items?.[i]) return;
-          speakWord(g.items[i].word);
+          // Live speech is played once by the call window on each device.
           return;
         }
         if (evt.kind === "answer" && typeof evt.index === "number" && (evt.side === "left" || evt.side === "right")) {
@@ -192,6 +190,8 @@ export default function PhonemeGameView() {
           const it = g.items?.[i];
           if (!it) return;
           const correct = it.correct_side === evt.side;
+          if (correct) playCorrect();
+          else playWrong();
           setFlashSide(evt.side);
           setShakeSide(correct ? null : evt.side);
           if (correct) {
@@ -247,8 +247,12 @@ export default function PhonemeGameView() {
 
   const doSpeak = () => {
     if (!current?.word) return;
+    if (inSession && sessionParams.get("story_preview") !== "1" && window.parent !== window) {
+      if (sessionRole === "user" && !controlAllowedRef.current) return;
+      emitSessionEvent({ game: "phoneme", kind: "speak", index: idx, word: current.word, request_id: crypto.randomUUID() });
+      return;
+    }
     speakWord(current.word);
-    if (inSession) emitSessionEvent({ kind: "speak", index: idx });
   };
 
   const pick = (side: "left" | "right") => {
@@ -362,7 +366,7 @@ export default function PhonemeGameView() {
                     <div className="absolute inset-0 bg-black/25" />
 
                     <div className="absolute top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 z-10 flex items-center justify-center">
-                      <Button type="button" onClick={doSpeak} className="rounded-full bg-white/95 hover:bg-white shadow-lg border border-white/20 text-foreground hover:scale-105 transition-transform text-xs sm:text-sm px-4 sm:px-5 h-9 sm:h-11">
+                      <Button type="button" onClick={doSpeak} aria-label="Ouvir palavra" className="rounded-full bg-white/95 hover:bg-white shadow-lg border border-white/20 text-foreground hover:scale-105 transition-transform text-xs sm:text-sm px-4 sm:px-5 h-11">
                         <Headphones className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-primary" />
                         <span className="hidden sm:inline font-semibold">Ouvir palavra</span>
                         <span className="sm:hidden font-semibold">Ouvir</span>

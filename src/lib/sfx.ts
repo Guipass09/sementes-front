@@ -1,5 +1,6 @@
 import { getGameAudioVolume, isGameAudioMuted, subscribeGameAudio } from "./game-audio-store.ts";
 import { gameAudioGain } from "./game-audio-policy.ts";
+import { relayLiveGameSfx, type GameSfx } from "./game-sfx-bridge.ts";
 export { playSessionReaction } from "../features/session/session-reaction-audio.ts";
 
 type AudioCtx = AudioContext & { _sementes?: true };
@@ -152,6 +153,7 @@ function toneTo(target: GainNode, freq: number, when: number, dur: number, type:
   o.connect(g);
   g.connect(target);
   env(g, when, 0.002, Math.max(0.02, dur - 0.01));
+  o.onended = () => { o.disconnect(); g.disconnect(); };
   o.start(when);
   o.stop(when + dur);
 }
@@ -193,11 +195,13 @@ function fireworkBurst(target: GainNode, when: number, dur = 0.18, vol = 0.35): 
   g.connect(target);
 
   env(g, when, 0.001, dur - 0.01);
+  src.onended = () => { src.disconnect(); hp.disconnect(); bp.disconnect(); g.disconnect(); };
   src.start(when);
   src.stop(when + dur);
 }
 
 export function playCorrect(): void {
+  if (relayLiveGameSfx("correct")) return;
   if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
@@ -210,6 +214,7 @@ export function playCorrect(): void {
 }
 
 export function playWrong(): void {
+  if (relayLiveGameSfx("wrong")) return;
   if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
@@ -222,6 +227,7 @@ export function playWrong(): void {
 }
 
 export function playWin(): void {
+  if (relayLiveGameSfx("win")) return;
   if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
@@ -288,6 +294,7 @@ export function playWin(): void {
 }
 
 export function playFanfare(): void {
+  if (relayLiveGameSfx("fanfare")) return;
   if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
@@ -334,6 +341,7 @@ export function playFanfare(): void {
     
     // Envelope para cada nota
     env(g, t0 + start, 0.005, dur);
+    o.onended = () => { o.disconnect(); g.disconnect(); };
     o.start(t0 + start);
     o.stop(t0 + start + dur);
   }
@@ -343,6 +351,7 @@ export function playFanfare(): void {
 }
 
 export function playCardFlip(): void {
+  if (relayLiveGameSfx("cardFlip")) return;
   if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
@@ -354,6 +363,7 @@ export function playCardFlip(): void {
 }
 
 export function playCardShuffle(): void {
+  if (relayLiveGameSfx("cardShuffle")) return;
   if (isGameAudioMuted()) return;
   installSfxUnlock();
   const c = getCtx();
@@ -367,14 +377,22 @@ export function playCardShuffle(): void {
 }
 
 export function playWheelTick(): void {
+  if (relayLiveGameSfx("wheelTick")) return;
   if (isGameAudioMuted()) return;
   const c = getCtx();
   if (c) tone(600, c.currentTime + 0.005, 0.04, "sine", 0.4);
 }
 
 export function playWheelWin(): void {
+  if (relayLiveGameSfx("wheelWin")) return;
   if (isGameAudioMuted()) return;
   const c = getCtx();
   if (c) [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => tone(frequency, c.currentTime + index * 0.15, 0.25, "sine", 0.65));
+}
+
+export function playGameSfx(effect: GameSfx): void {
+  const players = { correct: playCorrect, wrong: playWrong, win: playWin, fanfare: playFanfare,
+    cardFlip: playCardFlip, cardShuffle: playCardShuffle, wheelTick: playWheelTick, wheelWin: playWheelWin };
+  players[effect]();
 }
 

@@ -31,6 +31,24 @@ permission and the participant's own microphone switch remain authoritative.
   request anonymous CORS; the API must continue returning the frontend's allowed
   origin. This avoids relying on writable `HTMLMediaElement.volume` on iOS.
 - Game effects retain the existing effects bus, independent from activity media.
+  During a live call every effect (including card clicks and completion music) is
+  delegated to that device's top-level call window, whose audio is unlocked by
+  the join gesture. Mirrored game events trigger the same feedback on the other
+  participant, including explicit memory pair resolution. Sound requests never
+  travel back over signaling, preventing feedback loops or doubled effects.
+  The call validates origin, current iframe, content/share identity, effect names,
+  freshness and duplicate IDs. Suspended audio offers an activation button and
+  drops old effects instead of queueing them for later. All these sounds use the
+  effects channel; the game soundtrack remains independently muted by default.
+- Phoneme words use the activity channel, not the effects channel. The game sends
+  a bounded, identified `phoneme/speak` event through the authenticated call bridge.
+  Each call window speaks it once with Brazilian Portuguese synthesis; no microphone
+  loopback is needed. Duplicate/stale commands are ignored. A repeated click replaces
+  the previous word. Activity mute, answers, reset and content changes stop speech.
+  Native start/end/error callbacks report patient playback status to the professional.
+  If speech is blocked, the patient gets a touch-sized activation button for the
+  current word, rather than an accumulating playback queue. Browser voice availability
+  and hardware speaker volume still apply; voices may differ between devices.
 - Reactions have a separate gain and compressor. Repeated reactions no longer
   disconnect the game effects bus.
 - Selected music keeps its existing acknowledgement, heartbeat and renderer-level
@@ -81,4 +99,5 @@ contexts. Activity media is paused when its audio controller is disposed.
 
 Primary references: [Web Audio stream destination](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext/createMediaStreamDestination),
 [dynamics compressor](https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode),
-[media element audio source](https://developer.mozilla.org/en-US/docs/Web/API/MediaElementAudioSourceNode).
+[media element audio source](https://developer.mozilla.org/en-US/docs/Web/API/MediaElementAudioSourceNode),
+[speech synthesis](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisUtterance).

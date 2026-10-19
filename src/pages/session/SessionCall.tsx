@@ -3,6 +3,8 @@ import { roundGameInfo } from "@/features/round-games/round-game";
 import { isCurrentSessionGameEvent } from "@/lib/session-game-event";
 import { SessionAudioMixer } from "@/features/session/SessionAudioMixer";
 import { useSessionAudioMixer } from "@/features/session/use-session-audio-mixer";
+import { useSessionWordAudio } from "@/features/session/use-session-word-audio";
+import { useSessionGameSfx } from "@/features/session/use-session-game-sfx";
 import { useSessionVoiceActivity } from "@/features/session/use-session-voice-activity";
 import { useSessionScreenAudio } from "@/features/session/use-session-screen-audio";
 import { SessionMicrophone, recommendedCapture } from "@/features/session/session-microphone";
@@ -19,6 +21,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Clock3,
   FileText,
+  Headphones,
+  Volume2,
   Eraser,
   Mic,
   MicOff,
@@ -1116,6 +1120,18 @@ export default function SessionCall() {
     connected: () => pcRef.current?.connectionState === "connected",
   });
 
+  const wordAudio = useSessionWordAudio({
+    identity: joinInfo?.token, serverNow: joinInfo?.server_now, role, controlGranted,
+    content: contentPath && contentShareId ? { path: contentPath, share_id: contentShareId } : null,
+    disabled: screenShareActive || !joinInfo,
+    send,
+  });
+  const gameSfx = useSessionGameSfx({
+    identity: joinInfo?.token,
+    content: contentPath && contentShareId ? { path: contentPath, share_id: contentShareId } : null,
+    frame: contentFrameRef, disabled: screenShareActive || !joinInfo,
+  });
+
   // Garante que o iframe (jogo/atividade) sempre receba o estado atual de controle.
   // IMPORTANTÍSSIMO: este hook precisa ficar ANTES de qualquer return condicional (ex.: loader),
   // senão a ordem de hooks muda entre renders e o React quebra (erro minificado #310).
@@ -2061,6 +2077,7 @@ export default function SessionCall() {
     if (m.kind === "game_event") {
       const active = activeContentRef.current;
       if (!isCurrentSessionGameEvent(active, m.payload)) return;
+      if (wordAudio.receive(m)) return;
       const evt = m.payload?.event;
       if (!evt) return;
       try {
@@ -2335,7 +2352,10 @@ export default function SessionCall() {
       if (role === "user" && !controlGranted) return;
       const active = activeContentRef.current;
       if (!active || active.path !== contentPath) return;
-      void send("game_event", { path: active.path, share_id: active.share_id, event: data.event });
+      wordAudio.local(data.event);
+      void send("game_event", { path: active.path, share_id: active.share_id, event: data.event }).catch(() => {
+        toast({ title: "Não foi possível sincronizar a atividade", description: "Tente novamente.", variant: "destructive" });
+      });
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
@@ -2983,6 +3003,9 @@ export default function SessionCall() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+          {wordAudio.needsActivation && <Button variant="outline" className="min-h-11" onClick={wordAudio.activate}><Headphones className="mr-2 h-4 w-4" />Ativar áudio da palavra</Button>}
+          {gameSfx.needsActivation && <Button variant="outline" className="min-h-11" onClick={gameSfx.activate}><Volume2 className="mr-2 h-4 w-4" />Ativar sons dos jogos</Button>}
+          {role === "admin" && wordAudio.notice && <span className="max-w-full text-xs text-muted-foreground" role="status">{wordAudio.notice}</span>}
           {role === "admin" && <SessionAudioMixer mix={audioMixer.mix} onChange={audioMixer.change} onReset={() => { audioMixer.reset(); sessionMusic.pause(); }} disabled={!joinInfo} confirmed={audioMixer.confirmed} notice={audioMixer.notice || (microphoneRef.current.supported ? "" : "Ganho digital indisponível neste navegador. Microfone no nível original.")} microphones={{ professionalMic: mediaState === "ready" ? micOn : null, patientMic: remoteMediaState?.microphoneOn ?? null }} musicControls={<SessionMusicControls view={sessionMusic.view} disabled={!joinInfo} onChange={sessionMusic.change} showVolume={false} />} />}
           {role === "admin" && contentPath && !screenShareActive && remoteContentStatus && (
             <div className="flex items-center gap-2 text-xs" aria-live="polite">

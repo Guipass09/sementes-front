@@ -166,6 +166,7 @@ export default function CardGameView() {
     if (!inSession) return;
     const onMsg = (ev: MessageEvent) => {
       if (ev.origin !== window.location.origin) return;
+      if (ev.source !== window.parent) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
 
@@ -212,6 +213,10 @@ export default function CardGameView() {
           const rem = Array.isArray(evt.remaining) ? evt.remaining.map((x: any) => Number(x)).filter(Number.isFinite) : null;
           const op = Array.isArray(evt.opened) ? evt.opened.map((x: any) => Number(x)).filter(Number.isFinite) : null;
           if (!rem || !op) return;
+          if (op.length > openedRef.current.length) {
+            playCardFlip();
+            if (evt.congrats) playFanfare();
+          }
           setRemaining(rem);
           setOpened(op);
           setFlippingId(Number.isFinite(Number(evt.flippingId)) ? Number(evt.flippingId) : null);

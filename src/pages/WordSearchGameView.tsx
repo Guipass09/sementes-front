@@ -149,6 +149,7 @@ export default function WordSearchGameView() {
     if (!inSession) return;
     const onMsg = (ev: MessageEvent) => {
       if (ev.origin !== window.location.origin) return;
+      if (ev.source !== window.parent) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
 
@@ -182,11 +183,13 @@ export default function WordSearchGameView() {
           return;
         }
         if (evt.kind === "word_found" && typeof evt.wordId === "number") {
+          playCorrect();
           setFoundWords((prev) => new Set([...prev, evt.wordId]));
           setPendingWordId(evt.wordId);
           return;
         }
         if (evt.kind === "image_correct" && typeof evt.wordId === "number") {
+          playCorrect();
           setFoundImages((prev) => {
             const next = new Set([...prev, evt.wordId]);
             // Verifica se todas palavras E imagens foram encontradas
@@ -203,11 +206,13 @@ export default function WordSearchGameView() {
           return;
         }
         if (evt.kind === "image_wrong" && typeof evt.imageId === "number") {
+          playWrong();
           setShakeImageId(evt.imageId);
           window.setTimeout(() => setShakeImageId(null), 650);
           return;
         }
         if (evt.kind === "cell_removed" && typeof evt.row === "number" && typeof evt.col === "number") {
+          playWrong();
           setRemovedCells((prev) => new Set([...prev, `${evt.row}-${evt.col}`]));
           return;
         }

@@ -232,7 +232,7 @@ export default function AuditoryGameView() {
     };
   }, []);
 
-  const allDone = useMemo(() => items.every((it) => it.status === "done"), [items]);
+  const allDone = useMemo(() => items.length > 0 && items.every((it) => it.status === "done"), [items]);
 
   // Sessão ao vivo: envia/recebe estado para manter as mesmas cartas "done" e a mesma ordem
   useEffect(() => {
@@ -251,6 +251,7 @@ export default function AuditoryGameView() {
     if (!inSession) return;
     const onMsg = (ev: MessageEvent) => {
       if (ev.origin !== window.location.origin) return;
+      if (ev.source !== window.parent) return;
       const data: any = ev.data;
       if (!data || typeof data !== "object") return;
 
@@ -284,6 +285,7 @@ export default function AuditoryGameView() {
         applyingRemoteRef.current = true;
         try {
           if (!game) return;
+          setCelebrate(false);
           setItems(
             shuffleSeeded(game.items, sessionSeedRef.current ?? 0).map((it) => ({
               id: it.id,

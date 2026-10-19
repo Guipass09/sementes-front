@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, CalendarDays, ClipboardList, Gamepad2, LayoutDashboard, UsersRound } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, Gamepad2, LayoutDashboard, UserRound, UsersRound } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
-import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import ProfileShell, { type ProfileNavItem } from "@/components/ProfileShell";
 import SaleSchedulerListener from "@/components/SaleSchedulerListener";
@@ -15,10 +14,10 @@ const items = [
   { path: "/admin/jogos", label: "Jogos", icon: Gamepad2 },
   { path: "/admin/horarios", label: "Horários", icon: CalendarDays },
   { path: "/admin/relatorios", label: "Relatórios", icon: BarChart3 },
+  { path: "/admin/perfil", label: "Perfil", icon: UserRound },
 ];
 
 export default function AdminLayout() {
-  const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const auth = useAuth();
@@ -51,14 +50,11 @@ export default function AdminLayout() {
       subtitle="Administrador"
       photoUrl={user.profile_photo_url}
       navItems={navItems}
-      onProfile={() => setProfileOpen(true)}
+      onProfile={() => navigate(`${homePath}/perfil`)}
       onLogout={() => isPreview ? navigate("/") : void auth.logout().finally(() => navigate("/"))}
     >
       <SaleSchedulerListener />
       <Outlet />
-      {!isPreview && auth.user && (
-        <EditProfileModal open={profileOpen} onOpenChange={setProfileOpen} user={auth.user} onSaved={auth.setAuthUser} />
-      )}
     </ProfileShell>
   );
 }

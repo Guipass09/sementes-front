@@ -1,6 +1,14 @@
 import type { FinanceData, FinanceEntry, FinanceEntryInput, FinanceEntryUpdate, FinanceSettings } from "@/features/finance/finance";
 import type { ReportLetterhead, ReportLetterheadSettings } from "@/features/reports/letterhead";
 import type { PatientRegistrationLink, RegistrationProfessional } from "@/features/patient-registration/registration";
+import { shareRecipientPayload, type SharingProfessional } from "@/features/sharing/professional-share";
+
+export async function lookupSharingProfessional(shareId: string): Promise<SharingProfessional> {
+  const result = await request<{ professional: SharingProfessional }>("/api/sharing/professionals/lookup", {
+    method: "POST", json: { professional_share_id: shareId },
+  });
+  return result.professional;
+}
 
 export function professionalPatientRegistrationLink(renew = false): Promise<PatientRegistrationLink> {
   return request("/api/professional/patient-registration-link", { method: "POST", json: { renew } });
@@ -89,6 +97,7 @@ export type AuthUser = {
   professional_age?: number | null;
   professional_crfa?: string | null;
   professional_registration?: string | null;
+  professional_share_id?: string | null;
   clinic_name?: string | null;
   clinic_area?: string | null;
   clinic_city_state?: string | null;
@@ -832,11 +841,11 @@ export async function professionalGetActivityShares(activityId: number): Promise
   return await request<ActivityShares>(`/api/professional/activities/${activityId}/shares`);
 }
 
-export async function professionalShareActivity(activityId: number, professionalIds: number[]): Promise<ActivityShares> {
+export async function professionalShareActivity(activityId: number, professionalIds: number[] | string): Promise<ActivityShares> {
   await ensureCsrfCookie();
   return await request<ActivityShares>(`/api/professional/activities/${activityId}/shares`, {
     method: "POST",
-    json: { professional_ids: professionalIds },
+    json: shareRecipientPayload(professionalIds),
   });
 }
 
@@ -844,11 +853,11 @@ export async function professionalGetGameShares(type: string, gameId: number): P
   return await request<GameShares>(`/api/professional/game-shares/${encodeURIComponent(type)}/${gameId}`);
 }
 
-export async function professionalShareGame(type: string, gameId: number, professionalIds: number[]): Promise<GameShares> {
+export async function professionalShareGame(type: string, gameId: number, professionalIds: number[] | string): Promise<GameShares> {
   await ensureCsrfCookie();
   return await request<GameShares>(`/api/professional/game-shares/${encodeURIComponent(type)}/${gameId}`, {
     method: "POST",
-    json: { professional_ids: professionalIds },
+    json: shareRecipientPayload(professionalIds),
   });
 }
 
@@ -1047,11 +1056,11 @@ export async function adminGetActivityShares(activityId: number): Promise<Activi
   return await request<ActivityShares>(`/api/admin/activities/${activityId}/shares`);
 }
 
-export async function adminShareActivity(activityId: number, professionalIds: number[]): Promise<ActivityShares> {
+export async function adminShareActivity(activityId: number, professionalIds: number[] | string): Promise<ActivityShares> {
   await ensureCsrfCookie();
   return await request<ActivityShares>(`/api/admin/activities/${activityId}/shares`, {
     method: "POST",
-    json: { professional_ids: professionalIds },
+    json: shareRecipientPayload(professionalIds),
   });
 }
 
@@ -1059,11 +1068,11 @@ export async function adminGetGameShares(type: string, gameId: number): Promise<
   return await request<GameShares>(`/api/admin/game-shares/${encodeURIComponent(type)}/${gameId}`);
 }
 
-export async function adminShareGame(type: string, gameId: number, professionalIds: number[]): Promise<GameShares> {
+export async function adminShareGame(type: string, gameId: number, professionalIds: number[] | string): Promise<GameShares> {
   await ensureCsrfCookie();
   return await request<GameShares>(`/api/admin/game-shares/${encodeURIComponent(type)}/${gameId}`, {
     method: "POST",
-    json: { professional_ids: professionalIds },
+    json: shareRecipientPayload(professionalIds),
   });
 }
 

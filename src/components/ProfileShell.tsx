@@ -108,7 +108,7 @@ export default function ProfileShell({
               type="button"
               onClick={onProfile}
               className="flex max-w-[250px] items-center gap-2 rounded-md p-1 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label={`Editar perfil de ${name}`}
+              aria-label={`Abrir perfil de ${name}`}
             >
               <span className="block min-w-0 text-right">
                 <span className="block max-w-[72px] truncate text-xs font-semibold leading-tight text-foreground sm:max-w-[140px] sm:text-sm xl:max-w-[190px]">{name}</span>

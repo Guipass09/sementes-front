@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BarChart3, CalendarDays, ClipboardList, Gamepad2, Home, UserRoundCheck } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, Gamepad2, Home, UserRound, UserRoundCheck } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
-import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import ProfileShell, { type ProfileNavItem } from "@/components/ProfileShell";
 import { useAccessControl } from "@/hooks/use-access-control";
@@ -17,10 +16,10 @@ const items = [
   { path: "/paciente/jogos", label: "Jogos", icon: Gamepad2 },
   { path: "/paciente/sessoes", label: "Sessões", icon: CalendarDays },
   { path: "/paciente/relatorios", label: "Relatórios", icon: BarChart3 },
+  { path: "/paciente/perfil", label: "Perfil", icon: UserRound },
 ];
 
 export default function PatientLayout() {
-  const [profileOpen, setProfileOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const location = useLocation();
@@ -117,13 +116,10 @@ export default function PatientLayout() {
       photoUrl={user.profile_photo_url}
       navItems={navItems}
       actions={<>{requestAction}{!isPreview && auth.user?.role === "user" && <RegistrationWelcomeDialog patientId={auth.user.id} />}</>}
-      onProfile={() => setProfileOpen(true)}
+      onProfile={() => navigate(`${homePath}/perfil`)}
       onLogout={() => isPreview ? navigate("/") : void auth.logout().finally(() => navigate("/"))}
     >
       <Outlet />
-      {!isPreview && auth.user && (
-        <EditProfileModal open={profileOpen} onOpenChange={setProfileOpen} user={auth.user} onSaved={auth.setAuthUser} />
-      )}
       <PatientLinkRequests open={requestsOpen} onOpenChange={changeRequestsOpen} onResolved={() => void refreshPendingRequests()} />
     </ProfileShell>
   );

@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BadgeCheck, BarChart3, CalendarDays, ClipboardList, Gamepad2, History, IdCard, LayoutDashboard, UsersRound, Wallet } from "lucide-react";
+import { BadgeCheck, BarChart3, CalendarDays, ClipboardList, Gamepad2, History, IdCard, LayoutDashboard, UserRound, UsersRound, Wallet } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
-import EditProfileModal from "@/components/EditProfileModal";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import ProfileShell, { type ProfileNavItem } from "@/components/ProfileShell";
 import ProfessionalSubscriptionPreview from "@/components/ProfessionalSubscriptionPreview";
@@ -14,7 +13,6 @@ import { canUsePersonalFinance } from "@/features/finance/finance";
 import { hasIndividualSubscription } from "@/lib/subscription-details";
 
 export default function ProfessionalLayout() {
-  const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const auth = useAuth();
@@ -24,6 +22,7 @@ export default function ProfessionalLayout() {
   const expired = useSubscriptionExpired(user?.professional_subscription);
   const needsSubscription = (user?.professional_subscription_status === "inactive" || (user?.professional_subscription_status === "active" && expired)) && !isClinicAccount && !user?.clinic_user_id;
   const onSubscriptionPage = location.pathname === "/profissional/assinatura";
+  const onProfilePage = location.pathname === "/profissional/perfil";
 
   useEffect(() => {
     if (auth.loading) return;
@@ -78,6 +77,7 @@ export default function ProfessionalLayout() {
     ...(canUsePersonalFinance(user) ? [{ path: "/profissional/financeiro", label: "Financeiro", icon: Wallet }] : []),
     { path: "/profissional/relatorios", label: "Relatórios", icon: BarChart3 },
     ...(hasIndividualSubscription(user) ? [{ path: "/profissional/assinatura", label: "Assinatura", icon: BadgeCheck }] : []),
+    { path: "/profissional/perfil", label: "Perfil", icon: UserRound },
   ].map((item) => ({ ...item, active: item.path === "/profissional" ? location.pathname === item.path : location.pathname.startsWith(item.path) }));
 
   const subtitle = isClinicAccount
@@ -92,17 +92,16 @@ export default function ProfessionalLayout() {
       subtitleIcon={IdCard}
       photoUrl={user.profile_photo_url}
       navItems={navItems}
-      onProfile={() => setProfileOpen(true)}
+      onProfile={() => navigate("/profissional/perfil")}
       onLogout={() => void auth.logout().finally(() => navigate("/"))}
     >
       {!needsSubscription && <SaleSchedulerListener />}
-      {needsSubscription && !onSubscriptionPage ? (
+      {needsSubscription && !onSubscriptionPage && !onProfilePage ? (
         <>
           <p className="px-4 pt-4 text-center text-sm text-muted-foreground">Seus pacientes, atividades e documentos continuam preservados. Reative sua assinatura para retomar o acesso.</p>
           <ProfessionalSubscriptionPreview expiresOn={user.professional_subscription_expires_on} onRefresh={() => void auth.refresh()} />
         </>
       ) : <Outlet />}
-      <EditProfileModal open={profileOpen} onOpenChange={setProfileOpen} user={user} onSaved={auth.setAuthUser} />
     </ProfileShell>
   );
 }

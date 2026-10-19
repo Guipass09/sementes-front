@@ -15,6 +15,7 @@ import Cadastro from "./pages/Cadastro";
 import EsqueciSenha from "./pages/EsqueciSenha";
 import RedefinirSenha from "./pages/RedefinirSenha";
 import NotFound from "./pages/NotFound";
+import Profile from "./pages/Profile";
 import PatientLayout from "./components/PatientLayout";
 import PatientHome from "./pages/patient/PatientHome";
 import PatientActivities from "./pages/patient/PatientActivities";
@@ -142,6 +143,7 @@ const App = () => {
                 }
               >
                 <Route index element={<PatientHome />} />
+                <Route path="perfil" element={<Profile />} />
                 <Route path="atividades" element={<PatientActivities />} />
                 <Route path="jogos" element={<PatientMemoryGames />} />
                 <Route path="sessoes" element={<PatientSessions />} />
@@ -160,6 +162,7 @@ const App = () => {
                 }
               >
                 <Route index element={<ProfessionalDashboard />} />
+                <Route path="perfil" element={<Profile />} />
                 <Route path="pacientes" element={<ProfessionalPatients />} />
                 <Route path="pacientes/:id/comentario" element={<ProfessionalPatientComment />} />
                 <Route path="atividades" element={<ProfessionalActivities />} />
@@ -218,6 +221,7 @@ const App = () => {
                 }
               >
                 <Route index element={<AdminDashboard />} />
+                <Route path="perfil" element={<Profile />} />
                 <Route path="usuarios" element={<AdminUsers />} />
                 <Route path="atividades" element={<AdminActivities />} />
                 <Route path="jogos" element={<AdminGamesHub />} />
@@ -264,6 +268,7 @@ const App = () => {
               
               {/* Preview Admin (sem autenticação - apenas para visualização) */}
               <Route path="/preview-admin" element={<AdminLayout />}>
+                <Route path="perfil" element={<Profile />} />
                 <Route index element={<AdminDashboard />} />
                 <Route path="usuarios" element={<AdminUsers />} />
                 <Route path="atividades" element={<AdminActivities />} />
@@ -274,6 +279,7 @@ const App = () => {
 
               {/* Preview Paciente (sem autenticação - apenas para visualização) */}
               <Route path="/preview-paciente" element={<PatientLayout />}>
+                <Route path="perfil" element={<Profile />} />
                 <Route index element={<PatientHome />} />
                 <Route path="solicitacoes" element={<Navigate to="/preview-paciente?solicitacoes=1" replace />} />
                 <Route path="atividades" element={<PatientActivities />} />

@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import PatientRegistrationLinkButton from "@/features/patient-registration/PatientRegistrationLinkButton";
 import {
   isApiError,
   professionalCancelPatientRequest,
@@ -85,9 +86,12 @@ export default function ProfessionalPatientRequestPanel(): JSX.Element {
     <>
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">Pacientes autorizados aparecem na lista abaixo.</p>
-        <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <PatientRegistrationLinkButton />
+          <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" /> Adicionar paciente
-        </Button>
+          </Button>
+        </div>
       </div>
 
       {requests.length > 0 && (

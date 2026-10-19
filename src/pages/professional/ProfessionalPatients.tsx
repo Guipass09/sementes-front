@@ -44,7 +44,7 @@ export default function ProfessionalPatients(): JSX.Element {
   const emptyLabel = "Nenhum paciente vinculado.";
   const dialogTitle = "Perfil do Paciente";
   const pageDescription = isIndividualProfessional
-    ? "Pacientes que autorizaram seu acompanhamento ou foram vinculados pelo admin."
+    ? "Pacientes vinculados por convite, autorização ou pelo administrador."
     : "Pacientes vinculados a você pela clínica ou pelo admin.";
 
   const refresh = async () => {

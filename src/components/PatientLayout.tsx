@@ -9,6 +9,7 @@ import { useAccessControl } from "@/hooks/use-access-control";
 import { patientListLinkRequests } from "@/lib/laravel-api";
 import PatientLinkRequests from "@/pages/patient/PatientLinkRequests";
 import { resourceNavigation } from "@/lib/resource-navigation";
+import RegistrationWelcomeDialog from "@/features/patient-registration/RegistrationWelcomeDialog";
 
 const items = [
   { path: "/paciente", label: "Início", icon: Home },
@@ -115,7 +116,7 @@ export default function PatientLayout() {
       subtitle="Paciente"
       photoUrl={user.profile_photo_url}
       navItems={navItems}
-      actions={requestAction}
+      actions={<>{requestAction}{!isPreview && auth.user?.role === "user" && <RegistrationWelcomeDialog patientId={auth.user.id} />}</>}
       onProfile={() => setProfileOpen(true)}
       onLogout={() => isPreview ? navigate("/") : void auth.logout().finally(() => navigate("/"))}
     >

@@ -1,5 +1,18 @@
 import type { FinanceData, FinanceEntry, FinanceEntryInput, FinanceEntryUpdate, FinanceSettings } from "@/features/finance/finance";
 import type { ReportLetterhead, ReportLetterheadSettings } from "@/features/reports/letterhead";
+import type { PatientRegistrationLink, RegistrationProfessional } from "@/features/patient-registration/registration";
+
+export function professionalPatientRegistrationLink(renew = false): Promise<PatientRegistrationLink> {
+  return request("/api/professional/patient-registration-link", { method: "POST", json: { renew } });
+}
+
+export function revokePatientRegistrationLink(): Promise<{ success: boolean }> {
+  return request("/api/professional/patient-registration-link", { method: "DELETE" });
+}
+
+export function previewPatientRegistration(token: string): Promise<{ professional: RegistrationProfessional }> {
+  return request("/api/patient-registration/preview", { method: "POST", json: { token } });
+}
 
 export async function professionalReportLetterhead(): Promise<ReportLetterheadSettings> {
   return request("/api/professional/report-letterhead");
@@ -537,9 +550,11 @@ export async function register(params: {
   child_birthdate?: string; // YYYY-MM-DD
   password: string;
   password_confirmation: string;
-}): Promise<AuthUser> {
+  registration_invite?: string;
+  accept_professional_link?: boolean;
+}): Promise<{ token: string; user: AuthUser; registration_professional?: RegistrationProfessional | null }> {
   await ensureCsrfCookie();
-  return await request<AuthUser>("/api/register", {
+  return await request<{ token: string; user: AuthUser; registration_professional?: RegistrationProfessional | null }>("/api/register", {
     method: "POST",
     json: params,
   });

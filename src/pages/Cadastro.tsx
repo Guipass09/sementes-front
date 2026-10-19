@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Building2, Stethoscope, Users, X } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, BadgeCheck, Building2, Loader2, Stethoscope, Users, X } from "lucide-react";
 import RegisterForm, { type RegisterMode } from "@/components/RegisterForm";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import "./login.css";
+import { isApiError, previewPatientRegistration } from "@/lib/laravel-api";
+import type { RegistrationProfessional } from "@/features/patient-registration/registration";
 
 const profileOptions: Array<{
   mode: RegisterMode;
@@ -18,7 +20,9 @@ const profileOptions: Array<{
 ];
 
 const profileFromSearch = (search: string): RegisterMode | null => {
-  const profile = new URLSearchParams(search).get("perfil")?.toLowerCase();
+  const params = new URLSearchParams(search);
+  if (params.has("convite_profissional")) return "patient";
+  const profile = params.get("perfil")?.toLowerCase();
   if (profile === "profissional") return "professional";
   if (profile === "paciente") return "patient";
   if (profile === "empresa" || profile === "clinica") return "clinic";
@@ -34,8 +38,38 @@ const profileQuery: Record<RegisterMode, string> = {
 const Cadastro = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const inviteToken = new URLSearchParams(location.search).get("convite_profissional");
+  const [invitation, setInvitation] = useState<{ token: string; professional: RegistrationProfessional } | null>(null);
+  const [inviteError, setInviteError] = useState("");
+  const [previewAttempt, setPreviewAttempt] = useState(0);
   const [selectedMode, setSelectedMode] = useState<RegisterMode | null>(() => profileFromSearch(location.search));
   const [choiceOpen, setChoiceOpen] = useState(() => !profileFromSearch(location.search));
+
+  useEffect(() => {
+    if (inviteToken === null) return;
+    const previous = document.querySelector<HTMLMetaElement>('meta[name="referrer"]');
+    const tag = previous ?? document.createElement("meta");
+    const original = tag.content;
+    tag.name = "referrer";
+    tag.content = "no-referrer";
+    if (!previous) document.head.appendChild(tag);
+    return () => { if (previous) tag.content = original; else tag.remove(); };
+  }, [inviteToken]);
+
+  useEffect(() => {
+    setInvitation(null);
+    setInviteError("");
+    if (inviteToken === null) return;
+    let cancelled = false;
+    void previewPatientRegistration(inviteToken).then(({ professional }) => {
+      if (!cancelled) setInvitation({ token: inviteToken, professional });
+    }).catch((error) => {
+      if (!cancelled) setInviteError(isApiError(error)
+        ? error.data?.errors?.token?.[0] || error.data?.errors?.registration_invite?.[0] || error.data?.message || "Este convite não está disponível. Peça um novo link ao profissional."
+        : "Não foi possível conferir o convite. Tente novamente.");
+    });
+    return () => { cancelled = true; };
+  }, [inviteToken, previewAttempt]);
 
   useEffect(() => {
     const profile = profileFromSearch(location.search);
@@ -89,7 +123,15 @@ const Cadastro = () => {
               <p className="auth-login__form-label">FAÇA PARTE DA PLATAFORMA</p>
               <h2 id="auth-register-form-title">Crie sua conta.</h2>
               <p className="auth-login__form-intro">Preencha seus dados para continuar.</p>
-              <RegisterForm mode={selectedMode} onChangeProfile={() => setChoiceOpen(true)} />
+              {inviteToken !== null && (!invitation || invitation.token !== inviteToken) ? (
+                <div className="space-y-4 border-y border-border py-6" role={inviteError ? "alert" : "status"}>
+                  <p className="flex items-start gap-2 text-sm text-muted-foreground">{inviteError ? <AlertCircle size={19} className="shrink-0 text-destructive" /> : <Loader2 size={19} className="shrink-0 animate-spin text-primary" />}{inviteError || "Conferindo seu convite..."}</p>
+                  {inviteError && <button type="button" className="text-sm font-semibold text-primary" onClick={() => setPreviewAttempt((value) => value + 1)}>Tentar novamente</button>}
+                </div>
+              ) : <>
+                {invitation && <div className="mb-5 flex items-start gap-3 border-y border-border py-4"><BadgeCheck size={22} className="mt-1 shrink-0 text-primary" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Convite de acompanhamento</p><p className="break-words font-semibold text-foreground">{invitation.professional.name}</p>{invitation.professional.registration && <p className="text-xs text-muted-foreground">{invitation.professional.registration}</p>}</div></div>}
+                <RegisterForm mode={selectedMode} onChangeProfile={() => setChoiceOpen(true)} registrationInvite={inviteToken !== null ? invitation ?? undefined : undefined} />
+              </>}
             </>
           )}
         </div>

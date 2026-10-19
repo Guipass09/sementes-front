@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
 import { isApiError } from "@/lib/laravel-api";
 import InternationalPhoneField, { validateRegistrationPhone } from "@/components/InternationalPhoneField";
+import type { RegistrationProfessional } from "@/features/patient-registration/registration";
 
 export type RegisterMode = "patient" | "professional" | "clinic";
 
@@ -63,7 +64,11 @@ const createValidationField = (): FieldValidation => ({
   message: "",
 });
 
-const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeProfile: () => void }) => {
+const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
+  mode: RegisterMode;
+  onChangeProfile: () => void;
+  registrationInvite?: { token: string; professional: RegistrationProfessional };
+}) => {
   const { toast } = useToast();
   const auth = useAuth();
 
@@ -108,6 +113,9 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registerError, setRegisterError] = useState("");
+  const [acceptProfessionalLink, setAcceptProfessionalLink] = useState(false);
+
+  useEffect(() => { setAcceptProfessionalLink(false); }, [registrationInvite?.token]);
 
   useEffect(() => {
     setRegisterError("");
@@ -390,6 +398,11 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
     e.preventDefault();
     setRegisterError("");
 
+    if (registrationInvite && !acceptProfessionalLink) {
+      setRegisterError("Autorize o vínculo com o profissional para concluir este cadastro.");
+      return;
+    }
+
     const nameResult = mode === "professional" ? validateName(formData.name, "Nome") : { valid: true, message: "" };
     const responsibleResult =
       mode === "patient" || mode === "clinic" ? validateName(formData.responsibleName, "Nome do responsável") : { valid: true, message: "" };
@@ -484,6 +497,7 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
           phone: formData.phone,
           password: formData.password,
           password_confirmation: formData.confirmPassword,
+          ...(registrationInvite ? { registration_invite: registrationInvite.token, accept_professional_link: acceptProfessionalLink } : {}),
         });
       }
 
@@ -494,6 +508,8 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
     } catch (e) {
       if (isApiError(e) && e.status === 422) {
         const msg =
+          e.data?.errors?.registration_invite?.[0] ||
+          e.data?.errors?.accept_professional_link?.[0] ||
           e.data?.message ||
           e.data?.errors?.clinic_name?.[0] ||
           e.data?.errors?.clinic_area?.[0] ||
@@ -540,9 +556,9 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
         <div className="text-sm font-semibold text-foreground">
           Cadastro como {mode === "patient" ? "Paciente" : mode === "professional" ? "Profissional" : "Empresa"}
         </div>
-        <button type="button" onClick={onChangeProfile} className="shrink-0 text-sm font-semibold text-[#0b7540] hover:underline focus-visible:outline-none focus-visible:underline">
+        {!registrationInvite && <button type="button" onClick={onChangeProfile} className="shrink-0 text-sm font-semibold text-[#0b7540] hover:underline focus-visible:outline-none focus-visible:underline">
           Trocar perfil
-        </button>
+        </button>}
       </div>
 
       {registerError && (
@@ -991,6 +1007,11 @@ const RegisterForm = ({ mode, onChangeProfile }: { mode: RegisterMode; onChangeP
           </div>
         </div>
       )}
+
+      {registrationInvite && <label className="flex items-start gap-3 border-y border-border py-4 text-sm leading-relaxed text-foreground">
+        <input type="checkbox" checked={acceptProfessionalLink} onChange={(event) => setAcceptProfessionalLink(event.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-[#0b7540]" />
+        <span>Autorizo meu vínculo com <strong>{registrationInvite.professional.name}</strong>{registrationInvite.professional.registration ? ` (${registrationInvite.professional.registration})` : ""} para o acompanhamento nesta plataforma.</span>
+      </label>}
 
       <button
         type="submit"

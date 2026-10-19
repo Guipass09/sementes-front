@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import type { AuthUser } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import apiClient from "@/services/api";
+import { registrationWelcomeKey } from "@/features/patient-registration/registration";
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -22,6 +23,8 @@ type AuthContextValue = {
     child_age?: number | null;
     password: string;
     password_confirmation: string;
+    registration_invite?: string;
+    accept_professional_link?: boolean;
   }) => Promise<AuthUser>;
   registerProfessional: (params: {
     name: string;
@@ -299,9 +302,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     child_age?: number | null;
     password: string;
     password_confirmation: string;
+    registration_invite?: string;
+    accept_professional_link?: boolean;
   }) => {
     // Backend pode retornar token+user ou apenas user
     const res = await api.register(params as any);
+    try {
+      sessionStorage.removeItem(registrationWelcomeKey);
+      if (res.registration_professional && res.user?.id) {
+        sessionStorage.setItem(registrationWelcomeKey, JSON.stringify({
+          patient_id: res.user.id, professional: res.registration_professional,
+        }));
+      }
+    } catch { /* Registration remains usable when browser storage is restricted. */ }
     
     try {
       if ((res as any).token && (res as any).user) {

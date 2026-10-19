@@ -27,6 +27,16 @@
   .sc-call-layout .sc-camera-card { width: 100%; }
 }
 @media (max-width: 639px) { .sc-call-layout { padding: 8px; } }
+@media (min-width: 1024px) {
+  .sc-call-layout .sc-session-grid { grid-template-columns: minmax(0, 1fr) min(420px, 28vw, max(260px, calc((var(--session-camera-height, 70svh) - var(--session-camera-chrome, 78px)) / 2))); }
+}
+.sc-call-layout .sc-session-grid[data-session-idle=true] { grid-template-columns: minmax(0, 1fr); }
+.sc-call-layout .sc-session-grid[data-session-idle=true] .sc-session-content { display: none; }
+.sc-call-layout .sc-session-grid[data-session-idle=true] .sc-session-cams { width: 100%; }
+.sc-call-layout .sc-session-grid[data-session-idle=true] .sc-session-cams-inner {
+  display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+  width: 100%; max-width: min(1064px, calc(2 * max(180px, var(--session-camera-height, 60svh) - 40px) + 12px)); margin: auto;
+}
 
 html.session-content-embedded body { background: hsl(var(--background)); }
 html.session-content-embedded .container { width: 100%; max-width: none; padding: 0; }

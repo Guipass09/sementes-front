@@ -164,6 +164,7 @@ export default function SessionCall() {
   const videoHealthRef = useRef({ frames: 0, lastFrameAt: 0, softRecoveryAt: 0, iceRecoveryAt: 0 });
   const localMediaStateRef = useRef({ cameraOn: true, microphoneOn: true });
   const [mediaState, setMediaState] = useState<"idle" | "requesting" | "ready" | "failed">("idle");
+  const startingMediaRef = useRef(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [showReconnectButton, setShowReconnectButton] = useState(false);
   const mediaReadyRef = useRef(false);
@@ -1575,6 +1576,12 @@ export default function SessionCall() {
       const offer = await pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
       lastOfferAtRef.current = Date.now();
       await publishDescription(pc, offer, "webrtc_offer", offerId);
+    } catch (error) {
+      // A failed publish must not leave recovery waiting 20s on an unsent offer.
+      if (pcRef.current === pc && pc.signalingState === "have-local-offer") {
+        try { await pc.setLocalDescription({ type: "rollback" }); } catch {}
+      }
+      throw error;
     } finally {
       offerInFlightRef.current = false;
     }
@@ -2718,17 +2725,22 @@ export default function SessionCall() {
   };
 
   const startMedia = async () => {
+    if (startingMediaRef.current || mediaReadyRef.current) return;
+    startingMediaRef.current = true;
+    let stage: "capture" | "connection" = "connection";
+    setMediaState("requesting");
+    setMediaError(null);
     try {
       await ensureAudioCtx();
       // O clique em "iniciar" é o melhor momento para destravar áudio do iframe (SFX de jogos).
       unlockContentSfx();
-      setMediaState("requesting");
-      setMediaError(null);
       await ensurePeer();
 
       // Idempotente: se já temos stream, reaproveita.
+      stage = "capture";
+      const existing = localStreamRef.current;
       const stream =
-        localStream ??
+        (existing?.getTracks().length && existing.getTracks().every(track => track.readyState === "live") ? existing : null) ??
         (await navigator.mediaDevices.getUserMedia(recommendedCapture));
       localStreamRef.current = stream;
 
@@ -2743,6 +2755,7 @@ export default function SessionCall() {
         microphoneOn: stream.getAudioTracks().every((t) => t.enabled),
       };
       const sendingStream = await microphoneRef.current!.prepare(stream);
+      stage = "connection";
 
       // Evita addTrack duplicado (pode disparar exceções e "quebrar" a sessão em iOS)
       const pc = pcRef.current;
@@ -2834,14 +2847,20 @@ export default function SessionCall() {
       }
       if (role === "user" && pcRef.current?.connectionState !== "connected") scheduleRecovery(8000);
     } catch (e: any) {
-      mediaReadyRef.current = false;
       console.error("[WebRTC] falha ao iniciar sessão (mídia/webrtc)", e);
+      if (stage === "connection" && mediaReadyRef.current) {
+        // Capture already succeeded. Keep its tracks and let signaling recover.
+        setMediaState("ready");
+        setMediaError(null);
+        setStatusLabel("Reconectando...");
+        scheduleRecovery(1200);
+        return;
+      }
+      mediaReadyRef.current = false;
       const name = String(e?.name || "");
-      const details = String(e?.message || "");
-      const isSdp = details.includes("Invalid SDP") || details.includes("SDP inválido") || details.includes("Invalid SDP line");
       const msg =
-        isSdp
-          ? "Falha WebRTC (SDP inválido). Saia e entre novamente."
+        stage === "connection"
+          ? "Não foi possível conectar à sessão. Tente novamente."
           : name.includes("NotAllowed")
           ? "Permissão negada. Autorize câmera e microfone."
           : name.includes("NotFound")
@@ -2850,17 +2869,13 @@ export default function SessionCall() {
           ? "Não foi possível iniciar a câmera (ela pode estar em uso por outro app/aba)."
           : "Falha ao iniciar câmera/microfone.";
 
-      // Dica importante: em navegadores dentro do WhatsApp/Instagram no iPhone, WebRTC/permiteções falham.
-      if (isInAppBrowser) {
-        setMediaError(
-          "Parece que você abriu o link dentro do WhatsApp/Instagram. No iPhone isso costuma bloquear câmera/microfone. Toque em “Abrir no Safari” e tente novamente."
-        );
-      }
-
-      const full = details ? `${msg} (${name}: ${details})` : `${msg} (${name})`;
       setMediaState("failed");
-      setMediaError(full);
-      toast({ title: "WebRTC", description: msg, variant: "destructive" });
+      setMediaError(isInAppBrowser && stage === "capture"
+        ? "Abra este link no navegador do aparelho e autorize a câmera e o microfone."
+        : msg);
+      toast({ title: stage === "capture" ? "Câmera e microfone" : "Conexão", description: msg, variant: "destructive" });
+    } finally {
+      startingMediaRef.current = false;
     }
   };
 
@@ -3049,7 +3064,7 @@ export default function SessionCall() {
           </div>
         </div>
 
-        <div className="sc-session-grid grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+        <div className="sc-session-grid grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4" data-session-idle={!iframeSrc && !screenShareActive && !mouthState.open && !drawOn}>
           {/* Área principal (conteúdo da sessão) */}
           <div className={cn("sc-session-content order-2 lg:order-1", activeContentRef.current?.story_id && !screenShareActive && "story-session-shell")}>
             {role === "admin" && activeStory && !screenShareActive && <StoryNavigation compact story={activeStory} index={activeStoryStep} onSelect={index => playStoryStep(activeStory, index)} onReplay={() => playStoryStep(activeStory, activeStoryStep)} />}

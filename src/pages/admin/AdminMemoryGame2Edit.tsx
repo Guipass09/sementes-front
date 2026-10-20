@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Grid3X3, Save, Upload } from "lucide-react";
@@ -150,7 +151,7 @@ export default function AdminMemoryGame2Edit() {
                   <div className="text-sm text-muted-foreground">
                     Se você selecionar imagens aqui, envie exatamente <b>{(game?.pairs_count ?? 0) * 2}</b> (2 por par) para substituir.
                   </div>
-                  <input
+                  <ImageSourceInput
                     id="pair-images-v2"
                     type="file"
                     accept="image/*"

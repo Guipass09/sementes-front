@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Upload, X, ArrowLeft, CircleDot, User as UserIcon, Image } from "lucide-react";
@@ -261,7 +262,7 @@ export default function AdminSpinWheelGameCreate() {
                     )}
                   </div>
                   <div className="flex flex-col gap-2">
-                    <input
+                    <ImageSourceInput
                       id="background-upload"
                       type="file"
                       accept="image/*"
@@ -313,7 +314,7 @@ export default function AdminSpinWheelGameCreate() {
 
                       <div className="mt-2 flex items-center gap-2">
                         <div className="flex-1">
-                          <input
+                          <ImageSourceInput
                             id={`item-image-${idx}`}
                             type="file"
                             accept="image/*"

@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Ear, Save, Upload, X, User as UserIcon } from "lucide-react";
@@ -309,7 +310,7 @@ export default function AdminAuditoryGameEdit() {
 
             <div className="space-y-2">
               <Label>Imagem de fundo</Label>
-              <input
+              <ImageSourceInput
                 ref={bgInputRef}
                 type="file"
                 accept="image/*"
@@ -355,7 +356,7 @@ export default function AdminAuditoryGameEdit() {
 
                     <div className="mt-3 flex flex-col items-center justify-center gap-2">
                       <div className="shrink-0 flex items-center justify-center">
-                        <input
+                        <ImageSourceInput
                           id={`aud-edit-item-${idx}`}
                           type="file"
                           accept="image/*"

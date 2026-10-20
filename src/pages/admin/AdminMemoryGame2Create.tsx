@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Grid3X3, Plus, Upload, X, User as UserIcon } from "lucide-react";
@@ -265,7 +266,7 @@ export default function AdminMemoryGame2Create() {
 
                               <div className="mt-3 flex items-center gap-2">
                                 <div className="flex-1">
-                                  <input
+                                  <ImageSourceInput
                                     id={inputId}
                                     type="file"
                                     accept="image/*"

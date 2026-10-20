@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Save, Type, Upload, X, Image as ImageIcon, Trash2 } from "lucide-react";
@@ -270,7 +271,7 @@ export default function AdminHangmanGameEdit() {
                           </div>
                         </div>
                         <div className="mt-3">
-                          <input
+                          <ImageSourceInput
                             id="hangman-support-edit"
                             type="file"
                             accept="image/*"

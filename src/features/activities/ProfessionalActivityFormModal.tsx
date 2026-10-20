@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Image as ImageIcon, Video as VideoIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -356,7 +357,7 @@ export function ProfessionalActivityFormModal(props: {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-2">
                               <Label>Arquivo</Label>
-                              <Input
+                              <ImageSourceInput
                                 key={d.media_type}
                                 type="file"
                                 accept={d.media_type === "image" ? "image/*" : "video/*"}
@@ -374,7 +375,7 @@ export function ProfessionalActivityFormModal(props: {
                             {d.media_type === "video" ? (
                               <div className="space-y-2">
                                 <Label>Thumbnail (opcional)</Label>
-                                <Input type="file" accept="image/*" onChange={(e) => updateDraft(d.id, { thumbnail: e.target.files?.[0] ?? null })} />
+                                <ImageSourceInput type="file" accept="image/*" onChange={(e) => updateDraft(d.id, { thumbnail: e.target.files?.[0] ?? null })} />
                                 {thumbPrev ? (
                                   <img src={thumbPrev} alt="" className="w-full max-h-56 object-cover rounded-lg border border-border" />
                                 ) : null}

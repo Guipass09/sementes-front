@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Gamepad2, Save, Upload, X, Image as ImageIcon, Volume2 } from "lucide-react";
@@ -320,7 +321,7 @@ export default function AdminPhonemeGameEdit() {
 
                 <div className="space-y-2">
                   <Label>Fundo (opcional)</Label>
-                  <input
+                  <ImageSourceInput
                     id="ph-bg-edit"
                     type="file"
                     accept="image/*"
@@ -405,7 +406,7 @@ export default function AdminPhonemeGameEdit() {
                                   {preview ? <img src={preview} alt="" className="w-full h-full object-cover" /> : null}
                                 </div>
                                 <div className="mt-3 flex items-center gap-2">
-                                  <input
+                                  <ImageSourceInput
                                     id={inputId}
                                     type="file"
                                     accept="image/*"

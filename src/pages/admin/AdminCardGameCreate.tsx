@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Layers, Plus, Upload, X, User as UserIcon, Image } from "lucide-react";
@@ -235,7 +236,7 @@ export default function AdminCardGameCreate() {
                     >
                       <Upload className="h-4 w-4" />
                       <span className="text-sm font-medium">Escolher</span>
-                      <input
+                      <ImageSourceInput
                         type="file"
                         accept="image/*"
                         className="hidden"
@@ -289,7 +290,7 @@ export default function AdminCardGameCreate() {
                         <label className="inline-flex items-center gap-2 px-2 py-1 rounded-lg border border-border hover:bg-muted/50 cursor-pointer text-xs">
                           <Upload className="h-3.5 w-3.5" />
                           <span>Escolher</span>
-                          <input
+                          <ImageSourceInput
                             type="file"
                             accept="image/*"
                             className="hidden"

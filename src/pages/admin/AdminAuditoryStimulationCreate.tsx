@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Ear, Image as ImageIcon, Plus, Upload, X, User as UserIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -247,7 +248,7 @@ export default function AdminAuditoryStimulationCreate() {
 
               <div className="space-y-2">
                 <Label>Imagem de fundo (grande)</Label>
-                <input
+                <ImageSourceInput
                   id="aud-bg"
                   type="file"
                   accept="image/*"
@@ -297,7 +298,7 @@ export default function AdminAuditoryStimulationCreate() {
 
                       <div className="mt-3 flex flex-col items-center justify-center gap-2">
                         <div className="shrink-0 flex items-center justify-center">
-                          <input
+                          <ImageSourceInput
                             id={`aud-item-${idx}`}
                             type="file"
                             accept="image/*"

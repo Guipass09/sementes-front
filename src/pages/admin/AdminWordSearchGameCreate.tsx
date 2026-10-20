@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Gamepad2, Image as ImageIcon, Plus, Upload, X, User as UserIcon } from "lucide-react";
@@ -258,7 +259,7 @@ export default function AdminWordSearchGameCreate() {
 
               <div className="space-y-2">
                 <Label>Imagem de fundo (grande, igual estimulação auditiva)</Label>
-                <input
+                <ImageSourceInput
                   id="ws-bg"
                   type="file"
                   accept="image/*"
@@ -387,7 +388,7 @@ export default function AdminWordSearchGameCreate() {
                               )}
                             </div>
                             <div className="mt-3 flex items-center gap-2">
-                              <input
+                              <ImageSourceInput
                                 id={`ws-img-${idx}`}
                                 type="file"
                                 accept="image/*"

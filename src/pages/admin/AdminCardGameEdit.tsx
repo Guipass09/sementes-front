@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Layers, Save, Upload, X, User as UserIcon, Image } from "lucide-react";
@@ -259,7 +260,7 @@ export default function AdminCardGameEdit() {
                     <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-background hover:bg-muted/50 cursor-pointer">
                       <Upload className="h-4 w-4" />
                       <span className="text-sm font-medium">Trocar</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleBackgroundChange(e.target.files?.[0] ?? null)} />
+                      <ImageSourceInput type="file" accept="image/*" className="hidden" onChange={(e) => handleBackgroundChange(e.target.files?.[0] ?? null)} />
                     </label>
                     {!keepExistingBackground && (backgroundFile || backgroundPreview) ? (
                       <Button type="button" variant="outline" size="sm" onClick={() => { setKeepExistingBackground(true); handleBackgroundChange(null); }} className="rounded-xl">
@@ -322,7 +323,7 @@ export default function AdminCardGameEdit() {
                           >
                             <Upload className="h-3.5 w-3.5" />
                             <span>Escolher</span>
-                            <input
+                            <ImageSourceInput
                               type="file"
                               accept="image/*"
                               className="hidden"

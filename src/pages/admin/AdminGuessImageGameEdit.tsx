@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Image as ImageIcon, Save, Upload, X } from "lucide-react";
@@ -302,7 +303,7 @@ export default function AdminGuessImageGameEdit() {
                               )}
                             </div>
                             <div className="mt-3 flex items-center gap-2">
-                              <input
+                              <ImageSourceInput
                                 id={`main-edit-${idx}`}
                                 type="file"
                                 accept="image/*"
@@ -330,7 +331,7 @@ export default function AdminGuessImageGameEdit() {
                               ) : null}
                             </div>
                             <div className="mt-2 flex items-center gap-2">
-                              <input
+                              <ImageSourceInput
                                 id={`correct-edit-${idx}`}
                                 type="file"
                                 accept="image/*"
@@ -355,7 +356,7 @@ export default function AdminGuessImageGameEdit() {
                               ) : null}
                             </div>
                             <div className="mt-2 flex items-center gap-2">
-                              <input
+                              <ImageSourceInput
                                 id={`wrong-edit-${idx}`}
                                 type="file"
                                 accept="image/*"

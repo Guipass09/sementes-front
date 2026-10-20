@@ -1,3 +1,4 @@
+import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Film, Gamepad2, ImagePlus, Images, Loader2, Plus, RefreshCw, Save, Search } from "lucide-react";
@@ -214,7 +215,7 @@ export default function StoryEditor() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h2 className="text-lg font-semibold">Sequência</h2><p className="text-sm text-muted-foreground">{steps.length} etapa{steps.length === 1 ? "" : "s"}</p></div>
           <div className="flex flex-wrap gap-2">
-            <input ref={fileRef} type="file" accept="image/*,video/*" multiple className="sr-only" aria-label="Selecionar fotos, GIFs ou vídeos" onChange={(event) => {
+            <ImageSourceInput ref={fileRef} type="file" accept="image/*,video/*" multiple className="sr-only" aria-label="Selecionar fotos, GIFs ou vídeos" onChange={(event) => {
               const files = Array.from(event.target.files ?? []);
               setSteps((current) => [...current, ...files.map((file): DraftStep => ({ key: newKey(), type: "media", file }))]);
               event.target.value = "";

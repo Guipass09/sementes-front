@@ -9,6 +9,7 @@ import { useSessionGameSfx } from "@/features/session/use-session-game-sfx";
 import { useSessionVoiceActivity } from "@/features/session/use-session-voice-activity";
 import { useSessionScreenAudio } from "@/features/session/use-session-screen-audio";
 import { SessionMicrophone, recommendedCapture } from "@/features/session/session-microphone";
+import { attachRemoteTrack, recoveryNeedsNewPeer, remoteOfferHandled, remoteTrackTarget, rememberRemoteOffer, serializePeerOperation } from "@/features/session/session-peer-recovery";
 import { sessionChannelGain, subscribeSessionMix } from "@/features/session/session-audio-mix";
 import { playSessionReaction, stopSessionReactionAudio } from "@/features/session/session-reaction-audio";
 import { SessionReactionPicker } from "@/features/session/SessionReactionPicker";
@@ -148,6 +149,14 @@ export default function SessionCall() {
   const pendingOfferIdRef = useRef<string | null>(null);
   const peerReadyRef = useRef(false);
   const ensurePeerRef = useRef<Promise<void> | null>(null);
+  const rebuildingPeerRef = useRef<Promise<void> | null>(null);
+  const callClosedRef = useRef(false);
+  const callLifecycleRef = useRef(0);
+  const peerGenerationRef = useRef("");
+  const remotePeerGenerationRef = useRef<string | null>(null);
+  const retiredPeerGenerationsRef = useRef(new Set<string>());
+  const forcePeerResetRef = useRef(false);
+  const lastPeerResetAtRef = useRef(0);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const microphoneRef = useRef<SessionMicrophone | null>(null);
@@ -161,7 +170,7 @@ export default function SessionCall() {
   const [remotePresent, setRemotePresent] = useState(false);
   const [remoteMediaState, setRemoteMediaState] = useState<{ cameraOn: boolean; microphoneOn: boolean } | null>(null);
   const [remoteVideoStalled, setRemoteVideoStalled] = useState(false);
-  const videoHealthRef = useRef({ frames: 0, lastFrameAt: 0, softRecoveryAt: 0, iceRecoveryAt: 0 });
+  const videoHealthRef = useRef({ track: null as MediaStreamTrack | null, frames: 0, lastFrameAt: 0, softRecoveryAt: 0, iceRecoveryAt: 0 });
   const localMediaStateRef = useRef({ cameraOn: true, microphoneOn: true });
   const [mediaState, setMediaState] = useState<"idle" | "requesting" | "ready" | "failed">("idle");
   const startingMediaRef = useRef(false);
@@ -249,6 +258,8 @@ export default function SessionCall() {
   // para evitar reabrir modais/iframes de um paciente anterior no próximo.
   useEffect(() => {
     if (lastAppointmentIdRef.current === appointmentId) return;
+    if (lastAppointmentIdRef.current !== null) cleanup();
+    callClosedRef.current = false;
     lastAppointmentIdRef.current = appointmentId;
 
     // Pagamento (externo e embutido)
@@ -307,7 +318,7 @@ export default function SessionCall() {
     mouthStateRef.current = initialSessionMouthState;
     setMouthState(initialSessionMouthState);
     setRemoteContentStatus(null);
-    videoHealthRef.current = { frames: 0, lastFrameAt: 0, softRecoveryAt: 0, iceRecoveryAt: 0 };
+    videoHealthRef.current = { track: null, frames: 0, lastFrameAt: 0, softRecoveryAt: 0, iceRecoveryAt: 0 };
     joinedAtMsRef.current = 0;
   }, [appointmentId]);
 
@@ -874,7 +885,7 @@ export default function SessionCall() {
       joiningRef.current = false; // Reset ao desmontar
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appointmentId, user, inviteToken]);
+  }, [appointmentId, user?.id, user?.role, inviteToken]);
 
   // Attach streams to video elements
   useEffect(() => {
@@ -1538,12 +1549,16 @@ export default function SessionCall() {
   };
 
   const publishDescription = async (pc: RTCPeerConnection, description: RTCSessionDescriptionInit, kind: "webrtc_offer" | "webrtc_answer", offerId: string | null) => {
+    if (pcRef.current !== pc || callClosedRef.current) return;
+    const generation = peerGenerationRef.current;
     publishingSdpRef.current = true;
     pendingLocalIceRef.current = [];
     try {
       await pc.setLocalDescription(description);
-      await send(kind, { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp }, offer_id: offerId });
-      while (pendingLocalIceRef.current.length) {
+      if (pcRef.current !== pc || callClosedRef.current) return;
+      await send(kind, { sdp: { type: pc.localDescription?.type, sdp: pc.localDescription?.sdp }, offer_id: offerId,
+        ...(kind === "webrtc_offer" ? { peer_generation: generation } : {}) });
+      while (pcRef.current === pc && pendingLocalIceRef.current.length) {
         const candidate = pendingLocalIceRef.current.shift();
         if (!candidate) continue;
         try {
@@ -1553,29 +1568,36 @@ export default function SessionCall() {
         }
       }
     } finally {
-      publishingSdpRef.current = false;
-      pendingLocalIceRef.current = [];
+      if (pcRef.current === pc) {
+        publishingSdpRef.current = false;
+        pendingLocalIceRef.current = [];
+      }
     }
   };
 
-  const sendOffer = async (iceRestart: boolean) => {
+  const sendOffer = async (iceRestart: boolean, resetPeer = false) => {
+    if (role !== "admin" || offerInFlightRef.current) return;
+    if (resetPeer) await rebuildPeer();
     const pc = pcRef.current;
     if (role !== "admin" || !mediaReadyRef.current || !pc || pc.signalingState === "closed") return;
     if (offerInFlightRef.current) return;
 
     offerInFlightRef.current = true;
     try {
-      if (pc.signalingState === "have-local-offer") {
-        if (Date.now() - lastOfferAtRef.current < 20000) return;
-        await pc.setLocalDescription({ type: "rollback" });
-      }
-      if (pc.signalingState !== "stable") return;
+      await serializePeerOperation(pc, async () => {
+        if (pcRef.current !== pc || pc.signalingState === "closed") return;
+        if (pc.signalingState === "have-local-offer") {
+          if (Date.now() - lastOfferAtRef.current < 20000) return;
+          await pc.setLocalDescription({ type: "rollback" });
+        }
+        if (pc.signalingState !== "stable") return;
 
-      const offerId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      activeOfferIdRef.current = offerId;
-      const offer = await pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
-      lastOfferAtRef.current = Date.now();
-      await publishDescription(pc, offer, "webrtc_offer", offerId);
+        const offerId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        activeOfferIdRef.current = offerId;
+        const offer = await pc.createOffer(iceRestart ? { iceRestart: true } : undefined);
+        lastOfferAtRef.current = Date.now();
+        await publishDescription(pc, offer, "webrtc_offer", offerId);
+      });
     } catch (error) {
       // A failed publish must not leave recovery waiting 20s on an unsent offer.
       if (pcRef.current === pc && pc.signalingState === "have-local-offer") {
@@ -1599,33 +1621,30 @@ export default function SessionCall() {
       recoveryTimerRef.current = null;
       recoveryDueAtRef.current = 0;
       const pc = pcRef.current;
-      if (!mediaReadyRef.current || !pc || pc.connectionState === "connected") return;
-      if (pc.signalingState === "closed") {
-        setShowReconnectButton(true);
-        setStatusLabel("Conexão encerrada. Tente novamente.");
-        return;
-      }
+      if (!mediaReadyRef.current || !pc || (pc.connectionState === "connected" && !forcePeerResetRef.current)) return;
 
       const attempt = ++recoveryAttemptsRef.current;
       setStatusLabel("Reconectando...");
       if (attempt >= 3) setShowReconnectButton(true);
       try {
+        const resetPeer = recoveryNeedsNewPeer(pc.connectionState, attempt, forcePeerResetRef.current);
+        forcePeerResetRef.current = false;
         if (role === "admin") {
-          await sendOffer(true);
+          await sendOffer(true, resetPeer);
         } else {
-          await send("webrtc_reconnect", { ts: Date.now() });
+          await send("webrtc_reconnect", { ts: Date.now(), reset_peer: resetPeer });
         }
       } catch (error) {
         console.warn("[WebRTC] tentativa de reconexão falhou", error);
       }
-      if (mediaReadyRef.current && pcRef.current === pc && pcRef.current.connectionState !== "connected") {
+      if (mediaReadyRef.current && pcRef.current && pcRef.current.connectionState !== "connected") {
         scheduleRecovery(Math.min(20000, 5000 + attempt * 3000));
       }
     }, delayMs);
   };
 
   const ensurePeer = async () => {
-    if (!joinInfo) return;
+    if (!joinInfo || callClosedRef.current) return;
     if (peerReadyRef.current) return;
     if (ensurePeerRef.current) return await ensurePeerRef.current;
 
@@ -1635,6 +1654,7 @@ export default function SessionCall() {
       } else {
         const pc = new RTCPeerConnection({ iceServers: joinInfo.iceServers || [] });
         pcRef.current = pc;
+        peerGenerationRef.current = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
 
         const inbound = new MediaStream();
         const inboundCam = new MediaStream();
@@ -1642,56 +1662,24 @@ export default function SessionCall() {
         setRemoteStream(inbound); // mantém compat (útil para áudio/VAD)
         setRemoteCamStream(inboundCam);
         setRemoteScreenStream(inboundScreen);
-        let camVideoTrackId: string | null = null;
-
         pc.ontrack = (ev) => {
-          try {
-            // preferir track direto (mais robusto)
-            inbound.addTrack(ev.track);
-          } catch {}
+          if (pcRef.current !== pc) return;
+          const target = remoteTrackTarget(ev.transceiver, pc.getTransceivers(), screenTransceiverRef.current, screenAudioTransceiverRef.current);
+          attachRemoteTrack(inbound, inboundCam, inboundScreen, ev.track, target);
+          const refreshStreams = () => {
+            if (pcRef.current !== pc) return;
+            setRemoteStream(new MediaStream(inbound.getTracks()));
+            setRemoteCamStream(new MediaStream(inboundCam.getTracks()));
+            setRemoteScreenStream(new MediaStream(inboundScreen.getTracks()));
+            void remoteVideoRef.current?.play().catch(() => {});
+          };
+          refreshStreams();
+          ev.track.onunmute = refreshStreams;
           if (pc.connectionState === "connected") setRemotePresent(true);
-          if (ev.track.kind === "audio") {
-            try {
-              const microphone = pc.getTransceivers().find(transceiver => transceiver.receiver.track.kind === "audio");
-              if (microphone && ev.transceiver !== microphone) inboundScreen.addTrack(ev.track);
-              else inboundCam.addTrack(ev.track);
-            } catch {}
-          }
-          if (ev.track.kind === "video") {
-            // 1) Preferência: classifica pelo transceiver dedicado de tela (mais confiável).
-            if (screenTransceiverRef.current && ev.transceiver === screenTransceiverRef.current) {
-              try {
-                inboundScreen.addTrack(ev.track);
-              } catch {}
-              return;
-            }
-
-            // 2) Fallback: heurística (1º vídeo = câmera; 2º vídeo = tela)
-            if (!camVideoTrackId) {
-              camVideoTrackId = ev.track.id;
-              try {
-                inboundCam.addTrack(ev.track);
-              } catch {}
-              return;
-            }
-            if (ev.track.id !== camVideoTrackId) {
-              try {
-                // garante que o stream de tela tenha só o track atual
-                for (const t of inboundScreen.getVideoTracks()) {
-                  try { inboundScreen.removeTrack(t); } catch {}
-                }
-                inboundScreen.addTrack(ev.track);
-              } catch {}
-              return;
-            }
-            try {
-              inboundCam.addTrack(ev.track);
-            } catch {}
-          }
         };
 
         pc.onicecandidate = (ev) => {
-          if (!ev.candidate) return;
+          if (pcRef.current !== pc || !ev.candidate) return;
           if (publishingSdpRef.current) {
             pendingLocalIceRef.current.push(ev.candidate.toJSON());
             return;
@@ -1729,9 +1717,11 @@ export default function SessionCall() {
           }
           if (pc.connectionState === "disconnected") scheduleRecovery(4000);
           if (pc.connectionState === "failed") scheduleRecovery(0);
+          if (pc.connectionState === "closed" && !callClosedRef.current) scheduleRecovery(0);
         };
 
         pc.oniceconnectionstatechange = () => {
+          if (pcRef.current !== pc) return;
           // Ajuda a diagnosticar se falta TURN/NAT (ex.: "failed")
           if (pc.iceConnectionState === "failed") {
             setStatusLabel("Reconectando...");
@@ -1752,6 +1742,76 @@ export default function SessionCall() {
 
     return await ensurePeerRef.current;
   };
+
+  const attachLocalMedia = async (pc: RTCPeerConnection) => {
+    const raw = localStreamRef.current;
+    if (!raw || pcRef.current !== pc) return;
+    const sending = await microphoneRef.current!.prepare(raw);
+    if (pcRef.current !== pc) return;
+    for (const track of sending.getTracks()) {
+      if (track.readyState === "live" && !pc.getSenders().some(sender => sender.track === track)) pc.addTrack(track, sending);
+    }
+    if (role === "admin") {
+      if (!screenSenderRef.current) {
+        const video = pc.addTransceiver("video", { direction: "sendonly" });
+        screenTransceiverRef.current = video; screenSenderRef.current = video.sender;
+        const track = screenStreamRef.current?.getVideoTracks()[0];
+        if (track?.readyState === "live") await video.sender.replaceTrack(track);
+      }
+      if (!screenAudioSenderRef.current) {
+        const audio = pc.addTransceiver("audio", { direction: "sendonly" });
+        screenAudioTransceiverRef.current = audio; screenAudioSenderRef.current = audio.sender;
+        const track = screenStreamRef.current?.getAudioTracks()[0];
+        if (track?.readyState === "live") await audio.sender.replaceTrack(track);
+      }
+    }
+  };
+
+  const rebuildPeer = async () => {
+    if (callClosedRef.current) return;
+    if (rebuildingPeerRef.current) return rebuildingPeerRef.current;
+    const lifecycle = callLifecycleRef.current;
+    rebuildingPeerRef.current = (async () => {
+      const old = pcRef.current;
+      pcRef.current = null;
+      if (old) {
+        old.ontrack = null; old.onicecandidate = null;
+        old.onconnectionstatechange = null; old.oniceconnectionstatechange = null;
+        old.close();
+      }
+      peerReadyRef.current = false;
+      ensurePeerRef.current = null;
+      pendingWebrtcRef.current = []; pendingIceRef.current = []; pendingLocalIceRef.current = [];
+      pendingOfferRef.current = null; pendingOfferIdRef.current = null;
+      activeOfferIdRef.current = null; receivedOfferIdRef.current = null;
+      publishingSdpRef.current = false; lastOfferAtRef.current = 0;
+      screenSenderRef.current = null; screenTransceiverRef.current = null;
+      screenAudioSenderRef.current = null; screenAudioTransceiverRef.current = null;
+      setRemotePresent(false); setRemoteVideoStalled(false);
+      setRemoteCamStream(null); setRemoteScreenStream(null); setRemoteStream(null);
+      // Preserve the camera/microphone capture, mixer and activity: only replace the transport.
+      await ensurePeer();
+      if (callClosedRef.current || callLifecycleRef.current !== lifecycle) return;
+      const pc = pcRef.current;
+      if (pc && mediaReadyRef.current) await attachLocalMedia(pc);
+      lastPeerResetAtRef.current = Date.now();
+    })().finally(() => { rebuildingPeerRef.current = null; });
+    return rebuildingPeerRef.current;
+  };
+
+  const answerOffer = (pc: RTCPeerConnection, sdp: RTCSessionDescriptionInit, offerId: string | null) =>
+    serializePeerOperation(pc, async () => {
+      const key = offerId || sdp.sdp || "";
+      if (pcRef.current !== pc || pc.signalingState === "closed" || remoteOfferHandled(pc, key)) return;
+      if (pc.signalingState === "have-remote-offer") await pc.setRemoteDescription({ type: "rollback" });
+      if (pc.signalingState !== "stable") return;
+      receivedOfferIdRef.current = offerId;
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      await flushPendingIce();
+      const answer = await pc.createAnswer();
+      await publishDescription(pc, answer, "webrtc_answer", offerId);
+      rememberRemoteOffer(pc, key);
+    });
 
   const handleMessage = async (m: VideoPollMessage) => {
     if (m.kind === "session_music" || m.kind === "session_music_ack") {
@@ -1807,7 +1867,7 @@ export default function SessionCall() {
       return;
     }
 
-    const pc = pcRef.current;
+    let pc = pcRef.current;
 
     if (m.kind === "mouth3d_state" && role === "user" && m.from === "admin") {
       if (m.id > mouthLastMessageIdRef.current) {
@@ -1824,6 +1884,16 @@ export default function SessionCall() {
       const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
       const offerId = typeof m.payload?.offer_id === "string" ? m.payload.offer_id : null;
+      const generation = typeof m.payload?.peer_generation === "string" ? m.payload.peer_generation : null;
+      if (generation && retiredPeerGenerationsRef.current.has(generation)) return;
+      if (generation && remotePeerGenerationRef.current && generation !== remotePeerGenerationRef.current) {
+        retiredPeerGenerationsRef.current.add(remotePeerGenerationRef.current);
+        while (retiredPeerGenerationsRef.current.size > 24) retiredPeerGenerationsRef.current.delete(retiredPeerGenerationsRef.current.values().next().value!);
+        await rebuildPeer();
+        pc = pcRef.current;
+        if (!pc) return;
+      }
+      if (generation) remotePeerGenerationRef.current = generation;
       // Guardar o offer até o usuário iniciar câmera/microfone (garante 2-way)
       if (!mediaReadyRef.current) {
         pendingOfferRef.current = sdp;
@@ -1831,24 +1901,20 @@ export default function SessionCall() {
         setPendingOfferAvailable(true);
         return;
       }
-      if (pc.signalingState !== "stable") return;
-      receivedOfferIdRef.current = offerId;
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      await flushPendingIce();
-      const answer = await pc.createAnswer();
-      await publishDescription(pc, answer, "webrtc_answer", offerId);
+      await answerOffer(pc, sdp, offerId);
     }
 
     if (m.kind === "webrtc_answer" && role === "admin") {
       if (!pc) return;
       const sdp = normalizeSdpInit(m.payload?.sdp);
       if (!sdp) return;
-      if (m.payload?.offer_id && m.payload.offer_id !== activeOfferIdRef.current) return;
-      // Renegociação (ex.: screen share) precisa aceitar novos answers.
-      // Só aplica se estamos respondendo a um offer local (estado esperado).
-      if (pc.signalingState !== "have-local-offer") return;
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      await flushPendingIce();
+      const current = pc;
+      await serializePeerOperation(current, async () => {
+        if (pcRef.current !== current || (m.payload?.offer_id && m.payload.offer_id !== activeOfferIdRef.current)) return;
+        if (current.signalingState !== "have-local-offer") return;
+        await current.setRemoteDescription(new RTCSessionDescription(sdp));
+        await flushPendingIce();
+      });
     }
 
     if (m.kind === "webrtc_ice") {
@@ -1873,7 +1939,8 @@ export default function SessionCall() {
     if (m.kind === "webrtc_reconnect" && role === "admin") {
       if (!mediaReadyRef.current) return;
       try {
-        await sendOffer(true);
+        const reset = m.payload?.reset_peer === true && Date.now() - lastPeerResetAtRef.current > 10000;
+        await sendOffer(true, reset);
       } catch (error) {
         console.warn("[WebRTC] não foi possível enviar nova oferta", error);
         scheduleRecovery(5000);
@@ -2177,7 +2244,17 @@ export default function SessionCall() {
               pendingWebrtcRef.current.push(m);
               continue;
             }
-            await handleMessage(m);
+            try {
+              await handleMessage(m);
+            } catch (error) {
+              // One stale/failed SDP must not replay the whole batch or block game/audio controls.
+              console.warn("[WebRTC] comando não aplicado", m.kind, error);
+              if (m.kind.startsWith("webrtc_")) {
+                forcePeerResetRef.current = true;
+                scheduleRecovery(1000);
+              }
+            }
+            if (cancelled) return;
           }
           // Se teve mensagem, mantém poll rápido
           delayMs = 600;
@@ -2215,9 +2292,14 @@ export default function SessionCall() {
     if (!joinInfo || mediaState !== "ready") return;
     let cancelled = false;
     const health = videoHealthRef.current;
-    health.frames = 0;
-    health.lastFrameAt = Date.now();
-    health.softRecoveryAt = 0;
+    const camera = remoteCamStream?.getVideoTracks()[0] ?? null;
+    if (health.track !== camera) {
+      health.track = camera;
+      health.frames = 0;
+      health.lastFrameAt = Date.now();
+      health.softRecoveryAt = 0;
+      health.iceRecoveryAt = 0;
+    }
 
     const checkVideo = async () => {
       const pc = pcRef.current;
@@ -2269,14 +2351,15 @@ export default function SessionCall() {
           }
           return;
         }
-        if (now - health.softRecoveryAt < 8000 || now - health.iceRecoveryAt < 60000) return;
+        if (now - health.softRecoveryAt < 8000 || now - health.iceRecoveryAt < 30000) return;
 
+        const resetPeer = health.iceRecoveryAt > health.lastFrameAt;
         health.iceRecoveryAt = now;
         setShowReconnectButton(true);
         if (role === "admin") {
-          void sendOffer(true).catch((error) => console.warn("[WebRTC] vídeo não recuperado", error));
+          void sendOffer(true, resetPeer).catch((error) => console.warn("[WebRTC] vídeo não recuperado", error));
         } else {
-          void send("webrtc_reconnect", { ts: now }).catch(() => {});
+          void send("webrtc_reconnect", { ts: now, reset_peer: resetPeer }).catch(() => {});
         }
       } catch (error) {
         console.warn("[WebRTC] não foi possível verificar o vídeo", error);
@@ -2292,10 +2375,16 @@ export default function SessionCall() {
   }, [joinInfo?.token, mediaState, remotePresent, remoteMediaState?.cameraOn, remoteCamStream, role]);
 
   const cleanup = () => {
+    callClosedRef.current = true;
+    callLifecycleRef.current++;
     if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
     recoveryTimerRef.current = null;
     recoveryDueAtRef.current = 0;
     mediaReadyRef.current = false;
+    remotePeerGenerationRef.current = null;
+    retiredPeerGenerationsRef.current.clear();
+    forcePeerResetRef.current = false;
+    lastPeerResetAtRef.current = 0;
     offerInFlightRef.current = false;
     publishingSdpRef.current = false;
     pendingLocalIceRef.current = [];
@@ -2393,6 +2482,7 @@ export default function SessionCall() {
   }, [role, controlGranted, contentPath, screenShareActive, drawOn]);
 
   useEffect(() => {
+    callClosedRef.current = false;
     return () => cleanup();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2744,7 +2834,7 @@ export default function SessionCall() {
         (await navigator.mediaDevices.getUserMedia(recommendedCapture));
       localStreamRef.current = stream;
 
-      if (!localStream) {
+      if (localStream !== stream) {
         setLocalStream(stream);
       }
 
@@ -2754,38 +2844,9 @@ export default function SessionCall() {
         cameraOn: stream.getVideoTracks().every((t) => t.enabled),
         microphoneOn: stream.getAudioTracks().every((t) => t.enabled),
       };
-      const sendingStream = await microphoneRef.current!.prepare(stream);
       stage = "connection";
-
-      // Evita addTrack duplicado (pode disparar exceções e "quebrar" a sessão em iOS)
       const pc = pcRef.current;
-      if (pc) {
-        const hasSenders = pc.getSenders().some((s) => !!s.track);
-        if (!hasSenders) {
-          for (const track of sendingStream.getTracks()) {
-            try {
-              pc.addTrack(track, sendingStream);
-            } catch (e) {
-              console.warn("[WebRTC] addTrack falhou (ignorado)", e);
-            }
-          }
-        }
-      }
-
-      // Prepara um sender dedicado para screen share ANTES do primeiro offer do admin.
-      // (Assim, quando o admin compartilhar, usamos replaceTrack sem renegociação e sem substituir a câmera.)
-      if (role === "admin") {
-        const pc2 = pcRef.current;
-        if (pc2 && !screenSenderRef.current) {
-          try {
-            const tr = pc2.addTransceiver("video", { direction: "sendonly" });
-            screenTransceiverRef.current = tr;
-            screenSenderRef.current = tr.sender;
-          } catch {
-            // ignore
-          }
-        }
-      }
+      if (pc) await attachLocalMedia(pc);
 
       setMediaState("ready");
       mediaReadyRef.current = true;
@@ -2799,32 +2860,7 @@ export default function SessionCall() {
       } catch {}
 
       // A profissional continua sendo a única a criar ofertas.
-      if (role === "admin") {
-        const pc2 = pcRef.current;
-        if (pc2) {
-          // Prepara sender dedicado para screen share (vídeo + áudio) ANTES do primeiro offer do admin.
-          // Assim, quando compartilhar, usamos replaceTrack sem substituir a câmera e sem renegociar.
-          if (!screenSenderRef.current) {
-            try {
-              const tr = pc2.addTransceiver("video", { direction: "sendonly" });
-              screenTransceiverRef.current = tr;
-              screenSenderRef.current = tr.sender;
-            } catch {
-              // ignore
-            }
-          }
-          if (!screenAudioSenderRef.current) {
-            try {
-              const trA = pc2.addTransceiver("audio", { direction: "sendonly" });
-              screenAudioTransceiverRef.current = trA;
-              screenAudioSenderRef.current = trA.sender;
-            } catch {
-              // ignore
-            }
-          }
-          await sendOffer(false);
-        }
-      }
+      if (role === "admin") await sendOffer(false);
 
       // Se o usuário já recebeu offer antes, responde agora
       let answeredPendingOffer = false;
@@ -2835,11 +2871,7 @@ export default function SessionCall() {
         pendingOfferIdRef.current = null;
         setPendingOfferAvailable(false);
         if (!sdp) throw new Error("SDP inválido (offer pendente).");
-        receivedOfferIdRef.current = offerId;
-        await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
-        await flushPendingIce();
-        const answer = await pcRef.current.createAnswer();
-        await publishDescription(pcRef.current, answer, "webrtc_answer", offerId);
+        await answerOffer(pcRef.current, sdp, offerId);
         answeredPendingOffer = true;
       }
       if (role === "user" && !answeredPendingOffer) {
@@ -2899,12 +2931,9 @@ export default function SessionCall() {
       }
 
       // Atenção: isso conecta em modo “somente receber” (sem enviar áudio/vídeo).
-      receivedOfferIdRef.current = offerId;
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      await flushPendingIce();
-      const answer = await pc.createAnswer();
-      await publishDescription(pc, answer, "webrtc_answer", offerId);
+      await answerOffer(pc, sdp, offerId);
 
+      mediaReadyRef.current = true;
       setMediaState("ready");
       setStatusLabel("Conectado (sem câmera/microfone)");
       toast({
@@ -3048,10 +3077,13 @@ export default function SessionCall() {
               variant="outline"
               size="sm"
               onClick={() => {
-                if (pcRef.current?.signalingState === "closed") refreshPage();
+                if (pcRef.current?.signalingState === "closed") {
+                  forcePeerResetRef.current = true;
+                  scheduleRecovery(0);
+                }
                 else if (remoteVideoStalled && pcRef.current?.connectionState === "connected") {
-                  if (role === "admin") void sendOffer(true).catch(() => {});
-                  else void send("webrtc_reconnect", { ts: Date.now() }).catch(() => {});
+                  if (role === "admin") void sendOffer(true, true).catch(() => {});
+                  else void send("webrtc_reconnect", { ts: Date.now(), reset_peer: true }).catch(() => {});
                 }
                 else scheduleRecovery(0);
               }}

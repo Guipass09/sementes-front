@@ -27,6 +27,7 @@ import LandingWheelDemo from "./LandingWheelDemo";
 import LandingSessionDemo from "./LandingSessionDemo";
 import LandingActivityDemo from "./LandingActivityDemo";
 import LandingLiveSessions from "./LandingLiveSessions";
+import LandingPresentation from "./LandingPresentation";
 import "./landing.css";
 import "./landing-showcase.css";
 
@@ -60,7 +61,7 @@ const planBenefits = [
 ];
 
 const plans = [
-  { number: "01", name: "Mensal", description: "Comece no seu ritmo.", price: "249,90", cadence: "por mês", charge: "Cobrança mensal de R$ 249,90", saving: "Liberdade para começar", featured: false },
+  { number: "01", name: "Mensal", description: "Oferta de boas-vindas", price: "99,90", cadence: "no primeiro mês", charge: "Depois, R$ 249,90/mês.", saving: "Economize R$ 150,00 no primeiro mês.", featured: false, welcome: true },
   { number: "02", name: "Trimestral", description: "Mais fôlego para a sua prática.", price: "224,90", cadence: "por mês, equivalente", charge: "R$ 674,70 a cada 3 meses", saving: "R$ 75,00 de economia por trimestre", featured: false },
   { number: "03", name: "Anual", description: "O melhor valor para crescer.", price: "199,90", cadence: "por mês, equivalente", charge: "R$ 2.398,80 por ano", saving: "R$ 600,00 de economia por ano", featured: true },
 ];
@@ -316,6 +317,8 @@ export default function Landing() {
         </div>
       </div>
 
+      <LandingPresentation />
+
       <section className="lp-intro lp-section" id="plataforma">
         <div className="lp-container lp-intro__grid">
           <div>
@@ -504,16 +507,24 @@ export default function Landing() {
             <p>O acesso é completo nos três planos. Você escolhe apenas por quanto tempo quer contratar.</p>
           </div>
 
+          <div className="lp-plans__welcome">
+            <h4>Seu primeiro mês de possibilidades começa por R$ 99,90.</h4>
+            <p>Crie jogos, personalize atividades, realize atendimentos ao vivo e organize sua rotina profissional. Tudo em uma única plataforma.</p>
+          </div>
+
           <div className="lp-plans__grid">
             {plans.map((plan) => (
-              <article className={`lp-plan${plan.featured ? " lp-plan--featured" : ""}`} key={plan.name}>
+              <article className={`lp-plan${plan.featured ? " lp-plan--featured" : ""}${plan.welcome ? " lp-plan--welcome" : ""}`} key={plan.name}>
                 <div className="lp-plan__top">
                   <span className="lp-plan__number">{plan.number} / ACESSO COMPLETO</span>
                   {plan.featured && <span className="lp-plan__badge">Melhor valor</span>}
                 </div>
                 <h4>{plan.name}</h4>
-                <p className="lp-plan__description">{plan.description}</p>
-                <div className="lp-plan__price"><span>R$</span> {plan.price}</div>
+                <p className="lp-plan__description">{plan.welcome ? <span className="lp-plan__welcome-badge">{plan.description}</span> : plan.description}</p>
+                <div className="lp-plan__price">
+                  {plan.welcome && <div className="lp-plan__reference">De <del>R$ 249,90</del></div>}
+                  <span>R$</span> {plan.price}
+                </div>
                 <p className="lp-plan__cadence">{plan.cadence}</p>
                 <p className="lp-plan__charge">{plan.charge}</p>
                 <p className="lp-plan__saving"><Check size={16} aria-hidden="true" /> {plan.saving}</p>
@@ -523,11 +534,12 @@ export default function Landing() {
                     {planInclusions.map((item) => <li key={item}><Check size={15} aria-hidden="true" /> <span>{item}</span></li>)}
                   </ul>
                 </div>
-                <Link className="lp-plan__action" to={professionalSignup}>Criar conta profissional <ArrowRight size={17} aria-hidden="true" /></Link>
+                <Link className="lp-plan__action" to={professionalSignup}>{plan.welcome ? "Começar por R$ 99,90" : "Criar conta profissional"} <ArrowRight size={17} aria-hidden="true" /></Link>
               </article>
             ))}
           </div>
-          <p className="lp-plans__footnote">Valores para profissionais individuais. O cadastro não realiza cobrança.</p>
+          <p className="lp-plans__offer-terms">Oferta exclusiva para novos assinantes do plano mensal, válida uma única vez por conta e não cumulativa com outras promoções. Primeiro mês por R$ 99,90; meses seguintes por R$ 249,90. Acesso completo desde o início.</p>
+          <p className="lp-plans__footnote">Valores para profissionais individuais. O cadastro não realiza cobrança. Contratação e ativação com a equipe Sementes da Fala.</p>
           </div>
         </div>
       </section>

@@ -167,6 +167,9 @@
 .lp-plans__pricing-head { display: flex; align-items: end; justify-content: space-between; gap: 36px; margin-bottom: 40px; }
 .lp-plans__pricing-head h3 { margin-top: 11px; font-size: 43px; line-height: 1.13; font-weight: 900; }
 .lp-plans__pricing-head > p { max-width: 330px; padding-bottom: 4px; color: var(--lp-muted); font-size: 16px; line-height: 1.55; }
+.lp-plans__welcome { max-width: 850px; margin-bottom: 30px; }
+.lp-plans__welcome h4 { margin: 0; color: var(--lp-green-text); font-size: 21px; line-height: 1.4; font-weight: 900; }
+.lp-plans__welcome p { margin-top: 8px !important; color: var(--lp-muted); font-size: 14px; line-height: 1.6; }
 .lp-plans__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
 .lp-plan { display: flex; flex-direction: column; min-width: 0; padding: 28px; border: 1px solid #d2e2d7; border-top: 4px solid #20b960; border-radius: 8px; background: #fff; box-shadow: 0 10px 30px rgba(22, 68, 43, .05); }
 .lp-plan:nth-child(2) { border-top-color: #eea33c; }
@@ -178,6 +181,10 @@
 .lp-plan__description { min-height: 25px; margin-top: 6px !important; color: var(--lp-muted); font-size: 14px; }
 .lp-plan__price { display: flex; align-items: baseline; gap: 4px; margin-top: 25px; font-family: "Quicksand", "Nunito", sans-serif; font-size: 48px; line-height: 1; font-weight: 900; white-space: nowrap; }
 .lp-plan__price span { font-size: 20px; }
+.lp-plan--welcome .lp-plan__price { position: relative; }
+.lp-plan__reference { position: absolute; bottom: calc(100% + 7px); left: 0; color: var(--lp-muted); font-size: 12px; line-height: 1.2; font-weight: 600; }
+.lp-plan__reference del { text-decoration-thickness: 1px; }
+.lp-plan__welcome-badge { display: inline-flex; padding: 4px 8px; border-radius: 4px; color: #116b3b; background: #e8f7ed; font-size: 10px; line-height: 1.4; font-weight: 900; text-transform: uppercase; }
 .lp-plan__cadence { margin-top: 6px !important; color: var(--lp-muted); font-size: 13px; }
 .lp-plan__charge { margin-top: 26px !important; padding-top: 19px; border-top: 1px solid #d8e9dd; font-size: 14px; font-weight: 800; }
 .lp-plan__saving { display: flex; align-items: center; gap: 6px; margin-top: 7px !important; color: #117c45; font-size: 13px; font-weight: 900; }
@@ -196,6 +203,8 @@
 .lp-plan--featured .lp-plan__action { border-color: #fff; color: #164d36; background: #fff; }
 .lp-plan--featured .lp-plan__action:hover { color: #0c3d29; background: #e2f5e9; }
 .lp-plans__footnote { margin-top: 22px !important; color: var(--lp-muted); font-size: 12px; }
+.lp-plans__offer-terms { max-width: 990px; margin-top: 22px !important; color: var(--lp-muted); font-size: 12px; line-height: 1.7; }
+.lp-plans__offer-terms + .lp-plans__footnote { margin-top: 8px !important; line-height: 1.7; }
 
 .lp-cta { background: var(--lp-green); color: #193a23; }
 .lp-cta__inner { display: flex; align-items: end; justify-content: space-between; gap: 50px; }

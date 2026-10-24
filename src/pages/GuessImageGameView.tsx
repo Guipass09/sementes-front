@@ -66,6 +66,7 @@ export default function GuessImageGameView() {
   const [idx, setIdx] = useState(0);
   const [gameState, setGameState] = useState<GameState>("idle");
   const [revealedTiles, setRevealedTiles] = useState<Set<number>>(new Set());
+  const [revealedItemId, setRevealedItemId] = useState<number | null>(null);
   const [tileOrder, setTileOrder] = useState<number[]>([]);
   const [revealIndex, setRevealIndex] = useState(0);
   const [lock, setLock] = useState(false);
@@ -152,6 +153,7 @@ export default function GuessImageGameView() {
     const allTiles = Array.from({ length: TOTAL_TILES }, (_, i) => i);
     setTileOrder(shuffleArray(allTiles));
     setRevealedTiles(new Set());
+    setRevealedItemId(null);
     setRevealIndex(0);
     setGameState("idle");
     // Randomize option order
@@ -184,6 +186,8 @@ export default function GuessImageGameView() {
 
   // Start revealing tiles
   const startRevealing = useCallback(() => {
+    if (!current) return;
+    setRevealedItemId(current.id);
     setGameState("revealing");
     if (inSession) emitSessionEvent({ kind: "start", index: idx });
     
@@ -196,12 +200,12 @@ export default function GuessImageGameView() {
             intervalRef.current = null;
           }
           setGameState("choosing");
-          return prev;
+          return next;
         }
         return next;
       });
     }, REVEAL_INTERVAL);
-  }, [inSession, idx]);
+  }, [inSession, idx, current?.id]);
 
   // Update revealed tiles when revealIndex changes
   useEffect(() => {
@@ -331,21 +335,20 @@ export default function GuessImageGameView() {
     for (let row = 0; row < GRID_ROWS; row++) {
       for (let col = 0; col < GRID_COLS; col++) {
         const index = row * GRID_COLS + col;
-        const isRevealed = revealedTiles.has(index);
+        const isRevealed = current?.id === revealedItemId && revealedTiles.has(index);
         tiles.push(
           <div
             key={index}
-            className={cn(
-              "absolute transition-all duration-500",
-              isRevealed ? "opacity-0 scale-0" : "opacity-100 scale-100"
-            )}
+            className="absolute pointer-events-none"
             style={{
               left: `${(col / GRID_COLS) * 100}%`,
               top: `${(row / GRID_ROWS) * 100}%`,
-              width: `${100 / GRID_COLS}%`,
-              height: `${100 / GRID_ROWS}%`,
-              backdropFilter: isRevealed ? "none" : "blur(30px)",
-              backgroundColor: isRevealed ? "transparent" : "rgba(120,120,120,0.85)",
+              // Overlap fractional edges so zoom and device scaling cannot expose seams.
+              width: `calc(${100 / GRID_COLS}% + 1px)`,
+              height: `calc(${100 / GRID_ROWS}% + 1px)`,
+              backgroundColor: "#787878",
+              opacity: isRevealed ? 0 : 1,
+              transition: isRevealed ? "opacity 350ms ease-out" : "none",
             }}
           />
         );
@@ -474,7 +477,7 @@ export default function GuessImageGameView() {
                   )}>
                     {/* Main image container */}
                     <div className={cn(
-                      "relative rounded-xl overflow-hidden border border-border bg-muted/30",
+                      "relative isolate rounded-xl overflow-hidden border border-border bg-muted/30",
                       inSession 
                         ? showOptions ? "flex-1 h-full" : "w-full h-full"
                         : "w-full h-[40vh] sm:h-[45vh] lg:h-[50vh]"
@@ -483,9 +486,10 @@ export default function GuessImageGameView() {
                         src={normalizeMediaUrl(current.main_url)}
                         alt="Imagem principal"
                         className="w-full h-full object-cover"
+                        style={{ visibility: current.id === revealedItemId && revealedTiles.size > 0 ? "visible" : "hidden" }}
                       />
                       {/* Tile grid overlay */}
-                      <div className="absolute inset-0">
+                      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
                         {renderTileGrid()}
                       </div>
 

@@ -57,8 +57,7 @@ export default function SaleSchedulerListener() {
   const location = useLocation();
   const role = useMemo(() => String(auth.user?.role || "").toLowerCase().trim(), [auth.user?.role]);
   const isAdmin = role === "admin" || role.includes("admin");
-  const isProfessional = role.includes("professional") || role.includes("profissional");
-  const enabled = !!auth.user && (isAdmin || isProfessional) && !location.pathname.startsWith("/preview-");
+  const enabled = !!auth.user && isAdmin && !location.pathname.startsWith("/preview-");
 
   const [open, setOpen] = useState(false);
   const [sale, setSale] = useState<SaleMeta | null>(null);
@@ -121,7 +120,7 @@ export default function SaleSchedulerListener() {
         if (!v) setSale(null);
       }}
       sale={sale}
-      role={isAdmin ? "admin" : "professional"}
+      role="admin"
       onScheduled={onScheduled}
     />
   );

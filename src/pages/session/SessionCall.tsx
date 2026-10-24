@@ -1413,7 +1413,7 @@ export default function SessionCall() {
   }, [screenShareActive, role]);
 
   const sendPayment = async (sessions: number, url: string) => {
-    if (role !== "admin") return;
+    if (appRole !== "admin" || role !== "admin") return;
     await send("payment_link", { sessions, url });
   };
 
@@ -1422,7 +1422,7 @@ export default function SessionCall() {
     amount: number,
     opts?: { defaultTab?: "pix" | "card"; maxInstallments?: number },
   ) => {
-    if (role !== "admin") return;
+    if (appRole !== "admin" || role !== "admin") return;
     await send("payment_request", {
       sessions,
       amount,
@@ -3308,10 +3308,12 @@ export default function SessionCall() {
               <Button variant="outline" onClick={() => changeMouthState({ ...mouthStateRef.current, open: !mouthStateRef.current.open })} className={cn("rounded-xl", mouthState.open && "border-brand-green text-brand-green")} aria-pressed={mouthState.open}>
                 <ScanFace className="h-4 w-4 mr-2" /> Boca 3D
               </Button>
-              <Button variant="outline" onClick={() => setPackagesOpen(true)} className="rounded-xl">
-                <Package className="h-4 w-4 mr-2" />
-                Pacotes
-              </Button>
+              {appRole === "admin" && (
+                <Button variant="outline" onClick={() => setPackagesOpen(true)} className="rounded-xl">
+                  <Package className="h-4 w-4 mr-2" />
+                  Pacotes
+                </Button>
+              )}
               {appRole === "professional" ? (
                 <Button
                   variant="outline"
@@ -3850,7 +3852,7 @@ export default function SessionCall() {
       </Dialog>
 
       {/* Catálogo de pacotes (admin) */}
-      <Dialog open={packagesOpen} onOpenChange={setPackagesOpen}>
+      {appRole === "admin" && <Dialog open={packagesOpen} onOpenChange={setPackagesOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Pacotes (catálogo de preços)</DialogTitle>
@@ -3903,10 +3905,10 @@ export default function SessionCall() {
             Você pode cobrar no app (na chamada) ou gerar um link para abrir a página de pagamento.
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       {/* Confirmação de envio de pagamento (admin) */}
-      {role === "admin" && pendingPayment ? (
+      {appRole === "admin" && role === "admin" && pendingPayment ? (
         <BrandedConfirmDialog
           open={paymentConfirmOpen}
           onOpenChange={(open) => {
@@ -3927,8 +3929,8 @@ export default function SessionCall() {
         />
       ) : null}
 
-      {/* Cobrança personalizada (admin/profissional na transmissão) */}
-      <Dialog open={customPayOpen} onOpenChange={setCustomPayOpen}>
+      {/* Cobrança personalizada (admin) */}
+      {appRole === "admin" && <Dialog open={customPayOpen} onOpenChange={setCustomPayOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Cobrança personalizada</DialogTitle>
@@ -4003,7 +4005,7 @@ export default function SessionCall() {
             </div>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       {/* Pagamento embutido (Pix/Cartão) */}
       {appointmentId && rtcPaymentMeta ? (

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { AlertCircle, Check, Lock, Mail, KeyRound } from "lucide-react";
+import { AlertCircle, Check, Lock, Mail } from "lucide-react";
 import LoginHero from "@/components/LoginHero";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
 import { useToast } from "@/hooks/use-toast";
@@ -17,13 +17,12 @@ const RedefinirSenha = () => {
   const { toast } = useToast();
 
   const [email, setEmail] = useState(query.get("email") ?? "");
-  const [token, setToken] = useState(query.get("token") ?? "");
+  const token = (query.get("token") ?? "").trim();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [touched, setTouched] = useState<{ email: boolean; token: boolean; password: boolean; confirm: boolean }>({
+  const [touched, setTouched] = useState<{ email: boolean; password: boolean; confirm: boolean }>({
     email: false,
-    token: false,
     password: false,
     confirm: false,
   });
@@ -33,12 +32,6 @@ const RedefinirSenha = () => {
     if (!v.trim()) return { valid: false, message: "Email é obrigatório" };
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(v)) return { valid: false, message: "Digite um email válido" };
-    return { valid: true, message: "" };
-  }, []);
-
-  const validateToken = useCallback((v: string) => {
-    if (!v.trim()) return { valid: false, message: "Token é obrigatório" };
-    if (v.trim().length < 10) return { valid: false, message: "Token inválido" };
     return { valid: true, message: "" };
   }, []);
 
@@ -58,16 +51,15 @@ const RedefinirSenha = () => {
   );
 
   const vEmail = validateEmail(email);
-  const vToken = validateToken(token);
   const vPass = validatePassword(password);
   const vConfirm = validateConfirm(confirmPassword, password);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setTouched({ email: true, token: true, password: true, confirm: true });
+    setTouched({ email: true, password: true, confirm: true });
 
-    if (!vEmail.valid || !vToken.valid || !vPass.valid || !vConfirm.valid) return;
+    if (!token || !vEmail.valid || !vPass.valid || !vConfirm.valid) return;
 
     setSubmitting(true);
     try {
@@ -82,7 +74,7 @@ const RedefinirSenha = () => {
     } catch (e2) {
       const msg =
         isApiError(e2) && e2.status === 422
-          ? (e2.data?.message ?? "Token/senha inválidos.")
+          ? "Não foi possível redefinir a senha. Confira os dados ou solicite um novo link se ele já expirou."
           : "Não foi possível redefinir agora. Tente novamente.";
       setError(msg);
     } finally {
@@ -94,7 +86,7 @@ const RedefinirSenha = () => {
     <div className="login-card animate-slide-in-right">
       <div className="text-center mb-6">
         <h2 className="text-2xl font-display font-bold text-foreground mb-2">Redefinir senha</h2>
-        <p className="text-muted-foreground">Digite o token recebido e escolha uma nova senha</p>
+        <p className="text-muted-foreground">{token ? "Escolha sua nova senha e confirme abaixo." : "Abra o link enviado ao seu email para escolher uma nova senha."}</p>
       </div>
 
       {error && (
@@ -106,7 +98,7 @@ const RedefinirSenha = () => {
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      {token ? <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div className="space-y-2">
           <label htmlFor="email" className="block text-sm font-semibold text-foreground">
             Email
@@ -133,34 +125,6 @@ const RedefinirSenha = () => {
             )}
           </div>
           {touched.email && !vEmail.valid && <p className="text-sm text-destructive animate-fade-in">{vEmail.message}</p>}
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="token" className="block text-sm font-semibold text-foreground">
-            Token
-          </label>
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-              <KeyRound size={18} />
-            </div>
-            <input
-              type="text"
-              id="token"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              onBlur={() => setTouched((p) => ({ ...p, token: true }))}
-              placeholder="Cole o token do email"
-              autoComplete="one-time-code"
-              className={`input-field pl-11 pr-10 ${touched.token ? (vToken.valid ? "success" : "error") : ""}`}
-              aria-invalid={touched.token && !vToken.valid}
-            />
-            {touched.token && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                {vToken.valid ? <Check size={18} className="text-primary" /> : <AlertCircle size={18} className="text-destructive" />}
-              </div>
-            )}
-          </div>
-          {touched.token && !vToken.valid && <p className="text-sm text-destructive animate-fade-in">{vToken.message}</p>}
         </div>
 
         <div className="space-y-2">
@@ -225,14 +189,19 @@ const RedefinirSenha = () => {
 
         <p className="text-center text-sm text-muted-foreground">
           <Link to="/esqueci-senha" className="font-semibold text-primary hover:text-brand-green-dark transition-colors">
-            Não recebi o token
+            Solicitar novo link
           </Link>
           {" • "}
           <Link to="/entrar" className="font-semibold text-primary hover:text-brand-green-dark transition-colors">
             Voltar ao login
           </Link>
         </p>
-      </form>
+      </form> : (
+        <div className="space-y-4 text-center">
+          <Link to="/esqueci-senha" className="btn-primary block">Solicitar novo link</Link>
+          <Link to="/entrar" className="inline-block text-sm font-semibold text-primary hover:text-brand-green-dark">Voltar ao login</Link>
+        </div>
+      )}
     </div>
   );
 

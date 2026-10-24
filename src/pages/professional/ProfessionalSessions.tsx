@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
@@ -98,10 +98,6 @@ function StandardProfessionalSessions(): JSX.Element {
   const [reschedDate, setReschedDate] = useState<Date | undefined>(undefined);
   const [reschedTime, setReschedTime] = useState<string>("");
   const [inviteGeneratingId, setInviteGeneratingId] = useState<number | null>(null);
-  const [payLinkOpen, setPayLinkOpen] = useState(false);
-  const [payLinkBusy, setPayLinkBusy] = useState(false);
-  const [payCustomAmount, setPayCustomAmount] = useState<string>("");
-  const [payCustomSessions, setPayCustomSessions] = useState<string>("");
 
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -273,47 +269,6 @@ function StandardProfessionalSessions(): JSX.Element {
 
   const fmtMoney = (n: number) => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  const packageCatalog = useMemo(() => {
-    const list = [
-      { sessions: 3, price: 280 },
-      { sessions: 6, price: 480 },
-      { sessions: 9, price: 560 },
-      { sessions: 15, price: 880 },
-      { sessions: 20, price: 1100 },
-      { sessions: 35, price: 1750 },
-      { sessions: 45, price: 2115 },
-    ];
-    return list.map((p) => ({ ...p, priceLabel: fmtMoney(p.price), perSessionLabel: fmtMoney(p.price / p.sessions) }));
-  }, []);
-
-  const generatePaymentLink = async (amount: number, sessions: number | null) => {
-    setPayLinkBusy(true);
-    try {
-      const title = sessions ? `Pacote ${sessions} sessões` : "Pagamento";
-      const res = await api.paymentLinksSign({ amount, sessions, title });
-      const url = new URL(window.location.origin);
-      url.pathname = `/pagamento/publico`;
-      url.searchParams.set("token", res.token);
-      const link = url.toString();
-
-      try {
-        await navigator.clipboard.writeText(link);
-        toast({ title: "Pagamento", description: "Link de pagamento copiado." });
-      } catch {
-        window.prompt("Copie o link de pagamento:", link);
-      }
-      setPayLinkOpen(false);
-    } catch (e: any) {
-      toast({
-        title: "Pagamento",
-        description: e && (e.data?.message || e.message) ? String(e.data?.message || e.message) : "Não foi possível gerar o link agora.",
-        variant: "destructive",
-      });
-    } finally {
-      setPayLinkBusy(false);
-    }
-  };
-
   return (
     <div className="min-h-full py-4 sm:py-6 md:py-8 lg:py-12">
       <div className="container mx-auto px-3 sm:px-4">
@@ -329,20 +284,6 @@ function StandardProfessionalSessions(): JSX.Element {
                 <CalendarClock className="mr-2 h-4 w-4" /> Agendar sessão
               </Button>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setPayCustomAmount("");
-                setPayCustomSessions("");
-                setPayLinkOpen(true);
-              }}
-              title="Gerar link de pagamento genérico (qualquer pessoa pode pagar)"
-            >
-              <Wallet className="mr-2 h-4 w-4" />
-              Gerar link de pagamento
-            </Button>
           </div>
 
           {!hasPersonalFinance && <div className="bg-card rounded-xl border border-border p-4 sm:p-5 shadow-sm">
@@ -609,101 +550,6 @@ function StandardProfessionalSessions(): JSX.Element {
       {isIndividualProfessional && (
         <ProfessionalAppointmentDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={() => void refresh()} />
       )}
-
-      {/* Link de pagamento (fora da transmissão) */}
-      <Dialog
-        open={payLinkOpen}
-        onOpenChange={(open) => {
-          setPayLinkOpen(open);
-          if (!open) {
-            setPayLinkBusy(false);
-          }
-        }}
-      >
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Gerar link de pagamento</DialogTitle>
-            <DialogDescription>
-              Escolha um pacote ou valor personalizado. O link pode ser enviado para qualquer pessoa pagar.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div className="rounded-xl border border-border bg-card p-3">
-              <div className="text-sm font-semibold text-foreground">Personalizado</div>
-              <div className="text-xs text-muted-foreground">Defina um valor e gere um link para o paciente pagar.</div>
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="space-y-1.5">
-                  <Label>Valor total (R$)</Label>
-                  <Input
-                    inputMode="decimal"
-                    placeholder="Ex.: 560,00"
-                    value={payCustomAmount}
-                    onChange={(e) => setPayCustomAmount(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Sessões (opcional)</Label>
-                  <Input
-                    inputMode="numeric"
-                    placeholder="Ex.: 9"
-                    value={payCustomSessions}
-                    onChange={(e) => setPayCustomSessions(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-end">
-                <Button
-                  className="rounded-lg"
-                    disabled={payLinkBusy}
-                  onClick={() => {
-                    const raw = String(payCustomAmount || "").trim();
-                    const cleaned = raw.replace(/[^\d.,-]/g, "").replace(/\./g, "").replace(",", ".");
-                    const amount = Number(cleaned);
-                    const sRaw = payCustomSessions.replace(/\D/g, "");
-                    const sNum = sRaw ? Number(sRaw) : 0;
-                    const sessions = Number.isFinite(sNum) && sNum > 0 ? sNum : null;
-                    if (!Number.isFinite(amount) || amount <= 0) {
-                      toast({ title: "Pagamento", description: "Informe um valor válido.", variant: "destructive" });
-                      return;
-                    }
-                    void generatePaymentLink(amount, sessions);
-                  }}
-                >
-                  {payLinkBusy ? "Gerando..." : "Gerar link"}
-                </Button>
-              </div>
-            </div>
-
-            {packageCatalog.map((p) => (
-              <div key={`pkg-${p.sessions}`} className="rounded-xl border border-border bg-card p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">{p.sessions} sessões</div>
-                    <div className="text-xs text-muted-foreground">
-                      Total: {p.priceLabel} • {p.perSessionLabel}/sessão
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="rounded-lg"
-                      disabled={payLinkBusy}
-                    onClick={() => {
-                      void generatePaymentLink(p.price, p.sessions);
-                    }}
-                  >
-                    {payLinkBusy ? "Gerando..." : "Gerar link"}
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-2 text-xs text-muted-foreground">
-            O paciente pagará em uma página separada (Pix ou cartão) com formulário antes do método.
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={reschedOpen}

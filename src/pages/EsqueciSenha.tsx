@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AlertCircle, Check, Mail } from "lucide-react";
 import LoginHero from "@/components/LoginHero";
 import logoImage from "@/assets/logo-sementes-da-fala.jpg";
@@ -7,12 +7,12 @@ import { useToast } from "@/hooks/use-toast";
 import { forgotPassword, isApiError } from "@/lib/laravel-api";
 
 const EsqueciSenha = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [email, setEmail] = useState("");
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState<string>("");
 
   const validateEmail = useCallback((v: string): { valid: boolean; message: string } => {
@@ -35,12 +35,12 @@ const EsqueciSenha = () => {
     try {
       const res = await forgotPassword(email.trim());
       toast({ title: "Pronto!", description: res.message });
-      navigate(`/redefinir-senha?email=${encodeURIComponent(email.trim())}`);
+      setSent(true);
     } catch (e2) {
       const msg =
         isApiError(e2) && e2.status === 422
           ? (e2.data?.message ?? "Verifique o email e tente novamente.")
-          : "Não foi possível enviar o token agora. Tente novamente.";
+          : "Não foi possível enviar o link agora. Tente novamente.";
       setError(msg);
     } finally {
       setSubmitting(false);
@@ -50,8 +50,8 @@ const EsqueciSenha = () => {
   const Card = (
     <div className="login-card animate-slide-in-right">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-display font-bold text-foreground mb-2">Esqueci minha senha</h2>
-        <p className="text-muted-foreground">Informe seu email para receber um token</p>
+        <h2 className="text-2xl font-display font-bold text-foreground mb-2">{sent ? "Confira seu email" : "Esqueci minha senha"}</h2>
+        <p className="text-muted-foreground">{sent ? "Se houver uma conta com esse email, você receberá um link para redefinir sua senha. Confira também a pasta de spam." : "Informe seu email para receber o link de redefinição."}</p>
       </div>
 
       {error && (
@@ -63,7 +63,12 @@ const EsqueciSenha = () => {
         </div>
       )}
 
-      <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      {sent ? (
+        <div className="space-y-4 text-center">
+          <button type="button" className="btn-primary w-full" onClick={() => setSent(false)}>Tentar outro email</button>
+          <Link to="/entrar" className="inline-block text-sm font-semibold text-primary hover:text-brand-green-dark">Voltar ao login</Link>
+        </div>
+      ) : <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div className="space-y-2">
           <label htmlFor="email" className="block text-sm font-semibold text-foreground">
             Email
@@ -93,7 +98,7 @@ const EsqueciSenha = () => {
         </div>
 
         <button type="submit" disabled={submitting} className={`btn-primary ${submitting ? "opacity-80" : ""}`}>
-          {submitting ? "Enviando..." : "Enviar token"}
+          {submitting ? "Enviando..." : "Enviar link"}
         </button>
 
         <p className="text-center text-sm text-muted-foreground">
@@ -102,7 +107,7 @@ const EsqueciSenha = () => {
             Voltar ao login
           </Link>
         </p>
-      </form>
+      </form>}
     </div>
   );
 

@@ -5,7 +5,6 @@ import { useAuth } from "@/auth/AuthContext";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import ProfileShell, { type ProfileNavItem } from "@/components/ProfileShell";
 import ProfessionalSubscriptionPreview from "@/components/ProfessionalSubscriptionPreview";
-import SaleSchedulerListener from "@/components/SaleSchedulerListener";
 import { useSubscriptionExpired } from "@/components/SubscriptionTimer";
 import { isApiError, me } from "@/lib/laravel-api";
 import { resourceNavigation } from "@/lib/resource-navigation";
@@ -95,7 +94,6 @@ export default function ProfessionalLayout() {
       onProfile={() => navigate("/profissional/perfil")}
       onLogout={() => void auth.logout().finally(() => navigate("/"))}
     >
-      {!needsSubscription && <SaleSchedulerListener />}
       {needsSubscription && !onSubscriptionPage && !onProfilePage ? (
         <>
           <p className="px-4 pt-4 text-center text-sm text-muted-foreground">Seus pacientes, atividades e documentos continuam preservados. Reative sua assinatura para retomar o acesso.</p>

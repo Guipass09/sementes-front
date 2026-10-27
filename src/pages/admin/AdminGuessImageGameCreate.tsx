@@ -1,6 +1,7 @@
 import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Image as ImageIcon, Plus, Upload, X, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,7 @@ export default function AdminGuessImageGameCreate() {
   const navigate = useNavigate();
   const auth = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [users, setUsers] = useState<(AdminUserRow | ProfessionalUserRow)[]>([]);
@@ -157,16 +159,16 @@ export default function AdminGuessImageGameCreate() {
 
   const missing = useMemo(() => {
     if (!title.trim() || !description.trim()) return true;
-    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) return true;
     return sessions.some((s) => !s.mainFile || !s.correctFile || !s.wrongFile);
-  }, [title, description, selectedUserIds.length, sessions, auth.user?.role]);
+  }, [title, description, sessions]);
 
-  const onSubmit = async () => {
+  const onSubmit = async (sendToUsers = false) => {
+    if (saving) return;
     if (!title.trim() || !description.trim()) {
       toast({ title: "Preencha título e descrição", variant: "destructive" });
       return;
     }
-    if (auth.user?.role !== "professional" && selectedUserIds.length === 0) {
+    if (sendToUsers && !isProfessional && selectedUserIds.length === 0) {
       toast({ title: "Selecione usuários", description: "Escolha pelo menos 1 usuário.", variant: "destructive" });
       return;
     }
@@ -179,17 +181,18 @@ export default function AdminGuessImageGameCreate() {
 
     setSaving(true);
     try {
-      const created = await (isProfessional ? api.professionalCreateGuessImageGame : api.adminCreateGuessImageGame)({
+      await (isProfessional ? api.professionalCreateGuessImageGame : api.adminCreateGuessImageGame)({
         title: title.trim(),
         description: description.trim(),
         sessions_count: n,
-        assigned_to: auth.user?.role === "professional" ? [] : selectedUserIds,
+        assigned_to: sendToUsers && !isProfessional ? selectedUserIds : [],
         main_images: slice.map((s) => s.mainFile!),
         correct_images: slice.map((s) => s.correctFile!),
         wrong_images: slice.map((s) => s.wrongFile!),
       });
-      toast({ title: "Jogo criado!", description: auth.user?.role === "professional" ? "Salvo somente no seu perfil. Envie aos pacientes quando quiser." : `Enviado para ${selectedUserIds.length} usuário(s).` });
-      navigate(`/jogos/acerte-imagem/${created.id}`);
+      await queryClient.invalidateQueries({ queryKey: ["management-game-library", auth.user?.id, "acerte-imagem"] });
+      toast({ title: "Jogo criado!", description: sendToUsers && !isProfessional ? `Salvo na biblioteca e enviado para ${selectedUserIds.length} usuário(s).` : "Salvo na sua biblioteca." });
+      navigate(`${base}/jogos/acerte-imagem`);
     } catch (err: any) {
       const apiMessage = err?.data?.message || err?.data?.error || err?.message;
       console.error("Erro ao criar Acerte a Imagem:", err);
@@ -212,8 +215,8 @@ export default function AdminGuessImageGameCreate() {
             Voltar
           </Button>
 
-          <div className="flex items-start justify-between gap-4">
-            <div>
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
+            <div className="min-w-0">
               <div className="inline-flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <ImageIcon className="h-4 w-4" />
                 Novo jogo: Acerte a Imagem
@@ -224,29 +227,30 @@ export default function AdminGuessImageGameCreate() {
               </p>
             </div>
 
-            <Button onClick={onSubmit} disabled={saving} className="shrink-0 bg-brand-pink hover:bg-brand-pink/90">
+            <Button type="button" onClick={() => void onSubmit()} disabled={saving || missing} className="w-full shrink-0 bg-brand-pink hover:bg-brand-pink/90 sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
-              {saving ? "Salvando..." : "Criar e enviar"}
+              {saving ? "Salvando..." : "Criar jogo"}
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 bg-card rounded-2xl border border-border p-6 shadow-sm">
+          <div className={cn(isProfessional ? "lg:col-span-12" : "lg:col-span-7", "min-w-0 bg-card rounded-2xl border border-border p-4 sm:p-6 shadow-sm")}>
             <div className="space-y-5">
               <div className="space-y-2">
-                <Label>Título</Label>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Acerte o animal" />
+                <Label htmlFor="guess-image-title">Título</Label>
+                <Input id="guess-image-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Acerte o animal" />
               </div>
 
               <div className="space-y-2">
-                <Label>Descrição</Label>
-                <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="Descreva o objetivo do jogo..." />
+                <Label htmlFor="guess-image-description">Descrição</Label>
+                <Textarea id="guess-image-description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="Descreva o objetivo do jogo..." />
               </div>
 
               <div className="space-y-2">
-                <Label>Quantidade de sessões (1 a 15)</Label>
+                <Label htmlFor="guess-image-sessions">Quantidade de sessões (1 a 15)</Label>
                 <Input
+                  id="guess-image-sessions"
                   type="number"
                   min={1}
                   max={15}
@@ -429,13 +433,22 @@ export default function AdminGuessImageGameCreate() {
               )}
 
               <div className="pt-2">
-                <Button type="button" variant="secondary" disabled={missing} className="w-full" onClick={onSubmit}>
+                <Button type="button" variant="secondary" disabled={saving || missing || selectedUserIds.length === 0} className="w-full" onClick={() => void onSubmit(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Criar e enviar
+                  {saving ? "Salvando..." : "Criar e enviar"}
                 </Button>
               </div>
             </div>
           </div>
+        </div>
+        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" disabled={saving} onClick={() => navigate(`${base}/jogos/acerte-imagem`)}>
+            Cancelar
+          </Button>
+          <Button type="button" onClick={() => void onSubmit()} disabled={saving || missing} className="bg-brand-pink hover:bg-brand-pink/90">
+            <Plus className="h-4 w-4 mr-2" />
+            {saving ? "Salvando..." : "Criar jogo"}
+          </Button>
         </div>
       </div>
     </div>

@@ -227,15 +227,15 @@ export default function AdminGuessImageGameCreate() {
               </p>
             </div>
 
-            <Button type="button" onClick={() => void onSubmit()} disabled={saving || missing} className="w-full shrink-0 bg-brand-pink hover:bg-brand-pink/90 sm:w-auto">
+            <Button type="button" onClick={() => void onSubmit()} disabled={saving} className="w-full shrink-0 sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
-              {saving ? "Salvando..." : "Criar jogo"}
+              {saving ? "Salvando..." : "Criar e enviar"}
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className={cn(isProfessional ? "lg:col-span-12" : "lg:col-span-7", "min-w-0 bg-card rounded-2xl border border-border p-4 sm:p-6 shadow-sm")}>
+          <div className="min-w-0 lg:col-span-7 bg-card rounded-2xl border border-border p-6 shadow-sm">
             <div className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="guess-image-title">Título</Label>
@@ -440,15 +440,6 @@ export default function AdminGuessImageGameCreate() {
               </div>
             </div>
           </div>
-        </div>
-        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" disabled={saving} onClick={() => navigate(`${base}/jogos/acerte-imagem`)}>
-            Cancelar
-          </Button>
-          <Button type="button" onClick={() => void onSubmit()} disabled={saving || missing} className="bg-brand-pink hover:bg-brand-pink/90">
-            <Plus className="h-4 w-4 mr-2" />
-            {saving ? "Salvando..." : "Criar jogo"}
-          </Button>
         </div>
       </div>
     </div>

@@ -52,10 +52,23 @@ try {
         // Populate the library cache before creating, as in the real navigation flow.
         await page.goto(`${base}${root}/jogos/acerte-imagem`);
         await page.getByRole('button', { name: 'Novo jogo', exact: true }).click();
-        const save = page.getByRole('button', { name: 'Criar jogo', exact: true });
-        await save.last().waitFor();
-        assert.equal(await save.count(), 2, 'Create must exist outside the recipient panel at both ends');
-        assert.ok(await save.last().isDisabled());
+        const save = page.getByRole('button', { name: 'Criar e enviar', exact: true }).first();
+        await save.waitFor();
+        assert.equal(await page.getByRole('button', { name: 'Criar e enviar', exact: true }).filter({ visible: true }).count(), role === 'professional' ? 1 : 2);
+        assert.ok(await save.isEnabled(), 'Header action must be visible and active like other game editors');
+        const appearance = await save.evaluate(button => ({
+          background: getComputedStyle(button).backgroundColor,
+          opacity: getComputedStyle(button).opacity,
+          standard: button.classList.contains('bg-primary'),
+        }));
+        assert.ok(appearance.standard);
+        assert.notEqual(appearance.background, 'rgba(0, 0, 0, 0)');
+        assert.equal(appearance.opacity, '1');
+        const form = page.locator('input#guess-image-title').locator('xpath=ancestor::div[contains(@class,"lg:col-span-7")]');
+        assert.equal(await form.count(), 1, 'Editor must use the same seven-column form width as Memory 2.0');
+        assert.equal(await page.getByRole('button', { name: 'Cancelar', exact: true }).count(), 0, 'No extra footer outside the standard editor');
+        await save.click();
+        assert.equal(submissions.length, 0, 'Incomplete form must still validate before saving');
         await page.getByLabel('Quantidade de sess', { exact: false }).fill('1');
         await page.getByLabel('Título', { exact: true }).fill('Library fixture game');
         await page.getByLabel('Descri', { exact: false }).fill('Fixture description');
@@ -63,18 +76,18 @@ try {
         for (const id of ['main-0', 'correct-0', 'wrong-0']) {
           await page.locator(`input#${id}`).setInputFiles({ name: `${id}.png`, mimeType: 'image/png', buffer: png });
         }
-        assert.ok(await save.last().isEnabled());
-        await save.last().scrollIntoViewIfNeeded();
-        const bounds = await save.last().boundingBox();
+        assert.ok(await save.isEnabled());
+        await save.scrollIntoViewIfNeeded();
+        const bounds = await save.boundingBox();
         assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width + 1, 'Create must fit the mobile viewport');
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'No horizontal overflow');
         if (role === 'professional' && width === 390) {
-          await save.last().click();
+          await save.click();
           await page.getByText('Creation fixture rejected', { exact: true }).waitFor();
           assert.ok(page.url().endsWith('/novo'));
           assert.equal(await page.locator('input#main-0').evaluate(input => input.files.length), 1);
         }
-        await save.last().click();
+        await save.click();
         await page.waitForURL(`${base}${root}/jogos/acerte-imagem`);
         await page.getByRole('link', { name: 'Jogar Library fixture game', exact: true }).first().waitFor();
         const body = submissions.at(-1);

@@ -8,6 +8,7 @@ import {
   Check,
   ClipboardList,
   Gamepad2,
+  Info,
   Instagram,
   Menu,
   MessageCircle,
@@ -22,6 +23,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { LandingPolicies } from "./LandingPolicies";
 import LandingWheelDemo from "./LandingWheelDemo";
 import LandingSessionDemo from "./LandingSessionDemo";
@@ -32,6 +34,36 @@ import "./landing.css";
 import "./landing-showcase.css";
 
 const LandingMouthDemo = lazy(() => import("./LandingMouthDemo"));
+
+function PlanGuarantee({ planName }: { planName: string }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="lp-plan__guarantee">
+      <span>7 dias de garantia</span>
+      <Tooltip open={open} onOpenChange={setOpen} delayDuration={150}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="lp-plan__guarantee-info"
+            aria-label={`Detalhes da garantia de 7 dias do plano ${planName}`}
+            aria-expanded={open}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={(event) => {
+              event.preventDefault();
+              setOpen((current) => !current);
+            }}
+          >
+            <Info size={17} aria-hidden="true" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent className="lp-plan__guarantee-tooltip" side="top" sideOffset={6} collisionPadding={16}>
+          Você tem direito ao reembolso integral se solicitar em até 7 dias após a contratação.
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+}
 
 const assets = {
   logo: "/landing/sementes-logo-transparent.png",
@@ -535,6 +567,7 @@ export default function Landing() {
                   </ul>
                 </div>
                 <Link className="lp-plan__action" to={professionalSignup}>{plan.welcome ? "Começar por R$ 99,90" : "Criar conta profissional"} <ArrowRight size={17} aria-hidden="true" /></Link>
+                <PlanGuarantee planName={plan.name} />
               </article>
             ))}
           </div>

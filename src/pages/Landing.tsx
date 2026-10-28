@@ -93,9 +93,9 @@ const planBenefits = [
 ];
 
 const plans = [
-  { number: "01", name: "Mensal", description: "Oferta de boas-vindas", price: "99,90", cadence: "no primeiro mês", charge: "Depois, R$ 249,90/mês.", saving: "Economize R$ 150,00 no primeiro mês.", featured: false, welcome: true },
-  { number: "02", name: "Trimestral", description: "Mais fôlego para a sua prática.", price: "224,90", cadence: "por mês, equivalente", charge: "R$ 674,70 a cada 3 meses", saving: "R$ 75,00 de economia por trimestre", featured: false },
-  { number: "03", name: "Anual", description: "O melhor valor para crescer.", price: "199,90", cadence: "por mês, equivalente", charge: "R$ 2.398,80 por ano", saving: "R$ 600,00 de economia por ano", featured: true },
+  { number: "01", name: "Mensal", description: "Oferta de boas-vindas", price: "99,90", cadence: "no primeiro mês", charge: "Depois, R$ 169,90/mês.", saving: "Economize R$ 70,00 no primeiro mês.", featured: false, welcome: true },
+  { number: "02", name: "Trimestral", description: "Mais fôlego para a sua prática.", price: "152,90", cadence: "por mês, equivalente", charge: "R$ 458,70 a cada 3 meses", saving: "R$ 51,00 de economia por trimestre", featured: false },
+  { number: "03", name: "Anual", description: "O melhor valor para crescer.", price: "135,90", cadence: "por mês, equivalente", charge: "R$ 1.630,80 por ano", saving: "R$ 408,00 de economia por ano", featured: true },
 ];
 
 const planInclusions = [
@@ -554,7 +554,7 @@ export default function Landing() {
                 <h4>{plan.name}</h4>
                 <p className="lp-plan__description">{plan.welcome ? <span className="lp-plan__welcome-badge">{plan.description}</span> : plan.description}</p>
                 <div className="lp-plan__price">
-                  {plan.welcome && <div className="lp-plan__reference">De <del>R$ 249,90</del></div>}
+                  {plan.welcome && <div className="lp-plan__reference">De <del>R$ 169,90</del></div>}
                   <span>R$</span> {plan.price}
                 </div>
                 <p className="lp-plan__cadence">{plan.cadence}</p>
@@ -571,7 +571,7 @@ export default function Landing() {
               </article>
             ))}
           </div>
-          <p className="lp-plans__offer-terms">Oferta exclusiva para novos assinantes do plano mensal, válida uma única vez por conta e não cumulativa com outras promoções. Primeiro mês por R$ 99,90; meses seguintes por R$ 249,90. Acesso completo desde o início.</p>
+          <p className="lp-plans__offer-terms">Oferta exclusiva para novos assinantes do plano mensal, válida uma única vez por conta e não cumulativa com outras promoções. Primeiro mês por R$ 99,90; meses seguintes por R$ 169,90. Acesso completo desde o início.</p>
           <p className="lp-plans__footnote">Valores para profissionais individuais. O cadastro não realiza cobrança. Contratação e ativação com a equipe Sementes da Fala.</p>
           </div>
         </div>

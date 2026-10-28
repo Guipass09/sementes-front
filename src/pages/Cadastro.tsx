@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import "./login.css";
 import { isApiError, previewPatientRegistration } from "@/lib/laravel-api";
 import type { RegistrationProfessional } from "@/features/patient-registration/registration";
+import { professionalPlans, subscriptionPlanId } from "@/features/subscription/plans";
 
 const profileOptions: Array<{
   mode: RegisterMode;
@@ -39,6 +40,7 @@ const Cadastro = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const inviteToken = new URLSearchParams(location.search).get("convite_profissional");
+  const selectedPlan = professionalPlans.find((plan) => plan.id === subscriptionPlanId(new URLSearchParams(location.search).get("plano")));
   const [invitation, setInvitation] = useState<{ token: string; professional: RegistrationProfessional } | null>(null);
   const [inviteError, setInviteError] = useState("");
   const [previewAttempt, setPreviewAttempt] = useState(0);
@@ -80,7 +82,7 @@ const Cadastro = () => {
   const selectMode = (mode: RegisterMode) => {
     setSelectedMode(mode);
     setChoiceOpen(false);
-    navigate(`/cadastro?perfil=${profileQuery[mode]}`, { replace: true });
+    navigate(`/cadastro?perfil=${profileQuery[mode]}${mode === "professional" && selectedPlan ? `&plano=${selectedPlan.id}` : ""}`, { replace: true });
   };
 
   const closeChoice = () => {
@@ -122,7 +124,8 @@ const Cadastro = () => {
             <>
               <p className="auth-login__form-label">FAÇA PARTE DA PLATAFORMA</p>
               <h2 id="auth-register-form-title">Crie sua conta.</h2>
-              <p className="auth-login__form-intro">Preencha seus dados para continuar.</p>
+              <p className="auth-login__form-intro">{selectedMode === "professional" ? "Crie sua conta e escolha seu plano para começar. O cadastro não realiza cobrança." : "Preencha seus dados para continuar."}</p>
+              {selectedMode === "professional" && selectedPlan && <p className="mb-5 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-sm"><strong>Plano {selectedPlan.name.toLowerCase()}</strong> · R$ {selectedPlan.price} {selectedPlan.cadence}. Você pode mudar de plano após o cadastro.</p>}
               {inviteToken !== null && (!invitation || invitation.token !== inviteToken) ? (
                 <div className="space-y-4 border-y border-border py-6" role={inviteError ? "alert" : "status"}>
                   <p className="flex items-start gap-2 text-sm text-muted-foreground">{inviteError ? <AlertCircle size={19} className="shrink-0 text-destructive" /> : <Loader2 size={19} className="shrink-0 animate-spin text-primary" />}{inviteError || "Conferindo seu convite..."}</p>

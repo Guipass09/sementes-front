@@ -3,6 +3,7 @@ import type { AuthUser } from "@/lib/laravel-api";
 import * as api from "@/lib/laravel-api";
 import apiClient from "@/services/api";
 import { registrationWelcomeKey } from "@/features/patient-registration/registration";
+import { professionalOnboardingPath } from "@/features/subscription/plans";
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -420,7 +421,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("user", JSON.stringify(userData));
       setAuthUser(userData as AuthUser);
 
-      window.location.href = "/profissional";
+      window.location.href = userData.professional_subscription_status === "inactive"
+        ? professionalOnboardingPath(window.location.search)
+        : "/profissional";
       return userData as AuthUser;
     },
     [setAuthUser, normalizeRole]

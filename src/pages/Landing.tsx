@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { professionalPlanBenefits, professionalPlans, professionalSignupPath } from "@/features/subscription/plans";
 import { LandingPolicies } from "./LandingPolicies";
 import LandingWheelDemo from "./LandingWheelDemo";
 import LandingSessionDemo from "./LandingSessionDemo";
@@ -79,7 +80,7 @@ const assets = {
 const whatsappHref = "https://wa.me/message/GKL4EEB2NSI4A1";
 const instagramHref = "https://www.instagram.com/sementes_dafalaoficial/";
 const showcaseIntervalMs = 6500;
-const professionalSignup = "/cadastro?perfil=profissional";
+const professionalSignup = professionalSignupPath();
 
 const planBenefits = [
   { icon: Video, title: "Atendimento ao vivo", detail: "Vídeo e materiais no mesmo espaço de atendimento." },
@@ -92,19 +93,8 @@ const planBenefits = [
   { icon: ScanFace, title: "Boca 3D", detail: "Mostre movimentos articulatórios durante o atendimento." },
 ];
 
-const plans = [
-  { number: "01", name: "Mensal", description: "Oferta de boas-vindas", price: "99,90", cadence: "no primeiro mês", charge: "Depois, R$ 169,90/mês.", saving: "Economize R$ 70,00 no primeiro mês.", featured: false, welcome: true },
-  { number: "02", name: "Trimestral", description: "Mais fôlego para a sua prática.", price: "152,90", cadence: "por mês, equivalente", charge: "R$ 458,70 a cada 3 meses", saving: "R$ 51,00 de economia por trimestre", featured: false },
-  { number: "03", name: "Anual", description: "O melhor valor para crescer.", price: "135,90", cadence: "por mês, equivalente", charge: "R$ 1.630,80 por ano", saving: "R$ 408,00 de economia por ano", featured: true },
-];
-
-const planInclusions = [
-  "Sessões ao vivo com interação na tela",
-  "Jogos terapêuticos e atividades personalizadas",
-  "Agenda e perfis de paciente vinculados",
-  "Relatórios, avaliações e evoluções",
-  "Boca 3D durante o atendimento",
-];
+const plans = professionalPlans;
+const planInclusions = professionalPlanBenefits;
 
 const showcase = [
   {
@@ -566,13 +556,13 @@ export default function Landing() {
                     {planInclusions.map((item) => <li key={item}><Check size={15} aria-hidden="true" /> <span>{item}</span></li>)}
                   </ul>
                 </div>
-                <Link className="lp-plan__action" to={professionalSignup}>{plan.welcome ? "Começar por R$ 99,90" : "Criar conta profissional"} <ArrowRight size={17} aria-hidden="true" /></Link>
+                <Link className="lp-plan__action" to={professionalSignupPath(plan.id)}>{plan.welcome ? "Começar por R$ 99,90" : "Criar conta profissional"} <ArrowRight size={17} aria-hidden="true" /></Link>
                 <PlanGuarantee planName={plan.name} />
               </article>
             ))}
           </div>
           <p className="lp-plans__offer-terms">Oferta exclusiva para novos assinantes do plano mensal, válida uma única vez por conta e não cumulativa com outras promoções. Primeiro mês por R$ 99,90; meses seguintes por R$ 169,90. Acesso completo desde o início.</p>
-          <p className="lp-plans__footnote">Valores para profissionais individuais. O cadastro não realiza cobrança. Contratação e ativação com a equipe Sementes da Fala.</p>
+          <p className="lp-plans__footnote">Valores para profissionais individuais. Crie sua conta, escolha seu plano e conclua o pagamento na Kiwify. O cadastro não realiza cobrança.</p>
           </div>
         </div>
       </section>

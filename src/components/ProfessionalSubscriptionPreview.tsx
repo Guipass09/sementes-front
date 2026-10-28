@@ -1,5 +1,5 @@
-import { Activity, ArrowRight, CalendarDays, Check, FileText, Gamepad2, History, MessageCircle, RefreshCw, Users, Video } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { Activity, ArrowRight, CalendarDays, Check, FileText, Gamepad2, History, RefreshCw, Users, Video } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 
 const previews = {
   dashboard: {
@@ -99,12 +99,7 @@ export default function ProfessionalSubscriptionPreview({ expiresOn, onRefresh }
             <h1 className="max-w-xl font-display text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">{preview.title}</h1>
             <p className="mt-5 max-w-lg text-base leading-relaxed text-[#52655a]">{preview.description}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href="https://wa.me/message/GKL4EEB2NSI4A1" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#087a42] px-5 font-semibold text-white transition-colors hover:bg-[#066534]">
-                <MessageCircle size={17} aria-hidden="true" /> Solicitar ativação
-              </a>
-              <a href="/#planos" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[#7fb997] bg-white px-5 font-semibold text-[#075f35] transition-colors hover:bg-[#e9f6ee]">
-                Conhecer os planos <ArrowRight size={17} aria-hidden="true" />
-              </a>
+              <Link to="/profissional/assinatura" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#087a42] px-5 font-semibold text-white transition-colors hover:bg-[#066534]">Escolher meu plano <ArrowRight size={17} aria-hidden="true" /></Link>
             </div>
             <button type="button" onClick={onRefresh} className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-[#35664a] underline-offset-4 hover:underline">
               <RefreshCw size={15} aria-hidden="true" /> Já ativei meu acesso
@@ -151,7 +146,7 @@ export default function ProfessionalSubscriptionPreview({ expiresOn, onRefresh }
         </div>
         <div className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-[#cbded2] pt-6 text-sm text-[#52655a]">
           <p>Uma assinatura libera todas as áreas da plataforma.</p>
-          <a href="/#planos" className="inline-flex items-center gap-2 font-semibold text-[#087a42] hover:underline">Ver mensal, trimestral e anual <ArrowRight size={16} aria-hidden="true" /></a>
+          <Link to="/profissional/assinatura" className="inline-flex items-center gap-2 font-semibold text-[#087a42] hover:underline">Ver mensal, trimestral e anual <ArrowRight size={16} aria-hidden="true" /></Link>
         </div>
       </div>
     </div>

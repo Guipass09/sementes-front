@@ -55,6 +55,7 @@ test("all game routes get music, but libraries and the live call never do", () =
     "acerte-imagem/",
     "sons-imagens/",
     "sequencia-imagens/",
+    "complete-frase/",
   ]) {
     assert.deepEqual(gameAudioRoute(`/jogos/${slug}42`), {
       active: true,

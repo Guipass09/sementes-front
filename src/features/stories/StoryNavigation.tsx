@@ -6,6 +6,7 @@ import "./stories.css";
 
 const gameLabels: Record<StoryGameType, string> = {
   sound_image_game: "Sons e imagens", image_sequence_game: "Sequência",
+  complete_sentence_game: "Complete a frase",
   memory_game: "Memória", memory_game_v2: "Memória 2.0", phoneme_game: "Fonemas",
   auditory_game: "Escuta", hangman_game: "Forca", spin_wheel_game: "Roleta",
   word_search_game: "Caça-palavras", card_game: "Cartas", guess_image_game: "Acerte a imagem",

@@ -3,13 +3,27 @@ import type { GameRound, RoundGameKind } from "../../lib/laravel-api.ts";
 export const roundGameInfo = {
   sound: { title: "Sons e imagens", slug: "sons-imagens", type: "sound_image_game", description: "Encontre as figuras que combinam com o som de cada rodada." },
   sequence: { title: "Sequência de imagens", slug: "sequencia-imagens", type: "image_sequence_game", description: "Organize as figuras para construir uma história, passo a passo." },
+  sentence: { title: "Complete a frase", slug: "complete-frase", type: "complete_sentence_game", description: "Complete cada lacuna da frase escolhendo a figura certa, uma palavra por vez." },
 } as const;
 
 export type RoundState = { round: number; selected: string[]; mistake: string | null; completed: boolean; celebration: boolean; attempt: number };
-export type RoundAction = { kind: "choose"; round: number; choice: string } | { kind: "next"; round: number } | { kind: "retry"; round: number } | { kind: "restart" } | { kind: "congrats_close" };
+export type RoundAction = { kind: "choose"; round: number; choice: string; slot?: number } | { kind: "next"; round: number } | { kind: "retry"; round: number } | { kind: "restart" } | { kind: "congrats_close" };
 export const initialRoundState = (): RoundState => ({ round: 0, selected: [], mistake: null, completed: false, celebration: false, attempt: 0 });
 
+// Every uninterrupted run of underscores represents exactly one blank.
+export function sentenceParts(prompt: string): string[] { return prompt.split(/_+/u); }
+export function sentenceBlankCount(prompt: string): number { return sentenceParts(prompt).length - 1; }
+
+export function sentenceAnswers(round: GameRound): string[] {
+  const answers = round.blank_answers || [];
+  return answers.length === sentenceBlankCount(round.prompt) && answers.every(id => round.choices.some(c => c.id === id && c.label.trim())) ? answers : [];
+}
+
 export function roundSolved(round: GameRound, kind: RoundGameKind, selected: string[]): boolean {
+  if (kind === "sentence") {
+    const answers = sentenceAnswers(round);
+    return answers.length > 0 && answers.length === selected.length && answers.every((id, i) => selected[i] === id);
+  }
   const expected = round.choices.filter(c => kind === "sequence" || c.correct).map(c => c.id);
   return expected.length > 0 && expected.length === selected.length && (kind === "sequence"
     ? expected.every((id, i) => selected[i] === id) : expected.every(id => selected.includes(id)));
@@ -22,15 +36,18 @@ export function reduceRoundGame(state: RoundState, action: RoundAction, rounds: 
   if (state.completed || action.round !== state.round) return state;
   const round = rounds[state.round];
   if (!round) return state;
-  if (action.kind === "retry") return { ...state, selected: [], mistake: null };
+  if (action.kind === "retry") return { ...state, selected: [], mistake: null, attempt: state.attempt + (kind === "sentence" ? 1 : 0) };
   if (action.kind === "next") {
     if (!roundSolved(round, kind, state.selected)) return state;
     return { ...state, round: Math.min(state.round + 1, rounds.length - 1), selected: [], mistake: null,
       completed: state.round === rounds.length - 1, celebration: state.round === rounds.length - 1 };
   }
   const choice = round.choices.find(c => c.id === action.choice);
-  if (!choice || state.selected.includes(choice.id) || roundSolved(round, kind, state.selected)) return state;
-  const correct = kind === "sound" ? choice.correct : round.choices[state.selected.length]?.id === choice.id;
+  if (!choice || (kind !== "sentence" && state.selected.includes(choice.id)) || roundSolved(round, kind, state.selected)) return state;
+  // A repeated delivery cannot fill the next blank, even when both answers use the same picture.
+  if (kind === "sentence" && action.slot !== state.selected.length) return state;
+  const correct = kind === "sentence" ? sentenceAnswers(round)[state.selected.length] === choice.id
+    : kind === "sound" ? choice.correct : round.choices[state.selected.length]?.id === choice.id;
   return correct ? { ...state, selected: [...state.selected, choice.id], mistake: null } : { ...state, mistake: choice.id };
 }
 
@@ -54,6 +71,13 @@ export function validateRounds(rounds: GameRound[], kind: RoundGameKind): string
     if (round.choices.length < 2) return prefix + "adicione pelo menos duas figuras.";
     if (round.choices.some(c => !c.path)) return prefix + "aguarde o envio das imagens.";
     if (kind === "sound" && !round.choices.some(c => c.correct)) return prefix + "marque pelo menos uma figura correta.";
+    if (kind === "sentence") {
+      const count = sentenceBlankCount(round.prompt);
+      if (!count) return prefix + "adicione uma lacuna com o botão Inserir lacuna ou escreva ___.";
+      if (count > 30) return prefix + "use até 30 lacunas por frase.";
+      if (round.choices.some(c => !c.label.trim())) return prefix + "escreva a palavra de cada figura.";
+      if (sentenceAnswers(round).length !== count) return prefix + "escolha a figura correta para cada lacuna.";
+    }
   }
   return null;
 }

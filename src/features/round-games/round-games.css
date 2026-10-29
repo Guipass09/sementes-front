@@ -35,6 +35,7 @@
 .round-game-page--live .round-game-main { max-width: none; padding: 0; }
 .round-board--live { min-height: 100svh; border-radius: 0; border: 0; }
 .round-board.is-pseudo-fullscreen, .round-board:fullscreen { background-color: #fff; overflow-y: auto !important; }
+.round-board.is-pseudo-fullscreen { position: fixed; inset: 0; z-index: 9999; width: 100%; height: 100svh; min-height: 0; margin: 0; border: 0; border-radius: 0; }
 .round-editor { max-width: 1200px; margin: auto; padding: 24px 16px 64px; }
 .round-editor__heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
 .round-editor__heading h1 { font-size: 26px; font-weight: 600; overflow-wrap: anywhere; }
@@ -51,6 +52,32 @@
 .round-editor__figure-fields { display: flex; flex-direction: column; gap: 12px; padding: 14px; }
 .round-editor__figure-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .round-editor__empty { padding: 48px 20px; border: 1px dashed #aecabf; text-align: center; border-radius: 8px; color: #547367; }
+.round-editor--sentence { max-width: 1200px; }
+.round-editor--sentence > section { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 20px; padding: 24px; }
+.round-editor--sentence .round-editor__details { grid-template-columns: 1fr; }
+.sentence-editor__prompt { display: flex; flex-direction: column; gap: 12px; }
+.sentence-editor__prompt textarea { min-height: 100px; font-size: 17px; }
+.sentence-editor__answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; padding: 16px; border: 1px solid #d2e3dc; border-radius: 10px; background: #f6faf8; }
+.sentence-stage { display: flex; flex-direction: column; justify-content: center; gap: 12px; margin-bottom: 24px; padding: clamp(20px, 4vw, 48px) 16px; background: #fffffff5; border: 1px solid #d2e3dc; border-radius: 12px; }
+.sentence-stage__instruction { color: #506d62; font-size: 14px; text-align: center; }
+.sentence-prompt { color: #173f32; font-size: clamp(24px, 3.2vw, 42px); font-weight: 600; line-height: 1.9; text-align: center; overflow-wrap: anywhere; white-space: pre-wrap; }
+.sentence-prompt--preview { padding: 18px; border: 1px dashed #b7d6c9; border-radius: 10px; background: #f6faf8; font-size: clamp(20px, 2.2vw, 28px); }
+.sentence-blank { position: relative; display: inline-block; min-width: 3.2ch; max-width: 100%; margin: 0 0.15em; padding: 0 .3em; border-bottom: 3px solid #b8d3c7; border-radius: 8px 8px 0 0; color: #769689; line-height: 1.5; vertical-align: baseline; }
+.sentence-blank small { position: absolute; top: -0.4em; right: -.2em; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 3px; background: #edf5f1; border: 1px solid #c9ddd3; border-radius: 50%; font: 600 10px/1 sans-serif; color: #506d62; }
+.sentence-blank--active { color: #0b8b61; background: #e9f8ed; border-color: #0b8b61; }
+.sentence-blank--filled { color: #07845b; background: #e9f8ed; border-color: #07845b; animation: round-enter .2s ease-out; }
+.round-board--sentence .round-board__grid { grid-template-columns: repeat(var(--sentence-columns, 6), minmax(0, 1fr)); gap: clamp(10px, 1.3vw, 16px); }
+.round-board--sentence .round-choice__image { aspect-ratio: 4 / 3; max-height: 310px; }
+.round-board--sentence .round-choice__label { min-height: 48px; display: flex; align-items: center; justify-content: center; }
+.round-board--sentence .round-choice:disabled { cursor: default; }
+@media (max-width: 1023px) { .round-board--sentence .round-board__grid { grid-template-columns: repeat(min(var(--sentence-columns, 6), 4), minmax(0, 1fr)); } }
+@media (max-width: 767px) { .round-board--sentence .round-board__grid { grid-template-columns: repeat(min(var(--sentence-columns, 6), 3), minmax(0, 1fr)); } }
+@media (max-width: 479px) {
+  .round-board--sentence .round-board__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .round-editor--sentence > section { padding: 16px 12px; border-radius: 14px; }
+  .sentence-stage { padding: 20px 10px; margin-bottom: 16px; }
+  .sentence-stage__instruction { font-size: 12px; }
+}
 @keyframes round-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes round-shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 @media (max-width: 640px) {

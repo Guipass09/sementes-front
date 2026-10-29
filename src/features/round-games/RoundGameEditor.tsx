@@ -14,7 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
 import { RoundGameBoard } from "./RoundGameView";
-import { roundGameInfo, validateRounds } from "./round-game";
+import { roundGameInfo, sentenceBlankCount, validateRounds } from "./round-game";
+import { SentencePrompt } from "./SentencePrompt";
 import "./round-games.css";
 
 const newRound = (): GameRound => ({ id: crypto.randomUUID(), prompt: "", choices: [] });
@@ -47,7 +48,29 @@ function RoundGameEditorForm({ kind }: { kind: RoundGameKind }) {
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const backgroundInput = useRef<HTMLInputElement>(null);
+  const promptInput = useRef<HTMLTextAreaElement>(null);
   const round = form.rounds[active];
+  const sentence = kind === "sentence";
+
+  function changePrompt(prompt: string) {
+    updateRound(r => ({ ...r, prompt, ...(sentence ? { blank_answers: Array.from({ length: sentenceBlankCount(prompt) }, (_, i) => r.blank_answers?.[i] || "") } : {}) }));
+  }
+  function insertBlank() {
+    const field = promptInput.current;
+    const start = field?.selectionStart ?? round.prompt.length;
+    const end = field?.selectionEnd ?? start;
+    const before = round.prompt.slice(0, start);
+    const after = round.prompt.slice(end);
+    const insertion = `${before && !/\s$/u.test(before) ? " " : ""}___${after && !/^\s/u.test(after) ? " " : ""}`;
+    const prompt = before + insertion + after;
+    if (prompt.length > 1000 || sentenceBlankCount(prompt) > 30) { setError("Use até 1.000 caracteres e 30 lacunas por frase."); return; }
+    updateRound(r => {
+      const answers = [...(r.blank_answers || [])];
+      answers.splice(sentenceBlankCount(before), sentenceBlankCount(r.prompt.slice(start, end)), "");
+      return { ...r, prompt, blank_answers: Array.from({ length: sentenceBlankCount(prompt) }, (_, i) => answers[i] || "") };
+    });
+    requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(start + insertion.length, start + insertion.length); });
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -105,7 +128,7 @@ function RoundGameEditorForm({ kind }: { kind: RoundGameKind }) {
   if (loading) return <div role="status" className="p-8">Carregando jogo...</div>;
   if (loadError) return <div role="alert" className="p-8"><p>{loadError}</p><Button onClick={() => navigate(`${base}/jogos/${info.slug}`)}>Voltar à biblioteca</Button></div>;
 
-  return <div className="round-editor">
+  return <div className={`round-editor ${sentence ? "round-editor--sentence" : ""}`}>
     <header className="round-editor__heading"><div className="flex items-center gap-3 min-w-0"><Button size="icon" variant="ghost" aria-label="Voltar" title="Voltar" onClick={() => navigate(`${base}/jogos/${info.slug}`)}><ArrowLeft size={20} /></Button><div><p className="text-sm text-muted-foreground">{info.title}</p><h1>{id ? "Editar jogo" : "Criar jogo"}</h1></div></div><div className="flex gap-2"><Button variant="outline" disabled={uploading || saving} onClick={() => invalid ? setError(invalid) : setPreview(true)}><Eye size={18} className="mr-2" />Prévia</Button><Button onClick={save} disabled={saving || uploading}>{saving ? <Loader2 className="mr-2 animate-spin" size={18} /> : <Save size={18} className="mr-2" />}Salvar</Button></div></header>
     {error && <p role="alert" className="mb-5 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">{error}</p>}
     <section className="round-editor__details" aria-label="Dados do jogo">
@@ -115,12 +138,18 @@ function RoundGameEditorForm({ kind }: { kind: RoundGameKind }) {
     </section>
     <div className="round-editor__tabs" role="tablist" aria-label="Rodadas">{form.rounds.map((r, i) => <Button role="tab" aria-selected={active === i} key={r.id} variant={active === i ? "default" : "outline"} disabled={uploading || saving} onClick={() => setActive(i)}>Rodada {i + 1}</Button>)}<Button variant="outline" disabled={uploading || saving || form.rounds.length >= 100} onClick={() => { setForm(f => ({ ...f, rounds: [...f.rounds, newRound()] })); setActive(form.rounds.length); }}><Plus size={18} className="mr-2" />Rodada</Button></div>
     <section aria-label={`Editar rodada ${active + 1}`}>
-      <div className="round-editor__field"><Label htmlFor="round-prompt">Pergunta da rodada</Label><Input id="round-prompt" value={round.prompt} maxLength={1000} placeholder={kind === "sound" ? "Quais palavras começam com o som /s/?" : "O que aconteceu primeiro?"} onChange={e => updateRound(r => ({ ...r, prompt: e.target.value }))} /></div>
+      {sentence ? <div className="sentence-editor__prompt">
+        <div className="flex flex-wrap items-center justify-between gap-3"><Label htmlFor="round-prompt">Frase da rodada</Label><Button type="button" size="sm" variant="outline" disabled={sentenceBlankCount(round.prompt) >= 30} onClick={insertBlank}><Plus size={16} className="mr-2" />Inserir lacuna</Button></div>
+        <Textarea ref={promptInput} id="round-prompt" value={round.prompt} maxLength={1000} placeholder="Ex.: O ___ comeu a ___." aria-describedby="sentence-instructions" onChange={e => changePrompt(e.target.value)} />
+        <p id="sentence-instructions" className="text-sm text-muted-foreground">Posicione o cursor e clique em Inserir lacuna ou escreva ___. Adicione as figuras e escolha a resposta de cada espaço, na ordem da frase.</p>
+        {round.prompt.trim() && <SentencePrompt round={round} selected={round.blank_answers} preview />}
+        {sentenceBlankCount(round.prompt) > 0 && <div className="sentence-editor__answers">{Array.from({ length: sentenceBlankCount(round.prompt) }, (_, i) => <div key={i} className="round-editor__field"><Label htmlFor={`blank-${round.id}-${i}`}>Resposta da lacuna {i + 1}</Label><select id={`blank-${round.id}-${i}`} className="h-11 min-w-0 w-full rounded-md border border-input bg-background px-3 text-sm" value={round.blank_answers?.[i] || ""} onChange={e => updateRound(r => ({ ...r, blank_answers: Array.from({ length: sentenceBlankCount(r.prompt) }, (_, n) => n === i ? e.target.value : r.blank_answers?.[n] || "") }))}><option value="">Escolha uma figura</option>{round.choices.map((c, n) => <option value={c.id} key={c.id}>{c.label.trim() || `Figura ${n + 1} (escreva a palavra)`}</option>)}</select></div>)}</div>}
+      </div> : <div className="round-editor__field"><Label htmlFor="round-prompt">Pergunta da rodada</Label><Input id="round-prompt" value={round.prompt} maxLength={1000} placeholder={kind === "sound" ? "Quais palavras começam com o som /s/?" : "O que aconteceu primeiro?"} onChange={e => changePrompt(e.target.value)} /></div>}
       <div className="round-editor__tools"><h2 className="font-semibold">{kind === "sequence" ? "Sequência correta" : "Figuras e respostas"} <span className="text-muted-foreground font-normal">({round.choices.length})</span></h2><div className="flex gap-2"><Button size="icon" variant="outline" aria-label="Mover rodada para trás" title="Mover rodada para trás" disabled={active === 0 || uploading} onClick={() => moveRound(-1)}><ArrowUp size={16} /></Button><Button size="icon" variant="outline" aria-label="Mover rodada para frente" title="Mover rodada para frente" disabled={active === form.rounds.length - 1 || uploading} onClick={() => moveRound(1)}><ArrowDown size={16} /></Button><Button size="icon" variant="outline" aria-label="Excluir rodada" title="Excluir rodada" disabled={form.rounds.length === 1 || uploading} onClick={() => { if (window.confirm("Excluir esta rodada e suas figuras do jogo?")) { setForm(f => ({ ...f, rounds: f.rounds.filter((_, i) => i !== active) })); setActive(Math.max(0, active - 1)); } }}><Trash2 size={16} /></Button></div></div>
       <div className="round-editor__figures">{round.choices.map((choice, index) => <article className="round-editor__figure" key={choice.id}>
         <img src={normalizeMediaUrl(choice.url || "")} alt={choice.label || `Figura ${index + 1}`} />
-        <div className="round-editor__figure-fields"><Label htmlFor={`label-${choice.id}`}>Legenda (opcional)</Label><Input id={`label-${choice.id}`} value={choice.label} maxLength={255} onChange={e => updateRound(r => ({ ...r, choices: r.choices.map(c => c.id === choice.id ? { ...c, label: e.target.value } : c) }))} />
-          {kind === "sound" ? <label className="flex items-center gap-2 text-sm cursor-pointer"><Checkbox checked={choice.correct} onCheckedChange={value => updateRound(r => ({ ...r, choices: r.choices.map(c => c.id === choice.id ? { ...c, correct: value === true } : c) }))} />Resposta correta</label> : <span className="text-sm font-semibold text-brand-green">Posição {index + 1}</span>}
+        <div className="round-editor__figure-fields"><Label htmlFor={`label-${choice.id}`}>{sentence ? "Palavra da figura" : "Legenda (opcional)"}</Label><Input id={`label-${choice.id}`} value={choice.label} maxLength={255} placeholder={sentence ? "Ex.: gato" : undefined} onChange={e => updateRound(r => ({ ...r, choices: r.choices.map(c => c.id === choice.id ? { ...c, label: e.target.value } : c) }))} />
+          {kind === "sound" ? <label className="flex items-center gap-2 text-sm cursor-pointer"><Checkbox checked={choice.correct} onCheckedChange={value => updateRound(r => ({ ...r, choices: r.choices.map(c => c.id === choice.id ? { ...c, correct: value === true } : c) }))} />Resposta correta</label> : sentence ? <span className="text-xs text-muted-foreground">Esta palavra aparece na frase ao acertar.</span> : <span className="text-sm font-semibold text-brand-green">Posição {index + 1}</span>}
           <div className="round-editor__figure-controls"><div className="flex gap-1"><Button size="icon" variant="ghost" title="Mover figura para trás" aria-label={`Mover figura ${index + 1} para trás`} disabled={index === 0} onClick={() => moveChoice(index, -1)}><ArrowUp size={17} /></Button><Button size="icon" variant="ghost" title="Mover figura para frente" aria-label={`Mover figura ${index + 1} para frente`} disabled={index === round.choices.length - 1} onClick={() => moveChoice(index, 1)}><ArrowDown size={17} /></Button></div><Button size="icon" variant="ghost" className="text-destructive" title="Excluir figura" aria-label={`Excluir figura ${index + 1}`} onClick={() => updateRound(r => ({ ...r, choices: r.choices.filter(c => c.id !== choice.id) }))}><Trash2 size={17} /></Button></div>
         </div>
       </article>)}</div>

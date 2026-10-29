@@ -13,6 +13,7 @@ export function storyGamePath(type: StoryGameType, id: number): string {
     guess_image_game: "/jogos/acerte-imagem/",
     sound_image_game: "/jogos/sons-imagens/",
     image_sequence_game: "/jogos/sequencia-imagens/",
+    complete_sentence_game: "/jogos/complete-frase/",
   };
   return `${prefix[type]}${id}`;
 }

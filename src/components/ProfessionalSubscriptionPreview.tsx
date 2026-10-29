@@ -78,6 +78,7 @@ const previews = {
 } as const;
 
 const gamePreviews: Record<string, { label: string; title: string; description: string }> = {
+  "complete-frase": { label: "Complete a frase", title: "Uma figura, uma palavra, novas frases.", description: "Escreva frases com lacunas, escolha as figuras e trabalhe a construção de frases com o paciente, uma palavra por vez." },
   historias: { label: "Histórias completas", title: "Construa um percurso completo para cada sessão.", description: "Reúna slides, vídeos e jogos em uma sequência e conduza o atendimento no ritmo de cada paciente." },
   "sons-imagens": { label: "Sons e imagens", title: "Conecte o que se vê ao que se escuta.", description: "Crie propostas com sons e figuras e adapte as associações aos objetivos do seu atendimento." },
   "sequencia-imagens": { label: "Sequência de imagens", title: "Cada imagem ajuda a construir uma história.", description: "Organize cenas em sequência e trabalhe a compreensão, a narrativa e a organização temporal com o paciente." },

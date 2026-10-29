@@ -11,6 +11,7 @@ import { playCorrect, playWrong, unlockSfx } from "@/lib/sfx";
 import { completeRoundGame, getRoundGame, type RoundGameKind, type RoundGameRow } from "@/lib/laravel-api";
 import { initialRoundState, reduceRoundGame, roundGameInfo, roundSolved, shuffledChoices, type RoundAction } from "./round-game";
 import logo from "@/assets/logo-sementes-da-fala.jpg";
+import { SentencePrompt } from "./SentencePrompt";
 import "./round-games.css";
 
 export function RoundGameBoard({ game, session = false, sessionRole = "", storyPreview = false, seed = 1, onComplete }: {
@@ -22,6 +23,7 @@ export function RoundGameBoard({ game, session = false, sessionRole = "", storyP
   const fullscreen = useRef<HTMLDivElement>(null);
   const current = game.rounds[state.round];
   const solved = current && roundSolved(current, game.kind, state.selected);
+  const sentence = game.kind === "sentence";
   const choices = useMemo(() => current ? shuffledChoices(current, seed + state.round * 137 + state.attempt * 997) : [], [current, seed, state.round, state.attempt]);
 
   const dispatch = useCallback((action: RoundAction, remote = false) => {
@@ -36,6 +38,13 @@ export function RoundGameBoard({ game, session = false, sessionRole = "", storyP
     setState(next);
     if (!remote && session && window.parent !== window) window.parent.postMessage({ type: "SESSION_GAME_EVENT", event: action }, window.location.origin);
   }, [allowed, game.rounds, game.kind, session]);
+
+  // Only the professional advances the shared game; both clients replay that same event.
+  useEffect(() => {
+    if (!sentence || !solved || state.completed || (session && sessionRole !== "admin" && !storyPreview)) return;
+    const timer = window.setTimeout(() => dispatch({ kind: "next", round: state.round }), 1600);
+    return () => window.clearTimeout(timer);
+  }, [sentence, solved, state.completed, state.round, state.attempt, session, sessionRole, storyPreview, dispatch]);
 
   useEffect(() => {
     if (!session) return;
@@ -63,7 +72,7 @@ export function RoundGameBoard({ game, session = false, sessionRole = "", storyP
     return () => { el?.classList.remove("is-pseudo-fullscreen"); document.documentElement.classList.remove("fs-lock", "fs-mode"); };
   }, [session, sessionRole]);
 
-  return <div ref={fullscreen} className={`round-board ${session ? "round-board--live" : ""}`} style={{ backgroundColor: game.background_color, backgroundImage: game.background_url ? `url("${normalizeMediaUrl(game.background_url)}")` : undefined }}>
+  return <div ref={fullscreen} className={`round-board ${session ? "round-board--live" : ""} ${sentence ? "round-board--sentence" : ""}`} style={{ backgroundColor: game.background_color, backgroundImage: game.background_url ? `url("${normalizeMediaUrl(game.background_url)}")` : undefined }}>
     <div className="round-board__top">
       <span className="round-board__counter">Rodada {state.round + 1} de {game.rounds.length}</span>
       <div className="flex gap-2 items-center">
@@ -73,18 +82,18 @@ export function RoundGameBoard({ game, session = false, sessionRole = "", storyP
       </div>
     </div>
     {state.completed ? <div className="round-board__finished"><Trophy size={48} className="text-amber-500" /><h2>Jogo concluído!</h2><Button disabled={!allowed} onClick={() => dispatch({ kind: "restart" })}><RotateCcw size={18} className="mr-2" />Jogar novamente</Button></div> : current && <section key={`${current.id}-${state.attempt}`} className="round-board__round">
-      <h2>{current.prompt}</h2>
-      <div className="round-board__grid">
+      {sentence ? <div className="sentence-stage" aria-live="polite" aria-atomic="true"><p className="sentence-stage__instruction">{solved ? "Frase completa. Muito bem!" : "Escolha a figura que completa o espaço destacado"}</p><SentencePrompt round={current} selected={state.selected} /></div> : <h2>{current.prompt}</h2>}
+      <div className="round-board__grid" style={sentence ? { "--sentence-columns": Math.min(6, choices.length) } as React.CSSProperties : undefined}>
         {choices.map((choice) => {
-          const selected = state.selected.includes(choice.id);
+          const selected = sentence ? false : state.selected.includes(choice.id);
           const wrong = state.mistake === choice.id;
-          return <button key={choice.id} type="button" className={`round-choice ${selected ? "round-choice--correct" : ""} ${wrong ? "round-choice--wrong" : ""}`} aria-label={choice.label || `Figura ${current.choices.indexOf(choice) + 1}`} aria-pressed={selected} disabled={!allowed || selected || solved} onClick={() => { void unlockSfx(); dispatch({ kind: "choose", round: state.round, choice: choice.id }); }}>
+          return <button key={choice.id} type="button" className={`round-choice ${selected ? "round-choice--correct" : ""} ${wrong ? "round-choice--wrong" : ""}`} aria-label={choice.label || `Figura ${current.choices.indexOf(choice) + 1}`} aria-pressed={sentence ? undefined : selected} disabled={!allowed || selected || solved} onClick={() => { void unlockSfx(); dispatch({ kind: "choose", round: state.round, choice: choice.id, ...(sentence ? { slot: state.selected.length } : {}) }); }}>
             <span className="round-choice__image"><img src={normalizeMediaUrl(choice.url || "")} alt={choice.label} draggable={false} /></span>
             <span className="round-choice__label">{game.kind === "sequence" && <b>{selected ? state.selected.indexOf(choice.id) + 1 : "?"}</b>}{choice.label}{selected && <Check size={20} aria-hidden="true" />}</span>
           </button>;
         })}
       </div>
-      <div className="round-board__feedback" role="status" aria-live="polite">{solved ? "Muito bem! Você completou esta rodada." : state.mistake ? "Vamos tentar outra figura?" : game.kind === "sequence" ? "Primeiro... depois... e no final?" : ""}</div>
+      <div className="round-board__feedback" role="status" aria-live="polite">{solved ? sentence ? "Muito bem! Vamos continuar..." : "Muito bem! Você completou esta rodada." : state.mistake ? "Vamos tentar outra figura?" : sentence ? `Palavra ${state.selected.length + 1} de ${current.blank_answers?.length || 0}` : game.kind === "sequence" ? "Primeiro... depois... e no final?" : ""}</div>
       <div className="round-board__controls">
         <Button variant="outline" size="icon" title="Refazer rodada" aria-label="Refazer rodada" disabled={!allowed} onClick={() => dispatch({ kind: "retry", round: state.round })}><RotateCcw size={18} /></Button>
         <Button disabled={!allowed || !solved} onClick={() => dispatch({ kind: "next", round: state.round })}>{state.round === game.rounds.length - 1 ? "Concluir jogo" : "Próxima rodada"}<ArrowRight size={18} className="ml-2" /></Button>

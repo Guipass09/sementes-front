@@ -57,6 +57,10 @@ async function loadPatientLibrary() {
   });
   const categories: PatientGameCategory[] = [
     {
+      id: "complete-frase", title: "Complete a frase", icon: Type, iconClassName: "text-violet-700", iconBackgroundClassName: "bg-violet-50",
+      items: rounds.filter(g => g.kind === "sentence").map(g => item(g, `/jogos/complete-frase/${g.id}`, `${g.rounds.length} rodada(s)`, g.thumbnail?.url)),
+    },
+    {
       id: "sons-imagens", title: "Sons e imagens", icon: Ear, iconClassName: "text-emerald-600", iconBackgroundClassName: "bg-emerald-50",
       items: rounds.filter(g => g.kind === "sound").map(g => item(g, `/jogos/sons-imagens/${g.id}`, `${g.rounds.length} rodada(s)`, g.thumbnail?.url)),
     },

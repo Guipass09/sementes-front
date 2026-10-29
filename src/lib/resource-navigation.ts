@@ -4,6 +4,7 @@ export const GAME_DESTINATIONS = [
   { slug: "historias", label: "Histórias completas", clinicKey: "stories" },
   { slug: "sons-imagens", label: "Sons e imagens", clinicKey: "sound" },
   { slug: "sequencia-imagens", label: "Sequência de imagens", clinicKey: "sequence" },
+  { slug: "complete-frase", label: "Complete a frase", clinicKey: "sentence" },
   { slug: "memoria", label: "Memória", clinicKey: "memory-classic" },
   { slug: "memoria2", label: "Memória 2.0", clinicKey: "memory-v2" },
   { slug: "fonema", label: "Discriminação de fonemas", clinicKey: "phoneme" },

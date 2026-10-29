@@ -99,6 +99,7 @@ export default function ClinicProfessionalGamesView(): JSX.Element {
       .then(([memoryClassic, memoryV2, phonemeGames, auditoryGames, hangmanGames, spinWheelGames, wordSearchGames, cardGames, guessImageGames, activities, roundGames]) => {
         if (cancelled) return;
         setSections([
+          { key: "sentence", title: "Complete a frase", description: "Frases com lacunas e respostas em figuras.", icon: Type, iconClassName: "text-violet-700 bg-violet-50", items: roundGames.filter(g => g.kind === "sentence") },
           { key: "sound", title: "Sons e imagens", description: "Rodadas de identificação de sons.", icon: Ear, iconClassName: "text-emerald-700 bg-emerald-50", items: roundGames.filter(g => g.kind === "sound") },
           { key: "sequence", title: "Sequência de imagens", description: "Rodadas de ordenação de figuras.", icon: ImageIcon, iconClassName: "text-sky-700 bg-sky-50", items: roundGames.filter(g => g.kind === "sequence") },
           {
@@ -387,6 +388,7 @@ function GameCard(props: {
 
 function getMetricLabel(sectionKey: string, item: Record<string, any>): string {
   switch (sectionKey) {
+    case "sentence":
     case "sound":
     case "sequence":
       return `${item.rounds?.length ?? 0} rodadas`;
@@ -414,6 +416,7 @@ function getMetricLabel(sectionKey: string, item: Record<string, any>): string {
 
 function getThumbnailUrl(sectionKey: string, item: Record<string, any>): string | null {
   switch (sectionKey) {
+    case "sentence":
     case "sound":
     case "sequence":
       return item.thumbnail?.url ?? null;

@@ -623,11 +623,11 @@ export type StoryStep =
 export type StoryGameType =
   | "memory_game" | "memory_game_v2" | "phoneme_game" | "auditory_game"
   | "hangman_game" | "spin_wheel_game" | "word_search_game"
-  | "card_game" | "guess_image_game" | "sound_image_game" | "image_sequence_game";
+  | "card_game" | "guess_image_game" | "sound_image_game" | "image_sequence_game" | "complete_sentence_game";
 
-export type RoundGameKind = "sound" | "sequence";
+export type RoundGameKind = "sound" | "sequence" | "sentence";
 export type RoundChoice = { id: string; path: string; url?: string; label: string; correct: boolean };
-export type GameRound = { id: string; prompt: string; choices: RoundChoice[] };
+export type GameRound = { id: string; prompt: string; choices: RoundChoice[]; blank_answers?: string[] };
 export type RoundGameInput = { kind: RoundGameKind; title: string; description: string; background_color: string; background_path: string | null; rounds: GameRound[] };
 export type RoundGameRow = RoundGameInput & {
   id: number; background_url: string | null; thumbnail: { url: string | null };

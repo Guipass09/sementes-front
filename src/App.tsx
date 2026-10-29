@@ -205,6 +205,9 @@ const App = () => {
                 <Route path="jogos/sequencia-imagens" element={<RoundGameLibrary kind="sequence" />} />
                 <Route path="jogos/sequencia-imagens/novo" element={<RoundGameEditor kind="sequence" />} />
                 <Route path="jogos/sequencia-imagens/:id/editar" element={<RoundGameEditor kind="sequence" />} />
+                <Route path="jogos/complete-frase" element={<RoundGameLibrary kind="sentence" />} />
+                <Route path="jogos/complete-frase/novo" element={<RoundGameEditor kind="sentence" />} />
+                <Route path="jogos/complete-frase/:id/editar" element={<RoundGameEditor kind="sentence" />} />
                 <Route path="historico" element={<ProfessionalHistory />} />
                 <Route path="financeiro" element={<Suspense fallback={<FullScreenLogoLoader label="Carregando financeiro..." />}><ProfessionalFinance /></Suspense>} />
                 <Route path="assinatura" element={<Suspense fallback={<FullScreenLogoLoader label="Carregando assinatura..." />}><ProfessionalSubscription /></Suspense>} />
@@ -263,6 +266,9 @@ const App = () => {
                 <Route path="jogos/sequencia-imagens" element={<RoundGameLibrary kind="sequence" />} />
                 <Route path="jogos/sequencia-imagens/novo" element={<RoundGameEditor kind="sequence" />} />
                 <Route path="jogos/sequencia-imagens/:id/editar" element={<RoundGameEditor kind="sequence" />} />
+                <Route path="jogos/complete-frase" element={<RoundGameLibrary kind="sentence" />} />
+                <Route path="jogos/complete-frase/novo" element={<RoundGameEditor kind="sentence" />} />
+                <Route path="jogos/complete-frase/:id/editar" element={<RoundGameEditor kind="sentence" />} />
                 <Route path="relatorios" element={<AdminReports />} />
               </Route>
               
@@ -328,6 +334,7 @@ const App = () => {
               <Route path="/jogos/acerte-imagem/:id" element={<GuessImageGameView />} />
               <Route path="/jogos/sons-imagens/:id" element={<RoundGameView kind="sound" />} />
               <Route path="/jogos/sequencia-imagens/:id" element={<RoundGameView kind="sequence" />} />
+              <Route path="/jogos/complete-frase/:id" element={<RoundGameView kind="sentence" />} />
               <Route path="*" element={<NotFound />} />
               </Routes>
               </div>

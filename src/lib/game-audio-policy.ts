@@ -38,7 +38,7 @@ export function parseGameAudioSettings(
 
 export function gameAudioRoute(path: string) {
   const game =
-    /^\/jogos\/(?:\d+|(?:memoria|memoria2|fonema|auditivo|forca|roleta|caca-palavras|cartas|acerte-imagem|sons-imagens|sequencia-imagens)\/\d+)\/?$/.test(
+    /^\/jogos\/(?:\d+|(?:memoria|memoria2|fonema|auditivo|forca|roleta|caca-palavras|cartas|acerte-imagem|sons-imagens|sequencia-imagens|complete-frase)\/\d+)\/?$/.test(
       path,
     );
   return { active: game || /^\/atividades\/\d+\/?$/.test(path), music: game };

@@ -27,6 +27,7 @@ export function gameCatalogImage(game: GameCover): string | null {
 const styles = {
   sound_image_game: { icon: Ear, color: "text-emerald-700", background: "bg-emerald-50" },
   image_sequence_game: { icon: Images, color: "text-sky-700", background: "bg-sky-50" },
+  complete_sentence_game: { icon: WholeWord, color: "text-violet-700", background: "bg-violet-50" },
   activity: { icon: Images, color: "text-emerald-700", background: "bg-emerald-50" },
   memory_game: { icon: Grid2X2, color: "text-emerald-700", background: "bg-emerald-50" },
   memory_game_v2: { icon: Grid3X3, color: "text-sky-700", background: "bg-sky-50" },

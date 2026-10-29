@@ -22,6 +22,7 @@ export const storyGameLabels: Record<StoryGameType, string> = {
   guess_image_game: "Acerte a imagem",
   sound_image_game: "Sons e imagens",
   image_sequence_game: "Sequência de imagens",
+  complete_sentence_game: "Complete a frase",
 };
 
 export function storyStepLabel(step: StoryStep, story: ActivityRow, games: StoryGameChoice[]): string {
@@ -38,6 +39,7 @@ export async function loadStoryGames(role: "admin" | "professional"): Promise<St
   const loaders: Array<[StoryGameType, () => Promise<any[]>]> = [
     ["sound_image_game", () => api.listRoundGames("sound")],
     ["image_sequence_game", () => api.listRoundGames("sequence")],
+    ["complete_sentence_game", () => api.listRoundGames("sentence")],
     ["memory_game", () => isAdmin ? api.adminListMemoryGames({ variant: "classic" }) : api.professionalListMemoryGames({ variant: "classic" })],
     ["memory_game_v2", () => isAdmin ? api.adminListMemoryGames({ variant: "v2" }) : api.professionalListMemoryGames({ variant: "v2" })],
     ["phoneme_game", () => isAdmin ? api.adminListPhonemeGames() : api.professionalListPhonemeGames()],

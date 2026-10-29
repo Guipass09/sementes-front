@@ -3825,7 +3825,7 @@ export default function SessionCall() {
                   )}
 
                   {/* Mensagem se não houver jogos */}
-                  {(["sound", "sequence"] as const).map((kind) => {
+                  {(["sound", "sequence", "sentence"] as const).map((kind) => {
                     const rows = catRoundGames.filter(g => g.kind === kind);
                     const info = roundGameInfo[kind];
                     return rows.length > 0 && <AccordionItem value={info.slug} key={kind} className="border border-border rounded-lg px-4">

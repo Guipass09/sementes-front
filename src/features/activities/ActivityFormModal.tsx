@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+import { folderReturnPath } from "@/features/library-folders/creation-context";
 import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Image as ImageIcon, Video as VideoIcon } from "lucide-react";
@@ -40,6 +42,7 @@ export function ActivityFormModal(props: {
   onOpenChange: (open: boolean) => void;
   onSaved: () => Promise<void>;
 }): JSX.Element {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
@@ -212,6 +215,7 @@ export function ActivityFormModal(props: {
 
       await props.onSaved();
       props.onOpenChange(false);
+      if (props.mode === "create") { const destination = folderReturnPath("", "admin"); if (destination) navigate(destination); }
       toast({
         title: props.mode === "create" ? "Atividade criada!" : "Atividade atualizada!",
         description: "A atividade foi salva e enviada para os usuários selecionados.",

@@ -1,3 +1,4 @@
+import { MoveToFolderButton } from "@/features/library-folders/MoveToFolderButton";
 import { Link } from "react-router-dom";
 import { Pencil, Play, Send, Share2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -104,6 +105,7 @@ export function GameLibraryCard({
             <Share2 size={17} />
           </Button>
         )}
+        <MoveToFolderButton item={{ type: kind, id: Number(new URL(playPath, window.location.origin).pathname.split("/").filter(Boolean).at(-1)) }} title={title} />
         {onDelete && (
           <Button
             variant="outline"

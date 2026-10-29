@@ -1,3 +1,4 @@
+import { CreationFolderNotice } from "@/features/library-folders/CreationFolderNotice";
 import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BadgeCheck, BarChart3, CalendarDays, ClipboardList, Gamepad2, History, IdCard, LayoutDashboard, UserRound, UsersRound, Wallet } from "lucide-react";
@@ -96,6 +97,7 @@ export default function ProfessionalLayout() {
       onProfile={() => navigate("/profissional/perfil")}
       onLogout={() => void auth.logout().finally(() => navigate("/"))}
     >
+      <CreationFolderNotice />
       {needsSubscription && !onSubscriptionPage && !onProfilePage ? (
         <ProfessionalSubscriptionPreview expiresOn={user.professional_subscription_expires_on} onRefresh={async () => {
           const fresh = await me();

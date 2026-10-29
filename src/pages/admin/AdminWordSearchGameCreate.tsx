@@ -1,3 +1,4 @@
+import { folderReturnPath } from "@/features/library-folders/creation-context";
 import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -202,7 +203,7 @@ export default function AdminWordSearchGameCreate() {
         grid_background_color: gridBackgroundColor,
       });
       toast({ title: "Jogo criado!", description: auth.user?.role === "professional" ? "Salvo somente no seu perfil. Envie aos pacientes quando quiser." : `Enviado para ${selectedUserIds.length} usuário(s).` });
-      navigate(`${base}/caca-palavras`);
+      navigate(folderReturnPath(`${base}/caca-palavras`, auth.user?.role ?? ""));
     } catch (err: any) {
       const apiMessage = err?.data?.message || err?.data?.error || err?.message;
       console.error("Erro ao criar Caça-palavras:", err);

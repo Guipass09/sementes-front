@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+import { folderReturnPath } from "@/features/library-folders/creation-context";
 import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Image as ImageIcon, Video as VideoIcon } from "lucide-react";
@@ -39,6 +41,7 @@ export function ProfessionalActivityFormModal(props: {
   onOpenChange: (open: boolean) => void;
   onSaved: () => Promise<void>;
 }): JSX.Element {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
@@ -200,6 +203,7 @@ export function ProfessionalActivityFormModal(props: {
 
       await props.onSaved();
       props.onOpenChange(false);
+      if (props.mode === "create") { const destination = folderReturnPath("", "professional"); if (destination) navigate(destination); }
       toast({
         title: props.mode === "create" ? "Atividade criada!" : "Atividade atualizada!",
         description: props.mode === "create" ? "Salva somente no seu perfil. Envie aos pacientes quando quiser." : "Alterações salvas.",

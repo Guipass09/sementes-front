@@ -1,3 +1,6 @@
+import { FolderShelf } from "@/features/library-folders/FolderShelf";
+import { catalogResources, looseCatalog } from "@/features/library-folders/library-folders";
+import { useLibraryFolders } from "@/features/library-folders/use-library-folders";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { roundGameInfo } from "@/features/round-games/round-game";
 import { isCurrentSessionGameEvent } from "@/lib/session-game-event";
@@ -384,20 +387,23 @@ export default function SessionCall() {
   }, [appRole, user?.id, activities, memGames, memGames2, phonemeGames, audGames, hangGames, spinGames, wordSearchGames, cardGames, guessImageGames, roundGames]);
 
   const activeCatalog = appRole === "professional" ? (catalogTab === "compartilhados" ? catalogView.shared : catalogView.mine) : catalogView.mine;
-  const catActivities = activeCatalog.activities;
+  const libraryFolders = useLibraryFolders(catalogOpen);
+  const loose = looseCatalog(activeCatalog, libraryFolders.isSuccess ? libraryFolders.data : undefined);
+  useEffect(() => { if (catalogOpen) void libraryFolders.refetch(); }, [catalogOpen]);
+  const catActivities = loose.activities;
   const catStories = catActivities.filter((activity) => activity.is_story && (activity.story_steps?.length ?? 0) > 0);
   const catSlides = catActivities.filter((activity) => !activity.is_story);
   const activeStory = activeStoryId ? activities.find((activity) => activity.id === activeStoryId && activity.is_story) : null;
-  const catMemGames = activeCatalog.memGames;
-  const catMemGames2 = activeCatalog.memGames2;
-  const catPhonemeGames = activeCatalog.phonemeGames;
-  const catAudGames = activeCatalog.audGames;
-  const catHangGames = activeCatalog.hangGames;
-  const catSpinGames = activeCatalog.spinGames;
-  const catWordSearchGames = activeCatalog.wordSearchGames;
-  const catCardGames = activeCatalog.cardGames;
-  const catGuessImageGames = activeCatalog.guessImageGames;
-  const catRoundGames = activeCatalog.roundGames;
+  const catMemGames = loose.memGames;
+  const catMemGames2 = loose.memGames2;
+  const catPhonemeGames = loose.phonemeGames;
+  const catAudGames = loose.audGames;
+  const catHangGames = loose.hangGames;
+  const catSpinGames = loose.spinGames;
+  const catWordSearchGames = loose.wordSearchGames;
+  const catCardGames = loose.cardGames;
+  const catGuessImageGames = loose.guessImageGames;
+  const catRoundGames = loose.roundGames;
   const [fixedUser, setFixedUser] = useState<null | { id: number; name: string }>(null);
 
   const [callStartedAtMs, setCallStartedAtMs] = useState<number | null>(null);
@@ -3540,6 +3546,11 @@ export default function SessionCall() {
                   </TabsList>
                 </Tabs>
               ) : null}
+              <FolderShelf resources={catalogResources(activeCatalog)} showEmpty={catalogTab !== "compartilhados"} onSelect={item => {
+                if (item.story) { void playStoryStep(item.story, 0); return; }
+                if (role === "admin") { setPendingShare({ path: item.path, title: item.title, kind: item.type }); setShareConfirmOpen(true); }
+                else void selectContent(item.path, item.title, item.type);
+              }} />
               {/* Seção: Atividades */}
               {catStories.length > 0 && <div>
                 <div className="text-base font-semibold text-foreground mb-3">Histórias completas</div>

@@ -1,3 +1,4 @@
+import { folderReturnPath } from "@/features/library-folders/creation-context";
 import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -182,7 +183,7 @@ export default function StoryEditor() {
         title: title.trim(), description: description.trim(), assigned_to: assignedTo,
       });
       toast({ title: "História salva", description: "A sequência já está na sua biblioteca." });
-      navigate(`${base}/jogos/historias`);
+      navigate(folderReturnPath(`${base}/jogos/historias`, role));
     } catch (error: any) {
       toast({ title: "Não foi possível salvar", description: String(error?.data?.message || error?.message || error), variant: "destructive" });
     } finally {

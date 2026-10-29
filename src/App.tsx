@@ -1,3 +1,4 @@
+import LibraryFoldersPage from "@/features/library-folders/LibraryFoldersPage";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -167,6 +168,8 @@ const App = () => {
                 <Route path="pacientes/:id/comentario" element={<ProfessionalPatientComment />} />
                 <Route path="atividades" element={<ProfessionalActivities />} />
                 <Route path="jogos" element={<ProfessionalGamesHub />} />
+                <Route path="pastas" element={<LibraryFoldersPage />} />
+                <Route path="pastas/:folderId" element={<LibraryFoldersPage />} />
                 <Route path="jogos/historias" element={<StoryLibrary />} />
                 <Route path="jogos/historias/novo" element={<StoryEditor />} />
                 <Route path="jogos/historias/:id/editar" element={<StoryEditor />} />
@@ -228,6 +231,8 @@ const App = () => {
                 <Route path="usuarios" element={<AdminUsers />} />
                 <Route path="atividades" element={<AdminActivities />} />
                 <Route path="jogos" element={<AdminGamesHub />} />
+                <Route path="pastas" element={<LibraryFoldersPage />} />
+                <Route path="pastas/:folderId" element={<LibraryFoldersPage />} />
                 <Route path="jogos/historias" element={<StoryLibrary />} />
                 <Route path="jogos/historias/novo" element={<StoryEditor />} />
                 <Route path="jogos/historias/:id/editar" element={<StoryEditor />} />
@@ -279,6 +284,8 @@ const App = () => {
                 <Route path="usuarios" element={<AdminUsers />} />
                 <Route path="atividades" element={<AdminActivities />} />
                 <Route path="jogos" element={<AdminGamesHub />} />
+                <Route path="pastas" element={<LibraryFoldersPage />} />
+                <Route path="pastas/:folderId" element={<LibraryFoldersPage />} />
                 <Route path="horarios" element={<AdminSessions />} />
                 <Route path="relatorios" element={<AdminReports />} />
               </Route>

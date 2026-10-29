@@ -1,3 +1,4 @@
+import { folderReturnPath } from "@/features/library-folders/creation-context";
 import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -169,7 +170,7 @@ export default function AdminMemoryGame2Create() {
       });
 
       toast({ title: "Jogo criado!", description: auth.user?.role === "professional" ? "Salvo somente no seu perfil. Envie aos pacientes quando quiser." : `Enviado para ${selectedUserIds.length} usuário(s).` });
-      navigate(`/jogos/memoria2/${created.id}`);
+      navigate(folderReturnPath(`/jogos/memoria2/${created.id}`, auth.user?.role ?? ""));
     } catch {
       toast({ title: "Não foi possível criar", description: "Verifique os campos e tente novamente.", variant: "destructive" });
     } finally {

@@ -1,3 +1,4 @@
+import { folderReturnPath } from "@/features/library-folders/creation-context";
 import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -192,7 +193,7 @@ export default function AdminGuessImageGameCreate() {
       });
       await queryClient.invalidateQueries({ queryKey: ["management-game-library", auth.user?.id, "acerte-imagem"] });
       toast({ title: "Jogo criado!", description: sendToUsers && !isProfessional ? `Salvo na biblioteca e enviado para ${selectedUserIds.length} usuário(s).` : "Salvo na sua biblioteca." });
-      navigate(`${base}/jogos/acerte-imagem`);
+      navigate(folderReturnPath(`${base}/jogos/acerte-imagem`, auth.user?.role ?? ""));
     } catch (err: any) {
       const apiMessage = err?.data?.message || err?.data?.error || err?.message;
       console.error("Erro ao criar Acerte a Imagem:", err);

@@ -1,3 +1,4 @@
+import { folderReturnPath } from "@/features/library-folders/creation-context";
 import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Ear, Image as ImageIcon, Plus, Upload, X, User as UserIcon } from "lucide-react";
@@ -174,7 +175,7 @@ export default function AdminAuditoryStimulationCreate() {
         items_sides: sides,
       });
       toast({ title: "Jogo criado!", description: auth.user?.role === "professional" ? "Salvo somente no seu perfil. Envie aos pacientes quando quiser." : `Enviado para ${selectedUserIds.length} usuário(s).` });
-      navigate(`/jogos/auditivo/${created.id}`);
+      navigate(folderReturnPath(`/jogos/auditivo/${created.id}`, auth.user?.role ?? ""));
     } catch (err: any) {
       const apiMessage = err?.data?.message || err?.data?.error || err?.message;
       console.error("Erro ao criar jogo auditivo:", err);

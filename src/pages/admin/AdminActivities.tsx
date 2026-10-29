@@ -1,3 +1,4 @@
+import { MoveToFolderButton } from "@/features/library-folders/MoveToFolderButton";
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Plus, Search, FileText, Clock, Tag, Grid3X3, ChevronDown, Ear, Type, CircleDot, Layers, Share2, Image, BookOpen, Images, WholeWord } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ const AdminActivities = () => {
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(() => searchParams.get("criar") === "1");
   const [editing, setEditing] = useState<ActivityRow | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ActivityRow | null>(null);
@@ -252,6 +253,7 @@ const AdminActivities = () => {
                               <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{activity.description}</p>
                             </div>
                             <div className="flex items-center gap-2">
+                              <MoveToFolderButton item={{ type: "activity", id: activity.id }} title={activity.title} />
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -381,6 +383,7 @@ const AdminActivities = () => {
                               </div>
 
                               <div className="flex items-center gap-2">
+                                <MoveToFolderButton item={{ type: "activity", id: activity.id }} title={activity.title} />
                                 <Button
                                   variant="outline"
                                   size="sm"

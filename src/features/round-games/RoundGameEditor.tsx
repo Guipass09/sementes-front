@@ -1,3 +1,4 @@
+import { folderReturnPath } from "@/features/library-folders/creation-context";
 import { ImageSourceInput } from "@/features/image-search/ImageSourceInput";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -120,7 +121,7 @@ function RoundGameEditorForm({ kind }: { kind: RoundGameKind }) {
     try {
       await api.saveRoundGame({ kind, title: form.title.trim(), description: form.description, background_color: form.background_color, background_path: form.background_path, rounds: form.rounds }, id ? Number(id) : undefined);
       toast({ title: "Jogo salvo na biblioteca" });
-      navigate(`${base}/jogos/${info.slug}`);
+      navigate(folderReturnPath(`${base}/jogos/${info.slug}`, user?.role ?? ""));
     } catch (e) { setError(message(e)); }
     finally { setSaving(false); }
   }

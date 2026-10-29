@@ -1,3 +1,4 @@
+import { FolderShelf } from "@/features/library-folders/FolderShelf";
 import { useLocation, useNavigate } from "react-router-dom";
 import RoundGameHubCards from "@/features/round-games/RoundGameHubCards";
 import StoryHubCard from "@/features/stories/StoryHubCard";
@@ -17,6 +18,7 @@ export default function AdminGamesHub() {
           <p className="text-muted-foreground">Gerencie os jogos do sistema por tipo.</p>
         </div>
 
+        <FolderShelf />
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-stretch">
           <StoryHubCard base="/admin" />
           <RoundGameHubCards base="/admin" />

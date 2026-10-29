@@ -1,3 +1,4 @@
+import { FolderShelf } from "@/features/library-folders/FolderShelf";
 import { useNavigate } from "react-router-dom";
 import { Gamepad2, Ear, ArrowRight, Type, CircleDot, Grid3X3, Layers, Image as ImageIcon, ScanFace } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ function StandardProfessionalGamesHub() {
           <p className="text-sm sm:text-base text-muted-foreground">Crie, edite e envie jogos apenas para seus pacientes.</p>
         </div>
 
+        <FolderShelf />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 items-stretch">
           <StoryHubCard base="/profissional" />
           <RoundGameHubCards base="/profissional" />

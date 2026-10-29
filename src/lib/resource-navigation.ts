@@ -20,6 +20,10 @@ export function resourceNavigation(base: string, options: { patient?: boolean; c
   const activities: ResourceNavLink[] = [{ path: `${base}/atividades`, label: "Todas as atividades" }];
   const games: ResourceNavLink[] = [{ path: `${base}/jogos`, label: "Todos os jogos" }];
   if (options.preview && !options.patient) return { activities, games };
+  if (!options.patient && !options.clinic) {
+    activities.push({ path: `${base}/pastas`, label: "Minhas pastas" });
+    games.push({ path: `${base}/pastas`, label: "Minhas pastas" });
+  }
 
   activities.push(...(options.patient ? [
     { path: `${base}/atividades?ordem=recentes`, label: "Mais recentes" },

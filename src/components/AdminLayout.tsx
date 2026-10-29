@@ -1,3 +1,4 @@
+import { CreationFolderNotice } from "@/features/library-folders/CreationFolderNotice";
 import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BarChart3, CalendarDays, ClipboardList, Gamepad2, LayoutDashboard, UserRound, UsersRound } from "lucide-react";
@@ -54,6 +55,7 @@ export default function AdminLayout() {
       onLogout={() => isPreview ? navigate("/") : void auth.logout().finally(() => navigate("/"))}
     >
       <SaleSchedulerListener />
+      <CreationFolderNotice />
       <Outlet />
     </ProfileShell>
   );

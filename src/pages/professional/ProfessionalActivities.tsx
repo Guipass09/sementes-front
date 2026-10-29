@@ -1,3 +1,4 @@
+import { MoveToFolderButton } from "@/features/library-folders/MoveToFolderButton";
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Plus, Search, Grid3X3, ChevronDown, Share2, FileText, BookOpen, Ear, Images, WholeWord, Type, CircleDot, Layers, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ function StandardProfessionalActivities(): JSX.Element {
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [users, setUsers] = useState<ProfessionalUserRow[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(() => searchParams.get("criar") === "1");
   const [editing, setEditing] = useState<ActivityRow | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ActivityRow | null>(null);
@@ -222,6 +223,7 @@ function StandardProfessionalActivities(): JSX.Element {
                                 <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)} className="text-xs sm:text-sm">
                                   Abrir
                                 </Button>
+                                <MoveToFolderButton item={{ type: "activity", id: activity.id }} title={activity.title} />
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -311,6 +313,7 @@ function StandardProfessionalActivities(): JSX.Element {
                                   <Button variant="outline" size="sm" onClick={() => navigate(`/atividades/${activity.id}`)} className="text-xs sm:text-sm">
                                     Abrir
                                   </Button>
+                                  <MoveToFolderButton item={{ type: "activity", id: activity.id }} title={activity.title} />
                                   <Button
                                     variant="outline"
                                     size="sm"

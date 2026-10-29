@@ -1,3 +1,4 @@
+import { creationFolder } from "@/features/library-folders/creation-context";
 import type { FinanceData, FinanceEntry, FinanceEntryInput, FinanceEntryUpdate, FinanceSettings } from "@/features/finance/finance";
 import type { ReportLetterhead, ReportLetterheadSettings } from "@/features/reports/letterhead";
 import type { PatientRegistrationLink, RegistrationProfessional } from "@/features/patient-registration/registration";
@@ -416,11 +417,16 @@ type ApiError = {
 
 import api from "../services/api";
 
-async function request<T>(
+export async function request<T>(
   path: string,
   options: { method?: string; json?: any; formData?: FormData; __csrfRetried?: boolean; headers?: Record<string,string>; keepalive?: boolean; body?: any } = {}
 ): Promise<T> {
   const method = (options.method || "GET").toUpperCase();
+  const folderId = creationFolder(path, method, window.location.search);
+  if (folderId) {
+    if (options.formData) options.formData.set("library_folder_id", String(folderId));
+    else options = { ...options, json: { ...options.json, library_folder_id: folderId } };
+  }
   const hasJsonBody = options.json !== undefined;
   const hasFormData = options.formData !== undefined;
 
@@ -449,6 +455,7 @@ async function request<T>(
     if (res.status === 204) return null as unknown as T;
 
     if (res.status >= 200 && res.status < 300) {
+      if (folderId && res.status === 201) window.dispatchEvent(new Event("library-folder-created-item"));
       return res.data as T;
     }
 

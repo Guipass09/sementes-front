@@ -1,0 +1,29 @@
+.mouth-demos { min-width: 0; margin: 18px 0; border: 1px solid #cfe0d7; border-radius: 9px; background: #f7fbf9; color: #264139; font-size: 12px; }
+.mouth-demos summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 13px 11px; cursor: pointer; font-weight: 700; list-style: none; }
+.mouth-demos summary::-webkit-details-marker { display: none; }
+.mouth-demos summary::after { content: "+"; margin-left: auto; font-size: 18px; }
+.mouth-demos[open] summary::after { content: "−"; }
+.mouth-demos__badge { font-size: 9px; padding: 3px 6px; border-radius: 4px; color: #086d48; background: #dff4e7; }
+.mouth-demos__body { display: grid; gap: 10px; padding: 0 11px 13px; }
+.mouth-demos label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; font-weight: 600; }
+.mouth-demos select { display: block; min-width: 0; width: 100%; min-height: 42px; padding: 8px; border: 1px solid #cfe0d7; border-radius: 6px; background: white; color: #264139; font-size: 12px; }
+.mouth-demos__cue, .mouth-demos__note { margin: 0; color: #627b71; line-height: 1.5; overflow-wrap: anywhere; }
+.mouth-demos__note { font-size: 10px; }
+.mouth-demos__transport { display: flex; flex-wrap: wrap; gap: 8px; }
+.mouth-demos__transport button { flex: 1 1 85px; min-width: 0; }
+.mouth-demos button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border: 1px solid #cfe0d7; border-radius: 6px; background: #fff; color: #285348; font-size: 12px; font-weight: 600; }
+.mouth-demos button:disabled { opacity: .45; cursor: default; }
+.mouth-demos button.mouth-demos__play { background: #168552; border-color: #168552; color: white; }
+.mouth-demos__progress { height: 4px; overflow: hidden; border-radius: 4px; background: #dce9e2; }
+.mouth-demos__progress span { display: block; height: 100%; background: #299965; }
+.mouth-demos__settings { display: grid; gap: 12px; }
+.mouth-demos__settings > label:first-child { display: grid; gap: 7px; }
+.mouth-demos label.mouth-demos__repeat { justify-content: flex-start; min-height: 28px; }
+.mouth-demos input[type=checkbox] { width: 17px; height: 17px; accent-color: #168552; }
+.mouth-demos__volume { display: flex; align-items: center; gap: 10px; }
+.mouth-demos__volume button { flex: none; width: 42px; }
+.mouth-demos__volume input { min-width: 0; width: 100%; accent-color: #168552; }
+.mouth-demos :is(button, input, select, summary):focus-visible { outline: 2px solid #168552; outline-offset: 3px; }
+.sc-mouth-demo-status { position: absolute; z-index: 3; left: 8px; right: 38px; bottom: 8px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: fit-content; max-width: calc(100% - 46px); padding: 7px 10px; border-radius: 6px; background: #fffffff0; color: #285348; font-size: 11px; }
+.sc-mouth-demo-status button { min-height: 36px; padding: 5px 8px; border: 1px solid #cfe0d7; border-radius: 5px; background: #fff; font-size: 11px; }
+.sc-mouth-options .mouth-demos { margin: 0 0 14px; }

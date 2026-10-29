@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { createMouthModel, type MouthPose } from "./createMouthModel";
+import { mouthDemoPlaying, mouthDemoPose, mouthDemoPosition, type MouthDemoState } from "./mouth-demonstrations";
 
 export type MouthView = "front" | "angle" | "section";
 export type MouthDragMode = "jaw" | "tongue" | "tip";
@@ -12,6 +13,10 @@ type MouthModelSceneProps = MouthPose & {
   dragMode: MouthDragMode;
   showFace: boolean;
   showLabels: boolean;
+  demo?: MouthDemoState | null;
+  demoNow?: () => number;
+  demoLeased?: boolean;
+  onManualInteraction?: () => void;
   onOpeningChange: (value: number) => void;
   onTongueLiftChange: (value: number) => void;
   onTongueReachChange: (value: number) => void;
@@ -28,7 +33,7 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
   const requestRenderRef = useRef<() => void>(() => {});
   const [unavailable, setUnavailable] = useState(false);
   callbacksRef.current = props;
-  useEffect(() => { requestRenderRef.current(); }, [props.opening, props.tongueLift, props.tongueReach, props.tongueCurl, props.tongueSide, props.tongueWidth, props.lipShape, props.view, props.showFace, props.showLabels]);
+  useEffect(() => { requestRenderRef.current(); }, [props.opening, props.tongueLift, props.tongueReach, props.tongueCurl, props.tongueSide, props.tongueWidth, props.lipShape, props.view, props.showFace, props.showLabels, props.demo, props.demoNow]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -87,7 +92,12 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
       const now = performance.now();
       const delta = Math.min((now - lastRender) / 1000, 0.05);
       lastRender = now;
-      for (const key of poseKeys) pose[key] = reducedMotion ? target[key] : THREE.MathUtils.damp(pose[key], target[key], 18, delta);
+      const demoTime = target.demoNow?.() ?? Date.now();
+      const demoPlaying = mouthDemoPlaying(target.demo, demoTime, target.demoLeased);
+      const demoPending = target.demo?.status === "playing" && demoTime < target.demo.startedAt && (!target.demoLeased || target.demo.expiresAt > demoTime);
+      const demonstration = target.demo && (demoPlaying || target.demo.status === "paused") ? mouthDemoPose(target.demo.preset, mouthDemoPosition(target.demo, demoTime)) : null;
+      container.dataset.demonstration = demonstration ? target.demo!.preset : "";
+      for (const key of poseKeys) pose[key] = demonstration ? demonstration[key] : reducedMotion ? target[key] : THREE.MathUtils.damp(pose[key], target[key], 18, delta);
       model.update(pose, target.view === "section", target.showFace);
       const aspect = container.clientWidth / container.clientHeight;
       const toolbarClearance = props.controlsOutside ? 0.9 : container.clientWidth < 600 ? 1.2 : 1;
@@ -106,7 +116,7 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
         label.style.top = `${(-position.y * 0.5 + 0.5) * 100}%`;
         label.hidden = !target.showLabels || (target.showFace && target.view !== "section" && (pose.opening < 0.4 || name === "palate"));
       }
-      if (poseKeys.some((key) => Math.abs(pose[key] - target[key]) > 0.001) || camera.position.distanceTo(targetCamera) > 0.005) frame = requestAnimationFrame(render);
+      if (demoPlaying || demoPending || (!demonstration && poseKeys.some((key) => Math.abs(pose[key] - target[key]) > 0.001)) || camera.position.distanceTo(targetCamera) > 0.005) frame = requestAnimationFrame(render);
     };
     const requestRender = () => { if (!frame && active) frame = requestAnimationFrame(render); };
     requestRenderRef.current = requestRender;
@@ -130,6 +140,7 @@ export default function MouthModelScene(props: MouthModelSceneProps) {
       pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
       raycaster.setFromCamera(pointer, camera);
       const current = callbacksRef.current;
+      current.onManualInteraction?.();
       const hit = raycaster.intersectObjects([model.tongueMesh, model.faceMesh, model.lipMesh].filter((mesh) => mesh.visible))
         .find((intersection) => current.view !== "section" || intersection.object === model.tongueMesh || intersection.point.x <= 0);
       let mode = current.dragMode;

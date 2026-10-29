@@ -74,6 +74,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import RtcPaymentModal from "@/features/payments/RtcPaymentModal";
 import { initialSessionMouthState, normalizeSessionMouthState, type SessionMouthState } from "@/features/mouth3d/sessionMouthState";
+import { MOUTH_DEMO_LEASE } from "@/features/mouth3d/mouth-demonstrations";
 import { SessionDocumentation } from "@/features/reports/SessionDocumentation";
 import { SessionCatalogTile, activityCatalogImage, gameCatalogImage } from "@/features/session/SessionCatalogTile";
 import { storyStepPath } from "@/features/stories/story-sequence";
@@ -1271,6 +1272,29 @@ export default function SessionCall() {
     setLocalContentStatus("loading");
     setContentReloadKey((value) => value + 1);
   };
+
+  const mouthNow = useMemo(() => {
+    const server = Date.parse(joinInfo?.server_now || "");
+    const local = performance.now();
+    const anchor = Number.isFinite(server) ? server : Date.now();
+    return () => anchor + performance.now() - local;
+  }, [joinInfo?.token, joinInfo?.server_now]);
+
+  // The patient expires playback independently if the professional stops renewing the lease.
+  useEffect(() => {
+    if (!joinInfo || role !== "admin") return;
+    const renew = () => {
+      const current = mouthStateRef.current;
+      if (!current.open || current.demo?.status !== "playing") return;
+      if (document.visibilityState === "hidden" || !navigator.onLine || pcRef.current?.connectionState !== "connected") {
+        changeMouthState({ ...current, demo: null });
+        return;
+      }
+      changeMouthState({ ...current, demo: { ...current.demo, expiresAt: mouthNow() + MOUTH_DEMO_LEASE } });
+    };
+    const timer = window.setInterval(renew, 1800);
+    return () => window.clearInterval(timer);
+  }, [joinInfo?.token, role, mouthNow]);
 
   const resendContentToPatient = async (forceReload = false) => {
     const content = activeContentRef.current;
@@ -3198,7 +3222,7 @@ export default function SessionCall() {
                   </Button>
                 </div>
               )}
-              {mouthState.open && <Suspense fallback={null}><SessionMouthOverlay state={mouthState} editable={role === "admin"} onChange={changeMouthState} /></Suspense>}
+              {mouthState.open && <Suspense fallback={null}><SessionMouthOverlay state={mouthState} editable={role === "admin"} onChange={changeMouthState} now={mouthNow} connected={pcRef.current?.connectionState === "connected"} prepareAudio={() => ensureAudioCtx()} /></Suspense>}
             </div>
             </div>
           </div>

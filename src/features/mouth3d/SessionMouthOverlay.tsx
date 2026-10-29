@@ -4,18 +4,24 @@ import MouthModelScene, { type MouthDragMode, type MouthView } from "./MouthMode
 import { initialSessionMouthState, normalizeSessionMouthState, type SessionMouthState } from "./sessionMouthState";
 import "./mouth3d.css";
 import "./sessionMouthOverlay.css";
+import MouthDemoControls from "./MouthDemoControls";
+import { useMouthDemoPlayback } from "./use-mouth-demo-playback";
+import { MOUTH_DEMOS } from "./mouth-demonstrations";
 
-type Props = { state: SessionMouthState; editable: boolean; onChange: (next: SessionMouthState) => void };
+type Props = { state: SessionMouthState; editable: boolean; onChange: (next: SessionMouthState) => void; now?: () => number; connected?: boolean; prepareAudio?: () => Promise<AudioContext | null> };
+const fallbackNow = () => Date.now();
 
-export default function SessionMouthOverlay({ state, editable, onChange }: Props) {
+export default function SessionMouthOverlay({ state, editable, onChange, now = fallbackNow, connected = true, prepareAudio }: Props) {
   const [controlsOpen, setControlsOpen] = useState(false);
   const [dragMode, setDragMode] = useState<MouthDragMode>("jaw");
   const gesture = useRef<{ kind: "move" | "resize"; x: number; y: number; state: SessionMouthState; width: number; height: number } | null>(null);
+  const playback = useMouthDemoPlayback({ demo: state.open ? state.demo || null : null, now, live: true, enabled: connected, prepareAudio,
+    onStop: editable ? () => onChange({ ...state, demo: null }) : undefined });
 
   if (!state.open) return null;
 
   const update = (patch: Partial<SessionMouthState>) => onChange(normalizeSessionMouthState({ ...state, ...patch }));
-  const updatePose = (patch: Partial<SessionMouthState["pose"]>) => update({ pose: { ...state.pose, ...patch } });
+  const updatePose = (patch: Partial<SessionMouthState["pose"]>) => update({ pose: { ...state.pose, ...patch }, demo: null });
   const startGesture = (event: PointerEvent<HTMLElement>, kind: "move" | "resize") => {
     if (!editable) return;
     const parent = event.currentTarget.parentElement?.parentElement;
@@ -56,6 +62,7 @@ export default function SessionMouthOverlay({ state, editable, onChange }: Props
       </div>
       <div className="sc-mouth-model">
         <MouthModelScene {...state.pose} compact view={state.view} dragMode={dragMode} showFace={state.showFace} showLabels={false}
+          demo={playback.suspended ? null : state.demo} demoNow={now} demoLeased onManualInteraction={() => { if (editable) update({ demo: null }); }}
           onOpeningChange={(opening) => updatePose({ opening, lipShape: opening > 0.05 ? 0 : state.pose.lipShape })}
           onTongueLiftChange={(tongueLift) => updatePose({ tongueLift })}
           onTongueReachChange={(tongueReach) => updatePose({ tongueReach })}
@@ -63,6 +70,7 @@ export default function SessionMouthOverlay({ state, editable, onChange }: Props
           onTongueSideChange={(tongueSide) => updatePose({ tongueSide })} />
       </div>
       {editable && controlsOpen && <div className="sc-mouth-options" aria-label="Movimentos da Boca 3D">
+        <MouthDemoControls demo={state.demo || null} onChange={demo => update({ demo })} now={now} live onActivate={playback.activate} notice={playback.notice} position={playback.position} />
         <div className="sc-mouth-options-row"><strong>Movimentos</strong><button type="button" title="Repor movimentos" aria-label="Repor movimentos" onClick={() => update({ pose: initialSessionMouthState.pose })}><RotateCcw size={16} /></button></div>
         <div className="sc-mouth-options-row" role="group" aria-label="Vista da boca">
           {([["front", "Frontal"], ["angle", "Oblíqua"], ["section", "Corte"]] as [MouthView, string][]).map(([value, label]) => <button key={value} type="button" className={state.view === value ? "selected" : ""} onClick={() => update({ view: value })}>{label}</button>)}
@@ -78,6 +86,12 @@ export default function SessionMouthOverlay({ state, editable, onChange }: Props
         {control("Largura da língua", "tongueWidth", true)}
         {control("Lábios: bico / sorriso", "lipShape", true)}
         <label className="sc-mouth-face"><input type="checkbox" checked={state.showFace} onChange={(event) => update({ showFace: event.target.checked })} /> Mostrar rosto</label>
+      </div>}
+      {state.demo && !controlsOpen && <div className="sc-mouth-demo-status" role="status">
+        <span>{playback.suspended ? "Demonstração interrompida" : `${state.demo.status === "paused" ? "Pausado · " : ""}${MOUTH_DEMOS.find(p => p.id === state.demo?.preset)?.label}`}</span>
+        {editable && <button type="button" onClick={() => update({ demo: null })}>Parar</button>}
+        {playback.notice === "blocked" && <button type="button" onClick={playback.activate}>Ativar som da Boca 3D</button>}
+        {playback.notice === "failed" && <button type="button" onClick={playback.activate}>Tentar carregar o som novamente</button>}
       </div>}
       {editable && <div className="sc-mouth-resize" role="button" tabIndex={0} aria-label="Redimensionar Boca 3D" title="Arraste para mudar o tamanho" onPointerDown={(event) => startGesture(event, "resize")} onPointerMove={moveGesture} onPointerUp={stopGesture} onPointerCancel={stopGesture} onKeyDown={(event) => {
         if (!["ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp"].includes(event.key)) return;

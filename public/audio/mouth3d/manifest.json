@@ -1,0 +1,279 @@
+{
+  "generator": "eSpeak NG (espeak-ng WASM package 1.0.2)",
+  "voice": "pt-br",
+  "phoneticInput": true,
+  "durationMs": 3000,
+  "source": "https://github.com/espeak-ng/espeak-ng",
+  "examples": [
+    {
+      "preset": "trill",
+      "speed": 1,
+      "input": "[[R:]]",
+      "file": "trill-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "a31b72f86ee303ca0c63eb36749d206162af7b7ca7fae61a360243b404d1ce61"
+    },
+    {
+      "preset": "trill",
+      "speed": 0.75,
+      "input": "[[R:]]",
+      "file": "trill-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "70cdad67749e779676eebe576f8af72f18342198a1e9cae4dfc4b61f1f4254c8"
+    },
+    {
+      "preset": "trill",
+      "speed": 0.5,
+      "input": "[[R:]]",
+      "file": "trill-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "8b2abeee7320d712cb7f07c04407af5ba1705eebdd5bd52a0a901e7398e49950"
+    },
+    {
+      "preset": "ra",
+      "speed": 1,
+      "input": "[[R'a]]",
+      "file": "ra-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "85a3afda9dba7aa1016350866aacb69f4db0d1f3fdbe2261747ef825a844d81a"
+    },
+    {
+      "preset": "ra",
+      "speed": 0.75,
+      "input": "[[R'a]]",
+      "file": "ra-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "bb85b32e731036e03c5f90fe4a35fc1309d35e76f683c114a6cf1bd78b889526"
+    },
+    {
+      "preset": "ra",
+      "speed": 0.5,
+      "input": "[[R'a]]",
+      "file": "ra-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "31973711ed16c50b6bf1cf6fee161b5917754fe1c6c9b56f075048711cc7363a"
+    },
+    {
+      "preset": "tap",
+      "speed": 1,
+      "input": "[[a*'a]]",
+      "file": "tap-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "4bfd50fee90c02bcf23c0a76bb619af589f6dce00ff09d5f876c7a7d29371f06"
+    },
+    {
+      "preset": "tap",
+      "speed": 0.75,
+      "input": "[[a*'a]]",
+      "file": "tap-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "8ac3745454b0b3d28078c671a39c9843e664301868250f01669f37a4d874ea72"
+    },
+    {
+      "preset": "tap",
+      "speed": 0.5,
+      "input": "[[a*'a]]",
+      "file": "tap-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "9ff11e8522e3fceaa9193aff44147a30ff47a9015c29f261f00ad6c0d602a9b4"
+    },
+    {
+      "preset": "la",
+      "speed": 1,
+      "input": "[[l'a]]",
+      "file": "la-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "64410b256a144e42ef8a28159dd37e0dc12c792c4dcf9572b95033a831cb011c"
+    },
+    {
+      "preset": "la",
+      "speed": 0.75,
+      "input": "[[l'a]]",
+      "file": "la-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "046e20744667ce6dea93bbbc19d4e10258d49a830a037186591bb764dc0c89ef"
+    },
+    {
+      "preset": "la",
+      "speed": 0.5,
+      "input": "[[l'a]]",
+      "file": "la-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "65cbaa3c463773b80566ada498ac0ec4fd916e92dc01c9592f1e07772a77c4fc"
+    },
+    {
+      "preset": "ta",
+      "speed": 1,
+      "input": "[[t'a]]",
+      "file": "ta-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "6b298a62409b12e8bbf4cde81b9f4b17594ff1e5d3956927769fcd04fbc6492c"
+    },
+    {
+      "preset": "ta",
+      "speed": 0.75,
+      "input": "[[t'a]]",
+      "file": "ta-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "451eec701faf8b2074602931e9cca1f88c3c6ef802422670cea5bcc3fa0b9833"
+    },
+    {
+      "preset": "ta",
+      "speed": 0.5,
+      "input": "[[t'a]]",
+      "file": "ta-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "c20c08a80f2ccf451095d4930a37d07aceb7189e803604d5e62a65be8e59cb03"
+    },
+    {
+      "preset": "da",
+      "speed": 1,
+      "input": "[[d'a]]",
+      "file": "da-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "c606b5be66ec510710c8ded33e1c29726bae76f5756f855b8f9c6aa456489415"
+    },
+    {
+      "preset": "da",
+      "speed": 0.75,
+      "input": "[[d'a]]",
+      "file": "da-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "c0f7b47be48bc225a834419a80ee74c42b2e42d0b4bbeb537611b9158a1e1505"
+    },
+    {
+      "preset": "da",
+      "speed": 0.5,
+      "input": "[[d'a]]",
+      "file": "da-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "c6bf21244031bd3adc80ad9202b8111fd03eddbfaac8a764ea2990867d9ba7d6"
+    },
+    {
+      "preset": "pa",
+      "speed": 1,
+      "input": "[[p'a]]",
+      "file": "pa-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "e6bd07fa7055328b0cb3657a08a9d623af34ff941bda7a17b98f09749c18fe99"
+    },
+    {
+      "preset": "pa",
+      "speed": 0.75,
+      "input": "[[p'a]]",
+      "file": "pa-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "9d8b1000b51c559886dc43944d59d8e84c9db4247a6c5dcb62b37a3ed421f318"
+    },
+    {
+      "preset": "pa",
+      "speed": 0.5,
+      "input": "[[p'a]]",
+      "file": "pa-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "8b52127be8f97c1a5603d9d87caee96ad84a5e6bcab837d2421c1cd798938e08"
+    },
+    {
+      "preset": "ba",
+      "speed": 1,
+      "input": "[[b'a]]",
+      "file": "ba-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "79926e78383b879ad85c81058301b49db3b5ffb29b67c6d0598b928bfc75003d"
+    },
+    {
+      "preset": "ba",
+      "speed": 0.75,
+      "input": "[[b'a]]",
+      "file": "ba-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "4a83958e20def7dbb41c6e70b06fb29cee1d1029f3873c56d94538705b6b5626"
+    },
+    {
+      "preset": "ba",
+      "speed": 0.5,
+      "input": "[[b'a]]",
+      "file": "ba-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "2a47f24419a51f5a2653bb6b4bf55ba3fe054ce88a6104ebd527cb4ddd16258e"
+    },
+    {
+      "preset": "ma",
+      "speed": 1,
+      "input": "[[m'a]]",
+      "file": "ma-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "4cd2d1cc6347071ffd51850efa43dd019b6bf6c53cca9f74c449093fcdec1ab0"
+    },
+    {
+      "preset": "ma",
+      "speed": 0.75,
+      "input": "[[m'a]]",
+      "file": "ma-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "05cb4eed30a92d8d7b6f2badb07789bdc56bab00edbdc9f83eeb0eaa8b09961a"
+    },
+    {
+      "preset": "ma",
+      "speed": 0.5,
+      "input": "[[m'a]]",
+      "file": "ma-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "f58fd1a5bc62f7aa76f20708698885e799499009040be379b4a6524f00bf86f0"
+    },
+    {
+      "preset": "s",
+      "speed": 1,
+      "input": "[[s:]]",
+      "file": "s-normal.mp3",
+      "durationMs": 3000,
+      "bytes": 36719,
+      "sha256": "cb02cd30949a4e9744db4d54de133857be22a7429f1243a5d07b0eaecafde95e"
+    },
+    {
+      "preset": "s",
+      "speed": 0.75,
+      "input": "[[s:]]",
+      "file": "s-gentle.mp3",
+      "durationMs": 4000,
+      "bytes": 48945,
+      "sha256": "8e9a35cf893b030d4d49ff11786d4f3e88f12cb4eb98095991f90756db07d017"
+    },
+    {
+      "preset": "s",
+      "speed": 0.5,
+      "input": "[[s:]]",
+      "file": "s-slow.mp3",
+      "durationMs": 6000,
+      "bytes": 72768,
+      "sha256": "9e850ed7e320ed68b37fd9c02a23937bad5c4d3c5a117616e0689f7ce827fea1"
+    }
+  ]
+}

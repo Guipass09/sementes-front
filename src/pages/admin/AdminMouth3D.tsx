@@ -3,10 +3,14 @@ import { Link, useLocation } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight, RotateCcw, ScanFace, SlidersHorizontal } from "lucide-react";
 import MouthModelScene, { type MouthView, type MouthDragMode } from "@/features/mouth3d/MouthModelScene";
 import type { MouthPose } from "@/features/mouth3d/createMouthModel";
+import MouthDemoControls from "@/features/mouth3d/MouthDemoControls";
+import { useMouthDemoPlayback } from "@/features/mouth3d/use-mouth-demo-playback";
+import type { MouthDemoState } from "@/features/mouth3d/mouth-demonstrations";
 import "@/features/mouth3d/mouth3d.css";
 
 type MouthPosition = MouthPose;
 const neutralPosition: MouthPosition = { opening: 0.85, tongueLift: 0.12, tongueReach: 0.25, tongueCurl: 0, tongueSide: 0, tongueWidth: 0, lipShape: 0 };
+const demoNow = () => performance.now();
 
 const positions: { name: string; values: Omit<MouthPosition, "tongueWidth" | "lipShape"> }[] = [
   { name: "Repouso", values: { opening: 0, tongueLift: 0.24, tongueReach: 0.26, tongueCurl: 0, tongueSide: 0 } },
@@ -30,8 +34,11 @@ export default function AdminMouth3D() {
   const [dragMode, setDragMode] = useState<MouthDragMode>("jaw");
   const [showFace, setShowFace] = useState(true);
   const [showLabels, setShowLabels] = useState(false);
+  const [demo, setDemo] = useState<MouthDemoState | null>(null);
+  const playback = useMouthDemoPlayback({ demo, now: demoNow, onStop: () => setDemo(null) });
 
   const setPosition = ({ opening: nextOpening, tongueLift: nextLift, tongueReach: nextReach, tongueCurl: nextCurl, tongueSide: nextSide, tongueWidth: nextWidth, lipShape: nextShape }: MouthPosition) => {
+    setDemo(null);
     setOpening(nextOpening);
     setTongueLift(nextLift);
     setTongueReach(nextReach);
@@ -98,6 +105,9 @@ export default function AdminMouth3D() {
             dragMode={dragMode}
             showFace={showFace}
             showLabels={showLabels}
+            demo={playback.suspended ? null : demo}
+            demoNow={demoNow}
+            onManualInteraction={() => setDemo(null)}
             onOpeningChange={changeOpening}
             onTongueLiftChange={setTongueLift}
             onTongueReachChange={setTongueReach}
@@ -127,6 +137,8 @@ export default function AdminMouth3D() {
             </button>
           </div>
 
+          <MouthDemoControls demo={demo} onChange={setDemo} now={demoNow} onActivate={playback.activate} notice={playback.notice} position={playback.position} />
+          <div onInputCapture={() => setDemo(null)} onClickCapture={(event) => { if ((event.target as HTMLElement).closest("button")) setDemo(null); }}>
           <div className="mouth3d-control-section">
             <div className="mouth3d-control-group mouth3d-expression">
               <div className="mouth3d-control-label"><label htmlFor="lip-shape">Posição dos lábios</label><output htmlFor="lip-shape">{lipShape === 0 ? "Normal" : `${Math.round(Math.abs(lipShape) * 100)}%`}</output></div>
@@ -195,6 +207,7 @@ export default function AdminMouth3D() {
           <div className="mouth3d-visibility">
             <label><input type="checkbox" checked={showFace} onChange={(event) => setShowFace(event.target.checked)} /> Lábios e face</label>
             <label><input type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} /> Identificar estruturas</label>
+          </div>
           </div>
           <div className="mouth3d-notice">Modelo visual em desenvolvimento. Posições articulatórias ainda não validadas clinicamente.</div>
         </aside>

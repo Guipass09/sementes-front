@@ -19,11 +19,13 @@ export function useSessionAudioMixer(options: Options) {
   const callbacks = useRef(options); callbacks.current = options;
   const engine = useRef<{ change: (mix: SessionAudioMix) => void; receive: (message: Message) => void; publish: () => void } | null>(null);
   const soundtrackLease = useRef(0);
+  const mouthPlayingRef = useRef(false);
   const postToFrame = useCallback(() => callbacks.current.postFrame({ type: "SESSION_AUDIO_MIX", ...getSessionMix() }), []);
 
   useEffect(() => {
     const initial = initialSessionAudioMix();
     soundtrackLease.current = 0;
+    mouthPlayingRef.current = false;
     setMix(initial); setNotice(""); setConfirmed(false);
     setSessionMix({ active: true, mix: initial, speaking: false, musicPlaying: false, activityPlaying: false });
     const { role, identity, serverNow } = callbacks.current;
@@ -96,9 +98,15 @@ export function useSessionAudioMixer(options: Options) {
     };
     let mediaPlaying = false;
     let wordPlaying = false;
+    let mouthPlaying = false;
     const wordPlayback = (event: Event) => {
       wordPlaying = (event as CustomEvent<boolean>).detail === true;
-      setSessionMix({ activityPlaying: mediaPlaying || wordPlaying });
+      setSessionMix({ activityPlaying: mediaPlaying || wordPlaying || mouthPlaying });
+    };
+    const mouthPlayback = (event: Event) => {
+      mouthPlaying = (event as CustomEvent<boolean>).detail === true;
+      mouthPlayingRef.current = mouthPlaying;
+      setSessionMix({ activityPlaying: mediaPlaying || wordPlaying || mouthPlaying });
     };
     const ready = (event: MessageEvent) => {
       if (event.origin !== location.origin) return;
@@ -108,11 +116,12 @@ export function useSessionAudioMixer(options: Options) {
       if (event.data?.type === "GAME_AUDIO_READY") postToFrame();
       if (event.data?.type === "SESSION_ACTIVITY_AUDIO" && typeof event.data.playing === "boolean") {
         mediaPlaying = event.data.playing;
-        setSessionMix({ activityPlaying: mediaPlaying || wordPlaying });
+        setSessionMix({ activityPlaying: mediaPlaying || wordPlaying || mouthPlaying });
       }
     };
     window.addEventListener("message", ready);
     window.addEventListener("SESSION_WORD_AUDIO_PLAYBACK", wordPlayback);
+    window.addEventListener("SESSION_MOUTH_AUDIO_PLAYBACK", mouthPlayback);
     if (role === "admin") void publish();
     else if (role === "user" && identity) void callbacks.current.send("audio_mix_request", {}).catch(() => {});
     const interval = window.setInterval(() => {
@@ -124,13 +133,15 @@ export function useSessionAudioMixer(options: Options) {
       disposed = true; engine.current = null;
       window.clearTimeout(timer); window.clearInterval(interval); unsubscribe(); window.removeEventListener("message", ready);
       window.removeEventListener("SESSION_WORD_AUDIO_PLAYBACK", wordPlayback);
+      window.removeEventListener("SESSION_MOUTH_AUDIO_PLAYBACK", mouthPlayback);
+      mouthPlayingRef.current = false;
       setSessionMix({ active: false, mix: initialSessionAudioMix(), speaking: false, musicPlaying: false, activityPlaying: false });
     };
   }, [options.identity, options.role, options.serverNow, postToFrame]);
 
   useEffect(() => { setSessionMix({ speaking: options.speaking, musicPlaying: options.musicPlaying }); }, [options.speaking, options.musicPlaying]);
   useEffect(() => {
-    setSessionMix({ activityPlaying: false });
+    setSessionMix({ activityPlaying: mouthPlayingRef.current });
   }, [options.gameActive]);
 
   useEffect(() => {

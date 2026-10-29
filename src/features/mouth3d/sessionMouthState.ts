@@ -1,5 +1,6 @@
 import type { MouthPose } from "./createMouthModel";
 import type { MouthView } from "./MouthModelScene";
+import { normalizeMouthDemo, type MouthDemoState } from "./mouth-demonstrations.ts";
 
 export type SessionMouthState = {
   open: boolean;
@@ -10,6 +11,7 @@ export type SessionMouthState = {
   y: number;
   w: number;
   h: number;
+  demo?: MouthDemoState | null;
 };
 
 export const initialSessionMouthState: SessionMouthState = {
@@ -32,6 +34,7 @@ export function normalizeSessionMouthState(value: unknown): SessionMouthState {
   const pose = input.pose && typeof input.pose === "object" ? input.pose as Record<string, unknown> : {};
   const w = bounded(input.w, initialSessionMouthState.w, 0.28, 0.95);
   const h = bounded(input.h, initialSessionMouthState.h, 0.3, 0.95);
+  const demo = input.open === true ? normalizeMouthDemo(input.demo) : null;
   return {
     open: input.open === true,
     pose: {
@@ -49,5 +52,6 @@ export function normalizeSessionMouthState(value: unknown): SessionMouthState {
     y: bounded(input.y, initialSessionMouthState.y, 0, 1 - h),
     w,
     h,
+    ...(input.demo !== undefined ? { demo } : {}),
   };
 }

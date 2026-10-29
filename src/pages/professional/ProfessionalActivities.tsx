@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Plus, Search, Grid3X3, ChevronDown, Share2, FileText } from "lucide-react";
+import { Activity, Plus, Search, Grid3X3, ChevronDown, Share2, FileText, BookOpen, Ear, Images, WholeWord, Type, CircleDot, Layers, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -124,19 +124,19 @@ function StandardProfessionalActivities(): JSX.Element {
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>Novo jogo</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/historias/novo")}>Criar histórias completas</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/sons-imagens/novo")}>Sons e imagens</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/sequencia-imagens/novo")}>Sequência de imagens</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/complete-frase/novo")}>Complete a frase</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria/novo")}>Memória</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria2/novo")}>Memória 2.0</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/fonema/novo")}>Discriminação Fonema</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/auditivo/novo")}>Estimulação Auditiva</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/forca/novo")}>Forca</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/roleta/novo")}>Roleta Musical</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/caca-palavras/novo")}>Caça-palavras</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/cartas/novo")}>Jogo das Cartas</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/acerte-imagem/novo")}>Acerte a Imagem</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/historias/novo")}><BookOpen className="h-4 w-4 mr-2 shrink-0" />Criar histórias completas</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/sons-imagens/novo")}><Ear className="h-4 w-4 mr-2 shrink-0" />Sons e imagens</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/sequencia-imagens/novo")}><Images className="h-4 w-4 mr-2 shrink-0" />Sequência de imagens</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/complete-frase/novo")}><WholeWord className="h-4 w-4 mr-2 shrink-0" />Complete a frase</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria/novo")}><Grid3X3 className="h-4 w-4 mr-2 shrink-0" />Memória</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/memoria2/novo")}><Grid3X3 className="h-4 w-4 mr-2 shrink-0" />Memória 2.0</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/fonema/novo")}><Grid3X3 className="h-4 w-4 mr-2 shrink-0" />Discriminação Fonema</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/auditivo/novo")}><Ear className="h-4 w-4 mr-2 shrink-0" />Estimulação Auditiva</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/forca/novo")}><Type className="h-4 w-4 mr-2 shrink-0" />Forca</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/roleta/novo")}><CircleDot className="h-4 w-4 mr-2 shrink-0" />Roleta Musical</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/caca-palavras/novo")}><Grid3X3 className="h-4 w-4 mr-2 shrink-0" />Caça-palavras</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/cartas/novo")}><Layers className="h-4 w-4 mr-2 shrink-0" />Jogo das Cartas</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/profissional/jogos/acerte-imagem/novo")}><Image className="h-4 w-4 mr-2 shrink-0" />Acerte a Imagem</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button

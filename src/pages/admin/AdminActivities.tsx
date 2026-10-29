@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Plus, Search, FileText, Clock, Tag, Grid3X3, ChevronDown, Ear, Type, CircleDot, Layers, Share2, Image } from "lucide-react";
+import { Activity, Plus, Search, FileText, Clock, Tag, Grid3X3, ChevronDown, Ear, Type, CircleDot, Layers, Share2, Image, BookOpen, Images, WholeWord } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -109,10 +109,10 @@ const AdminActivities = () => {
               <DropdownMenuContent align="end" className="w-64">
                 <DropdownMenuLabel>Novo jogo</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/historias/novo")}>Criar histórias completas</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/sons-imagens/novo")}>Sons e imagens</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/sequencia-imagens/novo")}>Sequência de imagens</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/complete-frase/novo")}>Complete a frase</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/historias/novo")}><BookOpen className="h-4 w-4 mr-2 shrink-0" />Criar histórias completas</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/sons-imagens/novo")}><Ear className="h-4 w-4 mr-2 shrink-0" />Sons e imagens</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/sequencia-imagens/novo")}><Images className="h-4 w-4 mr-2 shrink-0" />Sequência de imagens</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate("/admin/jogos/complete-frase/novo")}><WholeWord className="h-4 w-4 mr-2 shrink-0" />Complete a frase</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => navigate("/admin/jogos/memoria/novo")}>
                   <Grid3X3 className="h-4 w-4 mr-2" />
                   Jogo da Memória

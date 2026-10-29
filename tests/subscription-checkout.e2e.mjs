@@ -40,6 +40,9 @@ try {
     const page = await context.newPage();
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto(`${base}/profissional/jogos/memoria`);
+    await page.locator('[data-subscription-preview]').waitFor();
+    assert.equal(new URL(page.url()).pathname, '/profissional/jogos/memoria');
+    await page.getByRole('link', { name: 'Escolher meu plano', exact: true }).click();
     await page.waitForURL('**/profissional/assinatura');
     const monthly = page.getByRole('article', { name: 'Plano Mensal', exact: true });
     await monthly.getByRole('link', { name: /Começar por R\$ 99,90/ }).waitFor();
@@ -73,6 +76,56 @@ try {
     assert.deepEqual(errors, []);
     console.log(`PASS ${width}px: inactive gate, 3 checkouts, safe return, status verification, activation and layout`);
     await context.close();
+  }
+
+  for (const width of [1440, 390]) {
+    const previewState = fixture();
+    const previewContext = await contextFor(previewState, width);
+    const previewPage = await previewContext.newPage();
+    const previewErrors = []; previewPage.on('pageerror', error => previewErrors.push(error.message));
+    await previewPage.goto(`${base}/profissional`);
+    await previewPage.locator('[data-subscription-preview]').waitFor();
+    if (width < 1024) await previewPage.getByRole('button', { name: 'Abrir menu', exact: true }).click();
+    const nav = previewPage.getByRole('navigation', { name: 'Navegação principal', exact: true });
+    for (const name of ['Dashboard', 'Pacientes', 'Horários', 'Histórico', 'Financeiro', 'Relatórios', 'Assinatura', 'Perfil']) assert.equal(await nav.getByRole('link', { name, exact: true }).count(), 1, `${name} must remain in the menu`);
+    for (const name of ['Atividades', 'Jogos']) assert.equal(await nav.getByRole('button', { name, exact: true }).count(), 1);
+    if (width < 1024) await previewPage.getByRole('button', { name: 'Fechar menu', exact: true }).click();
+    for (const [path, title] of [
+      ['/profissional', 'Sua prática, em um só lugar.'],
+      ['/profissional/pacientes', 'Cada paciente, com seu percurso à vista.'],
+      ['/profissional/atividades', 'Materiais que entram em cena na sessão.'],
+      ['/profissional/jogos', 'Aprender também pode ser brincar.'],
+      ['/profissional/horarios', 'Uma agenda que acompanha seu trabalho.'],
+      ['/profissional/historico', 'O caminho percorrido fica registrado.'],
+      ['/profissional/financeiro', 'Sua rotina financeira, com mais clareza.'],
+      ['/profissional/relatorios', 'Documentação clínica sem se perder no caminho.'],
+      ['/profissional/jogos/memoria', 'Transforme seus objetivos em pares para descobrir.'],
+      ['/profissional/jogos/boca-3d', 'Mostre movimentos articulatórios em outra dimensão.'],
+      ['/profissional/jogos/auditivo', 'Dê espaço para escutar, reconhecer e participar.'],
+      ['/profissional/atividades?visao=biblioteca', 'Seus materiais, prontos para a próxima sessão.'],
+    ]) {
+      await previewPage.goto(`${base}${path}`);
+      await previewPage.getByRole('heading', { name: title, exact: true }).waitFor();
+      assert.equal(new URL(previewPage.url()).pathname, new URL(`${base}${path}`).pathname, 'Preview must stay on the selected tab');
+      assert.equal(await previewPage.getByRole('link', { name: 'Escolher meu plano', exact: true }).getAttribute('href'), '/profissional/assinatura');
+      assert.ok(await previewPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${path} must fit mobile`);
+      if (path === '/profissional/pacientes') await previewPage.screenshot({ path: `.local/subscription-checkout/preview-patients-${width}.png`, fullPage: true });
+    }
+    assert.equal(previewState.operational.length, 0, 'No protected resource API may run during any preview');
+    await previewPage.goto(`${base}/profissional/pacientes`);
+    await previewPage.locator('[data-subscription-preview]').waitFor();
+    const focusResponse = previewPage.waitForResponse(response => new URL(response.url()).pathname === '/api/me');
+    previewState.user.professional_subscription_status = 'active';
+    previewState.user.professional_subscription = { status: 'active', expires_at: new Date(Date.now() + 30 * 86400000).toISOString(), server_now: new Date().toISOString(), period: { plan: 'monthly', quantity: 1, unit: 'month' } };
+    await previewPage.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await focusResponse;
+    await previewPage.getByRole('heading', { name: 'Pacientes', exact: true }).waitFor();
+    assert.equal(await previewPage.locator('[data-subscription-preview]').count(), 0, 'Payment confirmation must remove the explanation and mount the real page');
+    assert.equal(new URL(previewPage.url()).pathname, '/profissional/pacientes', 'Activation must keep the current tab');
+    assert.ok(previewState.operational.some(path => path === '/api/professional/patients'), 'The real feature must fetch its actual data after activation');
+    assert.deepEqual(previewErrors, []);
+    console.log(`PASS ${width}px: all tabs, dedicated previews, protected APIs and automatic real access on the same route`);
+    await previewContext.close();
   }
 
   const state = fixture();

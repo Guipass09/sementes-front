@@ -1,9 +1,10 @@
 import { useEffect } from "react";
-import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BadgeCheck, BarChart3, CalendarDays, ClipboardList, Gamepad2, History, IdCard, LayoutDashboard, UserRound, UsersRound, Wallet } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import ProfileShell, { type ProfileNavItem } from "@/components/ProfileShell";
+import ProfessionalSubscriptionPreview from "@/components/ProfessionalSubscriptionPreview";
 import { useSubscriptionExpired } from "@/components/SubscriptionTimer";
 import { isApiError, me } from "@/lib/laravel-api";
 import { resourceNavigation } from "@/lib/resource-navigation";
@@ -42,7 +43,7 @@ export default function ProfessionalLayout() {
     let cancelled = false;
     let pending = false;
     const syncSubscription = async () => {
-      if (pending) return;
+      if (pending || document.visibilityState === "hidden") return;
       pending = true;
       try {
         const freshUser = await me();
@@ -54,18 +55,20 @@ export default function ProfessionalLayout() {
       }
     };
     window.addEventListener("focus", syncSubscription);
-    const timer = window.setInterval(syncSubscription, 60_000);
+    document.addEventListener("visibilitychange", syncSubscription);
+    const timer = window.setInterval(syncSubscription, needsSubscription ? 15_000 : 60_000);
     return () => {
       cancelled = true;
       window.removeEventListener("focus", syncSubscription);
+      document.removeEventListener("visibilitychange", syncSubscription);
       window.clearInterval(timer);
     };
-  }, [user?.id, user?.role, user?.clinic_user_id, user?.professional_subscription_status, isClinicAccount, auth.refresh, auth.setAuthUser]);
+  }, [user?.id, user?.role, user?.clinic_user_id, user?.professional_subscription_status, isClinicAccount, needsSubscription, auth.refresh, auth.setAuthUser]);
 
   if (!user || auth.loading) return <FullScreenLogoLoader label="Carregando..." />;
 
   const resources = resourceNavigation("/profissional", { clinic: isClinicAccount });
-  const allNavItems: ProfileNavItem[] = [
+  const navItems: ProfileNavItem[] = [
     { path: "/profissional", label: "Dashboard", icon: LayoutDashboard },
     { path: "/profissional/pacientes", label: isClinicAccount ? "Terapeutas" : "Pacientes", icon: UsersRound },
     { path: "/profissional/atividades", label: "Atividades", icon: ClipboardList, children: resources.activities },
@@ -77,7 +80,6 @@ export default function ProfessionalLayout() {
     ...(hasIndividualSubscription(user) ? [{ path: "/profissional/assinatura", label: "Assinatura", icon: BadgeCheck }] : []),
     { path: "/profissional/perfil", label: "Perfil", icon: UserRound },
   ].map((item) => ({ ...item, active: item.path === "/profissional" ? location.pathname === item.path : location.pathname.startsWith(item.path) }));
-  const navItems = needsSubscription ? allNavItems.filter((item) => ["/profissional/assinatura", "/profissional/perfil"].includes(item.path)) : allNavItems;
 
   const subtitle = isClinicAccount
     ? (String(user.clinic_area ?? "").trim() || "Clínica")
@@ -95,7 +97,12 @@ export default function ProfessionalLayout() {
       onLogout={() => void auth.logout().finally(() => navigate("/"))}
     >
       {needsSubscription && !onSubscriptionPage && !onProfilePage ? (
-        <Navigate to="/profissional/assinatura" replace />
+        <ProfessionalSubscriptionPreview expiresOn={user.professional_subscription_expires_on} onRefresh={async () => {
+          const fresh = await me();
+          if (fresh.id !== user.id) throw new Error("Conta diferente");
+          auth.setAuthUser(fresh);
+          return fresh.professional_subscription_status === "active";
+        }} />
       ) : <Outlet />}
     </ProfileShell>
   );

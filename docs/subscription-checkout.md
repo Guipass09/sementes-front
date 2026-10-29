@@ -2,7 +2,7 @@
 
 Fluxo: landing com plano selecionado → cadastro profissional → `/profissional/assinatura` → checkout Kiwify em nova aba → retorno/verificação → acesso após confirmação do backend.
 
-A página mantém a decisão dentro da conta, mostra o valor devido e a próxima renovação, preserva o plano selecionado e permite voltar ao pagamento sem repetir o cadastro. Contas inativas visualizam Assinatura e Perfil; páginas operacionais permanecem bloqueadas. Clínicas e acesso legado seguem suas regras anteriores. Contas ativas não recebem novos CTAs de compra.
+A página mantém a decisão dentro da conta, mostra o valor devido e a próxima renovação, preserva o plano selecionado e permite voltar ao pagamento sem repetir o cadastro. Contas inativas mantêm todas as abas no menu: cada área apresenta seu recurso e direciona à contratação, sem montar páginas operacionais nem consultar dados protegidos. Assinatura e Perfil continuam utilizáveis. A confirmação de acesso, consultada a cada 15 segundos enquanto a conta está inativa e também ao voltar à janela, remove a apresentação e monta a página real na mesma rota. Clínicas e acesso legado seguem suas regras anteriores. Contas ativas não recebem novos CTAs de compra.
 
 Os planos e os três links são centralizados em `src/features/subscription/plans.ts`. A oferta de boas-vindas aparece para contas sem período e sem histórico. Um clique em checkout nunca altera autorização. A assinatura é consultada a cada 15 segundos enquanto a conta aguarda ativação e pode ser verificada manualmente; a atualização de acesso vem de `/api/me`.
 

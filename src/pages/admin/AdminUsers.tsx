@@ -3,6 +3,7 @@ import AdminProfessionalSubscription from "@/components/AdminProfessionalSubscri
 import SubscriptionTimer from "@/components/SubscriptionTimer";
 import { subscriptionUrgency } from "@/lib/subscription-status";
 import type { ProfessionalSubscription } from "@/lib/laravel-api";
+import { professionalSpecialtyLabel } from "@/features/profile/profile";
 import {
   Users,
   Search,
@@ -104,7 +105,10 @@ interface ProfessionalData {
   professional_age?: number | null;
   professional_birthdate?: string | null; // YYYY-MM-DD
   professional_attestation?: boolean | null;
+  professional_specialty?: "fonoaudiologo" | "psicologo" | "psicoterapeuta" | null;
   professional_crfa?: string | null;
+  professional_registration?: string | null;
+  professional_training?: string | null;
   responsible_name?: string | null;
   clinic_name?: string | null;
   clinic_area?: string | null;
@@ -160,7 +164,10 @@ const mapAdminProfessional = (p: AdminProfessionalRow): ProfessionalData => ({
   professional_age: p.professional_age ?? null,
   professional_birthdate: p.professional_birthdate ?? null,
   professional_attestation: p.professional_attestation ?? null,
+  professional_specialty: p.professional_specialty ?? null,
   professional_crfa: p.professional_crfa ?? null,
+  professional_registration: p.professional_registration ?? null,
+  professional_training: p.professional_training ?? null,
   responsible_name: p.responsible_name ?? null,
   clinic_name: p.clinic_name ?? null,
   clinic_area: p.clinic_area ?? null,
@@ -210,7 +217,7 @@ const AdminUsers = () => {
   const [clinicAssignTarget, setClinicAssignTarget] = useState<ProfessionalData | null>(null);
   const [clinicAssignLoading, setClinicAssignLoading] = useState(false);
   const [clinicAssignPros, setClinicAssignPros] = useState<
-    Array<{ id: number; name: string; email: string; professional_crfa?: string | null; affiliated_clinic_name?: string | null }>
+    Array<{ id: number; name: string; email: string; professional_crfa?: string | null; professional_registration?: string | null; professional_specialty?: string | null; affiliated_clinic_name?: string | null }>
   >([]);
   const [clinicAssignSelected, setClinicAssignSelected] = useState<number[]>([]);
   const [progressSummary, setProgressSummary] = useState<null | {
@@ -800,6 +807,8 @@ const AdminUsers = () => {
           name: p.name,
           email: p.email,
           professional_crfa: p.professional_crfa ?? null,
+          professional_registration: p.professional_registration ?? null,
+          professional_specialty: p.professional_specialty ?? null,
           affiliated_clinic_name: p.affiliated_clinic_name ?? null,
         }))
       );
@@ -1299,11 +1308,11 @@ const AdminUsers = () => {
                       </div>
                       <p className="text-sm text-muted-foreground truncate">{p.email}</p>
                       {p.phone && <p className="text-xs text-muted-foreground truncate">Celular: {p.phone}</p>}
-                      {!!p.professional_crfa && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          CRFa: {p.professional_crfa}
-                        </p>
-                      )}
+                      {p.professional_specialty && <p className="text-xs text-muted-foreground truncate">Profissão: {professionalSpecialtyLabel(p.professional_specialty)}</p>}
+                      {(p.professional_registration || p.professional_crfa) && <p className="text-xs text-muted-foreground truncate">
+                        {p.professional_specialty === "psicologo" ? "CRP" : p.professional_specialty === "psicoterapeuta" ? "Registro profissional" : "CRFa"}: {p.professional_registration || p.professional_crfa}
+                      </p>}
+                      {p.professional_training && <p className="text-xs text-muted-foreground truncate">Formação: {p.professional_training}</p>}
                       {p.affiliated_clinic_name && (
                         <p className="text-xs text-brand-green truncate">Clínica: {p.affiliated_clinic_name}</p>
                       )}
@@ -2041,9 +2050,11 @@ const AdminUsers = () => {
                         ) : selectedProfessional.professional_age ? (
                           <p className="text-sm text-muted-foreground">Idade: {selectedProfessional.professional_age} ano(s)</p>
                         ) : null}
-                        {selectedProfessional.professional_crfa ? (
-                          <p className="text-sm text-muted-foreground">CRFa: {selectedProfessional.professional_crfa}</p>
-                        ) : null}
+                        {selectedProfessional.professional_specialty && <p className="text-sm text-muted-foreground">Profissão: {professionalSpecialtyLabel(selectedProfessional.professional_specialty)}</p>}
+                        {(selectedProfessional.professional_registration || selectedProfessional.professional_crfa) && <p className="text-sm text-muted-foreground">
+                          {selectedProfessional.professional_specialty === "psicologo" ? "CRP" : selectedProfessional.professional_specialty === "psicoterapeuta" ? "Registro profissional" : "CRFa"}: {selectedProfessional.professional_registration || selectedProfessional.professional_crfa}
+                        </p>}
+                        {selectedProfessional.professional_training && <p className="text-sm text-muted-foreground">Formação e abordagem: {selectedProfessional.professional_training}</p>}
                         {selectedProfessional.professional_attestation !== null && selectedProfessional.professional_attestation !== undefined ? (
                           <p className="text-sm text-muted-foreground">
                             Responsabilidade: {selectedProfessional.professional_attestation ? "confirmada" : "não confirmada"}
@@ -2254,12 +2265,20 @@ const AdminUsers = () => {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label>CRFa</Label>
+                          <Label>{selectedProfessional.professional_specialty === "psicologo" ? "CRP" : selectedProfessional.professional_specialty === "psicoterapeuta" ? "Registro profissional (opcional)" : "CRFa"}</Label>
                           <Input
-                            value={selectedProfessional.professional_crfa ?? ""}
-                            onChange={(e) => setSelectedProfessional((prev) => (prev ? { ...prev, professional_crfa: e.target.value } : prev))}
+                            value={selectedProfessional.professional_registration || selectedProfessional.professional_crfa || ""}
+                            onChange={(e) => setSelectedProfessional((prev) => prev ? {
+                              ...prev,
+                              professional_registration: e.target.value,
+                              ...(prev.professional_specialty === "fonoaudiologo" || !prev.professional_specialty ? { professional_crfa: e.target.value } : {}),
+                            } : prev)}
                           />
                         </div>
+                        {selectedProfessional.professional_specialty === "psicoterapeuta" && <div className="space-y-1">
+                          <Label>Formação e abordagem em psicoterapia</Label>
+                          <Input value={selectedProfessional.professional_training ?? ""} onChange={(e) => setSelectedProfessional((prev) => prev ? { ...prev, professional_training: e.target.value } : prev)} />
+                        </div>}
                       </>
                     )}
                   </div>
@@ -2281,7 +2300,10 @@ const AdminUsers = () => {
                           email: p.email,
                           phone: p.phone ?? "",
                           professional_age: isClinicAccount(p) ? undefined : p.professional_age ?? null,
+                          professional_specialty: isClinicAccount(p) ? undefined : p.professional_specialty ?? "fonoaudiologo",
                           professional_crfa: isClinicAccount(p) ? undefined : p.professional_crfa ?? null,
+                          professional_registration: isClinicAccount(p) ? undefined : p.professional_registration ?? null,
+                          professional_training: isClinicAccount(p) ? undefined : p.professional_training ?? null,
                           responsible_name: p.responsible_name ?? null,
                           clinic_name: isClinicAccount(p) ? p.clinic_name ?? p.name : undefined,
                           clinic_area: isClinicAccount(p) ? p.clinic_area ?? null : undefined,
@@ -2554,8 +2576,9 @@ const AdminUsers = () => {
                       <div className="font-medium text-foreground">{professional.name}</div>
                       <div className="text-xs text-muted-foreground">{professional.email}</div>
                       <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                        {professional.professional_crfa ? (
-                          <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">CRFA: {professional.professional_crfa}</span>
+                        {professional.professional_specialty && <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">{professionalSpecialtyLabel(professional.professional_specialty)}</span>}
+                        {(professional.professional_registration || professional.professional_crfa) ? (
+                          <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">{professional.professional_specialty === "psicologo" ? "CRP" : professional.professional_specialty === "psicoterapeuta" ? "Registro" : "CRFa"}: {professional.professional_registration || professional.professional_crfa}</span>
                         ) : null}
                         {professional.affiliated_clinic_name ? (
                           <span className="rounded-full bg-brand-orange/10 px-2 py-0.5 text-brand-orange">

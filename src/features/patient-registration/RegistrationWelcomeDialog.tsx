@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, BadgeCheck, CircleCheck, UserRound } from "lucide-react";
+import { ArrowRight, BadgeCheck, Briefcase, CircleCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
+import { professionalSpecialtyLabel } from "@/features/profile/profile";
 import { registrationWelcome, registrationWelcomeKey, type RegistrationProfessional } from "./registration";
 
 export function RegistrationWelcomeContent({ professional, onContinue }: { professional: RegistrationProfessional; onContinue: () => void }) {
@@ -19,6 +20,7 @@ export function RegistrationWelcomeContent({ professional, onContinue }: { profe
           {professional.photo_url ? <img src={normalizeMediaUrl(professional.photo_url)} alt="" className="h-full w-full object-cover" /> : <UserRound size={27} strokeWidth={1.6} />}
         </span>
         <div className="min-w-0"><p className="break-words text-base font-semibold text-[#183c35]">{professional.name}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-[#486658]"><Briefcase size={14} className="shrink-0" />{professionalSpecialtyLabel(professional.professional_specialty)}</p>
           {professional.registration && <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[#486658]"><BadgeCheck size={15} className="shrink-0 text-[#0b7540]" /><span className="break-all">{professional.registration}</span></p>}
         </div>
       </div>

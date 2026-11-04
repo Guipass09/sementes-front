@@ -96,8 +96,10 @@ export type AuthUser = {
   professional_birthdate?: string | null; // YYYY-MM-DD
   professional_attestation?: boolean | null;
   professional_age?: number | null;
+  professional_specialty?: "fonoaudiologo" | "psicologo" | "psicoterapeuta" | null;
   professional_crfa?: string | null;
   professional_registration?: string | null;
+  professional_training?: string | null;
   professional_share_id?: string | null;
   clinic_name?: string | null;
   clinic_area?: string | null;
@@ -583,7 +585,10 @@ export async function registerProfessional(params: {
   professional_birthdate?: string; // YYYY-MM-DD
   professional_attestation?: boolean;
   professional_age?: number;
-  professional_crfa: string;
+  professional_specialty: "fonoaudiologo" | "psicologo" | "psicoterapeuta";
+  professional_registration?: string;
+  professional_training?: string;
+  professional_crfa?: string;
   password: string;
   password_confirmation: string;
 }): Promise<{ token: string; user: AuthUser }> {
@@ -1032,8 +1037,10 @@ export type AdminProfessionalRow = {
   professional_age?: number | null;
   professional_birthdate?: string | null; // YYYY-MM-DD
   professional_attestation?: boolean | null;
+  professional_specialty?: "fonoaudiologo" | "psicologo" | "psicoterapeuta" | null;
   professional_crfa?: string | null;
   professional_registration?: string | null;
+  professional_training?: string | null;
   responsible_name?: string | null;
   clinic_name?: string | null;
   clinic_area?: string | null;
@@ -1105,8 +1112,10 @@ export async function adminUpdateProfessional(
       | "email"
       | "phone"
       | "professional_age"
+      | "professional_specialty"
       | "professional_crfa"
       | "professional_registration"
+      | "professional_training"
       | "responsible_name"
       | "clinic_name"
       | "clinic_area"
@@ -1314,14 +1323,14 @@ export async function adminSetUserProfessionals(userId: number, professional_ids
 
 export async function adminGetClinicProfessionals(clinicId: number): Promise<{
   professional_ids: number[];
-  assigned_professionals: Array<{ id: number; name: string; email: string; phone?: string | null; professional_crfa?: string | null }>;
+  assigned_professionals: Array<{ id: number; name: string; email: string; phone?: string | null; professional_crfa?: string | null; professional_registration?: string | null; professional_specialty?: string | null }>;
 }> {
   return await request(`/api/admin/clinics/${clinicId}/professionals`);
 }
 
 export async function adminSetClinicProfessionals(clinicId: number, professional_ids: number[]): Promise<{
   professional_ids: number[];
-  assigned_professionals: Array<{ id: number; name: string; email: string; phone?: string | null; professional_crfa?: string | null }>;
+  assigned_professionals: Array<{ id: number; name: string; email: string; phone?: string | null; professional_crfa?: string | null; professional_registration?: string | null; professional_specialty?: string | null }>;
 }> {
   await ensureCsrfCookie();
   return await request(`/api/admin/clinics/${clinicId}/professionals`, {
@@ -1349,8 +1358,10 @@ export type ClinicProfessionalRow = {
   phone?: string | null;
   professional_age?: number | null;
   professional_birthdate?: string | null;
+  professional_specialty?: "fonoaudiologo" | "psicologo" | "psicoterapeuta" | null;
   professional_crfa?: string | null;
   professional_registration?: string | null;
+  professional_training?: string | null;
   assigned_users_count: number;
   profile_photo_url?: string | null;
 };

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useLocation } from "react-router-dom";
-import { AlertCircle, BadgeCheck, Camera, Check, IdCard, Loader2, LockKeyhole, Mail, RotateCcw, Save, Trash2, UserRound } from "lucide-react";
+import { AlertCircle, BadgeCheck, Briefcase, Camera, Check, IdCard, Loader2, LockKeyhole, Mail, RotateCcw, Save, Trash2, UserRound } from "lucide-react";
 import { useAuth } from "@/auth/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useToast } from "@/hooks/use-toast";
 import { isApiError, updateMe, type AuthUser } from "@/lib/laravel-api";
 import { normalizeMediaUrl } from "@/lib/normalize-media-url";
-import { PROFILE_DESCRIPTION_LIMIT, PROFILE_NAME_LIMIT, profileInitials, profilePhotoError, profileRegistration, profileTextErrors } from "@/features/profile/profile";
+import { PROFILE_DESCRIPTION_LIMIT, PROFILE_NAME_LIMIT, profileInitials, profilePhotoError, profileRegistration, professionalSpecialtyLabel, profileTextErrors } from "@/features/profile/profile";
 import ProfileSharingId from "@/features/profile/ProfileSharingId";
 
 export default function Profile() {
@@ -43,7 +43,12 @@ export function ProfileEditor({ user, preview = false, onSaved }: { user: AuthUs
   const registration = profileRegistration(user);
   const professional = user.role === "professional";
   const accountLabel = user.role === "admin" ? "Administrador" : professional
-    ? (user.clinic_name?.trim() ? "Clínica" : "Profissional") : "Paciente";
+    ? (user.clinic_name?.trim() ? "Clínica" : professionalSpecialtyLabel(user.professional_specialty)) : "Paciente";
+  const registrationLabel = user.professional_specialty === "psicologo"
+    ? "Registro CRP"
+    : user.professional_specialty === "psicoterapeuta"
+      ? "Registro profissional (opcional)"
+      : "Registro CRFa";
   const dirty = name.trim() !== user.name || description !== (user.profile_description ?? "") || !!file || removePhoto;
   const photoUrl = removePhoto ? null : file ? filePreview : user.profile_photo_url;
   const displayName = name.trim() || user.name;
@@ -168,14 +173,18 @@ export function ProfileEditor({ user, preview = false, onSaved }: { user: AuthUs
           <h2 id="profile-account-title" className="mb-5 text-base font-semibold text-foreground">Dados da conta</h2>
           <dl className="divide-y divide-border text-sm">
             <div className="pb-5"><dt className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><Mail size={15} />E-mail</dt><dd className="break-all font-medium text-foreground">{user.email}</dd></div>
-            <div className="py-5"><dt className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><UserRound size={15} />Tipo de conta</dt><dd className="font-medium text-foreground">{accountLabel}</dd></div>
+            <div className="py-5"><dt className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><UserRound size={15} />Profissão / tipo de conta</dt><dd className="font-medium text-foreground">{accountLabel}</dd></div>
           </dl>
           {professional && <div className="border-t border-border pt-5">
-            <Label htmlFor="profile-registration" className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><IdCard size={15} />Número de registro</Label>
+            <Label htmlFor="profile-registration" className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><IdCard size={15} />{registrationLabel}</Label>
             <div className="relative"><Input id="profile-registration" value={registration ?? "Não informado"} readOnly aria-readonly="true" className="bg-muted/40 pr-9 text-foreground shadow-none" />
               <Tooltip><TooltipTrigger asChild><span tabIndex={0} aria-label="Registro profissional: somente leitura" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><LockKeyhole size={15} /></span></TooltipTrigger><TooltipContent>Registro profissional não editável</TooltipContent></Tooltip>
             </div>
             <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><LockKeyhole size={12} />Somente leitura</p>
+            {user.professional_training && <div className="mt-5">
+              <Label htmlFor="profile-professional-training" className="mb-2 flex items-center gap-2 text-xs text-muted-foreground"><Briefcase size={15} />Formação e abordagem em psicoterapia</Label>
+              <Input id="profile-professional-training" value={user.professional_training} readOnly aria-readonly="true" className="bg-muted/40 text-foreground shadow-none" />
+            </div>}
           </div>}
           {professional && <ProfileSharingId shareId={user.professional_share_id} />}
         </aside>

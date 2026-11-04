@@ -10,6 +10,15 @@ export function profileRegistration(user: { professional_crfa?: string | null; p
   return user.professional_crfa?.trim() || user.professional_registration?.trim() || null;
 }
 
+export function professionalSpecialtyLabel(specialty?: string | null): string {
+  switch (specialty) {
+    case "psicologo": return "Psicólogo(a)";
+    case "psicoterapeuta": return "Psicoterapeuta";
+    case "fonoaudiologo":
+    default: return "Fonoaudiólogo(a)";
+  }
+}
+
 export function profileTextErrors(name: string, description: string): { name?: string; description?: string } {
   return {
     ...(name.trim().length < 3 ? { name: "Informe um nome com pelo menos 3 caracteres." }

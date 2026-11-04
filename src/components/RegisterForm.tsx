@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, BadgeCheck, Briefcase, Building2, Check, Eye, EyeOff, Lock, Mail, MapPin, User, Users } from "lucide-react";
+import { AlertCircle, BadgeCheck, Briefcase, Building2, Check, ChevronDown, Eye, EyeOff, Lock, Mail, MapPin, User, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/auth/AuthContext";
@@ -8,6 +8,7 @@ import InternationalPhoneField, { validateRegistrationPhone } from "@/components
 import type { RegistrationProfessional } from "@/features/patient-registration/registration";
 
 export type RegisterMode = "patient" | "professional" | "clinic";
+type ProfessionalSpecialty = "fonoaudiologo" | "psicologo" | "psicoterapeuta";
 
 type FieldValidation = {
   valid: boolean;
@@ -23,7 +24,9 @@ interface FormState {
   email: string;
   phone: string;
   professionalBirthdate: string;
-  professionalCrfa: string;
+  professionalSpecialty: ProfessionalSpecialty | "";
+  professionalRegistration: string;
+  professionalTraining: string;
   professionalAttestation: boolean;
   clinicName: string;
   clinicArea: string;
@@ -41,7 +44,9 @@ interface ValidationState {
   email: FieldValidation;
   phone: FieldValidation;
   professionalBirthdate: FieldValidation;
-  professionalCrfa: FieldValidation;
+  professionalSpecialty: FieldValidation;
+  professionalRegistration: FieldValidation;
+  professionalTraining: FieldValidation;
   professionalAttestation: FieldValidation;
   clinicName: FieldValidation;
   clinicArea: FieldValidation;
@@ -56,6 +61,12 @@ const clinicTeamSizeOptions = [
   { value: "6-10", label: "6-10" },
   { value: "11-20", label: "11-20" },
   { value: "20+", label: "20+" },
+] as const;
+
+const professionalSpecialtyOptions = [
+  { value: "fonoaudiologo", label: "Fonoaudiólogo(a)" },
+  { value: "psicologo", label: "Psicólogo(a)" },
+  { value: "psicoterapeuta", label: "Psicoterapeuta" },
 ] as const;
 
 const createValidationField = (): FieldValidation => ({
@@ -80,7 +91,9 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
     email: "",
     phone: "",
     professionalBirthdate: "",
-    professionalCrfa: "",
+    professionalSpecialty: "",
+    professionalRegistration: "",
+    professionalTraining: "",
     professionalAttestation: false,
     clinicName: "",
     clinicArea: "",
@@ -98,7 +111,9 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
     email: createValidationField(),
     phone: createValidationField(),
     professionalBirthdate: createValidationField(),
-    professionalCrfa: createValidationField(),
+    professionalSpecialty: createValidationField(),
+    professionalRegistration: createValidationField(),
+    professionalTraining: createValidationField(),
     professionalAttestation: createValidationField(),
     clinicName: createValidationField(),
     clinicArea: createValidationField(),
@@ -211,12 +226,16 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
     []
   );
 
-  const validateProfessionalCrfa = useCallback((value: string): { valid: boolean; message: string } => {
+  const validateProfessionalRegistration = useCallback((value: string, label: string): { valid: boolean; message: string } => {
     const text = String(value ?? "").trim();
-    if (!text) return { valid: false, message: "CRFa é obrigatório" };
-    if (text.length < 3) return { valid: false, message: "CRFa inválido" };
+    if (!text) return { valid: false, message: `${label} é obrigatório` };
+    if (text.length < 3) return { valid: false, message: `${label} inválido` };
     return { valid: true, message: "" };
   }, []);
+
+  const validateProfessionalTraining = useCallback((value: string): { valid: boolean; message: string } => {
+    return validateRequiredText(value, "Formação e abordagem em psicoterapia", 3);
+  }, [validateRequiredText]);
 
   const validateAttestation = useCallback((checked: boolean): { valid: boolean; message: string } => {
     if (!checked) {
@@ -279,8 +298,13 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
       case "professionalBirthdate":
         result = validateBirthdate(String(value), { label: "Data de nascimento", minAgeYears: 18 });
         break;
-      case "professionalCrfa":
-        result = validateProfessionalCrfa(String(value));
+      case "professionalRegistration":
+        result = formData.professionalSpecialty === "psicoterapeuta"
+          ? validateOptionalText(String(value), "Conselho e registro profissional")
+          : validateProfessionalRegistration(String(value), formData.professionalSpecialty === "psicologo" ? "CRP" : "CRFa");
+        break;
+      case "professionalTraining":
+        result = validateProfessionalTraining(String(value));
         break;
       case "professionalAttestation":
         result = validateAttestation(Boolean(value));
@@ -348,8 +372,13 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
       case "professionalBirthdate":
         result = validateBirthdate(formData.professionalBirthdate, { label: "Data de nascimento", minAgeYears: 18 });
         break;
-      case "professionalCrfa":
-        result = validateProfessionalCrfa(formData.professionalCrfa);
+      case "professionalRegistration":
+        result = formData.professionalSpecialty === "psicoterapeuta"
+          ? validateOptionalText(formData.professionalRegistration, "Conselho e registro profissional")
+          : validateProfessionalRegistration(formData.professionalRegistration, formData.professionalSpecialty === "psicologo" ? "CRP" : "CRFa");
+        break;
+      case "professionalTraining":
+        result = validateProfessionalTraining(formData.professionalTraining);
         break;
       case "professionalAttestation":
         result = validateAttestation(formData.professionalAttestation);
@@ -394,6 +423,21 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
     }));
   };
 
+  const handleProfessionalSpecialtySelect = (value: ProfessionalSpecialty | "") => {
+    setFormData((prev) => ({
+      ...prev,
+      professionalSpecialty: value,
+      professionalRegistration: "",
+      professionalTraining: "",
+    }));
+    setValidation((prev) => ({
+      ...prev,
+      professionalSpecialty: { ...validateChoice(value, "sua profissão"), touched: true },
+      professionalRegistration: createValidationField(),
+      professionalTraining: createValidationField(),
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setRegisterError("");
@@ -413,7 +457,20 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
     const phoneResult = validateRegistrationPhone(formData.phone);
     const professionalBirthdateResult =
       mode === "professional" ? validateBirthdate(formData.professionalBirthdate, { label: "Data de nascimento", minAgeYears: 18 }) : { valid: true, message: "" };
-    const professionalCrfaResult = mode === "professional" ? validateProfessionalCrfa(formData.professionalCrfa) : { valid: true, message: "" };
+    const professionalSpecialtyResult = mode === "professional" ? validateChoice(formData.professionalSpecialty, "sua profissão") : { valid: true, message: "" };
+    const professionalRegistrationResult = (() => {
+      if (mode !== "professional" || !formData.professionalSpecialty) return { valid: true, message: "" };
+      if (formData.professionalSpecialty === "psicoterapeuta") {
+        return validateOptionalText(formData.professionalRegistration, "Conselho e registro profissional");
+      }
+      return validateProfessionalRegistration(
+        formData.professionalRegistration,
+        formData.professionalSpecialty === "psicologo" ? "CRP" : "CRFa"
+      );
+    })();
+    const professionalTrainingResult = mode === "professional" && formData.professionalSpecialty === "psicoterapeuta"
+      ? validateProfessionalTraining(formData.professionalTraining)
+      : { valid: true, message: "" };
     const professionalAttestationResult = mode === "professional" ? validateAttestation(formData.professionalAttestation) : { valid: true, message: "" };
     const clinicNameResult = mode === "clinic" ? validateName(formData.clinicName, "Nome da empresa ou clínica") : { valid: true, message: "" };
     const clinicAreaResult = mode === "clinic" ? validateOptionalText(formData.clinicArea, "Área de atuação") : { valid: true, message: "" };
@@ -430,7 +487,9 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
       email: { ...emailResult, touched: true },
       phone: { ...phoneResult, touched: true },
       professionalBirthdate: { ...professionalBirthdateResult, touched: true },
-      professionalCrfa: { ...professionalCrfaResult, touched: true },
+      professionalSpecialty: { ...professionalSpecialtyResult, touched: true },
+      professionalRegistration: { ...professionalRegistrationResult, touched: true },
+      professionalTraining: { ...professionalTrainingResult, touched: true },
       professionalAttestation: { ...professionalAttestationResult, touched: true },
       clinicName: { ...clinicNameResult, touched: true },
       clinicArea: { ...clinicAreaResult, touched: true },
@@ -448,7 +507,9 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
       !emailResult.valid ||
       !phoneResult.valid ||
       !professionalBirthdateResult.valid ||
-      !professionalCrfaResult.valid ||
+      !professionalSpecialtyResult.valid ||
+      !professionalRegistrationResult.valid ||
+      !professionalTrainingResult.valid ||
       !professionalAttestationResult.valid ||
       !clinicNameResult.valid ||
       !clinicAreaResult.valid ||
@@ -470,7 +531,10 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
           email: formData.email,
           phone: formData.phone,
           professional_birthdate: formData.professionalBirthdate,
-          professional_crfa: formData.professionalCrfa.trim(),
+          professional_specialty: formData.professionalSpecialty as ProfessionalSpecialty,
+          professional_registration: formData.professionalRegistration.trim() || undefined,
+          professional_training: formData.professionalTraining.trim() || undefined,
+          professional_crfa: formData.professionalSpecialty === "fonoaudiologo" ? formData.professionalRegistration.trim() : undefined,
           professional_attestation: formData.professionalAttestation,
           password: formData.password,
           password_confirmation: formData.confirmPassword,
@@ -859,30 +923,99 @@ const RegisterForm = ({ mode, onChangeProfile, registrationInvite }: {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="professionalCrfa" className="block text-sm font-semibold text-foreground">
-              CRFa
+            <label htmlFor="professionalSpecialty" className="block text-sm font-semibold text-foreground">
+              Profissão / especialidade
             </label>
             <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-                <BadgeCheck size={18} />
+              <Briefcase size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <select
+                id="professionalSpecialty"
+                name="professionalSpecialty"
+                value={formData.professionalSpecialty}
+                onChange={(event) => handleProfessionalSpecialtySelect(event.target.value as ProfessionalSpecialty | "")}
+                onBlur={() => setValidation((prev) => ({
+                  ...prev,
+                  professionalSpecialty: { ...validateChoice(formData.professionalSpecialty, "sua profissão"), touched: true },
+                }))}
+                aria-label="Profissão ou especialidade"
+                aria-invalid={validation.professionalSpecialty.touched && !validation.professionalSpecialty.valid}
+                className={`${getInputClassName("professionalSpecialty")} appearance-none pl-11 pr-10`}
+              >
+                <option value="">Selecione sua profissão</option>
+                {professionalSpecialtyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">
+                {validation.professionalSpecialty.touched ? renderValidationIcon("professionalSpecialty") : <ChevronDown size={16} />}
               </div>
-              <input
-                type="text"
-                id="professionalCrfa"
-                name="professionalCrfa"
-                value={formData.professionalCrfa}
-                onChange={handleInputChange("professionalCrfa")}
-                onBlur={handleInputBlur("professionalCrfa")}
-                placeholder="Ex: CRFa-2 12345"
-                autoComplete="off"
-                aria-label="CRFa"
-                aria-invalid={validation.professionalCrfa.touched && !validation.professionalCrfa.valid}
-                className={`${getInputClassName("professionalCrfa")} pl-11 pr-10`}
-              />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("professionalCrfa")}</div>
             </div>
-            {renderFieldError("professionalCrfa")}
+            {renderFieldError("professionalSpecialty")}
           </div>
+
+          {formData.professionalSpecialty === "fonoaudiologo" && (
+            <div className="space-y-2">
+              <label htmlFor="professionalRegistration" className="block text-sm font-semibold text-foreground">Registro CRFa</label>
+              <div className="relative">
+                <BadgeCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input id="professionalRegistration" name="professionalRegistration" type="text" maxLength={50} value={formData.professionalRegistration}
+                  onChange={handleInputChange("professionalRegistration")} onBlur={handleInputBlur("professionalRegistration")}
+                  placeholder="Ex.: CRFa-2 12345" autoComplete="off" aria-label="Número do CRFa"
+                  aria-invalid={validation.professionalRegistration.touched && !validation.professionalRegistration.valid}
+                  className={`${getInputClassName("professionalRegistration")} pl-11 pr-10`} />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("professionalRegistration")}</div>
+              </div>
+              {renderFieldError("professionalRegistration")}
+            </div>
+          )}
+
+          {formData.professionalSpecialty === "psicologo" && (
+            <div className="space-y-2">
+              <label htmlFor="professionalRegistration" className="block text-sm font-semibold text-foreground">Registro CRP</label>
+              <div className="relative">
+                <BadgeCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input id="professionalRegistration" name="professionalRegistration" type="text" maxLength={100} value={formData.professionalRegistration}
+                  onChange={handleInputChange("professionalRegistration")} onBlur={handleInputBlur("professionalRegistration")}
+                  placeholder="Ex.: CRP 06/123456" autoComplete="off" aria-label="Número do CRP"
+                  aria-invalid={validation.professionalRegistration.touched && !validation.professionalRegistration.valid}
+                  className={`${getInputClassName("professionalRegistration")} pl-11 pr-10`} />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("professionalRegistration")}</div>
+              </div>
+              {renderFieldError("professionalRegistration")}
+            </div>
+          )}
+
+          {formData.professionalSpecialty === "psicoterapeuta" && (
+            <>
+              <div className="space-y-2">
+                <label htmlFor="professionalTraining" className="block text-sm font-semibold text-foreground">Formação e abordagem em psicoterapia</label>
+                <div className="relative">
+                  <Briefcase size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input id="professionalTraining" name="professionalTraining" type="text" maxLength={500} value={formData.professionalTraining}
+                    onChange={handleInputChange("professionalTraining")} onBlur={handleInputBlur("professionalTraining")}
+                    placeholder="Ex.: formação, instituição e abordagem" autoComplete="off"
+                    aria-label="Formação e abordagem em psicoterapia"
+                    aria-invalid={validation.professionalTraining.touched && !validation.professionalTraining.valid}
+                    className={`${getInputClassName("professionalTraining")} pl-11 pr-10`} />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("professionalTraining")}</div>
+                </div>
+                {renderFieldError("professionalTraining")}
+                <p className="text-xs leading-relaxed text-muted-foreground">Psicoterapeuta não possui conselho profissional próprio no Brasil. Informe sua formação; o registro de outra profissão é opcional.</p>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="professionalRegistration" className="block text-sm font-semibold text-foreground">Conselho e registro profissional (opcional)</label>
+                <div className="relative">
+                  <BadgeCheck size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input id="professionalRegistration" name="professionalRegistration" type="text" maxLength={100} value={formData.professionalRegistration}
+                    onChange={handleInputChange("professionalRegistration")} onBlur={handleInputBlur("professionalRegistration")}
+                    placeholder="Ex.: CRP, CRM ou outro registro" autoComplete="off"
+                    aria-label="Conselho e registro profissional opcional"
+                    aria-invalid={validation.professionalRegistration.touched && !validation.professionalRegistration.valid}
+                    className={`${getInputClassName("professionalRegistration")} pl-11 pr-10`} />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2">{renderValidationIcon("professionalRegistration")}</div>
+                </div>
+                {renderFieldError("professionalRegistration")}
+              </div>
+            </>
+          )}
 
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-foreground">Responsabilidade</label>

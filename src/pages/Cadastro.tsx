@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import "./login.css";
 import { isApiError, previewPatientRegistration } from "@/lib/laravel-api";
 import type { RegistrationProfessional } from "@/features/patient-registration/registration";
+import { professionalSpecialtyLabel } from "@/features/profile/profile";
 import { professionalPlans, subscriptionPlanId } from "@/features/subscription/plans";
 
 const profileOptions: Array<{
@@ -132,7 +133,7 @@ const Cadastro = () => {
                   {inviteError && <button type="button" className="text-sm font-semibold text-primary" onClick={() => setPreviewAttempt((value) => value + 1)}>Tentar novamente</button>}
                 </div>
               ) : <>
-                {invitation && <div className="mb-5 flex items-start gap-3 border-y border-border py-4"><BadgeCheck size={22} className="mt-1 shrink-0 text-primary" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Convite de acompanhamento</p><p className="break-words font-semibold text-foreground">{invitation.professional.name}</p>{invitation.professional.registration && <p className="text-xs text-muted-foreground">{invitation.professional.registration}</p>}</div></div>}
+                {invitation && <div className="mb-5 flex items-start gap-3 border-y border-border py-4"><BadgeCheck size={22} className="mt-1 shrink-0 text-primary" /><div className="min-w-0"><p className="text-xs text-muted-foreground">Convite de acompanhamento</p><p className="break-words font-semibold text-foreground">{invitation.professional.name}</p><p className="text-xs text-muted-foreground">{professionalSpecialtyLabel(invitation.professional.professional_specialty)}</p>{invitation.professional.registration && <p className="text-xs text-muted-foreground">{invitation.professional.registration}</p>}</div></div>}
                 <RegisterForm mode={selectedMode} onChangeProfile={() => setChoiceOpen(true)} registrationInvite={inviteToken !== null ? invitation ?? undefined : undefined} />
               </>}
             </>

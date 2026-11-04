@@ -1,5 +1,6 @@
 export type RegistrationProfessional = {
   name: string;
+  professional_specialty?: "fonoaudiologo" | "psicologo" | "psicoterapeuta" | null;
   registration: string | null;
   photo_url: string | null;
 };
@@ -27,6 +28,9 @@ export function registrationWelcome(raw: string | null, patientId: number): Regi
     const professional = value.professional;
     return {
       name: professional.name,
+      professional_specialty: ["fonoaudiologo", "psicologo", "psicoterapeuta"].includes(professional.professional_specialty)
+        ? professional.professional_specialty
+        : "fonoaudiologo",
       registration: typeof professional.registration === "string" ? professional.registration : null,
       photo_url: typeof professional.photo_url === "string" ? professional.photo_url : null,
     };

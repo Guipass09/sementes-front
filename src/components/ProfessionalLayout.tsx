@@ -11,6 +11,7 @@ import { isApiError, me } from "@/lib/laravel-api";
 import { resourceNavigation } from "@/lib/resource-navigation";
 import { canUsePersonalFinance } from "@/features/finance/finance";
 import { hasIndividualSubscription } from "@/lib/subscription-details";
+import { professionalSpecialtyLabel } from "@/features/profile/profile";
 
 export default function ProfessionalLayout() {
   const location = useLocation();
@@ -84,7 +85,7 @@ export default function ProfessionalLayout() {
 
   const subtitle = isClinicAccount
     ? (String(user.clinic_area ?? "").trim() || "Clínica")
-    : (user.clinic_user_id ? String(user.professional_crfa ?? "").trim() || "Terapeuta" : "Fonoaudiologia");
+    : (user.clinic_user_id ? String(user.professional_crfa ?? "").trim() || "Terapeuta" : professionalSpecialtyLabel(user.professional_specialty));
 
   return (
     <ProfileShell

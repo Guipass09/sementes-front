@@ -36,7 +36,10 @@ type AuthContextValue = {
     professional_attestation?: boolean;
     // legado (compat)
     professional_age?: number;
-    professional_crfa: string;
+    professional_specialty: "fonoaudiologo" | "psicologo" | "psicoterapeuta";
+    professional_registration?: string;
+    professional_training?: string;
+    professional_crfa?: string;
     password: string;
     password_confirmation: string;
   }) => Promise<AuthUser>;
@@ -403,11 +406,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       professional_birthdate?: string;
       professional_attestation?: boolean;
       professional_age?: number;
-      professional_crfa: string;
+      professional_specialty: "fonoaudiologo" | "psicologo" | "psicoterapeuta";
+      professional_registration?: string;
+      professional_training?: string;
+      professional_crfa?: string;
       password: string;
       password_confirmation: string;
     }) => {
-      const res = await api.registerProfessional(params as any);
+      const res = await api.registerProfessional(params);
 
       if (!(res as any)?.token || !(res as any)?.user) {
         throw new Error("Resposta de cadastro (profissional) inválida");

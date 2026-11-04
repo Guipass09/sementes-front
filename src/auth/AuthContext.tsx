@@ -427,9 +427,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("user", JSON.stringify(userData));
       setAuthUser(userData as AuthUser);
 
-      window.location.href = userData.professional_subscription_status === "inactive"
-        ? professionalOnboardingPath(window.location.search)
-        : "/profissional";
+      if (userData.professional_subscription_status === "inactive") {
+        window.location.href = professionalOnboardingPath(window.location.search);
+      } else if (userData.professional_subscription?.period?.plan === "trial") {
+        const params = new URLSearchParams();
+        const selectedPlan = new URLSearchParams(window.location.search).get("plano");
+        if (selectedPlan) params.set("plano", selectedPlan);
+        params.set("trial", "started");
+        window.location.href = `/profissional?${params.toString()}`;
+      } else {
+        window.location.href = "/profissional";
+      }
       return userData as AuthUser;
     },
     [setAuthUser, normalizeRole]

@@ -148,6 +148,7 @@ export default function ProfessionalSubscriptionPreview({ expiresOn, onRefresh }
             <button type="button" onClick={() => void verify()} disabled={checking} className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-[#35664a] underline-offset-4 hover:underline disabled:opacity-60">
               <RefreshCw size={15} className={checking ? "animate-spin" : ""} aria-hidden="true" /> {checking ? "Verificando..." : "Já paguei, verificar acesso"}
             </button>
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-[#52655a]">Tudo o que você criou permanece salvo. Ao ativar um plano, o acesso aos recursos será liberado novamente.</p>
             {feedback && <p role="status" className="mt-3 max-w-lg text-sm leading-relaxed text-[#52655a]">{feedback}</p>}
           </div>
           <div className="min-w-0 overflow-hidden rounded-md border border-[#c7ddd0] bg-white shadow-[0_24px_50px_-35px_rgba(26,74,45,0.45)]">

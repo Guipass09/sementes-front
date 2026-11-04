@@ -61,7 +61,9 @@ function SubscriptionWorkspace({ userId }: { userId: number }) {
   });
   const data = query.data;
   const subscription = data?.subscription;
-  const welcomeOffer = subscription?.status === "pending" && !subscription.expires_at && !subscription.period && data?.pagination.total === 0;
+  const isTrial = subscription?.period?.plan === "trial" || user.professional_subscription?.period?.plan === "trial";
+  const trialDetails = subscription?.period?.plan === "trial" ? subscription : user.professional_subscription;
+  const welcomeOffer = isTrial || (subscription?.status === "pending" && !subscription.expires_at && !subscription.period && data?.pagination.total === 0);
 
   useEffect(() => {
     if (subscription?.status !== "active" || !needsSubscription) return;
@@ -131,6 +133,21 @@ function SubscriptionWorkspace({ userId }: { userId: number }) {
           </section>
         </>
       ) : <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-5"><p className="flex items-center gap-2 font-semibold"><CheckCircle2 size={20} className="text-brand-green-dark" />Sua assinatura está ativa.</p><Button asChild><Link to="/profissional">Acessar meu espaço</Link></Button></div>}
+      {!needsSubscription && isTrial && (
+        <>
+          <section aria-label="Período gratuito" className="mb-7 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-lime-50 p-5 sm:p-7">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">Acesso completo liberado</p>
+                <h2 className="mt-2 font-display text-2xl font-bold">Seu teste gratuito de 3 dias</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">Atenda ao vivo, crie jogos e atividades e envie propostas para as famílias. Seus materiais continuarão salvos depois do teste; para seguir usando os recursos, será necessário ativar um plano.</p>
+              </div>
+              <span className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-sm font-semibold text-emerald-800">Restam {trialDetails ? subscriptionTimeLeft(trialDetails) : "3 dias"}</span>
+            </div>
+          </section>
+          <ProfessionalPlanSelection userId={userId} email={user.email} welcomeOffer={welcomeOffer} trial />
+        </>
+      )}
       {query.isPending ? (
         <div
           className="space-y-4"

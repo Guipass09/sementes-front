@@ -3,9 +3,9 @@ import { ArrowRight, Check, CreditCard, ExternalLink, ShieldCheck } from "lucide
 import { useSearchParams } from "react-router-dom";
 import { professionalPlanBenefits, professionalPlans, subscriptionPlanId, type SubscriptionPlanId } from "@/features/subscription/plans";
 
-type Props = { userId: number; email: string; welcomeOffer: boolean };
+type Props = { userId: number; email: string; welcomeOffer: boolean; trial?: boolean };
 
-export default function ProfessionalPlanSelection({ userId, email, welcomeOffer }: Props) {
+export default function ProfessionalPlanSelection({ userId, email, welcomeOffer, trial = false }: Props) {
   const [search, setSearch] = useSearchParams();
   const selected = subscriptionPlanId(search.get("plano"));
   const storageKey = `sementes:subscription-checkout:${userId}`;
@@ -27,8 +27,8 @@ export default function ProfessionalPlanSelection({ userId, email, welcomeOffer 
     <section id="planos" aria-labelledby="subscription-plans-title" className="scroll-mt-6">
       <div className="mb-6 max-w-2xl">
         <p className="text-xs font-bold uppercase tracking-wide text-brand-green-dark">Seu próximo passo</p>
-        <h2 id="subscription-plans-title" className="mt-2 font-display text-2xl font-bold sm:text-3xl">Escolha seu plano e comece a atender.</h2>
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Todos os planos oferecem acesso completo. Escolha o período e conclua a contratação no checkout da Kiwify.</p>
+        <h2 id="subscription-plans-title" className="mt-2 font-display text-2xl font-bold sm:text-3xl">{trial ? "Continue com a plataforma depois do período gratuito." : "Escolha seu plano e comece a atender."}</h2>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{trial ? "Seu teste de 3 dias libera todos os recursos. Escolha quando quiser um plano para manter seu espaço profissional ativo depois desse período." : "Todos os planos oferecem acesso completo. Escolha o período e conclua a contratação no checkout da Kiwify."}</p>
       </div>
 
       <div className="mb-6 flex items-start gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm">

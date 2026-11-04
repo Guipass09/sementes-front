@@ -6,6 +6,7 @@ import { useAuth } from "@/auth/AuthContext";
 import FullScreenLogoLoader from "@/components/FullScreenLogoLoader";
 import ProfileShell, { type ProfileNavItem } from "@/components/ProfileShell";
 import ProfessionalSubscriptionPreview from "@/components/ProfessionalSubscriptionPreview";
+import ProfessionalTrialWelcomeDialog from "@/components/ProfessionalTrialWelcomeDialog";
 import { useSubscriptionExpired } from "@/components/SubscriptionTimer";
 import { isApiError, me } from "@/lib/laravel-api";
 import { resourceNavigation } from "@/lib/resource-navigation";
@@ -22,6 +23,7 @@ export default function ProfessionalLayout() {
   const isClinicAccount = clinicName.length > 0;
   const expired = useSubscriptionExpired(user?.professional_subscription);
   const needsSubscription = hasIndividualSubscription(user) && (user?.professional_subscription_status === "inactive" || expired);
+  const isTrial = user?.professional_subscription?.period?.plan === "trial";
   const onSubscriptionPage = location.pathname === "/profissional/assinatura";
   const onProfilePage = location.pathname === "/profissional/perfil";
 
@@ -99,6 +101,7 @@ export default function ProfessionalLayout() {
       onLogout={() => void auth.logout().finally(() => navigate("/"))}
     >
       <CreationFolderNotice />
+      <ProfessionalTrialWelcomeDialog name={user.name} isTrial={isTrial} />
       {needsSubscription && !onSubscriptionPage && !onProfilePage ? (
         <ProfessionalSubscriptionPreview expiresOn={user.professional_subscription_expires_on} onRefresh={async () => {
           const fresh = await me();
